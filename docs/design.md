@@ -31,6 +31,8 @@ adaptation of these patterns; it does not reproduce Vercel branding or assets.
 - Workflow editor: step library/outline, expansive canvas, selected-step inspector.
   Workflow settings are a disclosure. The outline provides a keyboard-accessible
   way to reach offscreen nodes. Panels collapse when more canvas room is needed.
+  Default and reset zoom are 100% so node labels stay readable; Fit view is an
+  explicit overview action and never changes stored node positions.
 - Run setup: brief, revision context, and execution action together in a dialog.
   Failed validation keeps the brief available; success opens the saved run.
 - Runs: compact history beside the selected run, readable research context,

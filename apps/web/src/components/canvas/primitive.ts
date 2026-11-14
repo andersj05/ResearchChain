@@ -22,7 +22,7 @@ export const workflowCanvas = definePrimitive({
   state: (options: CanvasOptions) => ({
     positions: options.positions,
     moving: null as MoveDraft | null,
-    viewport: { x: 0, y: 0, zoom: 0.8 },
+    viewport: { x: 24, y: 24, zoom: 1 },
   }),
   sync: (options) => ({ positions: options.positions }),
   live: ["viewport", "moving"],
@@ -60,16 +60,6 @@ export const workflowCanvas = definePrimitive({
   slots: (slot) => ({
     root: slot({
       attrs: () => ({ tabindex: "0", style: css({ overflow: "clip", "touch-action": "none" }) }),
-      bind: (el, { api }) => {
-        const observer = new ResizeObserver(() => {
-          if (el.clientWidth && el.clientHeight) {
-            api.fit();
-            observer.disconnect();
-          }
-        });
-        observer.observe(el);
-        return () => observer.disconnect();
-      },
       on: {
         wheel: (event, { api }) => api.viewport.wheel(event),
         pointerdown: (event, { el, api }) => {
@@ -107,7 +97,7 @@ export const workflowCanvas = definePrimitive({
     }),
     reset: slot({
       attrs: () => ({ type: "button" }),
-      press: ({ api }) => api.viewport.setViewport({ x: 0, y: 0, zoom: 0.8 }),
+      press: ({ api }) => api.viewport.setViewport({ x: 24, y: 24, zoom: 1 }),
     }),
     fit: slot({
       attrs: () => ({ type: "button" }),
