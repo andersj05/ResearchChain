@@ -62,6 +62,8 @@ def _route_review(state: ResearchState) -> str:
 
 def compile_workflow(workflow: Workflow, checkpointer: BaseCheckpointSaver[Any]) -> Any:
     """Compile validated registered nodes; never evaluate code from a workflow."""
+    if workflow.schema_version != "0.1":
+        raise ConflictError("Schema 0.2 requires the advanced workflow compiler.")
     builder = StateGraph(ResearchState)
     successors = {edge.source: edge.target for edge in workflow.edges}
     for node in workflow.nodes:
