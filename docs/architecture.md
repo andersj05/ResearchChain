@@ -50,12 +50,17 @@ The service binds to loopback and has no authentication. Browser drafts remain
 optional local convenience copies; saved revisions and runs live in Postgres.
 Keep this development service private to the local machine.
 
+Schema 0.2 adds typed structured control flow, qualified subgraph/loop invocation
+paths, parallel reviews, durable execution budgets, and cancellation. Its compiler
+is separate from the preserved v0.1 executor. See [structured workflows](structured-workflows.md)
+and [ADR 0003](decisions/0003-structured-workflows.md) for semantics and limits.
+
 ## Next capabilities
 
 - Add artifact storage, background execution, cancellation, retention, and backups
   before long-running or multi-user use.
-- Add bounded conditional loops, explicit parallel joins, typed ports, subgraphs,
-  and cancellation to both the schema and compiler, with execution tests.
+- Expose structured ports, conditional routes, loop settings, and nested definitions
+  through the visual editor (issue #4).
 - Track evidence source URL, retrieval time, publication time, as-of date, content
   hash, permission, and excerpt/chart location. Keep screenshots distinct from data.
 - Store claims, support, contradictions, hypotheses, falsifiers, and confidence

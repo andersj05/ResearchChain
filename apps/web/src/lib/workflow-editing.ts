@@ -26,11 +26,23 @@ export function insertStep(workflow: Workflow, step: WorkflowNode, selected: str
   if (adjacent.length > 1) return { ...workflow, nodes };
   const edges = workflow.edges.filter((edge) => !adjacent.includes(edge));
   if (before) {
-    if (adjacent[0]) edges.push({ source: adjacent[0].source, target: step.id });
-    edges.push({ source: step.id, target: anchor.id });
+    if (adjacent[0])
+      edges.push({
+        source: adjacent[0].source,
+        target: step.id,
+        source_port: "next",
+        target_port: "in",
+      });
+    edges.push({ source: step.id, target: anchor.id, source_port: "next", target_port: "in" });
   } else {
-    edges.push({ source: anchor.id, target: step.id });
-    if (adjacent[0]) edges.push({ source: step.id, target: adjacent[0].target });
+    edges.push({ source: anchor.id, target: step.id, source_port: "next", target_port: "in" });
+    if (adjacent[0])
+      edges.push({
+        source: step.id,
+        target: adjacent[0].target,
+        source_port: "next",
+        target_port: "in",
+      });
   }
   return {
     ...workflow,
@@ -47,7 +59,12 @@ export function removeStep(workflow: Workflow, id: string): Workflow {
   const previous = incoming.length === 1 ? incoming[0] : undefined;
   const next = outgoing.length === 1 ? outgoing[0] : undefined;
   if (previous && next && previous.source !== next.target) {
-    const replacement = { source: previous.source, target: next.target };
+    const replacement = {
+      source: previous.source,
+      target: next.target,
+      source_port: "next",
+      target_port: "in",
+    };
     if (
       !edges.some(
         (edge) => edge.source === replacement.source && edge.target === replacement.target,

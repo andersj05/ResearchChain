@@ -1,0 +1,156 @@
+{
+  "schema_version": "0.2",
+  "name": "Parallel evidence review",
+  "start_node": "split",
+  "nodes": [
+    {
+      "id": "split",
+      "kind": "fork",
+      "label": "Split",
+      "instructions": "split",
+      "position": {
+        "x": 40,
+        "y": 160
+      },
+      "config": {
+        "type": "fork",
+        "join": "join",
+        "branches": ["support", "challenge"]
+      }
+    },
+    {
+      "id": "support",
+      "kind": "note",
+      "label": "Support",
+      "instructions": "Record the supporting observation and its source.",
+      "position": {
+        "x": 340,
+        "y": 60
+      }
+    },
+    {
+      "id": "challenge",
+      "kind": "note",
+      "label": "Challenge",
+      "instructions": "Record a competing explanation and what would falsify it.",
+      "position": {
+        "x": 340,
+        "y": 260
+      }
+    },
+    {
+      "id": "join",
+      "kind": "join",
+      "label": "Join",
+      "instructions": "join",
+      "position": {
+        "x": 640,
+        "y": 160
+      }
+    },
+    {
+      "id": "review_loop",
+      "kind": "loop",
+      "label": "Review_Loop",
+      "instructions": "review_loop",
+      "position": {
+        "x": 940,
+        "y": 160
+      },
+      "config": {
+        "type": "loop",
+        "ref": {
+          "id": "critique",
+          "version": 1
+        },
+        "max_iterations": 3,
+        "until": {
+          "left": {
+            "source": "iteration"
+          },
+          "operator": "gte",
+          "value": 2
+        }
+      }
+    },
+    {
+      "id": "finish",
+      "kind": "finish",
+      "label": "Finish",
+      "instructions": "finish",
+      "position": {
+        "x": 1240,
+        "y": 160
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "split",
+      "target": "support",
+      "source_port": "support"
+    },
+    {
+      "source": "split",
+      "target": "challenge",
+      "source_port": "challenge"
+    },
+    {
+      "source": "support",
+      "target": "join",
+      "source_port": "next"
+    },
+    {
+      "source": "challenge",
+      "target": "join",
+      "source_port": "next"
+    },
+    {
+      "source": "join",
+      "target": "review_loop",
+      "source_port": "next"
+    },
+    {
+      "source": "review_loop",
+      "target": "finish",
+      "source_port": "next"
+    }
+  ],
+  "subgraphs": [
+    {
+      "id": "critique",
+      "version": 1,
+      "name": "Critique and review",
+      "start_node": "review",
+      "nodes": [
+        {
+          "id": "review",
+          "kind": "review",
+          "label": "Review",
+          "instructions": "Is this reasoning ready for the next pass?",
+          "position": {
+            "x": 60,
+            "y": 120
+          }
+        },
+        {
+          "id": "done",
+          "kind": "finish",
+          "label": "Done",
+          "instructions": "done",
+          "position": {
+            "x": 360,
+            "y": 120
+          }
+        }
+      ],
+      "edges": [
+        {
+          "source": "review",
+          "target": "done",
+          "source_port": "next"
+        }
+      ]
+    }
+  ]
+}
