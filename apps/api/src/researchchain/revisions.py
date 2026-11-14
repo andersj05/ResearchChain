@@ -47,6 +47,11 @@ class RevisionStore:
         canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         content_hash = hashlib.sha256(canonical.encode()).hexdigest()
         with self.database.connection() as conn:
+            existing = conn.execute(
+                "SELECT * FROM workflow_revisions WHERE content_hash = %s", (content_hash,)
+            ).fetchone()
+            if existing is not None:
+                return revision_from_row(existing)
             conn.execute(
                 "INSERT INTO workflow_revisions (id, content_hash, workflow) VALUES (%s, %s, %s) "
                 "ON CONFLICT (content_hash) DO NOTHING",

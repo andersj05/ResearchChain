@@ -772,6 +772,7 @@ textarea {
   margin: 5px 0 0;
 }
 .revision-table {
+  position: relative;
   overflow-x: auto;
 }
 table {

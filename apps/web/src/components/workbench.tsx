@@ -44,12 +44,14 @@ export function Workbench() {
     let active = true;
     async function load() {
       try {
+        const parameters = new URL(window.location.href).searchParams;
         const [savedRevisions, recentRuns] = await Promise.all([
           api<RevisionSummary[]>("revisions"),
           api<RunSummary[]>("runs"),
         ]);
-        const latest = savedRevisions[0]
-          ? await api<WorkflowRevision>(`revisions/${savedRevisions[0].id}`)
+        const revisionId = parameters.get("revision") ?? savedRevisions[0]?.id;
+        const latest = revisionId
+          ? await api<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
           : null;
         if (!active) return;
         setRevisions(savedRevisions);
@@ -59,7 +61,7 @@ export function Workbench() {
           setWorkflow(latest.workflow);
           setSelected(latest.workflow.start_node);
         }
-        const runId = new URL(window.location.href).searchParams.get("run");
+        const runId = parameters.get("run");
         if (runId) {
           const restored = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
           if (!active) return;
@@ -73,6 +75,8 @@ export function Workbench() {
               : "Ready. Edit the workflow, then save or run it.",
           );
         }
+        const view = parameters.get("view");
+        if (view && ["workflow", "runs", "revisions"].includes(view)) setTab(view);
       } catch (cause) {
         if (active) {
           setError(cause instanceof Error ? cause.message : "Unable to load the workspace.");
@@ -122,6 +126,21 @@ export function Workbench() {
   function rememberRun(id: string) {
     const url = new URL(window.location.href);
     url.searchParams.set("run", id);
+    url.searchParams.set("view", "runs");
+    window.history.replaceState(null, "", url);
+  }
+
+  function switchTab(value: string | null) {
+    const next = value ?? "workflow";
+    setTab(next);
+    const url = new URL(window.location.href);
+    url.searchParams.set("view", next);
+    window.history.replaceState(null, "", url);
+  }
+
+  function rememberRevision(id: string) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("revision", id);
     window.history.replaceState(null, "", url);
   }
 
@@ -142,6 +161,7 @@ export function Workbench() {
         .slice(0, 50),
     );
     setMessage(`Revision ${result.number} saved.`);
+    rememberRevision(result.id);
     return result;
   }
 
@@ -150,7 +170,8 @@ export function Workbench() {
     change(result.workflow);
     setRevision(result);
     setSelected(result.workflow.start_node);
-    setTab("workflow");
+    rememberRevision(result.id);
+    switchTab("workflow");
     setMessage(`Loaded revision ${result.number}. Undo restores your previous draft.`);
   }
 
@@ -234,7 +255,7 @@ export function Workbench() {
         <span className="workspace-label">EquityCats</span>
         <span className="local-badge">Local workspace</span>
       </header>
-      <Tabs value={tab} onValueChange={(value) => setTab(value ?? "workflow")}>
+      <Tabs value={tab} onValueChange={switchTab}>
         <TabsList className="workspace-tabs" aria-label="Workspace">
           <TabsTab value="workflow">Workflow</TabsTab>
           <TabsTab value="runs">Runs</TabsTab>
@@ -263,7 +284,9 @@ export function Workbench() {
           </a>
         </div>
         <div className="notice" aria-live="polite">
-          <p role="status">{message}</p>
+          <p role="status" aria-label="Workspace status">
+            {message}
+          </p>
           {busy && <span className="working">Working…</span>}
         </div>
         {error && (
