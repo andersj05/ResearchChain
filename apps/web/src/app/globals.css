@@ -511,14 +511,27 @@ textarea {
   stroke-width: 1.5;
   fill: none;
 }
+.graph-group {
+  pointer-events: auto;
+  width: 230px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+.graph-group.selected {
+  border-color: var(--blue);
+}
+.graph-group[data-dragging] {
+  z-index: 2;
+}
 .graph-node {
   pointer-events: auto;
   width: 230px;
-  height: 120px;
+  height: 92px;
   background: var(--surface);
-  border: 1px solid var(--border-strong);
+  border: 0;
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
-  padding: 14px;
+  padding: 10px 14px;
   text-align: left;
   color: var(--ink);
 }
@@ -558,6 +571,142 @@ textarea {
   white-space: nowrap;
   font-size: 12px;
   color: var(--muted);
+}
+
+.graph-port {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 24px;
+  height: 28px;
+  font-size: 11px;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  touch-action: none;
+}
+.port-input {
+  left: -12px;
+  padding: 0;
+}
+.port-output {
+  right: -12px;
+  padding: 0;
+}
+.graph-port small {
+  color: var(--muted);
+  font-size: 9px;
+}
+.port-caption {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 95px;
+  pointer-events: none;
+}
+.port-caption > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.port-input .port-caption {
+  left: 22px;
+}
+.port-output .port-caption {
+  right: 22px;
+  justify-content: flex-end;
+}
+.port-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border: 1px solid var(--muted);
+  background: var(--surface);
+}
+.port-input .port-dot {
+  left: 7px;
+}
+.port-output .port-dot {
+  right: 7px;
+}
+.port-text .port-dot {
+  border-color: var(--blue);
+}
+.port-number .port-dot {
+  border-color: var(--amber);
+}
+.graph-port:hover,
+.graph-port[data-connect="candidate"] {
+  background: var(--soft);
+}
+.graph-port[data-connect="source"] .port-dot,
+.graph-port[data-connect="target"] .port-dot {
+  background: var(--blue);
+  border-color: var(--blue);
+}
+.graph-port[data-connect="target"] {
+  outline: 2px solid var(--blue);
+}
+.connections > .connection-text {
+  stroke: var(--blue);
+  stroke-dasharray: 4 4;
+}
+.connections > .connection-draft {
+  stroke: var(--blue);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+.subgraph-group {
+  position: absolute;
+  width: 100%;
+  border-top: 1px solid var(--line);
+}
+.group-actions {
+  display: flex;
+  height: 35px;
+}
+.group-actions button,
+.subgraph-preview button {
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 11px;
+  padding: 6px 10px;
+}
+.group-actions button:first-child {
+  flex: 1;
+  text-align: left;
+}
+.group-actions button:hover,
+.subgraph-preview button:hover {
+  background: var(--soft);
+}
+.subgraph-preview {
+  height: 160px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+.subgraph-preview p {
+  margin: 8px 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.subgraph-preview ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.subgraph-preview button {
+  display: flex;
+  width: 100%;
+  text-align: left;
+  gap: 8px;
+}
+.subgraph-preview small {
+  color: var(--muted);
+  margin-left: auto;
 }
 
 .canvas-toolbar {
@@ -1307,4 +1456,99 @@ footer p {
 }
 .status-limited {
   color: #9a6700;
+}
+
+.graph-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12px;
+}
+.graph-breadcrumbs ol {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  min-width: 0;
+}
+.graph-breadcrumbs li {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.graph-breadcrumbs button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 4px;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.graph-breadcrumbs button[aria-current] {
+  color: var(--ink);
+  font-weight: 500;
+}
+.graph-breadcrumbs p,
+.graph-breadcrumbs small {
+  color: var(--muted);
+  font-size: 11px;
+}
+.config-fields {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: 24px 0 0;
+  padding: 12px 0 0;
+  min-width: 0;
+}
+.config-fields legend {
+  font-size: 12px;
+  color: var(--muted);
+  padding-right: 8px;
+}
+.config-fields label {
+  margin-top: 12px;
+}
+.config-actions {
+  margin-top: 16px;
+}
+.branch-setting {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+}
+.branch-setting label {
+  flex: 1;
+  min-width: 0;
+}
+.branch-setting .button {
+  margin-bottom: 3px;
+}
+.validation-issues {
+  margin: 4px 0 0;
+  padding-left: 20px;
+}
+.kind-route,
+.kind-fork,
+.kind-join,
+.kind-loop,
+.kind-subgraph {
+  color: var(--muted);
+}
+.editor-footer {
+  flex-wrap: wrap;
+}
+.run-actions {
+  margin-left: auto;
+}
+@media (max-width: 850px) {
+  .run-actions {
+    margin-left: 0;
+  }
 }

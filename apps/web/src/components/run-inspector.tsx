@@ -63,20 +63,22 @@ export function RunInspector({
             <span className="code-label">{run.id.slice(0, 8)}</span>
             <span>Revision {run.revision_number}</span>
             <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
-            <Button className="button small" disabled={busy} onClick={onRefresh}>
-              <RotateCw size={14} aria-hidden="true" />
-              Refresh run
-            </Button>
+            <div className="actions run-actions">
+              {(run.status === "paused" || run.status === "interrupted") && (
+                <Button className="button" disabled={busy} onClick={onCancel}>
+                  Cancel run
+                </Button>
+              )}
+              <Button className="button small" disabled={busy} onClick={onRefresh}>
+                <RotateCw size={14} aria-hidden="true" />
+                Refresh run
+              </Button>
+            </div>
           </div>
           {run.stop_reason && (
             <p className="review-box" role="status">
               {run.stop_reason}
             </p>
-          )}
-          {(run.status === "paused" || run.status === "interrupted") && (
-            <Button className="button" disabled={busy} onClick={onCancel}>
-              Cancel run
-            </Button>
           )}
           <div className="run-brief">
             <h3>Research brief</h3>
@@ -93,24 +95,6 @@ export function RunInspector({
                 Recover run
               </Button>
             </div>
-          )}
-          <h3 className="steps-heading">
-            Completed steps <span className="count">{run.events.length}</span>
-          </h3>
-          {run.events.length ? (
-            <ol className="event-list">
-              {run.events.map((event) => (
-                <li key={event.path ?? event.node_id}>
-                  <strong>{event.label}</strong>
-                  <span>{event.detail}</span>
-                  {event.path && event.path.split("/").length > 2 && (
-                    <small className="muted">{event.path.replaceAll("/", " › ")}</small>
-                  )}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="muted">No completed steps yet.</p>
           )}
           {run.status === "paused" &&
             (run.reviews?.length ? run.reviews : run.review ? [run.review] : []).map((review) => (
@@ -141,6 +125,24 @@ export function RunInspector({
                 </div>
               </div>
             ))}
+          <h3 className="steps-heading">
+            Completed steps <span className="count">{run.events.length}</span>
+          </h3>
+          {run.events.length ? (
+            <ol className="event-list">
+              {run.events.map((event) => (
+                <li key={event.path ?? event.node_id}>
+                  <strong>{event.label}</strong>
+                  <span>{event.detail}</span>
+                  {event.path && event.path.split("/").length > 2 && (
+                    <small className="muted">{event.path.replaceAll("/", " › ")}</small>
+                  )}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="muted">No completed steps yet.</p>
+          )}
           <details className="run-details">
             <summary>Pinned workflow &amp; run details</summary>
             <p className="muted">
