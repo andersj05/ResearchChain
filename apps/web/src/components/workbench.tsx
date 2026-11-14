@@ -159,6 +159,7 @@ export function Workbench() {
   async function saveRevision() {
     const result = await api<WorkflowRevision>("revisions", workflow);
     setRevision(result);
+    setWorkflow(result.workflow);
     setRevisions((previous) =>
       [result, ...previous.filter((item) => item.id !== result.id)]
         .sort((a, b) => b.number - a.number)

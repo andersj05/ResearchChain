@@ -1,6 +1,6 @@
 # ADR 0003: Bounded structured workflows
 
-Status: implementation in progress for issue #3, 2026-11-14.
+Status: accepted for issue #3, 2026-11-14.
 
 ## Contract
 
@@ -28,6 +28,11 @@ New runs pin the new compiler and complete definition bundle. Enforce node,
 active-execution-time, and concurrency limits. Cancellation is persisted outside
 the execution lock so another request can stop an executing run cooperatively.
 No model or external tool calls are introduced in this milestone.
+
+Subgraphs and loop invocations are lowered into qualified nodes in the parent
+LangGraph. This preserves explicit checkpoint identities across the bounded
+expansion. The execution-time budget excludes completed review pauses; abandoned
+command intervals are conservatively charged through recovery, including downtime.
 
 ## Delivery and validation
 

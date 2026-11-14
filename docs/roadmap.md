@@ -1,6 +1,6 @@
 # Roadmap
 
-GitHub issues and the Project track status. This document explains sequencing.
+GitHub issues and PRs track status. This document explains sequencing.
 
 | Milestone                | Deliverable                                                            | Exit criteria                                                           |
 | ------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |

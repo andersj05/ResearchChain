@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import legacy from "../../../examples/research-workflow.json";
 import example from "../../../examples/advanced-workflow.json";
 
 async function openWorkflow(
@@ -74,4 +75,18 @@ test("parallel reviews have independent decisions", async ({ page, request }) =>
   await expect(page.locator('[aria-label="Review support"]')).toBeVisible();
   await page.getByRole("button", { name: "Cancel run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run cancelled" })).toBeVisible();
+});
+
+test("saving a new step normalizes default ports without leaving a dirty draft", async ({
+  page,
+  request,
+}) => {
+  const revision = await (await request.post("/api/revisions", { data: legacy })).json();
+  await page.goto(`/?revision=${revision.id}`);
+  await expect(page.getByRole("button", { name: "Add research note", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  await page.getByRole("textbox", { name: "Step name", exact: true }).fill("Normalized note");
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.locator(".save-state")).toHaveText(/Revision \d+/);
+  await expect(page.locator(".save-state")).not.toHaveClass(/unsaved/);
 });
