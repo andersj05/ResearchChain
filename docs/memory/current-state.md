@@ -1,45 +1,44 @@
 # Current state
 
-Updated 2026-11-14. The advanced runtime was merged into dev through
+Updated 2026-11-14. The advanced runtime is in dev through
 [PR #20](https://github.com/andersj05/ResearchChain/pull/20), merge `641dfda`.
-Issue #3 is closed; its final CI checks passed. Prior milestones: durability in PR #16,
-CLI workflow in PR #17, and the frontend redesign in PR #19 (merged into dev).
+Issue #3 is closed. The visual editor milestone (#4) is implemented and locally
+verified on `feat/workflow-editor`; its PR/CI/merge into dev are the next actions.
 
 ## Verified capabilities
 
-- The Next.js/UI SDK workbench edits chain workflows, saves immutable revisions,
-  reopens durable runs, and handles human review. The existing flat, square-corner
-  design remains in place.
-- Schema 0.2 adds typed ports/configuration, conditional branches, explicit
-  parallel joins, bounded loops, and versioned nested definition bundles.
-  Server validation rejects ambiguous control flow and unavailable data inputs.
-- The new compiler preserves the legacy compiler and uses qualified invocation
-  paths for nested reviews. Postgres stores node reservations, execution time,
-  terminal cancellation/limit results, and the existing command journal.
-- The API exposes the node registry and cancellation. The inspector renders
-  simultaneous reviews individually, iteration paths, limits, and cancellation.
-- Final local verification passed: `pnpm check` (75 backend tests and production
-  build), `pnpm contracts:check`, and all 18 browser tests. Desktop/mobile run
-  captures were inspected. CI passed on the implementation commit as well.
-- Browser/CI testing exposed and fixed a shared-connection pipeline race; budget
-  checks now share the checkpointer's mutex. History uses indexed journal summaries
-  and detects Running through the live advisory lock, avoiding graph recompilation.
-- Additive local development migrations were applied successfully.
+- The Next.js/UI SDK workbench edits chain and structured workflows, saves
+  immutable revisions, reopens durable runs, and handles human review.
+- Typed pointer/keyboard port wiring and reconnection, advanced templates and
+  configuration forms, nested breadcrumbs and expandable previews, separate
+  definition versions, grouped undo/redo, validated JSON import/export, and
+  visible server diagnostics are implemented. Unused definitions can be pruned;
+  malformed branch deletion preserves unrelated downstream work.
+- Existing run bundles stay pinned while nested draft definitions and versions
+  change. Review actions now appear before completed-step history.
+- `pnpm check` passed (75 backend tests, lint, formatting, type checks, production
+  build). All 34 Playwright checks passed against the production build: 33 in the
+  full suite plus the separately measured one-worker 128-node test. Final desktop
+  and mobile captures were inspected. [Editor guide and measurements](../workflow-editor.md).
+- The 128-node production measurements recorded median/p95: nudge 35.1/46.5 ms,
+  pan 16.7/18.2 ms, zoom 20.9/27.2 ms. These are local synthetic event-to-next-frame
+  observations, not physical input latency or cross-machine guarantees.
+- Schema 0.2 includes typed control/data, conditional branches, parallel joins,
+  bounded loops, and pinned definition bundles. Compiler/runtime guards enforce
+  execution/time/concurrency budgets and preserve the legacy compiler.
+- Keep `ExecutionControl.lock` shared with `PostgresSaver.lock` for their shared
+  connection. History uses indexed journal summaries and live advisory-lock
+  detection, avoiding graph recompilation and nonblocking-history regressions.
+- Local database migrations for durable runs and execution controls were applied.
 
 ## Next work
 
-Active: editor issue #4 on `feat/workflow-editor`, starting from `641dfda`.
-See [implementation sequence](../plans/0002-workflow-editor.md). Remaining work:
-port wiring/reconnection, typed configuration forms, subgraph navigation,
-expand/collapse, grouped undo/redo, JSON import, validation diagnostics, and
-large-graph interaction measurements. Structured graphs currently allow safe
-name/instruction/layout edits; chain-only structural controls are disabled.
+Finish the editor issue #4 PR/CI/merge, then start evidence/artifact ingestion (#5).
+Next come one bounded real research workflow (#6), evaluations/comparisons (#7),
+and report editing/feedback (#8). See [editor implementation plan](../plans/0002-workflow-editor.md).
 
-After #4: evidence/artifact ingestion (#5), one bounded real research workflow
-(#6), evaluation definitions/comparisons (#7), and report editing/feedback (#8).
 Provider credentials/calls, artifact bytes, authentication, hosting, and evaluation
-are not implemented. Do not count this deterministic runtime as a research agent.
-
+are not implemented. The deterministic runtime is not yet a research agent.
 Read [structured workflows](../structured-workflows.md) and
 [ADR 0003](../decisions/0003-structured-workflows.md) for limits and compatibility.
 Time excludes completed review pauses; an abandoned execution interval is charged
@@ -47,10 +46,10 @@ conservatively through recovery, including downtime.
 
 ## Workspace and commands
 
-The repository is now `C:\Users\jense\Desktop\ResearchChain`. The old
+The repository is `C:\Users\jense\Desktop\ResearchChain`. The old
 Documents/ChatGPT folder is empty. Use the Desktop path for all further work.
 
-Run `pnpm db:migrate` for the new execution-control migration, then `pnpm dev`.
-Use `pnpm check` and `pnpm test:e2e` before delivery. GitHub work uses `gh` outside
-the Windows sandbox, on feature branches targeting dev. Keep commits coherent
-and frequent; the owner has authorized merging each completed stage into dev.
+Run `pnpm dev` for the local workbench. Use `pnpm check` and `pnpm test:e2e` before
+delivery. GitHub work uses `gh` outside the Windows sandbox, on feature branches
+targeting dev. Keep commits coherent and frequent; the owner has authorized
+merging each completed stage into dev.
