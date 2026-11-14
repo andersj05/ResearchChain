@@ -6,12 +6,14 @@ challenge conclusions, and write reports with human editorial judgment in the lo
 ## Development
 
 The foundation uses Next.js + TypeScript + UI SDK for the editor, and Python +
-LangGraph + FastAPI for execution. The first workflow is a deterministic development
+LangGraph + FastAPI for execution, with Postgres revisions and checkpoints. Runs
+survive API restarts and stay pinned to their original workflow. The first workflow is a deterministic development
 exercise; it does not call a model, browse sources, or generate investment research.
 
 Setup and commands: [development guide](docs/development.md).
-Track work in the [GitHub Project](https://github.com/users/andersj05/projects/1)
-and review the [repository configuration](docs/github.md).
+Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
+[PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).
+See the [CLI workflow and repository configuration](docs/github.md).
 
 ## How we work
 

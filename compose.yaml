@@ -1,0 +1,20 @@
+name: researchchain
+services:
+  postgres:
+    image: postgres:18.7-alpine
+    environment:
+      POSTGRES_USER: researchchain
+      POSTGRES_PASSWORD: researchchain-local
+      POSTGRES_DB: researchchain
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U researchchain -d researchchain"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    restart: unless-stopped
+volumes:
+  postgres_data:

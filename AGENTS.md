@@ -5,13 +5,29 @@ report writing. Read `docs/memory/project-context.md` for the product intent and
 `docs/memory/current-state.md` for the latest verified handoff. Read further docs
 only as the task needs them; code, tests, and current GitHub state outrank stale notes.
 
+## Agent workflow
+
+- Track work in GitHub issues and PRs through `gh` only. Do not use GitHub Projects,
+  maintain board fields, request Projects scopes, or navigate the GitHub browser UI.
+- Start with `git status --short` and the supplied issue/PR. Reuse existing work;
+  search a bounded issue list only when needed. Small fixes can use a PR directly.
+- Fetch only needed fields with `--json`; batch independent reads and reuse results
+  until an action or new evidence makes them stale. Use `gh api` for missing CLI features.
+- Issues hold acceptance criteria and dependencies; PRs hold implementation and
+  validation. Update only on material scope changes, blockers, or completion;
+  skip ceremonial comments, duplicate checklists, and routine status polling.
+- Keep handoffs short and link the issue/PR instead of copying their contents.
+  See `docs/github.md` for commands and completion rules.
+
 ## Development agreements
 
 - Branches: `main` → `dev` → `feat/<feature-name>`. Feature PRs target `dev`;
   promotion PRs come from `dev` to `main`. Never squash a dev-to-main promotion.
 - Use pnpm for TypeScript and uv for Python. Commit lockfiles. See
   `docs/development.md` for commands; run focused checks during work and `pnpm check`
-  before delivery. Run `pnpm test:e2e` for changed user interactions.
+  before delivery for code, dependency, or executable configuration changes.
+  Prose-only changes need formatting and diff checks. Run `pnpm test:e2e` for
+  changed user interactions. Repeat passed checks only after relevant changes.
 - Keep commits coherent; do not overwrite unrelated work or force-push shared branches.
 - The Python models own the API contract. Regenerate it with `pnpm contracts:generate`;
   do not manually edit generated files in `packages/contracts`.
