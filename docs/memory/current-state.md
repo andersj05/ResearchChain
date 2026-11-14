@@ -1,9 +1,9 @@
 # Current state
 
-Updated 2026-11-14. Issue #3 is implemented on `feat/advanced-workflows`; final
-browser/CI verification and merge are in progress. See the feature PR for the
-final result. Prior milestones: durability in PR #16, CLI workflow in PR #17,
-and the frontend redesign in PR #19 (merged into dev).
+Updated 2026-11-14. The advanced runtime is recorded in
+[PR #20](https://github.com/andersj05/ResearchChain/pull/20), targeting dev.
+Use the PR for current CI and merge state. Prior milestones: durability in PR #16,
+CLI workflow in PR #17, and the frontend redesign in PR #19 (merged into dev).
 
 ## Verified capabilities
 
@@ -18,13 +18,17 @@ and the frontend redesign in PR #19 (merged into dev).
   terminal cancellation/limit results, and the existing command journal.
 - The API exposes the node registry and cancellation. The inspector renders
   simultaneous reviews individually, iteration paths, limits, and cancellation.
-- 73 backend tests passed, including real Postgres, hard process restart inside
-  a loop, concurrent execution, cancellation during execution, and persistent
-  limits. Types and production build passed before the final browser refinement.
+- Final local verification passed: `pnpm check` (75 backend tests and production
+  build), `pnpm contracts:check`, and all 18 browser tests. Desktop/mobile run
+  captures were inspected. CI passed on the implementation commit as well.
+- Browser/CI testing exposed and fixed a shared-connection pipeline race; budget
+  checks now share the checkpointer's mutex. History uses indexed journal summaries
+  and detects Running through the live advisory lock, avoiding graph recompilation.
+- Additive local development migrations were applied successfully.
 
 ## Next work
 
-Finish issue #3 verification and merge into dev, then implement editor issue #4:
+Next: editor issue #4, building on the issue #3 runtime:
 port wiring/reconnection, typed configuration forms, subgraph navigation,
 expand/collapse, grouped undo/redo, JSON import, validation diagnostics, and
 large-graph interaction measurements. Structured graphs currently allow safe
