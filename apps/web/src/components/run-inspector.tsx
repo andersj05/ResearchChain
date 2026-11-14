@@ -10,6 +10,8 @@ export function RunStatus({ status }: { status: RunSummary["status"] }) {
     completed: "Completed",
     rejected: "Rejected",
     interrupted: "Needs recovery",
+    cancelled: "Cancelled",
+    limited: "Limit reached",
   }[status];
   return (
     <span className={`run-status status-${status}`}>
@@ -34,13 +36,15 @@ export function RunInspector({
   onResume,
   onRecover,
   onRefresh,
+  onCancel,
   onOpenRevision,
 }: {
   run: RunSnapshot | null;
   busy: boolean;
-  onResume: (decision: "approve" | "reject") => Promise<void>;
+  onResume: (decision: "approve" | "reject", interruptId?: string) => Promise<void>;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
+  onCancel: () => Promise<void>;
   onOpenRevision: () => Promise<void>;
 }) {
   return (
@@ -63,6 +67,16 @@ export function RunInspector({
               Refresh run
             </Button>
           </div>
+          {run.stop_reason && (
+            <p className="review-box" role="status">
+              {run.stop_reason}
+            </p>
+          )}
+          {(run.status === "paused" || run.status === "interrupted") && (
+            <Button className="button" disabled={busy} onClick={onCancel}>
+              Cancel run
+            </Button>
+          )}
           <div className="run-brief">
             <h3>Research brief</h3>
             <p>{run.brief}</p>
@@ -85,36 +99,47 @@ export function RunInspector({
           {run.events.length ? (
             <ol className="event-list">
               {run.events.map((event) => (
-                <li key={event.node_id}>
+                <li key={event.path ?? event.node_id}>
                   <strong>{event.label}</strong>
                   <span>{event.detail}</span>
+                  {event.path && event.path.split("/").length > 2 && (
+                    <small className="muted">{event.path.replaceAll("/", " › ")}</small>
+                  )}
                 </li>
               ))}
             </ol>
           ) : (
             <p className="muted">No completed steps yet.</p>
           )}
-          {run.status === "paused" && run.review && (
-            <div className="review-box">
-              <p className="eyebrow">Human review</p>
-              <h3>{run.review.question}</h3>
-              <p>This decision applies to this checkpoint of revision {run.revision_number}.</p>
-              <div className="actions">
-                <Button
-                  className="button primary"
-                  disabled={busy}
-                  onClick={() => onResume("approve")}
-                >
-                  <Check size={16} aria-hidden="true" />
-                  Approve and continue
-                </Button>
-                <Button className="button" disabled={busy} onClick={() => onResume("reject")}>
-                  <X size={16} aria-hidden="true" />
-                  Reject and stop
-                </Button>
+          {run.status === "paused" &&
+            (run.reviews?.length ? run.reviews : run.review ? [run.review] : []).map((review) => (
+              <div
+                className="review-box"
+                key={review.interrupt_id}
+                aria-label={`Review ${review.node_id}`}
+              >
+                <p className="eyebrow">Human review</p>
+                <h3>{review.question}</h3>
+                {review.path && <p className="muted">{review.path.replaceAll("/", " › ")}</p>}
+                <p>This decision applies to this checkpoint of revision {run.revision_number}.</p>
+                <div className="actions">
+                  <Button
+                    className="button primary"
+                    disabled={busy}
+                    onClick={() => onResume("approve", review.interrupt_id)}
+                  >
+                    <Check size={16} aria-hidden="true" /> Approve and continue
+                  </Button>
+                  <Button
+                    className="button"
+                    disabled={busy}
+                    onClick={() => onResume("reject", review.interrupt_id)}
+                  >
+                    <X size={16} aria-hidden="true" /> Reject and stop
+                  </Button>
+                </div>
               </div>
-            </div>
-          )}
+            ))}
           <details className="run-details">
             <summary>Pinned workflow &amp; run details</summary>
             <p className="muted">
@@ -130,6 +155,10 @@ export function RunInspector({
               <dd>{run.checkpoint_id ?? "Not started"}</dd>
               <dt>Executor</dt>
               <dd>{run.compiler_version}</dd>
+              <dt>Executed steps</dt>
+              <dd>{run.usage?.node_executions ?? run.events.length}</dd>
+              <dt>Active time</dt>
+              <dd>{(run.usage?.active_seconds ?? 0).toFixed(2)} seconds</dd>
               <dt>Artifact references</dt>
               <dd>{run.artifacts.length}</dd>
             </dl>

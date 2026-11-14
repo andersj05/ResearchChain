@@ -21,6 +21,7 @@ export function WorkflowEditor({
   onChange: (workflow: Workflow) => void;
   disabled: boolean;
 }) {
+  const structured = workflow.schema_version === "0.2";
   const node = workflow.nodes.find((item) => item.id === selected);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
@@ -58,7 +59,7 @@ export function WorkflowEditor({
             <Button
               key={kind}
               className="library-button"
-              disabled={disabled || workflow.nodes.length >= 32}
+              disabled={disabled || structured || workflow.nodes.length >= 32}
               onClick={() => {
                 const id = `${kind}-${crypto.randomUUID().slice(0, 8)}`;
                 onChange(
@@ -127,6 +128,7 @@ export function WorkflowEditor({
           <label>
             First step
             <select
+              disabled={structured}
               value={workflow.start_node}
               onChange={(event) => onChange({ ...workflow, start_node: event.target.value })}
             >
@@ -137,7 +139,11 @@ export function WorkflowEditor({
               ))}
             </select>
           </label>
-          <p className="field-hint">A connected chain ending at Finish.</p>
+          <p className="field-hint">
+            {structured
+              ? "Branching workflow with pinned subgraphs."
+              : "A connected chain ending at Finish."}
+          </p>
         </details>
       </fieldset>
       <div className="canvas-panel" inert={disabled}>
@@ -207,12 +213,21 @@ export function WorkflowEditor({
             <label>
               Step type
               <select
+                disabled={structured}
                 value={node.kind}
                 onChange={(event) => editNode({ kind: event.target.value as WorkflowNode["kind"] })}
               >
                 <option value="note">Research note</option>
                 <option value="review">Human review</option>
                 <option value="finish">Finish</option>
+                {structured &&
+                  Object.entries(nodeKinds)
+                    .filter(([kind]) => !["note", "review", "finish"].includes(kind))
+                    .map(([kind, details]) => (
+                      <option key={kind} value={kind}>
+                        {details.label}
+                      </option>
+                    ))}
               </select>
             </label>
             <label>
@@ -224,7 +239,7 @@ export function WorkflowEditor({
                 onChange={(event) => editNode({ instructions: event.target.value })}
               />
             </label>
-            <label className="connection-field">
+            <label className="connection-field" hidden={structured}>
               Next step
               <select
                 value={workflow.edges.find((edge) => edge.source === node.id)?.target ?? ""}
@@ -234,7 +249,14 @@ export function WorkflowEditor({
                     edges: [
                       ...workflow.edges.filter((edge) => edge.source !== node.id),
                       ...(event.target.value
-                        ? [{ source: node.id, target: event.target.value }]
+                        ? [
+                            {
+                              source: node.id,
+                              target: event.target.value,
+                              source_port: "next",
+                              target_port: "in",
+                            },
+                          ]
                         : []),
                     ],
                   })
@@ -251,9 +273,17 @@ export function WorkflowEditor({
               </select>
             </label>
             <p className="field-hint">
-              {node.kind === "finish"
-                ? "Finish ends the workflow. Leave it unconnected."
-                : "Choose the step that follows this one."}
+              {structured
+                ? workflow.edges
+                    .filter((edge) => edge.source === node.id)
+                    .map(
+                      (edge) =>
+                        `${edge.source_port ?? "next"} → ${workflow.nodes.find((item) => item.id === edge.target)?.label ?? edge.target}`,
+                    )
+                    .join(" · ")
+                : node.kind === "finish"
+                  ? "Finish ends the workflow. Leave it unconnected."
+                  : "Choose the step that follows this one."}
             </p>
             <details className="node-advanced">
               <summary>Step identifier</summary>
@@ -261,7 +291,7 @@ export function WorkflowEditor({
             </details>
             <Button
               className="button danger"
-              disabled={disabled}
+              disabled={disabled || structured}
               onClick={() => {
                 const next =
                   workflow.edges.find((edge) => edge.source === node.id)?.target ??

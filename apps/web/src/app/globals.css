@@ -1292,3 +1292,19 @@ footer p {
 .workspace-actions {
   padding-block: 8px;
 }
+
+.kind-route,
+.kind-fork,
+.kind-join {
+  color: #6941c6;
+}
+.kind-loop,
+.kind-subgraph {
+  color: #175cd3;
+}
+.status-cancelled {
+  color: var(--muted);
+}
+.status-limited {
+  color: #9a6700;
+}

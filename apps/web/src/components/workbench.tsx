@@ -210,13 +210,13 @@ export function Workbench() {
     }
   }
 
-  async function resumeRun(decision: "approve" | "reject") {
+  async function resumeRun(decision: "approve" | "reject", interruptId?: string) {
     if (!run?.review || !run.checkpoint_id) return;
     try {
       await api<RunSnapshot>(`runs/${run.id}/resume`, {
         decision,
         checkpoint_id: run.checkpoint_id,
-        interrupt_id: run.review.interrupt_id,
+        interrupt_id: interruptId ?? run.review.interrupt_id,
       });
       setMessage("Review decision saved.");
     } finally {
@@ -434,7 +434,17 @@ export function Workbench() {
             <RunInspector
               run={run}
               busy={busy}
-              onResume={(value) => action(() => resumeRun(value))}
+              onResume={(value, interruptId) => action(() => resumeRun(value, interruptId))}
+              onCancel={() =>
+                action(async () => {
+                  if (run) {
+                    await api(`runs/${run.id}/cancel`, {});
+                    await openRun(run.id);
+                    await refreshHistory();
+                    setMessage("Run cancelled.");
+                  }
+                })
+              }
               onRefresh={() =>
                 action(async () => {
                   if (run) {
