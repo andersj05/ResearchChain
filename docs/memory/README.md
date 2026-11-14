@@ -3,12 +3,12 @@
 This is explicit, version-controlled project memory. `AGENTS.md` directs an agent
 to the two small entry files; it does not magically load every linked document.
 
-| Record | Contents | Update when |
-| --- | --- | --- |
-| `project-context.md` | Stable user goals, constraints, source references | The user changes a requirement |
-| `current-state.md` | Verified capabilities, limitations, checks, next task | A meaningful milestone finishes |
-| `../decisions/` | Context, decision, alternatives, consequences | A consequential choice is accepted |
-| GitHub issues / Project | Work status and acceptance criteria | Work starts, changes scope, or finishes |
+| Record                  | Contents                                              | Update when                             |
+| ----------------------- | ----------------------------------------------------- | --------------------------------------- |
+| `project-context.md`    | Stable user goals, constraints, source references     | The user changes a requirement          |
+| `current-state.md`      | Verified capabilities, limitations, checks, next task | A meaningful milestone finishes         |
+| `../decisions/`         | Context, decision, alternatives, consequences         | A consequential choice is accepted      |
+| GitHub issues / Project | Work status and acceptance criteria                   | Work starts, changes scope, or finishes |
 
 Avoid duplicate task boards, session diaries, and unbounded append-only notes.
 Replace stale current-state facts, link to PRs and issues, and identify unverified

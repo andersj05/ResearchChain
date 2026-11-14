@@ -4,19 +4,23 @@ test("edit, save, validate, run, and resume an immutable workflow", async ({ pag
   const browserErrors: string[] = [];
   page.on("pageerror", (error) => browserErrors.push(error.message));
   await page.goto("/");
-  await page.getByLabel("Instructions", { exact: true }).fill("Compare competing explanations.");
+  await page
+    .getByRole("textbox", { name: "Instructions", exact: true })
+    .fill("Compare competing explanations.");
   await page.getByRole("button", { name: "Save draft", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Draft saved in this browser.");
   await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
   await expect(page.getByRole("status")).toHaveText("Workflow valid. Ready to run.");
   await page.getByRole("button", { name: "Run workflow" }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
-  await page.getByLabel("Instructions", { exact: true }).fill("Only for the next run.");
+  await page
+    .getByRole("textbox", { name: "Instructions", exact: true })
+    .fill("Only for the next run.");
   await expect(page.getByLabel("Run inspector")).toContainText("Compare competing explanations.");
   await page.getByRole("button", { name: "Approve and continue" }).click();
   await expect(page.getByRole("heading", { name: "Run completed" })).toBeVisible();
   await page.getByRole("button", { name: "Load saved draft" }).click();
-  await expect(page.getByLabel("Instructions", { exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toHaveValue(
     "Compare competing explanations.",
   );
   const downloadPromise = page.waitForEvent("download");
@@ -27,11 +31,13 @@ test("edit, save, validate, run, and resume an immutable workflow", async ({ pag
 
 test("invalid connections show a useful error and remain editable", async ({ page }) => {
   await page.goto("/");
-  await page.getByLabel("Next node", { exact: true }).selectOption("");
+  await page.getByRole("combobox", { name: "Next node", exact: true }).selectOption("");
   await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("connected chain");
+  await expect(page.getByRole("alert").filter({ hasText: "connected chain" })).toBeVisible();
   await page.getByRole("button", { name: "Undo last edit" }).click();
-  await expect(page.getByLabel("Next node", { exact: true })).toHaveValue("challenge");
+  await expect(page.getByRole("combobox", { name: "Next node", exact: true })).toHaveValue(
+    "challenge",
+  );
 });
 
 test("canvas nodes can be moved with the keyboard", async ({ page }) => {

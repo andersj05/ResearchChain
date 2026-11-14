@@ -22,14 +22,14 @@ Setup and commands: [development guide](docs/development.md).
 
 ## Project map
 
-| Location | Purpose |
-| --- | --- |
-| `apps/web` | Custom Next.js workbench and UI SDK canvas adapter |
-| `apps/api` | Workflow validation, LangGraph compiler, and local API |
-| `packages/contracts` | Generated API schema and TypeScript types |
-| `examples` | Synthetic, shareable workflow fixtures |
-| `docs` | Architecture, development, evaluation plan, and durable agent context |
-| `.github` | CI, contribution templates, and dependency updates |
+| Location             | Purpose                                                               |
+| -------------------- | --------------------------------------------------------------------- |
+| `apps/web`           | Custom Next.js workbench and UI SDK canvas adapter                    |
+| `apps/api`           | Workflow validation, LangGraph compiler, and local API                |
+| `packages/contracts` | Generated API schema and TypeScript types                             |
+| `examples`           | Synthetic, shareable workflow fixtures                                |
+| `docs`               | Architecture, development, evaluation plan, and durable agent context |
+| `.github`            | CI, contribution templates, and dependency updates                    |
 
 See the [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), and
 [research behind the choices](docs/research/2026-11-13-foundation.md).

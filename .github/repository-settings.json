@@ -1,0 +1,69 @@
+{
+  "repository": "andersj05/ResearchChain",
+  "settings": {
+    "description": "Custom research workflow studio: Next.js, UI SDK, and LangGraph for evidence-driven financial research.",
+    "has_issues": true,
+    "has_projects": true,
+    "has_wiki": false,
+    "allow_merge_commit": true,
+    "allow_squash_merge": true,
+    "allow_rebase_merge": false,
+    "allow_auto_merge": false,
+    "delete_branch_on_merge": false,
+    "security_and_analysis": {
+      "secret_scanning": { "status": "enabled" },
+      "secret_scanning_push_protection": { "status": "enabled" }
+    }
+  },
+  "labels": [
+    {
+      "name": "area:runtime",
+      "color": "39705b",
+      "description": "LangGraph, execution, checkpoints, and API"
+    },
+    {
+      "name": "area:editor",
+      "color": "6a8950",
+      "description": "Custom workbench and visual editing"
+    },
+    {
+      "name": "area:research",
+      "color": "ad8435",
+      "description": "Evidence ingestion and analytical workflows"
+    },
+    {
+      "name": "area:evals",
+      "color": "8064a2",
+      "description": "Evaluation, report quality, and human feedback"
+    },
+    {
+      "name": "area:platform",
+      "color": "536e9b",
+      "description": "Development tooling, CI, and deployment"
+    },
+    { "name": "priority:next", "color": "b45836", "description": "Next milestone prerequisites" },
+    {
+      "name": "priority:later",
+      "color": "bec8b5",
+      "description": "Planned after foundational prerequisites"
+    }
+  ],
+  "milestones": [
+    {
+      "title": "M0 · Foundation",
+      "description": "Runnable custom UI and graph slice, repository workflow, CI, and agent memory."
+    },
+    {
+      "title": "M1 · Durable workflows",
+      "description": "Persistent runs, versioned workflows, advanced control flow, and usable visual editing."
+    },
+    {
+      "title": "M2 · Evidence and research",
+      "description": "Source provenance, chart handling, hypothesis testing, and bounded model/tool integration."
+    },
+    {
+      "title": "M3 · Editorial evaluation",
+      "description": "Report editing, feedback collection, holdouts, and reproducible quality improvements."
+    }
+  ]
+}
