@@ -1,0 +1,24 @@
+name: Feature
+description: A focused, testable improvement
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: What should the user be able to do, and why?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Observable behavior and how we will verify it.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Dependencies and scope
+      description: Links to relevant decisions; explicitly deferred work.

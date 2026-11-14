@@ -1,0 +1,40 @@
+{
+  "schema_version": "0.1",
+  "name": "Hypothesis review",
+  "start_node": "frame",
+  "nodes": [
+    {
+      "id": "frame",
+      "kind": "note",
+      "label": "Frame the question",
+      "instructions": "Write the hypothesis and the observation that would disprove it.",
+      "position": { "x": 60, "y": 150 }
+    },
+    {
+      "id": "challenge",
+      "kind": "note",
+      "label": "Challenge the thesis",
+      "instructions": "List alternative explanations and evidence we still need.",
+      "position": { "x": 340, "y": 150 }
+    },
+    {
+      "id": "review",
+      "kind": "review",
+      "label": "Human review",
+      "instructions": "Is the research question specific enough to continue?",
+      "position": { "x": 620, "y": 150 }
+    },
+    {
+      "id": "finish",
+      "kind": "finish",
+      "label": "Finish workflow",
+      "instructions": "",
+      "position": { "x": 900, "y": 150 }
+    }
+  ],
+  "edges": [
+    { "source": "frame", "target": "challenge" },
+    { "source": "challenge", "target": "review" },
+    { "source": "review", "target": "finish" }
+  ]
+}

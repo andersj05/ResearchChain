@@ -1,0 +1,12 @@
+pnpm-lock.yaml
+uv.lock
+**/uv.lock
+**/.venv/**
+**/.next/**
+**/next-env.d.ts
+**/test-results/**
+**/playwright-report/**
+**/*.py
+.local/**
+data/**
+artifacts/**
