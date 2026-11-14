@@ -6,7 +6,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
-    "setup": "pnpm install --frozen-lockfile && uv sync --project apps/api --locked",
+    "bootstrap": "pnpm install --frozen-lockfile && uv sync --project apps/api --locked",
     "dev": "concurrently -k -n web,api \"pnpm dev:web\" \"pnpm dev:api\"",
     "dev:web": "pnpm --filter @researchchain/web dev",
     "dev:api": "uv run --project apps/api uvicorn researchchain.main:app --host 127.0.0.1 --port 8000 --reload",

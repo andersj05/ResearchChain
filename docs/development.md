@@ -8,7 +8,7 @@ uv selects Python 3.12 from `.python-version` and can install it if missing.
 
 ```text
 npm install --global pnpm@11.24.0
-pnpm setup
+pnpm bootstrap
 pnpm dev
 ```
 
@@ -66,6 +66,8 @@ but are not durable team storage. This is not yet a complete research/report sys
 - ESLint 9 is pinned because the current Next.js plugin dependencies declare
   ESLint 9 support. Upgrade the compatible set together; do not hide peer warnings.
 - UI SDK is beta and its installed docs are the reference for its exact API.
+- Next.js regenerates `next-env.d.ts`; it is ignored. `pnpm typecheck` runs
+  `next typegen` first so a fresh checkout has its required generated types.
 - Ignore local data in `data/`, `artifacts/`, and `.local/`; no secrets in Git.
 - Windows Codex sandboxing can restrict pnpm symlinks and uv caches. A narrow
   outside-sandbox command may be needed. It is not evidence of a broken install.
