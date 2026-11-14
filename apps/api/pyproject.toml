@@ -18,7 +18,7 @@ build-backend = "hatchling.build"
 packages = ["src/researchchain"]
 
 [dependency-groups]
-dev = ["httpx>=0.28,<1", "mypy>=1.18,<2", "pytest>=8,<10", "ruff>=0.14,<1"]
+dev = ["httpx>=0.28,<1", "mypy>=1.18,<3", "pytest>=8,<10", "ruff>=0.14,<1"]
 
 [tool.ruff]
 target-version = "py312"
