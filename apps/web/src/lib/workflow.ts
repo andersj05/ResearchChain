@@ -4,6 +4,10 @@ import example from "../../../../examples/research-workflow.json";
 export type Workflow = components["schemas"]["Workflow"];
 export type WorkflowNode = components["schemas"]["WorkflowNode"];
 export type RunSnapshot = components["schemas"]["RunSnapshot"];
+export type RunSummary = components["schemas"]["RunSummary"];
+export type RunRequest = components["schemas"]["RunRequest"];
+export type RevisionSummary = components["schemas"]["RevisionSummary"];
+export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
 
 export const initialWorkflow = example as Workflow;
@@ -13,6 +17,7 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
     method: body === undefined ? "GET" : "POST",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
+    cache: "no-store",
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) {
