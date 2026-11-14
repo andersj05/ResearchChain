@@ -3,7 +3,7 @@
   "settings": {
     "description": "Custom research workflow studio: Next.js, UI SDK, and LangGraph for evidence-driven financial research.",
     "has_issues": true,
-    "has_projects": true,
+    "has_projects": false,
     "has_wiki": false,
     "allow_merge_commit": true,
     "allow_squash_merge": true,
