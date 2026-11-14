@@ -1,0 +1,17 @@
+name: Bug
+description: Reproduce a broken behavior
+title: "fix: "
+labels: [bug]
+body:
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction and expected behavior
+      description: Include commands or steps, operating system, and relevant versions.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Sanitized errors or screenshots. Do not include secrets or private research.
