@@ -3,6 +3,14 @@ import example from "../../../../examples/research-workflow.json";
 
 export type Workflow = components["schemas"]["Workflow"];
 export type WorkflowNode = components["schemas"]["WorkflowNode"];
+export type WorkflowEdge = components["schemas"]["WorkflowEdge"];
+export type Graph = Pick<Workflow, "name" | "start_node" | "nodes" | "edges">;
+export type SubgraphRef = components["schemas"]["SubgraphRef"];
+export type SubgraphDefinition = components["schemas"]["SubgraphDefinition"];
+export type ValueSource = components["schemas"]["ValueSource"];
+export type Predicate = components["schemas"]["Predicate"];
+export type NodeTypeSpec = components["schemas"]["NodeTypeSpec"];
+export type ExecutionBudgets = components["schemas"]["ExecutionBudgets"];
 export type RunSnapshot = components["schemas"]["RunSnapshot"];
 export type RunSummary = components["schemas"]["RunSummary"];
 export type RunRequest = components["schemas"]["RunRequest"];
