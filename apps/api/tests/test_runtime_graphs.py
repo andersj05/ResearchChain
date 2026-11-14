@@ -92,6 +92,8 @@ def test_cancellation_reaches_an_executing_worker_without_its_lock(
         future = executor.submit(RunStore(database).start, request)
         try:
             assert entered.wait(5)
+            assert RunStore(database).list()[0].status == "running"
+            assert not future.done()
             assert RunStore(database).cancel(request.id).status == "cancelled"
         finally:
             release.set()
@@ -218,3 +220,55 @@ def test_registry_and_openapi_keep_typed_workflow_contracts(client: TestClient) 
     schemas = client.get("/openapi.json").json()["components"]["schemas"]
     assert "nodes" in schemas["Workflow"]["properties"]
     assert "Workflow-Output" not in schemas
+
+
+def test_budget_queries_cannot_overlap_checkpoint_pipeline_contexts(
+    database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from contextlib import contextmanager
+
+    from langgraph.checkpoint.postgres import PostgresSaver
+    from psycopg import Connection
+
+    pipeline_connections: set[int] = set()
+    original_cursor = PostgresSaver._cursor
+    original_execute = Connection.execute
+
+    @contextmanager
+    def delayed_cursor(saver: Any, **kwargs: Any) -> Any:
+        with original_cursor(saver, **kwargs) as cursor:
+            pipeline_connections.add(id(saver.conn))
+            try:
+                # Make concurrent branch guards overlap background checkpoint IO
+                # deterministically unless they share the saver's connection lock.
+                sleep(0.01)
+                yield cursor
+            finally:
+                pipeline_connections.remove(id(saver.conn))
+
+    def checked_execute(connection: Any, query: Any, *args: Any, **kwargs: Any) -> Any:
+        if isinstance(query, str) and query.startswith("SELECT terminal_status"):
+            assert id(connection) not in pipeline_connections, "budget query raced checkpoint IO"
+        return original_execute(connection, query, *args, **kwargs)
+
+    monkeypatch.setattr(PostgresSaver, "_cursor", delayed_cursor)
+    monkeypatch.setattr(Connection, "execute", checked_execute)
+    revision = RevisionStore(database).save(Workflow.model_validate(split()))
+    result = RunStore(database).start(
+        RunRequest(id=uuid4(), revision_id=revision.id, brief="Shared IO")
+    )
+    assert result.status == "completed"
+
+
+def test_history_never_recompiles_saved_graphs(
+    client: TestClient, database: Database, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    completed = start(client, split())
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("history must not compile or lock a run")
+
+    monkeypatch.setattr(RunStore, "_graph", forbidden)
+    summary = RunStore(database).list()[0]
+    assert summary.id == UUID(completed["id"])
+    assert summary.status == "completed"

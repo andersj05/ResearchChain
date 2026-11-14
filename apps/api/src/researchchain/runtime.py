@@ -136,7 +136,12 @@ class RunStore:
         ).fetchone()
 
     def _graph(
-        self, conn: Connection[DictRow], manifest: DictRow, guard: Guard | None = None
+        self,
+        conn: Connection[DictRow],
+        manifest: DictRow,
+        guard: Guard | None = None,
+        *,
+        saver: PostgresSaver | None = None,
     ) -> Any:
         revision = read_revision(conn, manifest["revision_id"])
         expected = (
@@ -146,7 +151,7 @@ class RunStore:
         )
         if manifest["compiler_version"] != expected:
             raise ConflictError("This run requires a compatible compiler version before recovery.")
-        return compile_workflow(revision.workflow, PostgresSaver(conn), guard)
+        return compile_workflow(revision.workflow, saver or PostgresSaver(conn), guard)
 
     def _snapshot(
         self, conn: Connection[DictRow], manifest: DictRow, *, interrupted: bool = False
@@ -206,8 +211,9 @@ class RunStore:
             self._complete_command(conn, command["id"], snapshot)
             return snapshot
         workflow = read_revision(conn, manifest["revision_id"]).workflow
-        execution = ExecutionControl(conn, manifest["id"], workflow.budgets)
-        graph = self._graph(conn, manifest, execution.guard)
+        saver = PostgresSaver(conn)
+        execution = ExecutionControl(conn, manifest["id"], workflow.budgets, saver.lock)
+        graph = self._graph(conn, manifest, execution.guard, saver=saver)
         config = self._config(manifest["id"])
         if workflow.schema_version == "0.2":
             config.update(recursion_limit=4096, max_concurrency=workflow.budgets.max_concurrency)
@@ -304,19 +310,29 @@ class RunStore:
             )
 
     def list(self, limit: int = 20) -> list[RunSummary]:
+        # History reads journaled summaries, not every graph/checkpoint. A live
+        # advisory lock distinguishes executing commands from abandoned ones.
         with self.database.connection() as conn:
-            ids = [
-                row["id"]
-                for row in conn.execute(
-                    "SELECT id FROM runs ORDER BY created_at DESC, id DESC LIMIT %s", (limit,)
-                )
-            ]
-        return [
-            RunSummary.model_validate(
-                self.get(run_id).model_dump(include=set(RunSummary.model_fields))
+            rows = conn.execute(
+                "SELECT r.id, r.revision_id, w.number AS revision_number, "
+                "w.workflow->>'name' AS workflow_name, r.created_at, "
+                "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
+                "THEN command.response->>'status' WHEN EXISTS ("
+                "SELECT 1 FROM pg_locks l WHERE l.locktype = 'advisory' AND l.granted "
+                "AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database()) "
+                "AND l.objsubid = 1 "
+                "AND l.classid::bigint = ((hashtextextended('run:' || r.id::text, 0) >> 32) "
+                "& 4294967295) "
+                "AND l.objid::bigint = (hashtextextended('run:' || r.id::text, 0) & 4294967295)"
+                ") THEN 'running' ELSE 'interrupted' END) AS status "
+                "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
+                "JOIN run_controls c ON c.run_id = r.id "
+                "LEFT JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
+                "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
+                "ORDER BY r.created_at DESC, r.id DESC LIMIT %s",
+                (limit,),
             )
-            for run_id in ids
-        ]
+            return [RunSummary.model_validate(row) for row in rows]
 
     def resume(self, run_id: UUID, request: ResumeRequest) -> RunSnapshot:
         with self._locked(run_id) as conn:

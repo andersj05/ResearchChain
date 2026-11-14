@@ -425,7 +425,8 @@ export interface components {
        * Status
        * @enum {string}
        */
-      status: "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited";
+      status:
+        "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited" | "running";
       /**
        * Created At
        * Format: date-time
@@ -469,7 +470,8 @@ export interface components {
        * Status
        * @enum {string}
        */
-      status: "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited";
+      status:
+        "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited" | "running";
       /**
        * Created At
        * Format: date-time

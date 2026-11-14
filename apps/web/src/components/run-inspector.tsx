@@ -7,6 +7,7 @@ import { RotateCw, Check, X } from "lucide-react";
 export function RunStatus({ status }: { status: RunSummary["status"] }) {
   const label = {
     paused: "Needs review",
+    running: "Running",
     completed: "Completed",
     rejected: "Rejected",
     interrupted: "Needs recovery",

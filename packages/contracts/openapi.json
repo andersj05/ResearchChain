@@ -927,7 +927,15 @@
           },
           "status": {
             "type": "string",
-            "enum": ["paused", "completed", "rejected", "interrupted", "cancelled", "limited"],
+            "enum": [
+              "paused",
+              "completed",
+              "rejected",
+              "interrupted",
+              "cancelled",
+              "limited",
+              "running"
+            ],
             "title": "Status"
           },
           "created_at": {
@@ -1043,7 +1051,15 @@
           },
           "status": {
             "type": "string",
-            "enum": ["paused", "completed", "rejected", "interrupted", "cancelled", "limited"],
+            "enum": [
+              "paused",
+              "completed",
+              "rejected",
+              "interrupted",
+              "cancelled",
+              "limited",
+              "running"
+            ],
             "title": "Status"
           },
           "created_at": {

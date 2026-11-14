@@ -287,8 +287,18 @@ test("adding and removing a middle step preserves a saveable chain and supports 
   const id = new URL(page.url()).searchParams.get("revision");
   const saved: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
   const added = saved.workflow.nodes.find((node) => node.label === "Check the evidence")!;
-  expect(saved.workflow.edges).toContainEqual({ source: "frame", target: added.id });
-  expect(saved.workflow.edges).toContainEqual({ source: added.id, target: "challenge" });
+  expect(saved.workflow.edges).toContainEqual({
+    source: "frame",
+    target: added.id,
+    source_port: "next",
+    target_port: "in",
+  });
+  expect(saved.workflow.edges).toContainEqual({
+    source: added.id,
+    target: "challenge",
+    source_port: "next",
+    target_port: "in",
+  });
   await page.getByRole("button", { name: "Remove step", exact: true }).click();
   await expect(name).toHaveValue("Challenge the thesis");
   await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
@@ -320,7 +330,12 @@ test("inserting before Finish and removing the first step preserve the workflow 
   const revisionId = new URL(page.url()).searchParams.get("revision");
   const saved: WorkflowRevision = await (await request.get(`/api/revisions/${revisionId}`)).json();
   const added = saved.workflow.nodes.find((node) => node.label === "New human review")!;
-  expect(saved.workflow.edges).toContainEqual({ source: "review", target: added.id });
+  expect(saved.workflow.edges).toContainEqual({
+    source: "review",
+    target: added.id,
+    source_port: "next",
+    target_port: "in",
+  });
   expect(saved.workflow.start_node).toBe("frame");
   await page
     .locator(".node-outline")

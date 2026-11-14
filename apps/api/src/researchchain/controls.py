@@ -1,6 +1,6 @@
 """Persisted execution budgets and cancellation independent of the run lock."""
 
-from threading import Lock
+from _thread import LockType
 from typing import Any
 from uuid import UUID
 
@@ -12,11 +12,15 @@ from researchchain.graph import ExecutionBudgets
 
 
 class ExecutionControl:
-    def __init__(self, conn: Connection[DictRow], run_id: UUID, budgets: ExecutionBudgets) -> None:
+    def __init__(
+        self, conn: Connection[DictRow], run_id: UUID, budgets: ExecutionBudgets, lock: LockType
+    ) -> None:
         self.conn = conn
         self.run_id = run_id
         self.budgets = budgets
-        self.lock = Lock()
+        # Guard queries must not enter/leave pipeline mode concurrently with
+        # checkpoint writes on the same advisory-lock connection.
+        self.lock = lock
 
     def begin(self) -> None:
         # An unclosed interval came from a killed process. Charge it conservatively,

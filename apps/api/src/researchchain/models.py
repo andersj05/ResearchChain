@@ -79,7 +79,9 @@ class RunSummary(StrictModel):
     revision_id: UUID
     revision_number: int
     workflow_name: str
-    status: Literal["paused", "completed", "rejected", "interrupted", "cancelled", "limited"]
+    status: Literal[
+        "paused", "completed", "rejected", "interrupted", "cancelled", "limited", "running"
+    ]
     created_at: datetime
 
 

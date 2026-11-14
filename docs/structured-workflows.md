@@ -63,7 +63,11 @@ approve a sibling or a later iteration.
 `max_concurrency` (4). Node counts identify logical invocation paths, including
 control checks; re-entering the same interrupted review does not spend another
 node. Reservations are persisted and shared by parallel branches. Concurrency
-bounds the LangGraph worker pool.
+bounds the LangGraph worker pool. Budget queries and checkpoint writes share
+the same connection mutex, preserving pipeline safety as well as the advisory
+lock. Run history reads indexed journal summaries without compiling or locking
+each graph. An executing command is marked Running only while its database
+advisory lock is held; an abandoned command is marked Needs recovery.
 
 Time covers accepted execution-command intervals, excluding completed human
 review pauses. An interval abandoned by a killed process is charged through
