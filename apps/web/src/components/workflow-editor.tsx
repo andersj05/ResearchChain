@@ -1,9 +1,10 @@
 "use client";
 
 import { Button } from "@ui-sdk/react/button";
-import { useState } from "react";
-import { Plus, PanelLeft, PanelRight, SlidersHorizontal, Trash2, ChevronRight } from "lucide-react";
-import { NodeKindIcon, nodeKinds } from "@/components/node-kind";
+import { useEffect, useRef, useState } from "react";
+import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { nodeKinds } from "@/components/node-kind";
+import { insertStep, removeStep } from "@/lib/workflow-editing";
 import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
 import type { Workflow, WorkflowNode } from "@/lib/workflow";
 
@@ -23,6 +24,16 @@ export function WorkflowEditor({
   const node = workflow.nodes.find((item) => item.id === selected);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
+  const addedStep = useRef<string | null>(null);
+  const labelInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (addedStep.current === selected && inspectorOpen) {
+      document.getElementById(`workflow-node-${selected}`)?.focus({ preventScroll: true });
+      labelInput.current?.focus();
+      labelInput.current?.select();
+      addedStep.current = null;
+    }
+  }, [selected, inspectorOpen]);
   function selectNode(id: string) {
     setInspectorOpen(true);
     onSelect(id);
@@ -50,32 +61,33 @@ export function WorkflowEditor({
               disabled={disabled || workflow.nodes.length >= 32}
               onClick={() => {
                 const id = `${kind}-${crypto.randomUUID().slice(0, 8)}`;
-                onChange({
-                  ...workflow,
-                  nodes: [
-                    ...workflow.nodes,
+                onChange(
+                  insertStep(
+                    workflow,
                     {
                       id,
                       kind,
                       label: kind === "note" ? "New research note" : "New human review",
                       instructions: "",
-                      position: { x: 100, y: 340 + Math.max(0, workflow.nodes.length - 4) * 40 },
+                      position: { x: 100, y: 340 },
                     },
-                  ],
-                });
+                    selected,
+                  ),
+                );
+                addedStep.current = id;
                 selectNode(id);
               }}
             >
-              <NodeKindIcon kind={kind} />
-              <span>
-                <strong>{nodeKinds[kind].label}</strong>
-                <small>{kind === "note" ? "Capture an idea" : "Pause for a decision"}</small>
-              </span>
               <Plus size={14} aria-hidden="true" />
+              <span>Add {nodeKinds[kind].label.toLowerCase()}</span>
             </Button>
           ))}
         </div>
-        <p className="field-hint">Add a step, then connect it in the inspector.</p>
+        <p className="field-hint">
+          {node
+            ? `Insert ${node.kind === "finish" ? "before" : "after"} “${node.label}”.`
+            : "Insert before Finish."}
+        </p>
         <div className="outline-heading">
           <h3>In this workflow</h3>
           <span className="muted">{workflow.edges.length} connections</span>
@@ -93,18 +105,17 @@ export function WorkflowEditor({
                     ?.focus({ preventScroll: true });
                 }}
               >
-                <NodeKindIcon kind={item.kind} />
-                <span>{item.label}</span>
+                <span className="outline-label">{item.label}</span>
+                <span className={`outline-kind kind-${item.kind}`}>
+                  {nodeKinds[item.kind].shortLabel}
+                </span>
                 {workflow.start_node === item.id && <small>Start</small>}
               </Button>
             </li>
           ))}
         </ol>
         <details className="workflow-settings">
-          <summary>
-            <SlidersHorizontal size={15} aria-hidden="true" />
-            Workflow settings
-          </summary>
+          <summary>Workflow settings</summary>
           <label>
             Workflow name
             <input
@@ -114,7 +125,7 @@ export function WorkflowEditor({
             />
           </label>
           <label>
-            Start node
+            First step
             <select
               value={workflow.start_node}
               onChange={(event) => onChange({ ...workflow, start_node: event.target.value })}
@@ -133,26 +144,25 @@ export function WorkflowEditor({
         <div className="canvas-heading">
           <div className="actions">
             <Button
-              className="button icon-button ghost"
-              aria-label="Toggle step library"
+              className="button ghost"
+              aria-label="Toggle steps"
               aria-expanded={libraryOpen}
               aria-controls="step-library"
               onClick={() => setLibraryOpen(!libraryOpen)}
             >
               <PanelLeft size={16} aria-hidden="true" />
+              Steps
             </Button>
-            <span>Workflow</span>
-            <ChevronRight size={13} aria-hidden="true" />
-            <span className="muted">Editor</span>
           </div>
           <Button
-            className="button icon-button ghost"
-            aria-label="Toggle node inspector"
+            className="button ghost"
+            aria-label="Toggle details"
             aria-expanded={inspectorOpen}
             aria-controls="node-inspector"
             onClick={() => setInspectorOpen(!inspectorOpen)}
           >
             <PanelRight size={16} aria-hidden="true" />
+            Details
           </Button>
         </div>
         <WorkflowCanvas
@@ -182,27 +192,20 @@ export function WorkflowEditor({
       >
         <div className="panel-heading">
           <h2>Step details</h2>
-          <SlidersHorizontal size={15} aria-hidden="true" />
         </div>
         {node ? (
           <>
-            <div className="inspector-heading">
-              <NodeKindIcon kind={node.kind} />
-              <div>
-                <h3>{nodeKinds[node.kind].label}</h3>
-                <p className="field-hint">{nodeKinds[node.kind].description}</p>
-              </div>
-            </div>
             <label>
-              Label
+              Step name
               <input
+                ref={labelInput}
                 value={node.label}
                 maxLength={100}
                 onChange={(event) => editNode({ label: event.target.value })}
               />
             </label>
             <label>
-              Node type
+              Step type
               <select
                 value={node.kind}
                 onChange={(event) => editNode({ kind: event.target.value as WorkflowNode["kind"] })}
@@ -222,7 +225,7 @@ export function WorkflowEditor({
               />
             </label>
             <label className="connection-field">
-              Next node
+              Next step
               <select
                 value={workflow.edges.find((edge) => edge.source === node.id)?.target ?? ""}
                 onChange={(event) =>
@@ -260,18 +263,16 @@ export function WorkflowEditor({
               className="button danger"
               disabled={disabled}
               onClick={() => {
-                onChange({
-                  ...workflow,
-                  nodes: workflow.nodes.filter((item) => item.id !== node.id),
-                  edges: workflow.edges.filter(
-                    (edge) => edge.source !== node.id && edge.target !== node.id,
-                  ),
-                });
-                onSelect("");
+                const next =
+                  workflow.edges.find((edge) => edge.source === node.id)?.target ??
+                  workflow.edges.find((edge) => edge.target === node.id)?.source ??
+                  "";
+                onChange(removeStep(workflow, node.id));
+                onSelect(next);
               }}
             >
               <Trash2 size={14} aria-hidden="true" />
-              Remove node
+              Remove step
             </Button>
           </>
         ) : (

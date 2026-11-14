@@ -33,6 +33,11 @@ adaptation of these patterns; it does not reproduce Vercel branding or assets.
   way to reach offscreen nodes. Panels collapse when more canvas room is needed.
   Default and reset zoom are 100% so node labels stay readable; Fit view is an
   explicit overview action and never changes stored node positions.
+  Labeled Steps/Details controls disclose panels. Adding a step inserts it after
+  the selection (before Finish) and focuses its name. Removing a middle step
+  reconnects its neighbors; removing the first step advances the entry. Undo
+  restores the previous draft. These conveniences target the single-chain model;
+  server validation remains authoritative.
 - Run setup: brief, revision context, and execution action together in a dialog.
   Failed validation keeps the brief available; success opens the saved run.
 - Runs: compact history beside the selected run, readable research context,
@@ -40,8 +45,10 @@ adaptation of these patterns; it does not reproduce Vercel branding or assets.
 - Revisions: a flat table of immutable saved versions. Loading is undoable;
   editor changes never mutate a pinned run.
 - Tokens: white and near-white surfaces, neutral borders, 4/8/12/16/24/32px
-  spacing, 6px control corners, 13–14px interface text, 12px metadata.
-  Elevation is reserved for dialogs. Motion respects reduced-motion preferences.
+  spacing, square corners throughout, 13–14px interface text, 12px metadata.
+  No decorative logo/avatar blocks, icon tiles, canvas pattern, shadows, or fake
+  draggable ports. Color belongs to step labels and states; icons support actions.
+  Motion respects reduced-motion preferences. Save state remains visible at every width.
 - Responsive: panels flow below the canvas on smaller screens; controls wrap;
   only wide tables and the canvas may require contained scrolling/panning.
 

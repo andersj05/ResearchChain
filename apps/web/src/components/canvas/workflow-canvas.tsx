@@ -4,7 +4,7 @@ import { createParts } from "@ui-sdk/react/primitive";
 import type { Workflow } from "@/lib/workflow";
 import { workflowCanvas } from "./primitive";
 import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
-import { NodeKindIcon, nodeKinds } from "@/components/node-kind";
+import { nodeKinds } from "@/components/node-kind";
 
 const parts = createParts(workflowCanvas, {
   root: "div",
@@ -77,8 +77,7 @@ export function WorkflowCanvas({
             onClick={() => onSelect(node.id)}
           >
             <span className="node-topline">
-              <NodeKindIcon kind={node.kind} />
-              <span className="node-kind">{nodeKinds[node.kind].label}</span>
+              <span className={`node-kind kind-${node.kind}`}>{nodeKinds[node.kind].label}</span>
               {workflow.start_node === node.id && <span className="start-label">Start</span>}
             </span>
             <strong>{node.label}</strong>
@@ -86,8 +85,6 @@ export function WorkflowCanvas({
               {node.instructions ||
                 (node.kind === "finish" ? "End of workflow" : "Add instructions…")}
             </span>
-            <span className="node-port port-in" aria-hidden="true" />
-            <span className="node-port port-out" aria-hidden="true" />
           </parts.Node>
         ))}
       </parts.World>

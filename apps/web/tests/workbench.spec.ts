@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import type { WorkflowRevision } from "../src/lib/workflow";
 import example from "../../../examples/research-workflow.json";
 
 test.beforeEach(async ({ page, request }) => {
@@ -96,7 +97,7 @@ test("local drafts and JSON export remain available", async ({ page }) => {
 });
 
 test("invalid connections cannot be saved or executed", async ({ page }) => {
-  await page.getByRole("combobox", { name: "Next node", exact: true }).selectOption("");
+  await page.getByRole("combobox", { name: "Next step", exact: true }).selectOption("");
   await page.getByRole("button", { name: "Save revision", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "connected chain" })).toBeVisible();
   await page.getByRole("button", { name: "Run workflow" }).click();
@@ -104,7 +105,7 @@ test("invalid connections cannot be saved or executed", async ({ page }) => {
   await expect(page.getByRole("alert").filter({ hasText: "connected chain" })).toBeVisible();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Undo last edit" }).click();
-  await expect(page.getByRole("combobox", { name: "Next node", exact: true })).toHaveValue(
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
     "challenge",
   );
 });
@@ -251,19 +252,87 @@ test("panels, outline, and fit view keep a laptop workspace usable", async ({ pa
   }
   await page.getByRole("button", { name: "Reset view", exact: true }).click();
   await expect(page.locator(".canvas-world")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 24, 24)");
-  await page.getByRole("button", { name: "Toggle node inspector" }).click();
+  await page.getByRole("button", { name: "Toggle details" }).click();
   await expect(page.getByRole("group", { name: "Node inspector" })).not.toBeVisible();
   await page
     .locator(".node-outline")
-    .getByRole("button", { name: "Human review", exact: true })
+    .getByRole("button", { name: "Human review Review", exact: true })
     .click();
-  await expect(page.getByRole("textbox", { name: "Label", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
     "Human review",
   );
-  await page.getByRole("button", { name: "Toggle step library" }).click();
+  await page.getByRole("button", { name: "Toggle steps" }).click();
   await expect(page.locator("#step-library")).not.toBeVisible();
-  await page.getByRole("button", { name: "Toggle step library" }).click();
+  await page.getByRole("button", { name: "Toggle steps" }).click();
   await expect(page.locator("#step-library")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save revision", exact: true })).toBeInViewport();
   await expect(page.getByRole("status", { name: "Workspace status" })).toBeInViewport();
+});
+
+test("adding and removing a middle step preserves a saveable chain and supports undo", async ({
+  page,
+  request,
+}) => {
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(name).toBeFocused();
+  await name.fill("Check the evidence");
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
+    "challenge",
+  );
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /Revision \d+ saved\./,
+  );
+  const id = new URL(page.url()).searchParams.get("revision");
+  const saved: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+  const added = saved.workflow.nodes.find((node) => node.label === "Check the evidence")!;
+  expect(saved.workflow.edges).toContainEqual({ source: "frame", target: added.id });
+  expect(saved.workflow.edges).toContainEqual({ source: added.id, target: "challenge" });
+  await page.getByRole("button", { name: "Remove step", exact: true }).click();
+  await expect(name).toHaveValue("Challenge the thesis");
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit Check the evidence", exact: true }),
+  ).toHaveCount(1);
+});
+
+test("inserting before Finish and removing the first step preserve the workflow entry", async ({
+  page,
+  request,
+}) => {
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: "Finish workflow Finish", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add human review", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
+    "finish",
+  );
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /Revision \d+ saved\./,
+  );
+  const revisionId = new URL(page.url()).searchParams.get("revision");
+  const saved: WorkflowRevision = await (await request.get(`/api/revisions/${revisionId}`)).json();
+  const added = saved.workflow.nodes.find((node) => node.label === "New human review")!;
+  expect(saved.workflow.edges).toContainEqual({ source: "review", target: added.id });
+  expect(saved.workflow.start_node).toBe("frame");
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: "Frame the question Note Start", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Remove step", exact: true }).click();
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /Revision \d+ saved\./,
+  );
+  const updatedId = new URL(page.url()).searchParams.get("revision");
+  const updated: WorkflowRevision = await (await request.get(`/api/revisions/${updatedId}`)).json();
+  expect(updated.workflow.start_node).toBe("challenge");
+  expect(updated.workflow.nodes).toHaveLength(4);
 });

@@ -2,7 +2,7 @@
 
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
-import { Play, RotateCw, Check, X, UserRoundCheck } from "lucide-react";
+import { RotateCw, Check, X } from "lucide-react";
 
 export function RunStatus({ status }: { status: RunSummary["status"] }) {
   const label = {
@@ -96,10 +96,7 @@ export function RunInspector({
           )}
           {run.status === "paused" && run.review && (
             <div className="review-box">
-              <p className="eyebrow">
-                <UserRoundCheck size={16} aria-hidden="true" />
-                Human review
-              </p>
+              <p className="eyebrow">Human review</p>
               <h3>{run.review.question}</h3>
               <p>This decision applies to this checkpoint of revision {run.revision_number}.</p>
               <div className="actions">
@@ -148,9 +145,6 @@ export function RunInspector({
         </>
       ) : (
         <div className="empty-state">
-          <div className="empty-icon" aria-hidden="true">
-            <Play size={24} />
-          </div>
           <h2>No run selected</h2>
           <p>Run a workflow or open a recent run to inspect its progress.</p>
         </div>

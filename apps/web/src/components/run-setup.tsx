@@ -10,7 +10,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
-import { Play, X, GitCommitHorizontal } from "lucide-react";
+import { Play, X } from "lucide-react";
 
 export function RunSetup({
   open,
@@ -49,9 +49,7 @@ export function RunSetup({
       <DialogBackdrop className="dialog-backdrop" />
       <DialogContent className="run-dialog" initialFocus="#brief">
         <div className="dialog-heading">
-          <span className="kind-icon kind-note">
-            <Play size={18} aria-hidden="true" />
-          </span>
+          <DialogTitle>Start a research run</DialogTitle>
           <DialogClose
             className="button icon-button ghost"
             aria-label="Close run setup"
@@ -60,7 +58,6 @@ export function RunSetup({
             <X size={18} aria-hidden="true" />
           </DialogClose>
         </div>
-        <DialogTitle>Start a research run</DialogTitle>
         <DialogDescription>Give this workflow a question to explore.</DialogDescription>
         <form
           onSubmit={(event) => {
@@ -69,7 +66,6 @@ export function RunSetup({
           }}
         >
           <div className="run-context">
-            <GitCommitHorizontal size={16} aria-hidden="true" />
             <strong>{name || "Untitled workflow"}</strong>
             <span>{revision ? `Revision ${revision}` : "New revision on start"}</span>
           </div>

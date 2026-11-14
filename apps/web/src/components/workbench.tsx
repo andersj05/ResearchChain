@@ -2,15 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import {
-  Workflow as WorkflowIcon,
-  History,
-  Play,
-  GitBranch,
-  Undo2,
-  CheckCheck,
-  ExternalLink,
-} from "lucide-react";
+import { Undo2, CheckCheck, ExternalLink } from "lucide-react";
 import { RunSetup } from "@/components/run-setup";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
@@ -259,17 +251,12 @@ export function Workbench() {
     <main className="studio">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="ResearchChain home">
-          <span className="brand-mark">
-            <WorkflowIcon size={19} aria-hidden="true" />
-          </span>
           <span>ResearchChain</span>
         </Link>
         <span className="workspace-divider" aria-hidden="true">
           /
         </span>
-        <span className="workspace-label">
-          <span className="workspace-avatar">E</span>EquityCats
-        </span>
+        <span className="workspace-label">EquityCats</span>
         <span className="workspace-divider breadcrumb-extra" aria-hidden="true">
           /
         </span>
@@ -279,18 +266,9 @@ export function Workbench() {
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">
           <TabsList className="workspace-tabs" aria-label="Workspace">
-            <TabsTab value="workflow">
-              <WorkflowIcon size={16} aria-hidden="true" />
-              Workflow
-            </TabsTab>
-            <TabsTab value="runs">
-              <Play size={15} aria-hidden="true" />
-              Runs
-            </TabsTab>
-            <TabsTab value="revisions">
-              <History size={16} aria-hidden="true" />
-              Revisions
-            </TabsTab>
+            <TabsTab value="workflow">Workflow</TabsTab>
+            <TabsTab value="runs">Runs</TabsTab>
+            <TabsTab value="revisions">Revisions</TabsTab>
           </TabsList>
           <div className="actions workspace-actions">
             {tab === "workflow" && (
@@ -491,7 +469,6 @@ export function Workbench() {
               <h1>Revisions</h1>
               <p className="muted">Saved versions of your research process.</p>
             </div>
-            <GitBranch size={24} aria-hidden="true" />
           </div>
           <section className="revisions-panel" aria-label="Saved revisions">
             <div className="section-heading">
