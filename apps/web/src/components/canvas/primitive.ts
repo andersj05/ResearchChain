@@ -19,6 +19,8 @@ type CanvasOptions = {
   ports: Record<string, CanvasPort>;
   onPositionsChange: (positions: Record<string, MovePoint>, details: { reason: string }) => void;
   onConnect: (from: string, to: string) => void;
+  onSelect: (id: string) => void;
+  onOpen: (id: string, child?: string) => void;
 };
 type MovingState = { positions: Record<string, MovePoint>; moving: MoveDraft | null };
 
@@ -44,6 +46,8 @@ export const workflowCanvas = definePrimitive({
     ports: "value",
     onPositionsChange: "callback",
     onConnect: "callback",
+    onSelect: "callback",
+    onOpen: "callback",
   },
   controlled: ["positions"],
   state: (options: CanvasOptions) => ({
@@ -53,7 +57,7 @@ export const workflowCanvas = definePrimitive({
     viewport: { x: 24, y: 24, zoom: 1 },
   }),
   sync: (options) => ({ positions: options.positions }),
-  live: ["viewport", "moving", "connecting"],
+  live: ["positions", "viewport", "moving", "connecting"],
   api: (context) => {
     const change = createChange(context);
     const viewport = createViewport(context, {
@@ -116,6 +120,8 @@ export const workflowCanvas = definePrimitive({
       connectKey,
       fit,
       reveal,
+      select: (id: string) => context.options().onSelect(id),
+      open: (id: string, child?: string) => context.options().onOpen(id, child),
       point: (state: MovingState, key: string) => portPoint(state, context.options().ports[key]),
     };
   },
@@ -143,13 +149,18 @@ export const workflowCanvas = definePrimitive({
         }),
       }),
       live: live((state, { api, key }) => ({
-        style: api.move.style(state, key),
+        style:
+          css({
+            left: `${state.positions[key]?.x ?? 0}px`,
+            top: `${state.positions[key]?.y ?? 0}px`,
+          }) + (api.move.style(state, key) ?? ""),
         "data-dragging": api.move.dragging(state, key) ? "" : undefined,
       })),
     }),
     node: slot<{ value: string }>({
       props: { value: "string" },
       attrs: () => ({ type: "button", style: css({ "touch-action": "none" }) }),
+      press: ({ api, key }) => api.select(key),
       on: {
         keydown: (event, { api, key }) => {
           if (api.move.keydown(event, key)) event.stopPropagation();
@@ -159,6 +170,11 @@ export const workflowCanvas = definePrimitive({
         },
         focus: (_event, { el, api }) => api.reveal(el),
       },
+    }),
+    open: slot<{ value: string; node: string; child?: string }>({
+      props: { value: "string", node: "string", child: "string" },
+      attrs: () => ({ type: "button" }),
+      press: ({ api, props }) => api.open(props.node, props.child),
     }),
     port: slot<{ value: string }>({
       props: { value: "string" },

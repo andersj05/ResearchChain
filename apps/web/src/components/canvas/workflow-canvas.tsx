@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useCallback, useState } from "react";
 import { createParts } from "@ui-sdk/react/primitive";
 import type { Graph, SubgraphDefinition, WorkflowNode } from "@/lib/workflow";
 import { connectionsFor, portsFor, referenceOf, type Port } from "@/lib/workflow-editing";
@@ -13,6 +13,7 @@ const parts = createParts(workflowCanvas, {
   world: "div",
   group: "div",
   node: "button",
+  open: "button",
   port: "button",
   edge: "path",
   draft: "path",
@@ -43,6 +44,13 @@ export function WorkflowCanvas({
   onOpen?: (node: WorkflowNode, child?: string) => void;
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
+  const toggle = useCallback(
+    (id: string) =>
+      setExpanded((previous) =>
+        previous.includes(id) ? previous.filter((item) => item !== id) : [...previous, id],
+      ),
+    [],
+  );
   const positions = Object.fromEntries(workflow.nodes.map((node) => [node.id, node.position]));
   const connections = connectionsFor(workflow);
   const nodes = workflow.nodes.map((node) => {
@@ -85,6 +93,11 @@ export function WorkflowCanvas({
       sizes={sizes}
       ports={ports}
       onPositionsChange={onMove}
+      onSelect={onSelect}
+      onOpen={(id, child) => {
+        const node = workflow.nodes.find((item) => item.id === id);
+        if (node) onOpen?.(node, child);
+      }}
       onConnect={(from, to) => {
         if (ports[from] && ports[to]) onConnect?.(ports[from], ports[to]);
       }}
@@ -108,104 +121,45 @@ export function WorkflowCanvas({
             </marker>
           </defs>
           {connections.map((connection) => (
-            <parts.Edge
+            <CanvasEdge
               key={`${connection.from}/${connection.to}`}
               value={`${connection.from}/${connection.to}`}
-              className={`connection-${connection.type}`}
-              markerEnd="url(#arrow)"
+              type={connection.type}
             />
           ))}
           <parts.Draft className="connection-draft" />
         </svg>
-        {nodes.map(({ node, ports: nodePorts, body, baseHeight, open }) => (
-          <parts.Group
-            key={node.id}
-            value={node.id}
-            className={`graph-group ${selected === node.id ? "selected" : ""}`}
-            style={{ height: sizes[node.id]!.height }}
-            data-node-id={node.id}
-          >
-            <parts.Node
-              value={node.id}
-              id={`workflow-node-${node.id}`}
-              className={`graph-node ${selected === node.id ? "selected" : ""}`}
-              aria-label={`Edit ${node.label}`}
-              aria-pressed={selected === node.id}
-              onClick={() => onSelect(node.id)}
-            >
-              <span className="node-topline">
-                <span className={`node-kind kind-${node.kind}`}>{nodeKinds[node.kind].label}</span>
-                {workflow.start_node === node.id && <span className="start-label">Start</span>}
-              </span>
-              <strong>{node.label}</strong>
-              <span className="node-summary">
-                {node.instructions ||
-                  (node.kind === "finish" ? "End of workflow" : "Add instructions…")}
-              </span>
-            </parts.Node>
-            {nodePorts.map((port) => (
-              <parts.Port
-                key={port.key}
-                value={port.key}
-                className={`graph-port port-${port.direction} port-${port.type}`}
-                style={{ top: ports[port.key]!.offset.y - 14 }}
-                aria-label={ports[port.key]!.label}
-                aria-description={
-                  connections
-                    .filter((edge) => edge.from === port.key || edge.to === port.key)
-                    .map(
-                      (edge) =>
-                        `Connected to ${ports[edge.from === port.key ? edge.to : edge.from]?.label ?? "missing port"}.`,
-                    )
-                    .join(" ") ||
-                  "Unconnected. Enter starts a connection; arrows choose a port; Enter connects."
-                }
-              >
-                <span aria-hidden="true" className="port-dot" />
-                <span>{port.name}</span>
-                <small>{port.type}</small>
-              </parts.Port>
-            ))}
-            {body && (
-              <div className="subgraph-group" style={{ top: baseHeight }}>
-                <div className="group-actions">
-                  <button type="button" onClick={() => onOpen?.(node)}>
-                    Open subgraph
-                  </button>
-                  <button
-                    type="button"
-                    aria-label={`${open ? "Collapse" : "Expand"} ${node.label}`}
-                    aria-expanded={open}
-                    onClick={() =>
-                      setExpanded(
-                        open ? expanded.filter((id) => id !== node.id) : [...expanded, node.id],
-                      )
-                    }
-                  >
-                    {open ? "Collapse" : "Expand"}
-                  </button>
-                </div>
-                {open && (
-                  <div className="subgraph-preview" aria-label={`${node.label} preview`}>
-                    <p>
-                      {body.name} · v{body.version}
-                    </p>
-                    <ol>
-                      {body.nodes.map((child) => (
-                        <li key={child.id}>
-                          <button type="button" onClick={() => onOpen?.(node, child.id)}>
-                            {child.label}
-                            <small>{nodeKinds[child.kind].shortLabel}</small>
-                          </button>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                )}
-              </div>
-            )}
-          </parts.Group>
-        ))}
+        {nodes.map(({ node, ports: nodePorts, body, baseHeight, open }) => {
+          const descriptions = Object.fromEntries(
+            nodePorts.map((port) => [
+              port.key,
+              connections
+                .filter((edge) => edge.from === port.key || edge.to === port.key)
+                .map(
+                  (edge) =>
+                    `Connected to ${ports[edge.from === port.key ? edge.to : edge.from]?.label ?? "missing port"}.`,
+                )
+                .join(" ") ||
+                "Unconnected. Enter starts a connection; arrows choose a port; Enter connects.",
+            ]),
+          );
+          return (
+            <CanvasNode
+              key={node.id}
+              node={node}
+              ports={nodePorts.map((port) => ports[port.key]!)}
+              body={body}
+              baseHeight={baseHeight}
+              height={sizes[node.id]!.height}
+              open={open}
+              selected={selected === node.id}
+              start={workflow.start_node === node.id}
+              descriptions={descriptions}
+              descriptionKey={JSON.stringify(descriptions)}
+              onToggle={toggle}
+            />
+          );
+        })}
       </parts.World>
       <div className="canvas-toolbar">
         <parts.ZoomOut className="button icon-button" aria-label="Zoom out">
@@ -225,3 +179,135 @@ export function WorkflowCanvas({
     </parts.Root>
   );
 }
+
+const CanvasEdge = memo(function CanvasEdge({
+  value,
+  type,
+}: {
+  value: string;
+  type: Port["type"];
+}) {
+  return <parts.Edge value={value} className={`connection-${type}`} markerEnd="url(#arrow)" />;
+});
+
+type CanvasNodeProps = {
+  node: WorkflowNode;
+  ports: CanvasPort[];
+  body?: SubgraphDefinition;
+  baseHeight: number;
+  height: number;
+  open: boolean;
+  selected: boolean;
+  start: boolean;
+  descriptions: Record<string, string>;
+  descriptionKey: string;
+  onToggle: (id: string) => void;
+};
+// Moving one node changes positions in the primitive, while the document's labels,
+// ports and groups stay mounted. Do not capture editor callbacks in memoized cards.
+const CanvasNode = memo(
+  function CanvasNode({
+    node,
+    ports,
+    body,
+    baseHeight,
+    height,
+    open,
+    selected,
+    start,
+    descriptions,
+    onToggle,
+  }: CanvasNodeProps) {
+    return (
+      <parts.Group
+        value={node.id}
+        className={`graph-group ${selected ? "selected" : ""}`}
+        style={{ height }}
+        data-node-id={node.id}
+      >
+        <parts.Node
+          value={node.id}
+          id={`workflow-node-${node.id}`}
+          className={`graph-node ${selected ? "selected" : ""}`}
+          aria-label={`Edit ${node.label}`}
+          aria-pressed={selected}
+        >
+          <span className="node-topline">
+            <span className={`node-kind kind-${node.kind}`}>{nodeKinds[node.kind].label}</span>
+            {start && <span className="start-label">Start</span>}
+          </span>
+          <strong>{node.label}</strong>
+          <span className="node-summary">
+            {node.instructions ||
+              (node.kind === "finish" ? "End of workflow" : "Add instructions…")}
+          </span>
+        </parts.Node>
+        {ports.map((port) => (
+          <parts.Port
+            key={port.key}
+            value={port.key}
+            className={`graph-port port-${port.direction} port-${port.type}`}
+            style={{ top: port.offset.y - 14 }}
+            aria-label={port.label}
+            aria-description={descriptions[port.key]}
+          >
+            <span aria-hidden="true" className="port-dot" />
+            <span className="port-caption">
+              <span>{port.name}</span>
+              <small>{port.type}</small>
+            </span>
+          </parts.Port>
+        ))}
+        {body && (
+          <div className="subgraph-group" style={{ top: baseHeight }}>
+            <div className="group-actions">
+              <parts.Open value={node.id} node={node.id}>
+                Open subgraph
+              </parts.Open>
+              <button
+                type="button"
+                aria-label={`${open ? "Collapse" : "Expand"} ${node.label}`}
+                aria-expanded={open}
+                onClick={() => onToggle(node.id)}
+              >
+                {open ? "Collapse" : "Expand"}
+              </button>
+            </div>
+            {open && (
+              <div className="subgraph-preview" aria-label={`${node.label} preview`}>
+                <p>
+                  {body.name} · v{body.version}
+                </p>
+                <ol>
+                  {body.nodes.map((child) => (
+                    <li key={child.id}>
+                      <parts.Open value={`${node.id}/${child.id}`} node={node.id} child={child.id}>
+                        {child.label}
+                        <small>{nodeKinds[child.kind].shortLabel}</small>
+                      </parts.Open>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+          </div>
+        )}
+      </parts.Group>
+    );
+  },
+  (a, b) =>
+    a.node.id === b.node.id &&
+    a.node.kind === b.node.kind &&
+    a.node.label === b.node.label &&
+    a.node.instructions === b.node.instructions &&
+    a.node.config === b.node.config &&
+    a.node.inputs === b.node.inputs &&
+    a.body === b.body &&
+    a.baseHeight === b.baseHeight &&
+    a.height === b.height &&
+    a.open === b.open &&
+    a.selected === b.selected &&
+    a.start === b.start &&
+    a.descriptionKey === b.descriptionKey &&
+    a.onToggle === b.onToggle,
+);

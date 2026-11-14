@@ -98,6 +98,24 @@ test("pointer wiring distinguishes data and control ports and serializes data bi
   await expect(page.getByRole("combobox", { name: "Text input", exact: true })).toHaveValue(
     "frame:text",
   );
+  // Reconnect an existing control output with the pointer, then restore the valid route.
+  await page.getByRole("button", { name: "Fit workflow to view" }).click();
+  await drag(
+    page,
+    page.getByRole("button", { name: "Frame the question: output control next", exact: true }),
+    page.getByRole("button", { name: "Human review: input control in", exact: true }),
+  );
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: "Frame the question Note Start", exact: true })
+    .click();
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
+    "review",
+  );
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
+    "challenge",
+  );
   const id = await save(page);
   const saved: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
   expect(saved.workflow.schema_version).toBe("0.2");
@@ -109,7 +127,7 @@ test("pointer wiring distinguishes data and control ports and serializes data bi
 });
 
 test("typing and a full drag are grouped edits with live connection previews", async ({ page }) => {
-  const name = page.getByLabel("Step name", { exact: true });
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
   await name.fill("");
   await name.pressSequentially("A clearer research question", { delay: 20 });
   await name.press("Control+z");
@@ -231,7 +249,20 @@ test("validated JSON import preserves failed drafts, round-trips, and supports u
     buffer: Buffer.from("not json"),
   });
   await expect(page.locator(".workspace-error")).toContainText("not valid JSON");
-  await expect(page.getByLabel("Step name", { exact: true })).toHaveValue("Frame the question");
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Frame the question",
+  );
+  const invalid = structuredClone(example);
+  invalid.nodes[0]!.label = "";
+  await input.setInputFiles({
+    name: "schema-invalid.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(invalid)),
+  });
+  await expect(page.locator(".workspace-error")).toContainText("nodes.0.label");
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Frame the question",
+  );
   const imported = structuredClone(example);
   imported.name = "Imported research process";
   imported.nodes[0]!.label = "Imported question";
@@ -243,13 +274,69 @@ test("validated JSON import preserves failed drafts, round-trips, and supports u
     mimeType: "application/json",
     buffer: Buffer.from(JSON.stringify(imported)),
   });
-  await expect(page.getByLabel("Step name", { exact: true })).toHaveValue("Imported question");
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Imported question",
+  );
   const downloaded = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export JSON", exact: true }).click();
   const path = await (await downloaded).path();
   expect(JSON.parse(await readFile(path!, "utf8"))).toEqual(validated.workflow);
   await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
-  await expect(page.getByLabel("Step name", { exact: true })).toHaveValue("Frame the question");
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Frame the question",
+  );
   await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
-  await expect(page.getByLabel("Step name", { exact: true })).toHaveValue("Imported question");
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Imported question",
+  );
+});
+
+test("new definition versions and nested draft edits keep an existing run pinned", async ({
+  page,
+  request,
+}) => {
+  await page.getByRole("button", { name: "Add subgraph", exact: true }).click();
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Instructions", exact: true })
+    .fill("Original nested instructions.");
+  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+  const runId = new URL(page.url()).searchParams.get("run");
+  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+  await page
+    .getByRole("navigation", { name: "Graph breadcrumbs" })
+    .getByRole("button", { name: "Hypothesis review", exact: true })
+    .click();
+  await page.getByRole("button", { name: "New version", exact: true }).click();
+  await expect(
+    page.getByRole("combobox", { name: "Subgraph version", exact: true }).locator("option:checked"),
+  ).toContainText("v2");
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Instructions", exact: true })
+    .fill("New version instructions.");
+  const revisionId = await save(page);
+  const revision: WorkflowRevision = await (
+    await request.get(`/api/revisions/${revisionId}`)
+  ).json();
+  expect(
+    revision.workflow.subgraphs?.find((body) => body.version === 1)?.nodes[0]?.instructions,
+  ).toBe("Original nested instructions.");
+  expect(
+    revision.workflow.subgraphs?.find((body) => body.version === 2)?.nodes[0]?.instructions,
+  ).toBe("New version instructions.");
+  await page.getByText("Definitions (2)", { exact: true }).click();
+  await page.getByRole("button", { name: "Remove unused definitions", exact: true }).click();
+  const prunedId = await save(page);
+  const pruned: WorkflowRevision = await (await request.get(`/api/revisions/${prunedId}`)).json();
+  expect(pruned.workflow.subgraphs).toHaveLength(1);
+  expect(pruned.workflow.subgraphs?.[0]?.version).toBe(2);
+  const run = await (await request.get(`/api/runs/${runId}`)).json();
+  expect(run.workflow.subgraphs).toHaveLength(1);
+  expect(run.workflow.subgraphs[0].nodes[0].instructions).toBe("Original nested instructions.");
+  expect(
+    run.events.find((event: { path: string }) => event.path.includes("/body/step")).detail,
+  ).toContain("Original nested instructions.");
 });

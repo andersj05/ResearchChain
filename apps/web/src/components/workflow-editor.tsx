@@ -11,6 +11,7 @@ import {
   controlOutputs,
   graphAt,
   referenceOf,
+  pruneDefinitions,
   removeStep,
   scopeKey,
   updateGraph,
@@ -104,8 +105,11 @@ export function WorkflowEditor({
     }
     setNotice("");
     setPath([...validPath, { ref, via: parent.id }]);
+    addedStep.current = child ?? body.start_node;
     selectNode(child ?? body.start_node);
   }
+  const pruned = pruneDefinitions(workflow);
+  const unusedDefinitions = (workflow.subgraphs?.length ?? 0) - (pruned.subgraphs?.length ?? 0);
   const split = node?.config?.type === "route" || node?.config?.type === "fork";
   const ownedJoin =
     node?.kind === "join" &&
@@ -303,6 +307,22 @@ export function WorkflowEditor({
               completed human review pause is excluded.
             </p>
           </details>
+          {!!workflow.subgraphs?.length && (
+            <details className="workflow-settings">
+              <summary>Definitions ({workflow.subgraphs.length})</summary>
+              <p className="field-hint">
+                {unusedDefinitions} unused versions in this draft. Removing them leaves saved
+                revisions and their runs unchanged.
+              </p>
+              <Button
+                className="button small config-actions"
+                disabled={disabled || !unusedDefinitions}
+                onClick={() => onChange(pruned)}
+              >
+                Remove unused definitions
+              </Button>
+            </details>
+          )}
         </fieldset>
         <div className="canvas-panel" inert={disabled}>
           <div className="canvas-heading">
@@ -341,10 +361,12 @@ export function WorkflowEditor({
               changeGraph(
                 {
                   ...graph,
-                  nodes: graph.nodes.map((item) => ({
-                    ...item,
-                    position: positions[item.id] ?? item.position,
-                  })),
+                  nodes: graph.nodes.map((item) => {
+                    const position = positions[item.id] ?? item.position;
+                    return position.x === item.position.x && position.y === item.position.y
+                      ? item
+                      : { ...item, position };
+                  }),
                 },
                 details.reason === "move-key" ? "nudge" : undefined,
               )
