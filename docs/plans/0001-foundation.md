@@ -8,7 +8,7 @@ Date: 2026-11-13.
    model credentials required. Commit the working app and locked dependencies.
 4. Add generated contracts, meaningful validation/runtime/browser tests, and CI.
 5. Publish the branches, configure PR and status-check protection, and create a
-   milestone-based issue backlog and GitHub Project when account access permits.
+   milestone-based issue backlog managed with PRs through `gh`.
 6. Verify CI, record precise remaining scope, and promote the verified foundation
    through `dev` to `main`. Keep the branch history intact.
 
