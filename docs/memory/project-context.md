@@ -15,6 +15,8 @@ Confirmed with the owner, 2026-11-13.
 - Use LangGraph for orchestration. Do not lock the system to a single model vendor.
 - Branch structure is `main` → `dev` → `feat/<feature-name>`.
 - Prioritize short, reproducible iteration loops with meaningful quality checks.
+- Track development through GitHub issues and PRs using `gh`; no GitHub Projects
+  or browser-based GitHub workflow. Minimize tracking overhead (owner, 2026-11-14).
 
 The anchor report can guide development but cannot also be an uncontaminated
 holdout. Writing resemblance alone is not a measure of research quality.

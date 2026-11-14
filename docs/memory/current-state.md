@@ -19,8 +19,7 @@ current merge state instead of inferring it from this note.
   including the production browser flow. Subsequent commits require their own CI.
 - Protected main/dev branches, pinned CI actions, secret scanning/push protection,
   weekly dependency PR configuration, templates, and CODEOWNERS are set up.
-- [Private Project](https://github.com/users/andersj05/projects/1) imports new issues
-  from the public repository. Four milestones and issues #2–#9 define next work.
+- Four milestones and issues #2–#9 define next work, tracked through issues and PRs.
 
 ## Intentional limitations
 
@@ -34,13 +33,19 @@ credentials, publishing, durable evidence store, or report evaluation is configu
 
 [Issue #2](https://github.com/andersj05/ResearchChain/issues/2): durable workflow
 revisions and Postgres checkpoints, verified by restarting and resuming a paused run.
-Create `feat/durable-runs` from current `dev` when that work starts. Coordinate its
-schema with advanced control flow (#3) and the visual editor (#4).
+Implementation is in [PR #16](https://github.com/andersj05/ResearchChain/pull/16)
+on `feat/durable-runs`, still open as of 2026-11-14. Review/integrate that PR next;
+coordinate its schema with advanced control flow (#3) and the visual editor (#4).
 
 ## Environment notes
 
 Use `pnpm bootstrap`, then `pnpm dev`. See `docs/development.md`.
-The GitHub CLI works outside the Windows sandbox. Its token lacks Projects scope;
-the signed-in browser can manage the board. The connector returns 403 on writes.
 The original repository history and public visibility were preserved. See
 `docs/github.md` for settings and branch policy.
+
+Workflow update, 2026-11-14: use GitHub issues and PRs through `gh` only. GitHub
+Projects is retired from agent instructions; no browser or Projects scope is
+needed. Repository settings now specify `has_projects: false` for the next apply;
+this documentation change does not modify the remote board or repository settings.
+The GitHub CLI works outside the Windows sandbox. See root `AGENTS.md` and the
+[CLI workflow](../github.md). The application handoff above remains dated 2026-11-13.

@@ -10,8 +10,9 @@ LangGraph + FastAPI for execution. The first workflow is a deterministic develop
 exercise; it does not call a model, browse sources, or generate investment research.
 
 Setup and commands: [development guide](docs/development.md).
-Track work in the [GitHub Project](https://github.com/users/andersj05/projects/1)
-and review the [repository configuration](docs/github.md).
+Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
+[PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).
+See the [CLI workflow and repository configuration](docs/github.md).
 
 ## How we work
 
