@@ -1,9 +1,10 @@
 # Current state
 
-Updated 2026-11-14. The advanced runtime is in dev through
-[PR #20](https://github.com/andersj05/ResearchChain/pull/20), merge `641dfda`.
-Issue #3 is closed. The visual editor milestone (#4) is implemented and locally
-verified on `feat/workflow-editor`; its PR/CI/merge into dev are the next actions.
+Updated 2026-11-14. The visual editor is merged into dev through
+[PR #21](https://github.com/andersj05/ResearchChain/pull/21), merge `1f05f58`,
+with eight feature commits and passing CI. Issue #4 is closed. The advanced
+runtime was merged in [PR #20](https://github.com/andersj05/ResearchChain/pull/20);
+issue #3 is closed as well.
 
 ## Verified capabilities
 
@@ -33,9 +34,12 @@ verified on `feat/workflow-editor`; its PR/CI/merge into dev are the next action
 
 ## Next work
 
-Finish the editor issue #4 PR/CI/merge, then start evidence/artifact ingestion (#5).
+Active: evidence/artifact ingestion (#5) on `feat/evidence-provenance`, starting
+from `1f05f58`. See [implementation sequence](../plans/0003-evidence-provenance.md).
+Start with immutable provenance records and bounded content-addressed storage,
+then original inspection, claim/evidence relationships, and run attachment UI.
 Next come one bounded real research workflow (#6), evaluations/comparisons (#7),
-and report editing/feedback (#8). See [editor implementation plan](../plans/0002-workflow-editor.md).
+and report editing/feedback (#8).
 
 Provider credentials/calls, artifact bytes, authentication, hosting, and evaluation
 are not implemented. The deterministic runtime is not yet a research agent.

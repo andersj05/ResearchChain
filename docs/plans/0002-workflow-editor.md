@@ -1,6 +1,8 @@
 # Visual workflow authoring (issue #4)
 
-Runtime prerequisite: PR #20 is merged into dev. Work on `feat/workflow-editor`.
+Completed in [PR #21](https://github.com/andersj05/ResearchChain/pull/21), merged
+into dev at `1f05f58`. All required checks passed; issue #4 is closed.
+The runtime prerequisite was PR #20.
 The owner has authorized frequent coherent commits and merging each completed
 stage into dev after local checks and CI.
 
