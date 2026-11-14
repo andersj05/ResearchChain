@@ -20,6 +20,17 @@ export type ValidationResult = components["schemas"]["ValidationResult"];
 
 export const initialWorkflow = example as Workflow;
 
+export type ValidationIssue = { path: string; message: string };
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    readonly issues: ValidationIssue[] = [],
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
 export async function api<T>(path: string, body?: unknown): Promise<T> {
   const response = await fetch(`/api/${path}`, {
     method: body === undefined ? "GET" : "POST",
@@ -36,7 +47,13 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
       : typeof detail === "string"
         ? detail
         : "The local API is unavailable. Start both services with pnpm dev.";
-    throw new Error(message);
+    const issues: ValidationIssue[] = Array.isArray(detail)
+      ? detail.map((item: { loc?: (string | number)[]; msg: string }) => ({
+          path: (item.loc ?? []).filter((part) => part !== "body").join("."),
+          message: item.msg,
+        }))
+      : [];
+    throw new ApiError(message, issues);
   }
   return response.json() as Promise<T>;
 }

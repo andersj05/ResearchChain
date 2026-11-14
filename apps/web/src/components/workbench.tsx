@@ -2,14 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Undo2, CheckCheck, ExternalLink } from "lucide-react";
+import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
 import { RunSetup } from "@/components/run-setup";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
+import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
 import { WorkflowEditor } from "@/components/workflow-editor";
 import { formatTime, RunInspector, RunStatus } from "@/components/run-inspector";
 import {
   api,
+  ApiError,
+  type ValidationIssue,
   initialWorkflow,
   type RunRequest,
   type RunSnapshot,
@@ -23,10 +26,21 @@ import {
 const storageKey = "researchchain.workflow.v0.1";
 
 export function Workbench() {
-  const [workflow, setWorkflow] = useState<Workflow>(initialWorkflow);
+  const {
+    workflow,
+    change: recordChange,
+    replace: replaceWorkflow,
+    initialize,
+    travel,
+    canUndo,
+    canRedo,
+    seal,
+  } = useWorkflowHistory(initialWorkflow);
+  const [documentEpoch, setDocumentEpoch] = useState(0);
+  const importInput = useRef<HTMLInputElement>(null);
+  const [diagnostics, setDiagnostics] = useState<ValidationIssue[]>([]);
   const [revision, setRevision] = useState<WorkflowRevision | null>(null);
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
-  const [history, setHistory] = useState<Workflow[]>([]);
   const [selected, setSelected] = useState(initialWorkflow.start_node);
   const [brief, setBrief] = useState(
     "What evidence would distinguish sector rotation from a broad increase in correlation?",
@@ -61,7 +75,7 @@ export function Workbench() {
         setRuns(recentRuns);
         if (latest) {
           setRevision(latest);
-          setWorkflow(latest.workflow);
+          initialize(latest.workflow);
           setSelected(latest.workflow.start_node);
         }
         const runId = parameters.get("run");
@@ -93,11 +107,11 @@ export function Workbench() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialize]);
 
-  function change(next: Workflow) {
-    setHistory((previous) => [...previous.slice(-49), workflow]);
-    setWorkflow(next);
+  function change(next: Workflow, group?: string) {
+    recordChange(next, group);
+    setDiagnostics([]);
     setError("");
     setMessage("Draft changed. Save a revision to keep these changes.");
   }
@@ -106,11 +120,14 @@ export function Workbench() {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
+    seal();
     setError("");
+    setDiagnostics([]);
     try {
       await work();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The action failed.");
+      setDiagnostics(cause instanceof ApiError ? cause.issues : []);
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -159,7 +176,7 @@ export function Workbench() {
   async function saveRevision() {
     const result = await api<WorkflowRevision>("revisions", workflow);
     setRevision(result);
-    setWorkflow(result.workflow);
+    replaceWorkflow(result.workflow);
     setRevisions((previous) =>
       [result, ...previous.filter((item) => item.id !== result.id)]
         .sort((a, b) => b.number - a.number)
@@ -173,6 +190,7 @@ export function Workbench() {
   async function loadRevision(id: string) {
     const result = await api<WorkflowRevision>(`revisions/${id}`);
     change(result.workflow);
+    setDocumentEpoch((value) => value + 1);
     setRevision(result);
     setSelected(result.workflow.start_node);
     rememberRevision(result.id);
@@ -227,6 +245,29 @@ export function Workbench() {
     }
   }
 
+  function undoRedo(direction: "undo" | "redo") {
+    if (travel(direction)) {
+      setError("");
+      setDiagnostics([]);
+      setMessage(direction === "undo" ? "Last edit undone." : "Last edit redone.");
+    }
+  }
+
+  async function importWorkflow(file: File) {
+    if (file.size > 10 * 1024 * 1024) throw new Error("Workflow files must be smaller than 10 MB.");
+    let document: unknown;
+    try {
+      document = JSON.parse(await file.text());
+    } catch {
+      throw new Error("This file is not valid JSON. The current draft has been kept.");
+    }
+    const validated = await api<ValidationResult>("workflows/validate", document);
+    change(validated.workflow);
+    setDocumentEpoch((value) => value + 1);
+    setSelected(validated.workflow.start_node);
+    setMessage("Workflow imported and validated. Undo restores your previous draft.");
+  }
+
   function saveDraft() {
     try {
       localStorage.setItem(storageKey, JSON.stringify(workflow));
@@ -249,7 +290,17 @@ export function Workbench() {
   }
 
   return (
-    <main className="studio">
+    <main
+      className="studio"
+      onKeyDown={(event) => {
+        if (event.defaultPrevented || tab !== "workflow" || setupOpen || busy) return;
+        const direction = historyShortcut(event.nativeEvent);
+        if (direction) {
+          event.preventDefault();
+          undoRedo(direction);
+        }
+      }}
+    >
       <header className="topbar">
         <Link className="brand" href="/" aria-label="ResearchChain home">
           <span>ResearchChain</span>
@@ -307,13 +358,29 @@ export function Workbench() {
         </div>
         {error && !setupOpen && (
           <div className="error workspace-error" role="alert">
-            {error}
+            {diagnostics.length ? (
+              <>
+                <strong>Workflow needs attention</strong>
+                <ul className="validation-issues">
+                  {diagnostics.map((issue, index) => (
+                    <li key={index}>
+                      {issue.path && <code>{issue.path}: </code>}
+                      {issue.message}
+                    </li>
+                  ))}
+                </ul>
+              </>
+            ) : (
+              error
+            )}
           </div>
         )}
         <TabsPanel className="workflow-view" value="workflow" keepMounted>
           <h1 className="sr-only">Workflow</h1>
           <section className="workspace" aria-label="Workflow editor">
             <WorkflowEditor
+              key={documentEpoch}
+              onSeal={seal}
               workflow={workflow}
               selected={selected}
               onSelect={setSelected}
@@ -324,17 +391,19 @@ export function Workbench() {
               <div className="actions">
                 <Button
                   className="button small"
-                  disabled={busy || !history.length}
-                  onClick={() => {
-                    const previous = history.at(-1);
-                    if (previous) {
-                      setWorkflow(previous);
-                      setHistory(history.slice(0, -1));
-                      setMessage("Last edit undone.");
-                    }
-                  }}
+                  disabled={busy || !canUndo}
+                  onClick={() => undoRedo("undo")}
+                  aria-keyshortcuts="Control+Z Meta+Z"
                 >
                   <Undo2 size={14} aria-hidden="true" /> Undo last edit
+                </Button>
+                <Button
+                  className="button small"
+                  disabled={busy || !canRedo}
+                  onClick={() => undoRedo("redo")}
+                  aria-keyshortcuts="Control+Shift+Z Meta+Shift+Z"
+                >
+                  <Redo2 size={14} aria-hidden="true" /> Redo last edit
                 </Button>
                 <Button
                   className="button small"
@@ -367,12 +436,33 @@ export function Workbench() {
                           JSON.parse(stored),
                         );
                         change(validated.workflow);
+                        setDocumentEpoch((value) => value + 1);
                         setSelected(validated.workflow.start_node);
                         setMessage("Saved draft loaded and validated.");
                       })
                     }
                   >
                     Load saved draft
+                  </Button>
+                  <input
+                    ref={importInput}
+                    type="file"
+                    accept=".json,application/json"
+                    aria-label="Import workflow JSON"
+                    hidden
+                    disabled={!loaded || busy}
+                    onChange={(event) => {
+                      const file = event.currentTarget.files?.[0];
+                      event.currentTarget.value = "";
+                      if (file) void action(() => importWorkflow(file));
+                    }}
+                  />
+                  <Button
+                    className="button"
+                    disabled={!loaded || busy}
+                    onClick={() => importInput.current?.click()}
+                  >
+                    Import JSON
                   </Button>
                   <Button className="button" disabled={!loaded || busy} onClick={exportWorkflow}>
                     Export JSON
