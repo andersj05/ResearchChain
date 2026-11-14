@@ -126,7 +126,7 @@ test("stale review controls refresh without approving a later review", async ({
   request,
 }) => {
   const workflow = structuredClone(example);
-  workflow.nodes[1].kind = "review";
+  workflow.nodes[1]!.kind = "review";
   const revision = await (await request.post("/api/revisions", { data: workflow })).json();
   await page.goto(`/?revision=${revision.id}`);
   await page.getByRole("button", { name: "Run workflow" }).click();
@@ -142,7 +142,7 @@ test("stale review controls refresh without approving a later review", async ({
   });
   await page.getByRole("button", { name: "Approve and continue" }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
-  await expect(page.locator(".review-box h3")).toHaveText(workflow.nodes[2].instructions);
+  await expect(page.locator(".review-box h3")).toHaveText(workflow.nodes[2]!.instructions);
   const current = await (await request.get(`/api/runs/${id}`)).json();
   expect(current.review.node_id).toBe("review");
   expect(current.events).toHaveLength(2);

@@ -45,6 +45,8 @@ pnpm dev
 | Command                         | Purpose                                                  |
 | ------------------------------- | -------------------------------------------------------- |
 | `pnpm dev:web` / `pnpm dev:api` | Run a single service                                     |
+| `pnpm db:up` / `pnpm db:down`   | Start/stop local Postgres; preserve its named volume     |
+| `pnpm db:migrate`               | Apply application and LangGraph database migrations      |
 | `pnpm test`                     | Backend validation and real checkpoint/resume tests      |
 | `pnpm typecheck`                | TypeScript and strict Python type checks                 |
 | `pnpm lint`                     | ESLint and Ruff checks                                   |
@@ -52,11 +54,19 @@ pnpm dev
 | `pnpm contracts:generate`       | Regenerate OpenAPI and TypeScript API types              |
 | `pnpm contracts:check`          | Regenerate and detect tracked contract drift             |
 | `pnpm check`                    | Formatting, lint, types, backend tests, production build |
-| `pnpm test:e2e`                 | Browser tests; starts local services if absent           |
+| `pnpm test:e2e`                 | Browser tests in a temporary Postgres schema             |
 
 Install the test browser once with
 `pnpm --filter @researchchain/web exec playwright install chromium`.
 On Linux CI the install command also uses `--with-deps`.
+
+Backend tests fail if Postgres is unavailable; they do not silently skip durability
+checks. Browser tests own their API/web processes and fail if ports 8000/3000 are
+already occupied. Stop `pnpm dev` first. Run browser tests from the repository root
+so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema.
+Focus a browser test with `pnpm test:e2e --grep "narrow screen"`. Screenshots and
+failure traces stay under ignored `apps/web/test-results/`; CI uploads them for
+seven days. Backend tests also create and remove isolated `test_*` schemas.
 
 The Python models in `apps/api/src/researchchain/models.py` own the API boundary.
 Regenerate contracts after changing them, review the generated diff, and commit
@@ -71,10 +81,31 @@ Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loadin
 a saved draft validates it through the local API before rendering it. Undo keeps
 the last 50 edits for this page session.
 
-Run the default workflow and approve or reject at the real LangGraph review pause.
-Editor changes do not mutate the running workflow. Runs are intentionally limited
-to 100 in process memory; restart clears them. Browser drafts survive a restart,
-but are not durable team storage. This is not yet a complete research/report system.
+Save a revision to Postgres; identical validated documents share a revision. Run
+automatically saves and pins the current revision plus the brief. Revisions are
+immutable, and loading an older revision is undoable. Revision numbers are database
+sequence values, so concurrent saves can leave gaps.
+
+The Runs view lists recent runs and their original briefs, revisions, completed
+steps, and review questions. Run links survive browser refresh and API restart.
+Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
+returns its saved receipt; a conflicting decision returns HTTP 409. The browser
+then reads current state so an old response cannot restore obsolete controls.
+
+If the process stops during execution, open the run and select **Recover run**.
+Recovery continues the recorded command from the last durable progress and stops
+at the next unanswered human review. Reading a run never executes it. Paused runs
+can be approved normally after restart; they do not require a recovery action.
+
+The UI shows the latest 20 runs and 50 revisions. The API accepts bounded `limit`
+parameters and direct UUID lookups; there is no automatic data deletion. A run
+also pins a compiler version. Incompatible executors refuse recovery instead of
+silently interpreting old checkpoints through changed code.
+
+To manually verify restart: run the sample until it pauses, restart `pnpm dev:api`,
+refresh the run's URL, and approve. Editing/saving a newer workflow before the
+restart must not change that run. `apps/api/tests/test_restart.py` automates this
+with hard process kills. This is not yet a complete research/report system.
 
 ## Tooling notes
 
@@ -91,7 +122,13 @@ but are not durable team storage. This is not yet a complete research/report sys
 
 ## Production prerequisites
 
-Before remote hosting, implement authentication/authorization, durable workflow
-revisions and checkpoints, job isolation, request limits, and artifact permissions.
+Before remote hosting, implement authentication/authorization, job isolation,
+request limits, database backups/retention, and artifact permissions.
 Then configure provider credentials, spend budgets, tool access, and tracing with
 explicit data-retention choices. The local service is not a production deployment.
+
+Use a direct Postgres connection for this runtime: session advisory locks and the
+checkpointer deliberately share a physical connection. Transaction-mode poolers
+are incompatible with that locking contract. Long-running jobs, external side
+effects, automatic recovery workers, and connection pooling need a separate design;
+see [ADR 0002](decisions/0002-durable-runs.md).

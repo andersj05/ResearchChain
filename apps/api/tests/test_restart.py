@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from collections.abc import Iterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
 from uuid import uuid4
 
@@ -106,3 +107,36 @@ def test_paused_run_survives_hard_process_restart(database: Database, workflow: 
 
     with api_process(database) as third:
         assert third.get(f"/api/runs/{paused['id']}").json() == completed
+
+
+def test_conflicting_decisions_across_two_api_processes(database: Database, workflow: dict) -> None:
+    workflow["nodes"][1]["kind"] = "review"
+    with api_process(database) as first, api_process(database) as second:
+        revision = first.post("/api/revisions", json=workflow).json()
+        paused = first.post(
+            "/api/runs",
+            json={
+                "id": str(uuid4()),
+                "revision_id": revision["id"],
+                "brief": "Two independent workers",
+            },
+        ).json()
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futures = [
+                executor.submit(
+                    client.post,
+                    f"/api/runs/{paused['id']}/resume",
+                    json={
+                        "checkpoint_id": paused["checkpoint_id"],
+                        "interrupt_id": paused["review"]["interrupt_id"],
+                        "decision": decision,
+                    },
+                )
+                for client, decision in ((first, "approve"), (second, "reject"))
+            ]
+            results = [future.result() for future in futures]
+        assert sorted(response.status_code for response in results) == [200, 409]
+        winner = next(response.json() for response in results if response.status_code == 200)
+        assert first.get(f"/api/runs/{paused['id']}").json() == winner
+        assert second.get(f"/api/runs/{paused['id']}").json() == winner
+        assert [event["node_id"] for event in winner["events"]] == ["frame", "challenge"]

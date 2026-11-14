@@ -6,7 +6,6 @@ import sys
 from uuid import uuid4
 
 from psycopg import sql
-
 from researchchain.database import LOCAL_DATABASE_URL, Database
 
 Database.from_env()
