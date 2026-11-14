@@ -158,7 +158,7 @@ test("canvas movement and workspace tabs support the keyboard", async ({ page })
   const node = page.getByRole("button", { name: "Edit Frame the question", exact: true });
   await node.focus();
   await node.press("Alt+ArrowRight");
-  await expect(node).toHaveCSS("left", "70px");
+  await expect(page.locator('[data-node-id="frame"]')).toHaveCSS("left", "70px");
   const tab = page.getByRole("tab", { name: "Workflow", exact: true });
   await tab.focus();
   await tab.press("ArrowRight");

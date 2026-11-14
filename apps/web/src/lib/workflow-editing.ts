@@ -238,11 +238,14 @@ export function addTemplate(
   const anchor = insertionAnchor(graph, selected);
   const x = Math.min(anchor?.position.x ?? 60, 8800);
   const y = Math.min(Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 180, 9400);
-  let next = workflow;
+  let next =
+    workflow.schema_version === "0.1" && graph.nodes.length >= 32
+      ? { ...workflow, schema_version: "0.2" as const }
+      : workflow;
   if (kind === "note" || kind === "review") {
     return {
       workflow: updateGraph(
-        workflow,
+        next,
         scope,
         insertStep(
           graph,
@@ -383,5 +386,93 @@ export function forkDefinition(
       subgraphs: [...(workflow.subgraphs ?? []), { ...structuredClone(definition), version }],
     },
     ref: { id: ref.id, version },
+  };
+}
+
+export function renameBranch(graph: Graph, id: string, before: string, after: string): Graph {
+  return {
+    ...graph,
+    nodes: graph.nodes.map((node) =>
+      node.id === id && node.config?.type === "fork"
+        ? {
+            ...node,
+            config: {
+              ...node.config,
+              branches: node.config.branches.map((name) => (name === before ? after : name)),
+            },
+          }
+        : node,
+    ),
+    edges: graph.edges.map((item) =>
+      item.source === id && item.source_port === before ? { ...item, source_port: after } : item,
+    ),
+  };
+}
+
+export function addBranch(graph: Graph, id: string): Graph {
+  const node = graph.nodes.find((item) => item.id === id);
+  if (node?.config?.type !== "fork" || node.config.branches.length >= 8) return graph;
+  const config = node.config;
+  let number = config.branches.length + 1;
+  while (node.config.branches.includes(`branch-${number}`)) number++;
+  const name = `branch-${number}`;
+  const step = makeNode(
+    makeId("note"),
+    "note",
+    `Branch ${number}`,
+    node.position.x + 330,
+    Math.max(...graph.nodes.map((item) => item.position.y)) + 180,
+  );
+  return {
+    ...graph,
+    nodes: [
+      ...graph.nodes.map((item) =>
+        item.id === id
+          ? {
+              ...node,
+              config: { ...config, branches: [...config.branches, name] },
+            }
+          : item,
+      ),
+      step,
+    ],
+    edges: [...graph.edges, edge(id, step.id, name), edge(step.id, node.config.join)],
+  };
+}
+
+export function removeBranch(graph: Graph, id: string, name: string): Graph {
+  const node = graph.nodes.find((item) => item.id === id);
+  if (node?.config?.type !== "fork" || node.config.branches.length <= 2) return graph;
+  const join = node.config.join;
+  const removed = new Set<string>();
+  const visit = (current: string) => {
+    if (current === join || removed.has(current)) return;
+    removed.add(current);
+    graph.edges.filter((item) => item.source === current).forEach((item) => visit(item.target));
+  };
+  graph.edges
+    .filter((item) => item.source === id && item.source_port === name)
+    .forEach((item) => visit(item.target));
+  return {
+    ...graph,
+    nodes: graph.nodes
+      .filter((item) => !removed.has(item.id))
+      .map((item) =>
+        item.id === id && item.config?.type === "fork"
+          ? {
+              ...item,
+              config: {
+                ...item.config,
+                branches: item.config.branches.filter((branch) => branch !== name),
+              },
+            }
+          : item,
+      ),
+    edges: graph.edges.filter(
+      (item) =>
+        !removed.has(item.source) &&
+        !removed.has(item.target) &&
+        !(item.source === id && item.source_port === name),
+    ),
   };
 }
