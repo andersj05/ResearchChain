@@ -22,7 +22,7 @@ export const workflowCanvas = definePrimitive({
   state: (options: CanvasOptions) => ({
     positions: options.positions,
     moving: null as MoveDraft | null,
-    viewport: { x: 0, y: 0, zoom: 0.8 },
+    viewport: { x: 24, y: 24, zoom: 1 },
   }),
   sync: (options) => ({ positions: options.positions }),
   live: ["viewport", "moving"],
@@ -42,7 +42,20 @@ export const workflowCanvas = definePrimitive({
       step: () => 10,
       bounds: () => ({ minX: -10000, minY: -10000, maxX: 10000, maxY: 10000 }),
     });
-    return { viewport, move };
+    function fit() {
+      const points = Object.values(context.store.get().positions);
+      if (!points.length) return;
+      viewport.fit(
+        {
+          left: Math.min(...points.map((point) => point.x)),
+          top: Math.min(...points.map((point) => point.y)),
+          right: Math.max(...points.map((point) => point.x)) + 230,
+          bottom: Math.max(...points.map((point) => point.y)) + 120,
+        },
+        { padding: 48, maxZoom: 1 },
+      );
+    }
+    return { viewport, move, fit };
   },
   slots: (slot) => ({
     root: slot({
@@ -84,7 +97,19 @@ export const workflowCanvas = definePrimitive({
     }),
     reset: slot({
       attrs: () => ({ type: "button" }),
-      press: ({ api }) => api.viewport.setViewport({ x: 0, y: 0, zoom: 0.8 }),
+      press: ({ api }) => api.viewport.setViewport({ x: 24, y: 24, zoom: 1 }),
+    }),
+    fit: slot({
+      attrs: () => ({ type: "button" }),
+      press: ({ api }) => api.fit(),
+    }),
+    zoomIn: slot({
+      attrs: () => ({ type: "button" }),
+      press: ({ api }) => api.viewport.zoomBy(1.25),
+    }),
+    zoomOut: slot({
+      attrs: () => ({ type: "button" }),
+      press: ({ api }) => api.viewport.zoomBy(0.8),
     }),
   }),
 });

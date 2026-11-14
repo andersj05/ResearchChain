@@ -1,19 +1,28 @@
 # Current state
 
-Updated 2026-11-14. Implementation and validation are recorded in
-[durable runs PR #16](https://github.com/andersj05/ResearchChain/pull/16) and
-[CLI workflow PR #17](https://github.com/andersj05/ResearchChain/pull/17).
+Updated 2026-11-14. The frontend redesign and editing refinements are recorded in
+[PR #19](https://github.com/andersj05/ResearchChain/pull/19), targeting `dev`.
+Durability is recorded in [PR #16](https://github.com/andersj05/ResearchChain/pull/16);
+the CLI workflow is recorded in [PR #17](https://github.com/andersj05/ResearchChain/pull/17).
 Use those PRs for current CI and merge state.
 
 ## Verified capabilities
 
 - The Next.js/UI SDK workbench supports workflow editing, saved revisions, run
-  history, and human review, with Geist typography and neutral styling.
+  history, and human review. The redesign adds a flat full-height shell, colored
+  step identities, collapsible panels, a step outline, zoom/fit controls, and a
+  focused run setup dialog. See [design conventions and audit](../design.md).
+  Corners are square and decorative graphics removed. New steps connect into the
+  chain automatically; removal reconnects neighbors and advances the entry when
+  needed. Both operations are undoable, with API validation before persistence.
 - Postgres stores immutable revisions/manifests, synchronous LangGraph
   checkpoints, and a command journal. Runs survive API restart; repeated and
   concurrent approvals cannot advance the same review twice.
-- PR #16 records 24 backend tests, nine browser tests, and a production build.
-  Tests cover process restarts, competing API workers, recovery, and mobile UI.
+- PR #19 passed `pnpm check` (including 24 backend tests and a production build)
+  and 13 browser tests locally. Desktop/laptop, run setup, review, and mobile
+  captures were visually inspected. Tests cover durable runs plus dialog focus,
+  panel toggles, outline selection, viewport controls, connected insertion/removal,
+  and responsive layouts.
 - Development tracking uses issues and PRs through `gh` only. Follow
   [the CLI workflow](../github.md); do not maintain GitHub Projects.
 

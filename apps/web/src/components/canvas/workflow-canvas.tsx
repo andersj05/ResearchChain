@@ -3,12 +3,17 @@
 import { createParts } from "@ui-sdk/react/primitive";
 import type { Workflow } from "@/lib/workflow";
 import { workflowCanvas } from "./primitive";
+import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
+import { nodeKinds } from "@/components/node-kind";
 
 const parts = createParts(workflowCanvas, {
   root: "div",
   world: "div",
   node: "button",
   reset: "button",
+  fit: "button",
+  zoomIn: "button",
+  zoomOut: "button",
 });
 
 export function WorkflowCanvas({
@@ -61,33 +66,42 @@ export function WorkflowCanvas({
             );
           })}
         </svg>
-        {workflow.nodes.map((node, index) => (
+        {workflow.nodes.map((node) => (
           <parts.Node
             key={node.id}
             value={node.id}
+            id={`workflow-node-${node.id}`}
             className={`graph-node ${selected === node.id ? "selected" : ""}`}
             aria-label={`Edit ${node.label}`}
             aria-pressed={selected === node.id}
             onClick={() => onSelect(node.id)}
           >
-            <span className={`node-kind kind-${node.kind}`}>
-              {node.kind === "note" ? "◇" : node.kind === "review" ? "◎" : "✓"} {node.kind}
+            <span className="node-topline">
+              <span className={`node-kind kind-${node.kind}`}>{nodeKinds[node.kind].label}</span>
+              {workflow.start_node === node.id && <span className="start-label">Start</span>}
             </span>
             <strong>{node.label}</strong>
-            <span className="node-footer">
-              <span>
-                {String(index + 1).padStart(2, "0")} / {node.id}
-              </span>
-              <span>{workflow.start_node === node.id ? "START" : ""}</span>
+            <span className="node-summary">
+              {node.instructions ||
+                (node.kind === "finish" ? "End of workflow" : "Add instructions…")}
             </span>
           </parts.Node>
         ))}
       </parts.World>
       <div className="canvas-toolbar">
-        <parts.Reset className="button">Reset view</parts.Reset>
-        <span>
-          {workflow.nodes.length} nodes · {workflow.edges.length} connections
-        </span>
+        <parts.ZoomOut className="button icon-button" aria-label="Zoom out">
+          <Minus size={16} aria-hidden="true" />
+        </parts.ZoomOut>
+        <parts.ZoomIn className="button icon-button" aria-label="Zoom in">
+          <Plus size={16} aria-hidden="true" />
+        </parts.ZoomIn>
+        <parts.Fit className="button" aria-label="Fit workflow to view">
+          <Maximize size={15} aria-hidden="true" />
+          Fit view
+        </parts.Fit>
+        <parts.Reset className="button icon-button" aria-label="Reset view">
+          <RotateCcw size={15} aria-hidden="true" />
+        </parts.Reset>
       </div>
     </parts.Root>
   );

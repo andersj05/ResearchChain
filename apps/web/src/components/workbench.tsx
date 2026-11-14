@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { Undo2, CheckCheck, ExternalLink } from "lucide-react";
+import { RunSetup } from "@/components/run-setup";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { WorkflowEditor } from "@/components/workflow-editor";
@@ -35,6 +37,7 @@ export function Workbench() {
   const [message, setMessage] = useState("Loading saved workspace…");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [setupOpen, setSetupOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const pendingStart = useRef<RunRequest | null>(null);
   const busyRef = useRef(false);
@@ -147,6 +150,7 @@ export function Workbench() {
   async function openRun(id: string) {
     const result = await api<RunSnapshot>(`runs/${id}`);
     setRun(result);
+    setSetupOpen(false);
     setTab("runs");
     rememberRun(id);
     return result;
@@ -247,63 +251,32 @@ export function Workbench() {
     <main className="studio">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="ResearchChain home">
-          <span className="brand-mark">R</span>ResearchChain
+          <span>ResearchChain</span>
         </Link>
         <span className="workspace-divider" aria-hidden="true">
           /
         </span>
         <span className="workspace-label">EquityCats</span>
+        <span className="workspace-divider breadcrumb-extra" aria-hidden="true">
+          /
+        </span>
+        <span className="breadcrumb-title">{workflow.name || "Untitled workflow"}</span>
         <span className="local-badge">Local workspace</span>
       </header>
-      <Tabs value={tab} onValueChange={switchTab}>
-        <TabsList className="workspace-tabs" aria-label="Workspace">
-          <TabsTab value="workflow">Workflow</TabsTab>
-          <TabsTab value="runs">Runs</TabsTab>
-          <TabsTab value="revisions">Revisions</TabsTab>
-        </TabsList>
-        <div className="page-heading">
-          <div>
-            <h1>{{ workflow: "Workflow", runs: "Runs", revisions: "Revisions" }[tab]}</h1>
-            <p>
-              {
-                {
-                  workflow: "Design the process behind your research.",
-                  runs: "Saved progress. Every review in context.",
-                  revisions: "A permanent record of how your workflow changes.",
-                }[tab]
-              }
-            </p>
-          </div>
-          <a
-            className="text-link"
-            href="http://127.0.0.1:8000/docs"
-            target="_blank"
-            rel="noreferrer"
-          >
-            API reference ↗
-          </a>
-        </div>
-        <div className="notice" aria-live="polite">
-          <p role="status" aria-label="Workspace status">
-            {message}
-          </p>
-          {busy && <span className="working">Working…</span>}
-        </div>
-        {error && (
-          <div className="error" role="alert">
-            {error}
-          </div>
-        )}
-        <TabsPanel value="workflow" keepMounted>
-          <section className="workspace" aria-label="Workflow editor">
-            <div className="workspace-header">
-              <div className="workflow-title">
-                <strong>{workflow.name || "Untitled workflow"}</strong>
-                <span className="version">
+      <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
+        <div className="navigation-bar">
+          <TabsList className="workspace-tabs" aria-label="Workspace">
+            <TabsTab value="workflow">Workflow</TabsTab>
+            <TabsTab value="runs">Runs</TabsTab>
+            <TabsTab value="revisions">Revisions</TabsTab>
+          </TabsList>
+          <div className="actions workspace-actions">
+            {tab === "workflow" && (
+              <>
+                <span className={`save-state ${saved ? "" : "unsaved"}`}>
+                  <i aria-hidden="true" />
                   {saved ? `Revision ${revision.number}` : "Unsaved draft"}
                 </span>
-              </div>
-              <div className="actions">
                 <Button
                   className="button"
                   disabled={!loaded || busy}
@@ -315,15 +288,30 @@ export function Workbench() {
                 >
                   Save revision
                 </Button>
-                <Button
-                  className="button primary"
-                  disabled={!loaded || busy || !brief.trim()}
-                  onClick={() => action(startRun)}
-                >
-                  Run workflow <span aria-hidden="true">↗</span>
-                </Button>
-              </div>
-            </div>
+              </>
+            )}
+            <RunSetup
+              open={setupOpen}
+              onOpenChange={setSetupOpen}
+              brief={brief}
+              onBriefChange={setBrief}
+              name={workflow.name}
+              revision={saved ? revision.number : null}
+              busy={busy}
+              loaded={loaded}
+              error={error}
+              onStart={() => action(startRun)}
+            />
+          </div>
+        </div>
+        {error && !setupOpen && (
+          <div className="error workspace-error" role="alert">
+            {error}
+          </div>
+        )}
+        <TabsPanel className="workflow-view" value="workflow" keepMounted>
+          <h1 className="sr-only">Workflow</h1>
+          <section className="workspace" aria-label="Workflow editor">
             <WorkflowEditor
               workflow={workflow}
               selected={selected}
@@ -345,7 +333,7 @@ export function Workbench() {
                     }
                   }}
                 >
-                  Undo last edit
+                  <Undo2 size={14} aria-hidden="true" /> Undo last edit
                 </Button>
                 <Button
                   className="button small"
@@ -357,66 +345,45 @@ export function Workbench() {
                     })
                   }
                 >
-                  Validate workflow
+                  <CheckCheck size={14} aria-hidden="true" /> Validate workflow
                 </Button>
               </div>
-              <span className="muted">Edits apply to future runs.</span>
+              <details className="draft-tools">
+                <summary>Local draft &amp; export</summary>
+                <div className="actions">
+                  <Button className="button" disabled={!loaded || busy} onClick={saveDraft}>
+                    Save draft
+                  </Button>
+                  <Button
+                    className="button"
+                    disabled={!loaded || busy}
+                    onClick={() =>
+                      action(async () => {
+                        const stored = localStorage.getItem(storageKey);
+                        if (!stored) throw new Error("No saved draft in this browser yet.");
+                        const validated = await api<ValidationResult>(
+                          "workflows/validate",
+                          JSON.parse(stored),
+                        );
+                        change(validated.workflow);
+                        setSelected(validated.workflow.start_node);
+                        setMessage("Saved draft loaded and validated.");
+                      })
+                    }
+                  >
+                    Load saved draft
+                  </Button>
+                  <Button className="button" disabled={!loaded || busy} onClick={exportWorkflow}>
+                    Export JSON
+                  </Button>
+                </div>
+              </details>
+              <span className="muted editor-footnote">Edits apply to future runs.</span>
             </div>
           </section>
-          <section className="brief-panel">
-            <div>
-              <h2>Research brief</h2>
-              <p className="muted">The question this run should explore.</p>
-            </div>
-            <div>
-              <label className="sr-only" htmlFor="brief">
-                Research brief
-              </label>
-              <textarea
-                id="brief"
-                rows={3}
-                maxLength={10000}
-                value={brief}
-                disabled={busy}
-                onChange={(event) => setBrief(event.target.value)}
-              />
-              <p className="muted">
-                Notes and human reviews are available. Research tools and model calls come next.
-              </p>
-            </div>
-          </section>
-          <details className="draft-tools">
-            <summary>Local draft &amp; export</summary>
-            <div className="actions">
-              <Button className="button" disabled={!loaded || busy} onClick={saveDraft}>
-                Save draft
-              </Button>
-              <Button
-                className="button"
-                disabled={!loaded || busy}
-                onClick={() =>
-                  action(async () => {
-                    const stored = localStorage.getItem(storageKey);
-                    if (!stored) throw new Error("No saved draft in this browser yet.");
-                    const validated = await api<ValidationResult>(
-                      "workflows/validate",
-                      JSON.parse(stored),
-                    );
-                    change(validated.workflow);
-                    setSelected(validated.workflow.start_node);
-                    setMessage("Saved draft loaded and validated.");
-                  })
-                }
-              >
-                Load saved draft
-              </Button>
-              <Button className="button" disabled={!loaded || busy} onClick={exportWorkflow}>
-                Export JSON
-              </Button>
-            </div>
-          </details>
         </TabsPanel>
-        <TabsPanel value="runs">
+        <TabsPanel className="runs-view" value="runs">
+          <h1 className="sr-only">Runs</h1>
           <div className="runs-layout">
             <aside className="run-history" aria-label="Recent runs">
               <div className="section-heading">
@@ -434,7 +401,7 @@ export function Workbench() {
                   Refresh history
                 </Button>
               </div>
-              <p className="muted">Latest 20 · stored in Postgres</p>
+              <p className="muted">Latest 20 runs</p>
               {runs.length ? (
                 <ul>
                   {runs.map((item) => (
@@ -456,7 +423,6 @@ export function Workbench() {
                           <span>Revision {item.revision_number}</span>
                           <span>{formatTime(item.created_at)}</span>
                         </span>
-                        <span className="code-label">{item.id.slice(0, 8)}</span>
                       </Button>
                     </li>
                   ))}
@@ -496,12 +462,19 @@ export function Workbench() {
             />
           </div>
         </TabsPanel>
-        <TabsPanel value="revisions">
+        <TabsPanel className="revisions-view" value="revisions">
+          <div className="view-heading">
+            <div>
+              <p className="eyebrow">Workflow history</p>
+              <h1>Revisions</h1>
+              <p className="muted">Saved versions of your research process.</p>
+            </div>
+          </div>
           <section className="revisions-panel" aria-label="Saved revisions">
             <div className="section-heading">
               <div>
                 <h2>Saved revisions</h2>
-                <p className="muted">Latest 50 · identical drafts share a revision.</p>
+                <p className="muted">Latest 50 · load any revision to continue editing.</p>
               </div>
               <Button
                 className="button"
@@ -565,8 +538,12 @@ export function Workbench() {
         </TabsPanel>
       </Tabs>
       <footer>
-        <span>ResearchChain</span>
-        <span>Local development</span>
+        <p role="status" aria-label="Workspace status" aria-live="polite">
+          {busy ? "Working…" : message}
+        </p>
+        <a className="text-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
+          API reference <ExternalLink size={12} aria-hidden="true" />
+        </a>
       </footer>
     </main>
   );

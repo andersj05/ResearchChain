@@ -75,7 +75,24 @@ untrusted JSON. The compiler only executes registered node kinds.
 
 ## Workbench behavior
 
-Edit a node in the inspector; use its Next node field to connect or disconnect it.
+The full-height desktop workbench uses a step library and outline on the left,
+a canvas in the center, and a selected-step inspector on the right. Collapse
+either panel from the canvas header. The outline selects and reveals offscreen
+nodes. Zoom controls and Fit view change only the viewport; Reset view restores
+100% zoom. Workflow settings expand beneath the outline. On smaller screens,
+the library and inspector move below the canvas.
+
+**Run workflow** opens a focused setup dialog. Edit the research brief, then
+choose **Start run**. Escape or Cancel preserves the brief and returns focus;
+validation failures remain visible in the dialog. Visual conventions and the
+Vercel reference audit are recorded in [design.md](design.md).
+
+Add a step after the selection, or before a selected Finish; its connections are
+created automatically and its name is focused for editing. Removing a middle step
+reconnects its neighbors, and removing the first advances the workflow entry.
+These operations are undoable and still require server validation before saving.
+
+Edit a step in the inspector; use its Next step field to connect or disconnect it.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
 Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loading
 a saved draft validates it through the local API before rendering it. Undo keeps
