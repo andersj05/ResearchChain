@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from researchchain.database import Database
 from researchchain.models import (
+    CancelResult,
     Health,
     ResumeRequest,
     RevisionSummary,
@@ -19,6 +20,7 @@ from researchchain.models import (
     Workflow,
     WorkflowRevision,
 )
+from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
 from researchchain.runtime import RunStore
 
@@ -67,6 +69,10 @@ def create_app(database: Database | None = None) -> FastAPI:
             )
         return Health()
 
+    @app.get("/api/node-types", response_model=list[NodeTypeSpec], operation_id="node_types")
+    def registered_types() -> list[NodeTypeSpec]:
+        return node_types()
+
     @app.post("/api/workflows/validate", response_model=ValidationResult, operation_id="validate")
     def validate(workflow: Workflow) -> ValidationResult:
         return ValidationResult(node_count=len(workflow.nodes), workflow=workflow)
@@ -109,6 +115,10 @@ def create_app(database: Database | None = None) -> FastAPI:
     @app.post("/api/runs/{run_id}/recover", response_model=RunSnapshot, operation_id="recover_run")
     def recover_run(run_id: UUID) -> RunSnapshot:
         return runs.recover(run_id)
+
+    @app.post("/api/runs/{run_id}/cancel", response_model=CancelResult, operation_id="cancel_run")
+    def cancel_run(run_id: UUID) -> CancelResult:
+        return runs.cancel(run_id)
 
     return app
 

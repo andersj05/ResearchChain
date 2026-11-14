@@ -61,6 +61,7 @@ class ResumeRequest(StrictModel):
 
 class RunEvent(StrictModel):
     node_id: str
+    path: str | None = None
     label: str
     kind: NodeKind
     detail: str
@@ -68,6 +69,7 @@ class RunEvent(StrictModel):
 
 class ReviewPrompt(StrictModel):
     interrupt_id: str
+    path: str | None = None
     node_id: str
     question: str
 
@@ -77,8 +79,18 @@ class RunSummary(StrictModel):
     revision_id: UUID
     revision_number: int
     workflow_name: str
-    status: Literal["paused", "completed", "rejected", "interrupted"]
+    status: Literal["paused", "completed", "rejected", "interrupted", "cancelled", "limited"]
     created_at: datetime
+
+
+class RunUsage(StrictModel):
+    node_executions: int = 0
+    active_seconds: float = 0
+
+
+class CancelResult(StrictModel):
+    id: UUID
+    status: Literal["cancelled", "completed", "rejected", "limited"]
 
 
 class RunSnapshot(RunSummary):
@@ -89,6 +101,9 @@ class RunSnapshot(RunSummary):
     checkpoint_id: str | None
     events: list[RunEvent]
     review: ReviewPrompt | None = None
+    reviews: list[ReviewPrompt] = Field(default_factory=list)
+    stop_reason: str | None = None
+    usage: RunUsage = Field(default_factory=RunUsage)
 
 
 class ValidationResult(StrictModel):

@@ -4,6 +4,7 @@ import operator
 from collections.abc import Callable
 from typing import Annotated, Any, TypedDict
 
+from langchain_core.runnables import RunnableLambda
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
@@ -197,7 +198,9 @@ class StructuredCompiler:
         finish = ""
         for node in graph.nodes:
             path = entries[node.id]
-            self.builder.add_node(path, node_function(node, path, prefix, iteration, self.guard))
+            self.builder.add_node(
+                path, RunnableLambda(node_function(node, path, prefix, iteration, self.guard))
+            )
             if node.kind == "finish":
                 finish = path
             if isinstance(node.config, (SubgraphConfig, LoopConfig)):
@@ -221,7 +224,9 @@ class StructuredCompiler:
                         check_path = f"{path}/check-{number}"
                         self.builder.add_node(
                             check_path,
-                            self.loop_check(node, path, f"{path}/iteration-{number}", number),
+                            RunnableLambda(
+                                self.loop_check(node, path, f"{path}/iteration-{number}", number)
+                            ),
                         )
                         self.builder.add_edge(last, check_path)
                         next_body = bodies[number][0] if number < len(bodies) else done

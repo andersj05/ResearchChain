@@ -196,6 +196,8 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
         elif node.config is not None:
             raise ValueError(f"Node {node.id} does not accept that configuration.")
         if set(outgoing[node.id]) != set(control_ports(node)):
+            if legacy:
+                raise ValueError("Version 0.1 supports one connected chain ending at finish.")
             raise ValueError(
                 f"Node {node.id} must connect each declared control output exactly once."
             )
@@ -283,6 +285,9 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
 
 
 class Workflow(GraphDefinition):
+    # Legacy serialization omits new optional fields; both wire forms share this schema.
+    model_config = ConfigDict(extra="forbid", json_schema_mode_override="validation")
+
     schema_version: Literal["0.1", "0.2"] = "0.1"
     subgraphs: list[SubgraphDefinition] = Field(default_factory=list, max_length=32)
     budgets: ExecutionBudgets = Field(default_factory=ExecutionBudgets)

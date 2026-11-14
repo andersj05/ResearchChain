@@ -13,14 +13,23 @@ from psycopg import Connection
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 
+from researchchain.compiler import (
+    STRUCTURED_COMPILER_VERSION,
+    ExecutionStopped,
+    Guard,
+    compile_structured,
+)
+from researchchain.controls import ExecutionControl, control_state, set_terminal
 from researchchain.database import Database
 from researchchain.models import (
+    CancelResult,
     ResumeRequest,
     ReviewPrompt,
     RunEvent,
     RunRequest,
     RunSnapshot,
     RunSummary,
+    RunUsage,
     Workflow,
     WorkflowNode,
 )
@@ -60,14 +69,19 @@ def _route_review(state: ResearchState) -> str:
     return "stop" if state["rejected"] else "continue"
 
 
-def compile_workflow(workflow: Workflow, checkpointer: BaseCheckpointSaver[Any]) -> Any:
+def compile_workflow(
+    workflow: Workflow, checkpointer: BaseCheckpointSaver[Any], guard: Guard | None = None
+) -> Any:
     """Compile validated registered nodes; never evaluate code from a workflow."""
-    if workflow.schema_version != "0.1":
-        raise ConflictError("Schema 0.2 requires the advanced workflow compiler.")
+    if workflow.schema_version == "0.2":
+        return compile_structured(workflow, checkpointer, guard)
     builder = StateGraph(ResearchState)
     successors = {edge.source: edge.target for edge in workflow.edges}
     for node in workflow.nodes:
-        builder.add_node(node.id, _node_function(node))
+        execute = _node_function(node)
+        if guard:
+            execute = _guarded_legacy(execute, node.id, guard)
+        builder.add_node(node.id, execute)
         if node.kind == "finish":
             builder.add_edge(node.id, END)
         elif node.kind == "review":
@@ -78,6 +92,16 @@ def compile_workflow(workflow: Workflow, checkpointer: BaseCheckpointSaver[Any])
             builder.add_edge(node.id, successors[node.id])
     builder.add_edge(START, workflow.start_node)
     return builder.compile(checkpointer=checkpointer)
+
+
+def _guarded_legacy(execute: Any, node_id: str, guard: Guard) -> Any:
+    def wrapped(state: ResearchState) -> dict[str, Any]:
+        guard(node_id, True)
+        result: dict[str, Any] = execute(state)
+        guard(node_id, False)
+        return result
+
+    return wrapped
 
 
 class RunStore:
@@ -101,7 +125,7 @@ class RunStore:
         row = conn.execute("SELECT * FROM runs WHERE id = %s", (run_id,)).fetchone()
         if row is None:
             raise NotFoundError("Run not found.")
-        if row["compiler_version"] != COMPILER_VERSION:
+        if row["compiler_version"] not in (COMPILER_VERSION, STRUCTURED_COMPILER_VERSION):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row
 
@@ -111,9 +135,18 @@ class RunStore:
             "SELECT * FROM run_commands WHERE run_id = %s AND response IS NULL", (run_id,)
         ).fetchone()
 
-    def _graph(self, conn: Connection[DictRow], manifest: DictRow) -> Any:
+    def _graph(
+        self, conn: Connection[DictRow], manifest: DictRow, guard: Guard | None = None
+    ) -> Any:
         revision = read_revision(conn, manifest["revision_id"])
-        return compile_workflow(revision.workflow, PostgresSaver(conn))
+        expected = (
+            COMPILER_VERSION
+            if revision.workflow.schema_version == "0.1"
+            else STRUCTURED_COMPILER_VERSION
+        )
+        if manifest["compiler_version"] != expected:
+            raise ConflictError("This run requires a compatible compiler version before recovery.")
+        return compile_workflow(revision.workflow, PostgresSaver(conn), guard)
 
     def _snapshot(
         self, conn: Connection[DictRow], manifest: DictRow, *, interrupted: bool = False
@@ -128,6 +161,11 @@ class RunStore:
             status = "rejected"
         elif pending:
             status = "paused"
+        control = control_state(conn, manifest["id"])
+        if control["terminal_status"]:
+            status = control["terminal_status"]
+            pending = []
+        reviews = [ReviewPrompt(interrupt_id=item.id, **item.value) for item in pending]
         return RunSnapshot(
             id=manifest["id"],
             revision_id=revision.id,
@@ -140,10 +178,15 @@ class RunStore:
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             status=status,
-            events=state.values.get("events", []),
-            review=ReviewPrompt(interrupt_id=pending[0].id, **pending[0].value)
-            if pending
-            else None,
+            events=list(state.values.get("records", {}).values())
+            if revision.workflow.schema_version == "0.2"
+            else state.values.get("events", []),
+            review=reviews[0] if reviews else None,
+            reviews=reviews,
+            stop_reason=control["reason"],
+            usage=RunUsage(
+                node_executions=control["node_executions"], active_seconds=control["active_seconds"]
+            ),
         )
 
     def _complete_command(
@@ -157,44 +200,60 @@ class RunStore:
     def _drive(self, conn: Connection[DictRow], manifest: DictRow, command: DictRow) -> RunSnapshot:
         if command["response"] is not None:
             return RunSnapshot.model_validate(command["response"])
-        graph = self._graph(conn, manifest)
+        control = control_state(conn, manifest["id"])
+        if control["terminal_status"]:
+            snapshot = self._snapshot(conn, manifest)
+            self._complete_command(conn, command["id"], snapshot)
+            return snapshot
+        workflow = read_revision(conn, manifest["revision_id"]).workflow
+        execution = ExecutionControl(conn, manifest["id"], workflow.budgets)
+        graph = self._graph(conn, manifest, execution.guard)
         config = self._config(manifest["id"])
+        if workflow.schema_version == "0.2":
+            config.update(recursion_limit=4096, max_concurrency=workflow.budgets.max_concurrency)
         state = graph.get_state(config)
         pending = [item for task in state.tasks for item in task.interrupts]
-
-        if not state.created_at:
-            if command["kind"] != "start":
-                raise ConflictError(
-                    "The checkpoint for this review is missing. Restore a database backup."
-                )
-            graph.invoke(
-                {
+        try:
+            execution.begin()
+            if not state.created_at:
+                if command["kind"] != "start":
+                    raise ConflictError(
+                        "The checkpoint for this review is missing. Restore a database backup."
+                    )
+                initial = {
                     "brief": manifest["brief"],
                     "artifact_ids": [item["id"] for item in manifest["artifacts"]],
-                    "events": [],
                     "rejected": False,
-                },
-                config,
-                durability="sync",
-            )
-        elif command["kind"] == "resume" and any(
-            item.id == command["interrupt_id"] for item in pending
-        ):
-            # Always address the original interrupt, never the next pending review.
-            graph.invoke(
-                Command(resume={command["interrupt_id"]: command["decision"]}),
-                config,
-                durability="sync",
-            )
-        elif state.next and not pending:
-            # Accepted work may have stopped between two durable checkpoints.
-            graph.invoke(None, config, durability="sync")
+                }
+                if workflow.schema_version == "0.2":
+                    initial.update(records={}, outputs={})
+                else:
+                    initial["events"] = []
+                graph.invoke(initial, config, durability="sync")
+            elif command["kind"] == "resume" and any(
+                item.id == command["interrupt_id"] for item in pending
+            ):
+                graph.invoke(
+                    Command(resume={command["interrupt_id"]: command["decision"]}),
+                    config,
+                    durability="sync",
+                )
+            elif state.next and not pending:
+                graph.invoke(None, config, durability="sync")
+            execution.guard("", False)
+        except ExecutionStopped as error:
+            set_terminal(conn, manifest["id"], error.status, str(error))
+        finally:
+            execution.end()
 
         snapshot = self._snapshot(conn, manifest)
         if snapshot.status == "interrupted":
             raise ConflictError(
                 "Execution is still incomplete. Retry recovery from the saved checkpoint."
             )
+        if snapshot.status in ("completed", "rejected"):
+            set_terminal(conn, manifest["id"], snapshot.status)
+            snapshot = self._snapshot(conn, manifest)
         self._complete_command(conn, command["id"], snapshot)
         return snapshot
 
@@ -204,18 +263,21 @@ class RunStore:
             artifacts = [item.model_dump() for item in request.artifacts]
             if existing is None:
                 with conn.transaction():
-                    read_revision(conn, request.revision_id)
+                    workflow = read_revision(conn, request.revision_id).workflow
                     conn.execute(
                         "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
                         "VALUES (%s, %s, %s, %s, %s)",
                         (
                             request.id,
                             request.revision_id,
-                            COMPILER_VERSION,
+                            COMPILER_VERSION
+                            if workflow.schema_version == "0.1"
+                            else STRUCTURED_COMPILER_VERSION,
                             request.brief,
                             Jsonb(artifacts),
                         ),
                     )
+                    conn.execute("INSERT INTO run_controls (run_id) VALUES (%s)", (request.id,))
                     conn.execute(
                         "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
                         (uuid4(), request.id),
@@ -275,8 +337,7 @@ class RunStore:
             snapshot = self._snapshot(conn, manifest)
             if (
                 snapshot.status != "paused"
-                or snapshot.review is None
-                or snapshot.review.interrupt_id != request.interrupt_id
+                or not any(item.interrupt_id == request.interrupt_id for item in snapshot.reviews)
                 or snapshot.checkpoint_id != request.checkpoint_id
             ):
                 raise ConflictError(
@@ -298,3 +359,12 @@ class RunStore:
             return (
                 self._drive(conn, manifest, command) if command else self._snapshot(conn, manifest)
             )
+
+    def cancel(self, run_id: UUID) -> CancelResult:
+        # Do not acquire the execution lock: another HTTP request must be able to
+        # signal a worker currently holding it. Registered nodes stop cooperatively.
+        with self.database.connection() as conn:
+            self._manifest(conn, run_id)
+            set_terminal(conn, run_id, "cancelled", "Cancelled by user.")
+            control = control_state(conn, run_id)
+            return CancelResult(id=run_id, status=control["terminal_status"])
