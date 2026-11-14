@@ -9,13 +9,29 @@ uv selects Python 3.12 from `.python-version` and can install it if missing.
 ```text
 npm install --global pnpm@11.24.0
 pnpm bootstrap
+pnpm db:up
+pnpm db:migrate
 pnpm dev
 ```
 
 Open `http://127.0.0.1:3000`. The API is on port 8000, with interactive documentation
 at `http://127.0.0.1:8000/docs`. Both services bind to loopback. `Ctrl+C` stops both.
-Commands work in PowerShell and on Linux/macOS. No API key, Docker, database,
-`.env` file, or hosted service is needed for this development slice.
+Commands work in PowerShell and on Linux/macOS. Docker Desktop (or Docker Engine
+with Compose) must be running for the local Postgres database. No model API key
+or hosted service is needed. Postgres listens only on `127.0.0.1:5433` and uses a
+named volume that survives container recreation. `pnpm db:down` preserves it.
+
+The API defaults to the local database described in `.env.example`. To use another
+Postgres instance, copy that file to `.env` and change `DATABASE_URL`. Variables
+already in the environment take precedence. `DATABASE_SCHEMA` defaults to
+`public`. Tests use `TEST_DATABASE_URL` and create their own temporary schema;
+they never clear the application's schema. Do not use a production database for
+development or tests. The Compose credentials are only local development defaults.
+
+Run `pnpm db:migrate` after pulling database changes. Application migrations are
+ordered SQL files with checksums; applied files must never be edited. The same
+command applies LangGraph's checkpoint migrations under a database lock. Back up
+the database before upgrades; volumes and checkpoints are not backups.
 
 ## Iteration
 

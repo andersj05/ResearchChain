@@ -6,6 +6,9 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "db:up": "docker compose up -d --wait",
+    "db:down": "docker compose down",
+    "db:migrate": "uv run --project apps/api python -m researchchain.database",
     "bootstrap": "pnpm install --frozen-lockfile && uv sync --project apps/api --locked",
     "dev": "concurrently -k -n web,api \"pnpm dev:web\" \"pnpm dev:api\"",
     "dev:web": "pnpm --filter @researchchain/web dev",
