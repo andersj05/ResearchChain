@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@ui-sdk/react/button";
-import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
+import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
+import { WorkflowEditor } from "@/components/workflow-editor";
+import { formatTime, RunInspector, RunStatus } from "@/components/run-inspector";
 import {
   api,
   initialWorkflow,
+  type RunRequest,
   type RunSnapshot,
+  type RunSummary,
   type Workflow,
-  type WorkflowNode,
+  type WorkflowRevision,
+  type RevisionSummary,
   type ValidationResult,
 } from "@/lib/workflow";
 
@@ -17,34 +22,82 @@ const storageKey = "researchchain.workflow.v0.1";
 
 export function Workbench() {
   const [workflow, setWorkflow] = useState<Workflow>(initialWorkflow);
+  const [revision, setRevision] = useState<WorkflowRevision | null>(null);
+  const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [history, setHistory] = useState<Workflow[]>([]);
   const [selected, setSelected] = useState(initialWorkflow.start_node);
   const [brief, setBrief] = useState(
     "What evidence would distinguish sector rotation from a broad increase in correlation?",
   );
   const [run, setRun] = useState<RunSnapshot | null>(null);
-  const [message, setMessage] = useState(
-    "Ready to explore. Edit a node, then validate or run the workflow.",
-  );
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [tab, setTab] = useState("workflow");
+  const [message, setMessage] = useState("Loading saved workspace…");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const node = workflow.nodes.find((item) => item.id === selected);
+  const [loaded, setLoaded] = useState(false);
+  const pendingStart = useRef<RunRequest | null>(null);
+  const busyRef = useRef(false);
+  const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const [savedRevisions, recentRuns] = await Promise.all([
+          api<RevisionSummary[]>("revisions"),
+          api<RunSummary[]>("runs"),
+        ]);
+        const latest = savedRevisions[0]
+          ? await api<WorkflowRevision>(`revisions/${savedRevisions[0].id}`)
+          : null;
+        if (!active) return;
+        setRevisions(savedRevisions);
+        setRuns(recentRuns);
+        if (latest) {
+          setRevision(latest);
+          setWorkflow(latest.workflow);
+          setSelected(latest.workflow.start_node);
+        }
+        const runId = new URL(window.location.href).searchParams.get("run");
+        if (runId) {
+          const restored = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
+          if (!active) return;
+          setRun(restored);
+          setTab("runs");
+          setMessage("Saved run restored.");
+        } else {
+          setMessage(
+            latest
+              ? `Loaded revision ${latest.number}.`
+              : "Ready. Edit the workflow, then save or run it.",
+          );
+        }
+      } catch (cause) {
+        if (active) {
+          setError(cause instanceof Error ? cause.message : "Unable to load the workspace.");
+          setMessage("The draft is editable. Refresh history when the API is available.");
+        }
+      } finally {
+        if (active) setLoaded(true);
+      }
+    }
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   function change(next: Workflow) {
     setHistory((previous) => [...previous.slice(-49), workflow]);
     setWorkflow(next);
     setError("");
-    setMessage("Draft changed. Validate before starting a new run.");
-  }
-
-  function editNode(patch: Partial<WorkflowNode>) {
-    change({
-      ...workflow,
-      nodes: workflow.nodes.map((item) => (item.id === selected ? { ...item, ...patch } : item)),
-    });
+    setMessage("Draft changed. Save a revision to keep these changes.");
   }
 
   async function action(work: () => Promise<void>) {
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     setError("");
     try {
@@ -52,16 +105,108 @@ export function Workbench() {
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The action failed.");
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
   }
 
-  function save() {
+  async function refreshHistory() {
+    const [savedRevisions, recentRuns] = await Promise.all([
+      api<RevisionSummary[]>("revisions"),
+      api<RunSummary[]>("runs"),
+    ]);
+    setRevisions(savedRevisions);
+    setRuns(recentRuns);
+  }
+
+  function rememberRun(id: string) {
+    const url = new URL(window.location.href);
+    url.searchParams.set("run", id);
+    window.history.replaceState(null, "", url);
+  }
+
+  async function openRun(id: string) {
+    const result = await api<RunSnapshot>(`runs/${id}`);
+    setRun(result);
+    setTab("runs");
+    rememberRun(id);
+    return result;
+  }
+
+  async function saveRevision() {
+    const result = await api<WorkflowRevision>("revisions", workflow);
+    setRevision(result);
+    setRevisions((previous) =>
+      [result, ...previous.filter((item) => item.id !== result.id)]
+        .sort((a, b) => b.number - a.number)
+        .slice(0, 50),
+    );
+    setMessage(`Revision ${result.number} saved.`);
+    return result;
+  }
+
+  async function loadRevision(id: string) {
+    const result = await api<WorkflowRevision>(`revisions/${id}`);
+    change(result.workflow);
+    setRevision(result);
+    setSelected(result.workflow.start_node);
+    setTab("workflow");
+    setMessage(`Loaded revision ${result.number}. Undo restores your previous draft.`);
+  }
+
+  async function startRun() {
+    const pinned = await saveRevision();
+    if (
+      !pendingStart.current ||
+      pendingStart.current.revision_id !== pinned.id ||
+      pendingStart.current.brief !== brief
+    ) {
+      pendingStart.current = {
+        id: crypto.randomUUID(),
+        revision_id: pinned.id,
+        brief,
+        artifacts: [],
+      };
+    }
+    const request = pendingStart.current;
+    rememberRun(request.id);
+    try {
+      await api<RunSnapshot>("runs", request);
+      const result = await openRun(request.id);
+      pendingStart.current = null;
+      setMessage(`Run ${result.status}. Progress saved.`);
+      await refreshHistory();
+    } catch (cause) {
+      // A lost reply does not mean execution failed. Locate the accepted run;
+      // retries retain the same ID if the request never reached the server.
+      await openRun(request.id).catch(() => undefined);
+      await refreshHistory().catch(() => undefined);
+      throw cause;
+    }
+  }
+
+  async function resumeRun(decision: "approve" | "reject") {
+    if (!run?.review || !run.checkpoint_id) return;
+    try {
+      await api<RunSnapshot>(`runs/${run.id}/resume`, {
+        decision,
+        checkpoint_id: run.checkpoint_id,
+        interrupt_id: run.review.interrupt_id,
+      });
+      setMessage("Review decision saved.");
+    } finally {
+      // Idempotent responses may describe an older review. Read current state.
+      await openRun(run.id);
+      await refreshHistory();
+    }
+  }
+
+  function saveDraft() {
     try {
       localStorage.setItem(storageKey, JSON.stringify(workflow));
       setMessage("Draft saved in this browser.");
     } catch {
-      setError("Browser storage is unavailable. Use Export JSON to keep the draft.");
+      setError("Browser storage is unavailable. Export JSON to keep the draft.");
     }
   }
 
@@ -81,364 +226,324 @@ export function Workbench() {
     <main className="studio">
       <header className="topbar">
         <Link className="brand" href="/" aria-label="ResearchChain home">
-          <span className="brand-mark">
-            R<span>↗</span>
-          </span>
-          ResearchChain
+          <span className="brand-mark">R</span>ResearchChain
         </Link>
-        <span className="workspace-label">EQUITYCATS / RESEARCH LAB</span>
-        <span className="local-badge">
-          <i /> Local workspace
+        <span className="workspace-divider" aria-hidden="true">
+          /
         </span>
+        <span className="workspace-label">EquityCats</span>
+        <span className="local-badge">Local workspace</span>
       </header>
-      <div className="page-heading">
-        <div>
-          <p className="eyebrow">WORKFLOW STUDIO</p>
-          <h1>Make room for better thinking.</h1>
-          <p>Shape the process. Challenge the thesis. Keep judgment in the loop.</p>
-        </div>
-        <a className="text-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
-          API reference ↗
-        </a>
-      </div>
-      <section className="workspace" aria-label="Workflow editor">
-        <div className="workspace-header">
+      <Tabs value={tab} onValueChange={(value) => setTab(value ?? "workflow")}>
+        <TabsList className="workspace-tabs" aria-label="Workspace">
+          <TabsTab value="workflow">Workflow</TabsTab>
+          <TabsTab value="runs">Runs</TabsTab>
+          <TabsTab value="revisions">Revisions</TabsTab>
+        </TabsList>
+        <div className="page-heading">
           <div>
-            <span className="status-dot" />
-            <strong>{workflow.name}</strong>
-            <span className="version">v0.1</span>
-          </div>
-          <div className="actions">
-            <Button className="button" onClick={save}>
-              Save draft
-            </Button>
-            <Button className="button" onClick={exportWorkflow}>
-              Export JSON
-            </Button>
-            <Button
-              className="button primary"
-              disabled={busy || !brief.trim()}
-              onClick={() =>
-                action(async () => {
-                  const result = await api<RunSnapshot>("runs", { workflow, brief });
-                  setRun(result);
-                  setMessage(`Run ${result.status}. Workflow snapshot captured.`);
-                })
+            <h1>{{ workflow: "Workflow", runs: "Runs", revisions: "Revisions" }[tab]}</h1>
+            <p>
+              {
+                {
+                  workflow: "Design the process behind your research.",
+                  runs: "Saved progress. Every review in context.",
+                  revisions: "A permanent record of how your workflow changes.",
+                }[tab]
               }
-            >
-              Run workflow <span aria-hidden="true">↗</span>
-            </Button>
-          </div>
-        </div>
-        <div className="editor-grid">
-          <aside className="library">
-            <p className="eyebrow">BUILDING BLOCKS</p>
-            <h2>Your workflow</h2>
-            <p className="muted">
-              Start with a question.
-              <br />
-              Leave space to reconsider.
             </p>
-            <div className="node-library">
-              {(["note", "review"] as const).map((kind) => (
+          </div>
+          <a
+            className="text-link"
+            href="http://127.0.0.1:8000/docs"
+            target="_blank"
+            rel="noreferrer"
+          >
+            API reference ↗
+          </a>
+        </div>
+        <div className="notice" aria-live="polite">
+          <p role="status">{message}</p>
+          {busy && <span className="working">Working…</span>}
+        </div>
+        {error && (
+          <div className="error" role="alert">
+            {error}
+          </div>
+        )}
+        <TabsPanel value="workflow" keepMounted>
+          <section className="workspace" aria-label="Workflow editor">
+            <div className="workspace-header">
+              <div className="workflow-title">
+                <strong>{workflow.name || "Untitled workflow"}</strong>
+                <span className="version">
+                  {saved ? `Revision ${revision.number}` : "Unsaved draft"}
+                </span>
+              </div>
+              <div className="actions">
                 <Button
-                  key={kind}
-                  className="library-button"
-                  disabled={workflow.nodes.length >= 32}
+                  className="button"
+                  disabled={!loaded || busy}
+                  onClick={() =>
+                    action(async () => {
+                      await saveRevision();
+                    })
+                  }
+                >
+                  Save revision
+                </Button>
+                <Button
+                  className="button primary"
+                  disabled={!loaded || busy || !brief.trim()}
+                  onClick={() => action(startRun)}
+                >
+                  Run workflow <span aria-hidden="true">↗</span>
+                </Button>
+              </div>
+            </div>
+            <WorkflowEditor
+              workflow={workflow}
+              selected={selected}
+              onSelect={setSelected}
+              onChange={change}
+              disabled={!loaded || busy}
+            />
+            <div className="editor-footer">
+              <div className="actions">
+                <Button
+                  className="button small"
+                  disabled={busy || !history.length}
                   onClick={() => {
-                    const id = `${kind}-${crypto.randomUUID().slice(0, 8)}`;
-                    change({
-                      ...workflow,
-                      nodes: [
-                        ...workflow.nodes,
-                        {
-                          id,
-                          kind,
-                          label: kind === "note" ? "New research note" : "New human review",
-                          instructions: "",
-                          position: { x: 100, y: 340 },
-                        },
-                      ],
-                    });
-                    setSelected(id);
+                    const previous = history.at(-1);
+                    if (previous) {
+                      setWorkflow(previous);
+                      setHistory(history.slice(0, -1));
+                      setMessage("Last edit undone.");
+                    }
                   }}
                 >
-                  <span>{kind === "note" ? "◇" : "◎"}</span>
-                  <div>
-                    <strong>{kind === "note" ? "Research note" : "Human review"}</strong>
-                    <small>
-                      {kind === "note" ? "Record a question or premise" : "Pause for a decision"}
-                    </small>
-                  </div>
-                  <span>+</span>
+                  Undo last edit
                 </Button>
-              ))}
-            </div>
-            <label>
-              Workflow name
-              <input
-                value={workflow.name}
-                maxLength={120}
-                onChange={(event) => change({ ...workflow, name: event.target.value })}
-              />
-            </label>
-            <label>
-              Start node
-              <select
-                value={workflow.start_node}
-                onChange={(event) => change({ ...workflow, start_node: event.target.value })}
-              >
-                {workflow.nodes.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div className="stack-actions">
-              <Button
-                className="button"
-                disabled={!history.length}
-                onClick={() => {
-                  const previous = history.at(-1);
-                  if (previous) {
-                    setWorkflow(previous);
-                    setHistory(history.slice(0, -1));
-                    setMessage("Last edit undone.");
+                <Button
+                  className="button small"
+                  disabled={!loaded || busy}
+                  onClick={() =>
+                    action(async () => {
+                      await api("workflows/validate", workflow);
+                      setMessage("Workflow valid. Ready to run.");
+                    })
                   }
-                }}
-              >
-                Undo last edit
+                >
+                  Validate workflow
+                </Button>
+              </div>
+              <span className="muted">Edits apply to future runs.</span>
+            </div>
+          </section>
+          <section className="brief-panel">
+            <div>
+              <h2>Research brief</h2>
+              <p className="muted">The question this run should explore.</p>
+            </div>
+            <div>
+              <label className="sr-only" htmlFor="brief">
+                Research brief
+              </label>
+              <textarea
+                id="brief"
+                rows={3}
+                maxLength={10000}
+                value={brief}
+                disabled={busy}
+                onChange={(event) => setBrief(event.target.value)}
+              />
+              <p className="muted">
+                Notes and human reviews are available. Research tools and model calls come next.
+              </p>
+            </div>
+          </section>
+          <details className="draft-tools">
+            <summary>Local draft &amp; export</summary>
+            <div className="actions">
+              <Button className="button" disabled={!loaded || busy} onClick={saveDraft}>
+                Save draft
               </Button>
               <Button
                 className="button"
-                disabled={busy}
+                disabled={!loaded || busy}
                 onClick={() =>
                   action(async () => {
-                    const saved = localStorage.getItem(storageKey);
-                    if (!saved) throw new Error("No saved draft in this browser yet.");
-                    const candidate: unknown = JSON.parse(saved);
-                    const validated = await api<ValidationResult>("workflows/validate", candidate);
+                    const stored = localStorage.getItem(storageKey);
+                    if (!stored) throw new Error("No saved draft in this browser yet.");
+                    const validated = await api<ValidationResult>(
+                      "workflows/validate",
+                      JSON.parse(stored),
+                    );
                     change(validated.workflow);
+                    setSelected(validated.workflow.start_node);
                     setMessage("Saved draft loaded and validated.");
                   })
                 }
               >
                 Load saved draft
               </Button>
+              <Button className="button" disabled={!loaded || busy} onClick={exportWorkflow}>
+                Export JSON
+              </Button>
             </div>
-            <div className="scope-note">
-              <span className="eyebrow">FOUNDATION</span>
-              <p>
-                Notes → review → finish.
-                <br />
-                Loops and subgraphs are next.
-              </p>
-            </div>
-          </aside>
-          <div className="canvas-panel">
-            <WorkflowCanvas
-              workflow={workflow}
-              selected={selected}
-              onSelect={setSelected}
-              onMove={(positions) =>
-                change({
-                  ...workflow,
-                  nodes: workflow.nodes.map((item) => ({
-                    ...item,
-                    position: positions[item.id] ?? item.position,
-                  })),
-                })
-              }
-            />
-            <p id="canvas-help" className="canvas-help">
-              Drag to move · Alt + arrows to nudge · Scroll to pan · Ctrl/⌘ + scroll to zoom. Edit
-              connections in the inspector.
-            </p>
-          </div>
-          <aside className="inspector" aria-label="Node inspector">
-            <p className="eyebrow">NODE INSPECTOR</p>
-            {node ? (
-              <>
-                <h2>{node.label}</h2>
-                <span className="code-label">{node.id}</span>
-                <label>
-                  Label
-                  <input
-                    value={node.label}
-                    maxLength={100}
-                    onChange={(event) => editNode({ label: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Node type
-                  <select
-                    value={node.kind}
-                    onChange={(event) =>
-                      editNode({ kind: event.target.value as WorkflowNode["kind"] })
-                    }
-                  >
-                    <option value="note">Research note</option>
-                    <option value="review">Human review</option>
-                    <option value="finish">Finish</option>
-                  </select>
-                </label>
-                <label>
-                  Instructions
-                  <textarea
-                    rows={5}
-                    maxLength={6000}
-                    value={node.instructions}
-                    onChange={(event) => editNode({ instructions: event.target.value })}
-                  />
-                </label>
-                <label>
-                  Next node
-                  <select
-                    value={workflow.edges.find((edge) => edge.source === node.id)?.target ?? ""}
-                    onChange={(event) =>
-                      change({
-                        ...workflow,
-                        edges: [
-                          ...workflow.edges.filter((edge) => edge.source !== node.id),
-                          ...(event.target.value
-                            ? [{ source: node.id, target: event.target.value }]
-                            : []),
-                        ],
-                      })
-                    }
-                  >
-                    <option value="">No connection</option>
-                    {workflow.nodes
-                      .filter((item) => item.id !== node.id)
-                      .map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.label}
-                        </option>
-                      ))}
-                  </select>
-                </label>
+          </details>
+        </TabsPanel>
+        <TabsPanel value="runs">
+          <div className="runs-layout">
+            <aside className="run-history" aria-label="Recent runs">
+              <div className="section-heading">
+                <h2>Recent runs</h2>
                 <Button
-                  className="button danger"
-                  onClick={() => {
-                    change({
-                      ...workflow,
-                      nodes: workflow.nodes.filter((item) => item.id !== node.id),
-                      edges: workflow.edges.filter(
-                        (edge) => edge.source !== node.id && edge.target !== node.id,
-                      ),
-                    });
-                    setSelected("");
-                  }}
+                  className="button small"
+                  disabled={!loaded || busy}
+                  onClick={() =>
+                    action(async () => {
+                      await refreshHistory();
+                      setMessage("History refreshed.");
+                    })
+                  }
                 >
-                  Remove node
+                  Refresh history
                 </Button>
-              </>
-            ) : (
-              <p className="muted">Select a node to edit its instructions and connections.</p>
-            )}
-          </aside>
-        </div>
-        <div className="statusbar">
-          <p role="status">{message}</p>
-          <Button
-            className="button"
-            disabled={busy}
-            onClick={() =>
-              action(async () => {
-                await api("workflows/validate", workflow);
-                setMessage("Workflow valid. Ready to run.");
-              })
-            }
-          >
-            Validate workflow
-          </Button>
-        </div>
-      </section>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
-      <section className="run-panel">
-        <div className="brief-panel">
-          <p className="eyebrow">START WITH AN IDEA</p>
-          <h2>What are you thinking?</h2>
-          <label className="sr-only" htmlFor="brief">
-            Research brief
-          </label>
-          <textarea
-            id="brief"
-            rows={3}
-            maxLength={10000}
-            value={brief}
-            onChange={(event) => setBrief(event.target.value)}
-          />
-          <p className="muted">
-            This development workflow records your notes. Research tools and model calls are not
-            connected yet.
-          </p>
-        </div>
-        <div className="run-inspector" aria-label="Run inspector">
-          <p className="eyebrow">RUN INSPECTOR</p>
-          {run ? (
-            <>
-              <h2>Run {run.status}</h2>
-              <p className="muted">
-                {run.workflow.name} · Captured at run start. Editor changes apply to future runs.
-              </p>
-              <ol className="event-list">
-                {run.events.map((event) => (
-                  <li key={event.node_id}>
-                    <strong>{event.label}</strong>
-                    <span>{event.detail}</span>
-                  </li>
-                ))}
-              </ol>
-              {run.review && (
-                <div className="review-box">
-                  <strong>{run.review.question}</strong>
-                  <div className="actions">
-                    {(["approve", "reject"] as const).map((decision) => (
+              </div>
+              <p className="muted">Latest 20 · stored in Postgres</p>
+              {runs.length ? (
+                <ul>
+                  {runs.map((item) => (
+                    <li key={item.id}>
                       <Button
-                        className={`button ${decision === "approve" ? "primary" : ""}`}
-                        key={decision}
+                        className="run-row"
+                        aria-pressed={run?.id === item.id}
                         disabled={busy}
                         onClick={() =>
                           action(async () => {
-                            const result = await api<RunSnapshot>(`runs/${run.id}/resume`, {
-                              decision,
-                            });
-                            setRun(result);
-                            setMessage(`Run ${result.status}.`);
+                            await openRun(item.id);
+                            setMessage("Saved run opened.");
                           })
                         }
                       >
-                        {decision === "approve" ? "Approve and continue" : "Reject and stop"}
+                        <strong>{item.workflow_name}</strong>
+                        <RunStatus status={item.status} />
+                        <span className="run-row-meta">
+                          <span>Revision {item.revision_number}</span>
+                          <span>{formatTime(item.created_at)}</span>
+                        </span>
+                        <span className="code-label">{item.id.slice(0, 8)}</span>
                       </Button>
-                    ))}
-                  </div>
-                </div>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">{loaded ? "Your runs will appear here." : "Loading runs…"}</p>
               )}
-            </>
-          ) : (
-            <>
-              <h2>The process, in plain sight.</h2>
-              <p className="muted">
-                Run a workflow to inspect completed steps and answer a human review. Runs reset when
-                the local API restarts.
-              </p>
-              <div className="empty-run">
-                <span>01 · FRAME</span>
-                <span>02 · CHALLENGE</span>
-                <span>03 · REVIEW</span>
+            </aside>
+            <RunInspector
+              run={run}
+              busy={busy}
+              onResume={(value) => action(() => resumeRun(value))}
+              onRefresh={() =>
+                action(async () => {
+                  if (run) {
+                    await openRun(run.id);
+                    await refreshHistory();
+                    setMessage("Run refreshed.");
+                  }
+                })
+              }
+              onRecover={() =>
+                action(async () => {
+                  if (run) {
+                    await api(`runs/${run.id}/recover`, {});
+                    await openRun(run.id);
+                    await refreshHistory();
+                    setMessage("Run recovered from saved progress.");
+                  }
+                })
+              }
+              onOpenRevision={() =>
+                action(async () => {
+                  if (run) await loadRevision(run.revision_id);
+                })
+              }
+            />
+          </div>
+        </TabsPanel>
+        <TabsPanel value="revisions">
+          <section className="revisions-panel" aria-label="Saved revisions">
+            <div className="section-heading">
+              <div>
+                <h2>Saved revisions</h2>
+                <p className="muted">Latest 50 · identical drafts share a revision.</p>
               </div>
-            </>
-          )}
-        </div>
-      </section>
+              <Button
+                className="button"
+                disabled={!loaded || busy}
+                onClick={() =>
+                  action(async () => {
+                    await refreshHistory();
+                    setMessage("History refreshed.");
+                  })
+                }
+              >
+                Refresh history
+              </Button>
+            </div>
+            {revisions.length ? (
+              <div className="revision-table">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Revision</th>
+                      <th>Workflow</th>
+                      <th>Saved</th>
+                      <th>
+                        <span className="sr-only">Actions</span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {revisions.map((item) => (
+                      <tr key={item.id}>
+                        <td>
+                          <strong>Revision {item.number}</strong>
+                          <span className="code-label">{item.content_hash.slice(0, 10)}</span>
+                        </td>
+                        <td>{item.name}</td>
+                        <td>
+                          <time dateTime={item.created_at}>{formatTime(item.created_at)}</time>
+                        </td>
+                        <td>
+                          <Button
+                            className="button small"
+                            disabled={busy}
+                            aria-label={`Load revision ${item.number}`}
+                            onClick={() => action(() => loadRevision(item.id))}
+                          >
+                            Load revision
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <h2>No saved revisions yet</h2>
+                <p>Save your workflow to create its first revision.</p>
+              </div>
+            )}
+          </section>
+        </TabsPanel>
+      </Tabs>
       <footer>
-        ResearchChain <span>Custom tools for independent thinking.</span>
+        <span>ResearchChain</span>
+        <span>Local development</span>
       </footer>
     </main>
   );
