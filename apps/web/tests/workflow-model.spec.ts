@@ -6,6 +6,7 @@ import {
   graphAt,
   insertStep,
   portsFor,
+  pruneDefinitions,
   referenceOf,
   removeStep,
   updateGraph,
@@ -132,4 +133,35 @@ test("typed canvas ports match the server registry and reject cross-type wiring"
     node_id: "frame",
     port: "text",
   });
+});
+
+test("deleting a miswired split preserves unrelated downstream work", () => {
+  const added = addTemplate(structuredClone(initialWorkflow), null, "route", "frame");
+  const invalid = {
+    ...added.workflow,
+    edges: added.workflow.edges.map((edge) =>
+      edge.source === added.selected && edge.source_port === "true"
+        ? { ...edge, target: "challenge" }
+        : edge,
+    ),
+  };
+  const removed = removeStep(invalid, added.selected);
+  for (const id of ["frame", "challenge", "review", "finish"])
+    expect(removed.nodes.some((node) => node.id === id)).toBe(true);
+  expect(removed.nodes.some((node) => node.id === added.selected)).toBe(false);
+});
+
+test("unused versions can be pruned while retaining referenced nested definitions", async ({
+  request,
+}) => {
+  const root = addTemplate(structuredClone(initialWorkflow), null, "subgraph", "frame");
+  const ref = referenceOf(root.workflow.nodes.find((node) => node.id === root.selected)!)!;
+  const nested = addTemplate(root.workflow, ref, "subgraph", "step");
+  const forked = forkDefinition(nested.workflow, ref);
+  expect(forked.workflow.subgraphs).toHaveLength(3);
+  const pruned = pruneDefinitions(forked.workflow);
+  expect(pruned.subgraphs).toHaveLength(2);
+  expect(graphAt(pruned, forked.ref)).toBeUndefined();
+  const valid = await request.post("/api/workflows/validate", { data: pruned });
+  expect(valid.status(), await valid.text()).toBe(200);
 });

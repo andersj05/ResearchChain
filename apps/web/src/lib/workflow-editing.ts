@@ -316,19 +316,58 @@ export function addTemplate(
   };
 }
 
+// In an incomplete draft a miswired branch may reach unrelated steps. Only
+// remove a whole region when every path reaches its join and has no outside entry.
+function branchRegion(
+  graph: Graph,
+  owner: string,
+  entries: string[],
+  join: string,
+): Set<string> | null {
+  if (graph.nodes.find((node) => node.id === join)?.kind !== "join") return null;
+  const region = new Set<string>();
+  const visiting = new Set<string>();
+  const visit = (id: string): boolean => {
+    if (id === join) return true;
+    if (visiting.has(id)) return false;
+    if (region.has(id)) return true;
+    const node = graph.nodes.find((item) => item.id === id);
+    if (!node || node.kind === "finish" || id === owner) return false;
+    const next = graph.edges.filter((item) => item.source === id);
+    if (!next.length) return false;
+    visiting.add(id);
+    if (!next.every((item) => visit(item.target))) return false;
+    visiting.delete(id);
+    region.add(id);
+    return true;
+  };
+  if (!entries.length || !entries.every(visit)) return null;
+  if (
+    graph.edges.some(
+      (item) => region.has(item.target) && !region.has(item.source) && item.source !== owner,
+    )
+  )
+    return null;
+  return region;
+}
+
 export function removeStep<G extends Graph>(graph: G, id: string): G {
   const node = graph.nodes.find((item) => item.id === id);
   const removed = new Set([id]);
   let exit = id;
   if (node?.config?.type === "fork" || node?.config?.type === "route") {
-    exit = node.config.join;
-    const visit = (current: string) => {
-      if (current === exit || removed.has(current)) return;
-      removed.add(current);
-      graph.edges.filter((item) => item.source === current).forEach((item) => visit(item.target));
-    };
-    graph.edges.filter((item) => item.source === id).forEach((item) => visit(item.target));
-    removed.add(exit);
+    const join = node.config.join;
+    const region = branchRegion(
+      graph,
+      id,
+      graph.edges.filter((item) => item.source === id).map((item) => item.target),
+      join,
+    );
+    if (region && !graph.edges.some((item) => item.target === join && !region.has(item.source))) {
+      exit = join;
+      region.forEach((item) => removed.add(item));
+      removed.add(join);
+    }
   }
   const incoming = graph.edges.filter((item) => item.target === id && !removed.has(item.source));
   const outgoing = graph.edges.filter((item) => item.source === exit && !removed.has(item.target));
@@ -443,16 +482,15 @@ export function addBranch(graph: Graph, id: string): Graph {
 export function removeBranch(graph: Graph, id: string, name: string): Graph {
   const node = graph.nodes.find((item) => item.id === id);
   if (node?.config?.type !== "fork" || node.config.branches.length <= 2) return graph;
-  const join = node.config.join;
-  const removed = new Set<string>();
-  const visit = (current: string) => {
-    if (current === join || removed.has(current)) return;
-    removed.add(current);
-    graph.edges.filter((item) => item.source === current).forEach((item) => visit(item.target));
-  };
-  graph.edges
-    .filter((item) => item.source === id && item.source_port === name)
-    .forEach((item) => visit(item.target));
+  const removed =
+    branchRegion(
+      graph,
+      id,
+      graph.edges
+        .filter((item) => item.source === id && item.source_port === name)
+        .map((item) => item.target),
+      node.config.join,
+    ) ?? new Set<string>();
   return {
     ...graph,
     nodes: graph.nodes
@@ -475,4 +513,18 @@ export function removeBranch(graph: Graph, id: string, name: string): Graph {
         !(item.source === id && item.source_port === name),
     ),
   };
+}
+
+export function pruneDefinitions(workflow: Workflow): Workflow {
+  const used = new Set<string>();
+  const visit = (graph: Graph) =>
+    graph.nodes.forEach((node) => {
+      const ref = referenceOf(node);
+      if (!ref || used.has(scopeKey(ref))) return;
+      used.add(scopeKey(ref));
+      const body = graphAt(workflow, ref);
+      if (body) visit(body);
+    });
+  visit(workflow);
+  return { ...workflow, subgraphs: workflow.subgraphs?.filter((body) => used.has(scopeKey(body))) };
 }
