@@ -38,6 +38,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Revisions */
+    get: operations["list_revisions"];
+    put?: never;
+    /** Save Revision */
+    post: operations["save_revision"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/revisions/{revision_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Revision */
+    get: operations["get_revision"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/runs": {
     parameters: {
       query?: never;
@@ -45,7 +80,8 @@ export interface paths {
       path?: never;
       cookie?: never;
     };
-    get?: never;
+    /** List Runs */
+    get: operations["list_runs"];
     put?: never;
     /** Start Run */
     post: operations["start_run"];
@@ -89,10 +125,39 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/runs/{run_id}/recover": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Recover Run */
+    post: operations["recover_run"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /**
+     * ArtifactRef
+     * @description Content address only. Upload/availability verification belongs to ingestion.
+     */
+    ArtifactRef: {
+      /** Id */
+      id: string;
+      /** Media Type */
+      media_type: string;
+      /** Name */
+      name: string;
+    };
     /** HTTPValidationError */
     HTTPValidationError: {
       /** Detail */
@@ -112,6 +177,12 @@ export interface components {
        * @constant
        */
       mode: "local-development";
+      /**
+       * Database
+       * @default ready
+       * @constant
+       */
+      database: "ready";
     };
     /** Position */
     Position: {
@@ -122,6 +193,10 @@ export interface components {
     };
     /** ResumeRequest */
     ResumeRequest: {
+      /** Checkpoint Id */
+      checkpoint_id: string;
+      /** Interrupt Id */
+      interrupt_id: string;
       /**
        * Decision
        * @enum {string}
@@ -130,10 +205,31 @@ export interface components {
     };
     /** ReviewPrompt */
     ReviewPrompt: {
+      /** Interrupt Id */
+      interrupt_id: string;
       /** Node Id */
       node_id: string;
       /** Question */
       question: string;
+    };
+    /** RevisionSummary */
+    RevisionSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Number */
+      number: number;
+      /** Content Hash */
+      content_hash: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Name */
+      name: string;
     };
     /** RunEvent */
     RunEvent: {
@@ -151,25 +247,86 @@ export interface components {
     };
     /** RunRequest */
     RunRequest: {
-      workflow: components["schemas"]["Workflow"];
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
       /** Brief */
       brief: string;
+      /** Artifacts */
+      artifacts?: components["schemas"]["ArtifactRef"][];
     };
     /** RunSnapshot */
     RunSnapshot: {
-      /** Id */
+      /**
+       * Id
+       * Format: uuid
+       */
       id: string;
-      workflow: components["schemas"]["Workflow"];
-      /** Brief */
-      brief: string;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
+      /** Revision Number */
+      revision_number: number;
+      /** Workflow Name */
+      workflow_name: string;
       /**
        * Status
        * @enum {string}
        */
-      status: "paused" | "completed" | "rejected";
+      status: "paused" | "completed" | "rejected" | "interrupted";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      workflow: components["schemas"]["Workflow"];
+      /** Brief */
+      brief: string;
+      /** Artifacts */
+      artifacts: components["schemas"]["ArtifactRef"][];
+      /** Compiler Version */
+      compiler_version: string;
+      /** Checkpoint Id */
+      checkpoint_id: string | null;
       /** Events */
       events: components["schemas"]["RunEvent"][];
       review?: components["schemas"]["ReviewPrompt"] | null;
+    };
+    /** RunSummary */
+    RunSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
+      /** Revision Number */
+      revision_number: number;
+      /** Workflow Name */
+      workflow_name: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "paused" | "completed" | "rejected" | "interrupted";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
     };
     /** ValidationError */
     ValidationError: {
@@ -238,6 +395,26 @@ export interface components {
       instructions: string;
       position: components["schemas"]["Position"];
     };
+    /** WorkflowRevision */
+    WorkflowRevision: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Number */
+      number: number;
+      /** Content Hash */
+      content_hash: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Name */
+      name: string;
+      workflow: components["schemas"]["Workflow"];
+    };
   };
   responses: never;
   parameters: never;
@@ -287,6 +464,132 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ValidationResult"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_revisions: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RevisionSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  save_revision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["Workflow"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkflowRevision"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_revision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        revision_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["WorkflowRevision"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_runs: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunSummary"][];
         };
       };
       /** @description Validation Error */
@@ -378,6 +681,37 @@ export interface operations {
         "application/json": components["schemas"]["ResumeRequest"];
       };
     };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunSnapshot"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  recover_run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
     responses: {
       /** @description Successful Response */
       200: {

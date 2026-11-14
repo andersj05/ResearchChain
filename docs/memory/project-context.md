@@ -12,6 +12,8 @@ Confirmed with the owner, 2026-11-13.
 - The UI must ultimately edit nodes, edges, subgraphs, prompts, tools, routing,
   checkpoints, and evaluation settings. The custom UI is a firm decision.
 - Use UI SDK (`ui-sdk.dev`); Next.js is the selected frontend foundation.
+- Keep the interface simple and visually close to Vercel: Geist typography,
+  neutral surfaces, thin borders, and restrained status colors (2026-11-13).
 - Use LangGraph for orchestration. Do not lock the system to a single model vendor.
 - Branch structure is `main` → `dev` → `feat/<feature-name>`.
 - Prioritize short, reproducible iteration loops with meaningful quality checks.
