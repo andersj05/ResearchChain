@@ -1,6 +1,8 @@
 """Authoritative, versioned API models. Generate browser types from OpenAPI."""
 
+from datetime import datetime
 from typing import Literal, Self
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -76,12 +78,36 @@ class Workflow(StrictModel):
         return self
 
 
-class RunRequest(StrictModel):
+class RevisionSummary(StrictModel):
+    id: UUID
+    number: int
+    content_hash: str
+    created_at: datetime
+    name: str
+
+
+class WorkflowRevision(RevisionSummary):
     workflow: Workflow
+
+
+class ArtifactRef(StrictModel):
+    """Content address only. Upload/availability verification belongs to ingestion."""
+
+    id: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
+    media_type: str = Field(min_length=1, max_length=120)
+    name: str = Field(min_length=1, max_length=240)
+
+
+class RunRequest(StrictModel):
+    id: UUID
+    revision_id: UUID
     brief: str = Field(min_length=1, max_length=10000)
+    artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
 
 
 class ResumeRequest(StrictModel):
+    checkpoint_id: str = Field(min_length=1, max_length=100)
+    interrupt_id: str = Field(min_length=1, max_length=100)
     decision: Literal["approve", "reject"]
 
 
@@ -93,15 +119,26 @@ class RunEvent(StrictModel):
 
 
 class ReviewPrompt(StrictModel):
+    interrupt_id: str
     node_id: str
     question: str
 
 
-class RunSnapshot(StrictModel):
-    id: str
+class RunSummary(StrictModel):
+    id: UUID
+    revision_id: UUID
+    revision_number: int
+    workflow_name: str
+    status: Literal["paused", "completed", "rejected", "interrupted"]
+    created_at: datetime
+
+
+class RunSnapshot(RunSummary):
     workflow: Workflow
     brief: str
-    status: Literal["paused", "completed", "rejected"]
+    artifacts: list[ArtifactRef]
+    compiler_version: str
+    checkpoint_id: str | None
     events: list[RunEvent]
     review: ReviewPrompt | None = None
 
@@ -115,3 +152,4 @@ class ValidationResult(StrictModel):
 class Health(StrictModel):
     status: Literal["ok"] = "ok"
     mode: Literal["local-development"] = "local-development"
+    database: Literal["ready"] = "ready"

@@ -31,6 +31,18 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:18.7-alpine
+        env:
+          POSTGRES_USER: researchchain
+          POSTGRES_PASSWORD: researchchain-local
+          POSTGRES_DB: researchchain
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U researchchain -d researchchain"
+          --health-interval 2s --health-timeout 3s --health-retries 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -47,6 +59,7 @@ jobs:
           cache-dependency-glob: apps/api/uv.lock
       - run: pnpm install --frozen-lockfile
       - run: uv sync --project apps/api --locked
+      - run: pnpm db:migrate
       - run: pnpm contracts:check
       - run: pnpm check
       - run: pnpm --filter @researchchain/web exec playwright install --with-deps chromium

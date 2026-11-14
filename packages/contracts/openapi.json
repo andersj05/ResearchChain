@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ResearchChain API",
-    "version": "0.1.0"
+    "version": "0.2.0"
   },
   "paths": {
     "/api/health": {
@@ -61,19 +61,141 @@
         }
       }
     },
+    "/api/revisions": {
+      "post": {
+        "summary": "Save Revision",
+        "operationId": "save_revision",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Workflow"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRevision"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Revisions",
+        "operationId": "list_revisions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RevisionSummary"
+                  },
+                  "title": "Response List Revisions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/revisions/{revision_id}": {
+      "get": {
+        "summary": "Get Revision",
+        "operationId": "get_revision",
+        "parameters": [
+          {
+            "name": "revision_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Revision Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkflowRevision"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs": {
       "post": {
         "summary": "Start Run",
         "operationId": "start_run",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/RunRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -82,6 +204,50 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/RunSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Runs",
+        "operationId": "list_runs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RunSummary"
+                  },
+                  "title": "Response List Runs"
                 }
               }
             }
@@ -110,6 +276,7 @@
             "required": true,
             "schema": {
               "type": "string",
+              "format": "uuid",
               "title": "Run Id"
             }
           }
@@ -149,6 +316,7 @@
             "required": true,
             "schema": {
               "type": "string",
+              "format": "uuid",
               "title": "Run Id"
             }
           }
@@ -186,10 +354,76 @@
           }
         }
       }
+    },
+    "/api/runs/{run_id}/recover": {
+      "post": {
+        "summary": "Recover Run",
+        "operationId": "recover_run",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
     "schemas": {
+      "ArtifactRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Id"
+          },
+          "media_type": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Media Type"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "media_type", "name"],
+        "title": "ArtifactRef",
+        "description": "Content address only. Upload/availability verification belongs to ingestion."
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -216,6 +450,12 @@
             "const": "local-development",
             "title": "Mode",
             "default": "local-development"
+          },
+          "database": {
+            "type": "string",
+            "const": "ready",
+            "title": "Database",
+            "default": "ready"
           }
         },
         "additionalProperties": false,
@@ -244,6 +484,18 @@
       },
       "ResumeRequest": {
         "properties": {
+          "checkpoint_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Checkpoint Id"
+          },
+          "interrupt_id": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Interrupt Id"
+          },
           "decision": {
             "type": "string",
             "enum": ["approve", "reject"],
@@ -252,11 +504,15 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["decision"],
+        "required": ["checkpoint_id", "interrupt_id", "decision"],
         "title": "ResumeRequest"
       },
       "ReviewPrompt": {
         "properties": {
+          "interrupt_id": {
+            "type": "string",
+            "title": "Interrupt Id"
+          },
           "node_id": {
             "type": "string",
             "title": "Node Id"
@@ -268,8 +524,38 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["node_id", "question"],
+        "required": ["interrupt_id", "node_id", "question"],
         "title": "ReviewPrompt"
+      },
+      "RevisionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "number", "content_hash", "created_at", "name"],
+        "title": "RevisionSummary"
       },
       "RunEvent": {
         "properties": {
@@ -298,26 +584,65 @@
       },
       "RunRequest": {
         "properties": {
-          "workflow": {
-            "$ref": "#/components/schemas/Workflow"
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
           },
           "brief": {
             "type": "string",
             "maxLength": 10000,
             "minLength": 1,
             "title": "Brief"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactRef"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Artifacts"
           }
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["workflow", "brief"],
+        "required": ["id", "revision_id", "brief"],
         "title": "RunRequest"
       },
       "RunSnapshot": {
         "properties": {
           "id": {
             "type": "string",
+            "format": "uuid",
             "title": "Id"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["paused", "completed", "rejected", "interrupted"],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
           },
           "workflow": {
             "$ref": "#/components/schemas/Workflow"
@@ -326,10 +651,27 @@
             "type": "string",
             "title": "Brief"
           },
-          "status": {
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/ArtifactRef"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "compiler_version": {
             "type": "string",
-            "enum": ["paused", "completed", "rejected"],
-            "title": "Status"
+            "title": "Compiler Version"
+          },
+          "checkpoint_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checkpoint Id"
           },
           "events": {
             "items": {
@@ -351,8 +693,64 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "workflow", "brief", "status", "events"],
+        "required": [
+          "id",
+          "revision_id",
+          "revision_number",
+          "workflow_name",
+          "status",
+          "created_at",
+          "workflow",
+          "brief",
+          "artifacts",
+          "compiler_version",
+          "checkpoint_id",
+          "events"
+        ],
         "title": "RunSnapshot"
+      },
+      "RunSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["paused", "completed", "rejected", "interrupted"],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision_id",
+          "revision_number",
+          "workflow_name",
+          "status",
+          "created_at"
+        ],
+        "title": "RunSummary"
       },
       "ValidationError": {
         "properties": {
@@ -500,6 +898,39 @@
         "type": "object",
         "required": ["id", "kind", "label", "position"],
         "title": "WorkflowNode"
+      },
+      "WorkflowRevision": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "content_hash": {
+            "type": "string",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/Workflow"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "number", "content_hash", "created_at", "name", "workflow"],
+        "title": "WorkflowRevision"
       }
     }
   }
