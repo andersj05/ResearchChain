@@ -42,11 +42,34 @@ export const workflowCanvas = definePrimitive({
       step: () => 10,
       bounds: () => ({ minX: -10000, minY: -10000, maxX: 10000, maxY: 10000 }),
     });
-    return { viewport, move };
+    function fit() {
+      const points = Object.values(context.store.get().positions);
+      if (!points.length) return;
+      viewport.fit(
+        {
+          left: Math.min(...points.map((point) => point.x)),
+          top: Math.min(...points.map((point) => point.y)),
+          right: Math.max(...points.map((point) => point.x)) + 230,
+          bottom: Math.max(...points.map((point) => point.y)) + 120,
+        },
+        { padding: 48, maxZoom: 1 },
+      );
+    }
+    return { viewport, move, fit };
   },
   slots: (slot) => ({
     root: slot({
       attrs: () => ({ tabindex: "0", style: css({ overflow: "clip", "touch-action": "none" }) }),
+      bind: (el, { api }) => {
+        const observer = new ResizeObserver(() => {
+          if (el.clientWidth && el.clientHeight) {
+            api.fit();
+            observer.disconnect();
+          }
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+      },
       on: {
         wheel: (event, { api }) => api.viewport.wheel(event),
         pointerdown: (event, { el, api }) => {
@@ -85,6 +108,18 @@ export const workflowCanvas = definePrimitive({
     reset: slot({
       attrs: () => ({ type: "button" }),
       press: ({ api }) => api.viewport.setViewport({ x: 0, y: 0, zoom: 0.8 }),
+    }),
+    fit: slot({
+      attrs: () => ({ type: "button" }),
+      press: ({ api }) => api.fit(),
+    }),
+    zoomIn: slot({
+      attrs: () => ({ type: "button" }),
+      press: ({ api }) => api.viewport.zoomBy(1.25),
+    }),
+    zoomOut: slot({
+      attrs: () => ({ type: "button" }),
+      press: ({ api }) => api.viewport.zoomBy(0.8),
     }),
   }),
 });
