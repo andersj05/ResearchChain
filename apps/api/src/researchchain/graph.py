@@ -3,8 +3,7 @@
 from collections import deque
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_serializer, model_validator
-from pydantic.functional_serializers import SerializerFunctionWrapHandler
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class StrictModel(BaseModel):
@@ -285,9 +284,6 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
 
 
 class Workflow(GraphDefinition):
-    # Legacy serialization omits new optional fields; both wire forms share this schema.
-    model_config = ConfigDict(extra="forbid", json_schema_mode_override="validation")
-
     schema_version: Literal["0.1", "0.2"] = "0.1"
     subgraphs: list[SubgraphDefinition] = Field(default_factory=list, max_length=32)
     budgets: ExecutionBudgets = Field(default_factory=ExecutionBudgets)
@@ -343,9 +339,9 @@ class Workflow(GraphDefinition):
                 visiting.remove(key)
         return self
 
-    @model_serializer(mode="wrap")
-    def serialize_compatibly(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
-        document: dict[str, Any] = handler(self)
+    def canonical_document(self) -> dict[str, Any]:
+        """Keep legacy content hashes stable; API responses include normalized defaults."""
+        document = self.model_dump(mode="json")
         if self.schema_version == "0.1":
             document.pop("subgraphs", None)
             document.pop("budgets", None)

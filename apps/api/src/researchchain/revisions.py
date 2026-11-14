@@ -43,7 +43,7 @@ class RevisionStore:
         self.database = database
 
     def save(self, workflow: Workflow) -> WorkflowRevision:
-        document = workflow.model_dump(mode="json")
+        document = workflow.canonical_document()
         canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
         content_hash = hashlib.sha256(canonical.encode()).hexdigest()
         with self.database.connection() as conn:

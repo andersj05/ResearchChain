@@ -31,7 +31,7 @@ class NodeTypeSpec(StrictModel):
 
 
 def node_types() -> list[NodeTypeSpec]:
-    configurations = {
+    configurations: dict[str, type[StrictModel]] = {
         "route": RouteConfig,
         "fork": ForkConfig,
         "loop": LoopConfig,

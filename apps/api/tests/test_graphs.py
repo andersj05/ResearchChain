@@ -115,9 +115,9 @@ def test_numeric_predicates_reject_wrong_types_and_nonfinite_values(value: Any) 
 
 def test_legacy_document_preserves_serialization_and_compiler_boundary(workflow: dict) -> None:
     parsed = Workflow.model_validate(workflow)
-    assert set(parsed.model_dump()) == set(workflow)
-    assert "config" not in parsed.model_dump()["nodes"][0]
-    assert "source_port" not in parsed.model_dump()["edges"][0]
+    assert set(parsed.canonical_document()) == set(workflow)
+    assert "config" not in parsed.canonical_document()["nodes"][0]
+    assert "source_port" not in parsed.canonical_document()["edges"][0]
     workflow["schema_version"] = "0.1"
     workflow["nodes"][0]["inputs"] = {"text": {"source": "brief"}}
     with pytest.raises(ValidationError):

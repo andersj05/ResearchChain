@@ -23,6 +23,28 @@
         }
       }
     },
+    "/api/node-types": {
+      "get": {
+        "summary": "Registered Types",
+        "operationId": "node_types",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NodeTypeSpec"
+                  },
+                  "type": "array",
+                  "title": "Response Node Types"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/workflows/validate": {
       "post": {
         "summary": "Validate",
@@ -394,6 +416,46 @@
           }
         }
       }
+    },
+    "/api/runs/{run_id}/cancel": {
+      "post": {
+        "summary": "Cancel Run",
+        "operationId": "cancel_run",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelResult"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -423,6 +485,79 @@
         "required": ["id", "media_type", "name"],
         "title": "ArtifactRef",
         "description": "Content address only. Upload/availability verification belongs to ingestion."
+      },
+      "CancelResult": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["cancelled", "completed", "rejected", "limited"],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "status"],
+        "title": "CancelResult"
+      },
+      "ExecutionBudgets": {
+        "properties": {
+          "max_node_executions": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Max Node Executions",
+            "default": 256
+          },
+          "max_active_seconds": {
+            "type": "number",
+            "maximum": 3600.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Active Seconds",
+            "default": 120
+          },
+          "max_concurrency": {
+            "type": "integer",
+            "maximum": 16.0,
+            "minimum": 1.0,
+            "title": "Max Concurrency",
+            "default": 4
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ExecutionBudgets"
+      },
+      "ForkConfig": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "fork",
+            "title": "Type",
+            "default": "fork"
+          },
+          "join": {
+            "type": "string",
+            "title": "Join"
+          },
+          "branches": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 2,
+            "title": "Branches"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["join", "branches"],
+        "title": "ForkConfig"
       },
       "HTTPValidationError": {
         "properties": {
@@ -462,6 +597,92 @@
         "type": "object",
         "title": "Health"
       },
+      "LoopConfig": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "loop",
+            "title": "Type",
+            "default": "loop"
+          },
+          "ref": {
+            "$ref": "#/components/schemas/SubgraphRef"
+          },
+          "max_iterations": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Iterations"
+          },
+          "until": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Predicate"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["ref", "max_iterations"],
+        "title": "LoopConfig"
+      },
+      "NodeTypeSpec": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"],
+            "title": "Kind"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "inputs": {
+            "items": {
+              "$ref": "#/components/schemas/PortSpec"
+            },
+            "type": "array",
+            "title": "Inputs"
+          },
+          "outputs": {
+            "items": {
+              "$ref": "#/components/schemas/PortSpec"
+            },
+            "type": "array",
+            "title": "Outputs"
+          },
+          "config_schema": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config Schema"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "label", "inputs", "outputs"],
+        "title": "NodeTypeSpec"
+      },
+      "PortSpec": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["control", "text", "number"],
+            "title": "Type"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "type"],
+        "title": "PortSpec"
+      },
       "Position": {
         "properties": {
           "x": {
@@ -481,6 +702,33 @@
         "type": "object",
         "required": ["x", "y"],
         "title": "Position"
+      },
+      "Predicate": {
+        "properties": {
+          "left": {
+            "$ref": "#/components/schemas/ValueSource"
+          },
+          "operator": {
+            "type": "string",
+            "enum": ["equals", "not_equals", "contains", "gt", "gte", "lt", "lte"],
+            "title": "Operator"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["left", "operator", "value"],
+        "title": "Predicate"
       },
       "ResumeRequest": {
         "properties": {
@@ -512,6 +760,17 @@
           "interrupt_id": {
             "type": "string",
             "title": "Interrupt Id"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           },
           "node_id": {
             "type": "string",
@@ -557,11 +816,43 @@
         "required": ["id", "number", "content_hash", "created_at", "name"],
         "title": "RevisionSummary"
       },
+      "RouteConfig": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "route",
+            "title": "Type",
+            "default": "route"
+          },
+          "condition": {
+            "$ref": "#/components/schemas/Predicate"
+          },
+          "join": {
+            "type": "string",
+            "title": "Join"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["condition", "join"],
+        "title": "RouteConfig"
+      },
       "RunEvent": {
         "properties": {
           "node_id": {
             "type": "string",
             "title": "Node Id"
+          },
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
           },
           "label": {
             "type": "string",
@@ -569,7 +860,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["note", "review", "finish"],
+            "enum": ["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"],
             "title": "Kind"
           },
           "detail": {
@@ -636,7 +927,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["paused", "completed", "rejected", "interrupted"],
+            "enum": ["paused", "completed", "rejected", "interrupted", "cancelled", "limited"],
             "title": "Status"
           },
           "created_at": {
@@ -689,6 +980,27 @@
                 "type": "null"
               }
             ]
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewPrompt"
+            },
+            "type": "array",
+            "title": "Reviews"
+          },
+          "stop_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stop Reason"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/RunUsage"
           }
         },
         "additionalProperties": false,
@@ -731,7 +1043,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["paused", "completed", "rejected", "interrupted"],
+            "enum": ["paused", "completed", "rejected", "interrupted", "cancelled", "limited"],
             "title": "Status"
           },
           "created_at": {
@@ -751,6 +1063,105 @@
           "created_at"
         ],
         "title": "RunSummary"
+      },
+      "RunUsage": {
+        "properties": {
+          "node_executions": {
+            "type": "integer",
+            "title": "Node Executions",
+            "default": 0
+          },
+          "active_seconds": {
+            "type": "number",
+            "title": "Active Seconds",
+            "default": 0
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RunUsage"
+      },
+      "SubgraphConfig": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "subgraph",
+            "title": "Type",
+            "default": "subgraph"
+          },
+          "ref": {
+            "$ref": "#/components/schemas/SubgraphRef"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["ref"],
+        "title": "SubgraphConfig"
+      },
+      "SubgraphDefinition": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "start_node": {
+            "type": "string",
+            "title": "Start Node"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowNode"
+            },
+            "type": "array",
+            "maxItems": 128,
+            "minItems": 1,
+            "title": "Nodes"
+          },
+          "edges": {
+            "items": {
+              "$ref": "#/components/schemas/WorkflowEdge"
+            },
+            "type": "array",
+            "maxItems": 256,
+            "title": "Edges"
+          },
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "start_node", "nodes", "edges", "id", "version"],
+        "title": "SubgraphDefinition"
+      },
+      "SubgraphRef": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Id"
+          },
+          "version": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "version"],
+        "title": "SubgraphRef"
       },
       "ValidationError": {
         "properties": {
@@ -809,14 +1220,43 @@
         "required": ["node_count", "workflow"],
         "title": "ValidationResult"
       },
+      "ValueSource": {
+        "properties": {
+          "source": {
+            "type": "string",
+            "enum": ["brief", "artifact_count", "iteration", "output"],
+            "title": "Source"
+          },
+          "node_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Node Id"
+          },
+          "port": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Port"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source"],
+        "title": "ValueSource"
+      },
       "Workflow": {
         "properties": {
-          "schema_version": {
-            "type": "string",
-            "const": "0.1",
-            "title": "Schema Version",
-            "default": "0.1"
-          },
           "name": {
             "type": "string",
             "maxLength": 120,
@@ -832,7 +1272,7 @@
               "$ref": "#/components/schemas/WorkflowNode"
             },
             "type": "array",
-            "maxItems": 32,
+            "maxItems": 128,
             "minItems": 1,
             "title": "Nodes"
           },
@@ -841,8 +1281,25 @@
               "$ref": "#/components/schemas/WorkflowEdge"
             },
             "type": "array",
-            "maxItems": 31,
+            "maxItems": 256,
             "title": "Edges"
+          },
+          "schema_version": {
+            "type": "string",
+            "enum": ["0.1", "0.2"],
+            "title": "Schema Version",
+            "default": "0.1"
+          },
+          "subgraphs": {
+            "items": {
+              "$ref": "#/components/schemas/SubgraphDefinition"
+            },
+            "type": "array",
+            "maxItems": 32,
+            "title": "Subgraphs"
+          },
+          "budgets": {
+            "$ref": "#/components/schemas/ExecutionBudgets"
           }
         },
         "additionalProperties": false,
@@ -859,6 +1316,16 @@
           "target": {
             "type": "string",
             "title": "Target"
+          },
+          "source_port": {
+            "type": "string",
+            "title": "Source Port",
+            "default": "next"
+          },
+          "target_port": {
+            "type": "string",
+            "title": "Target Port",
+            "default": "in"
           }
         },
         "additionalProperties": false,
@@ -875,7 +1342,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["note", "review", "finish"],
+            "enum": ["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"],
             "title": "Kind"
           },
           "label": {
@@ -892,6 +1359,47 @@
           },
           "position": {
             "$ref": "#/components/schemas/Position"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/RouteConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ForkConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SubgraphConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LoopConfig"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "type",
+                  "mapping": {
+                    "fork": "#/components/schemas/ForkConfig",
+                    "loop": "#/components/schemas/LoopConfig",
+                    "route": "#/components/schemas/RouteConfig",
+                    "subgraph": "#/components/schemas/SubgraphConfig"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config"
+          },
+          "inputs": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/ValueSource"
+            },
+            "type": "object",
+            "maxProperties": 8,
+            "title": "Inputs"
           }
         },
         "additionalProperties": false,

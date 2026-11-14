@@ -21,6 +21,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/node-types": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Registered Types */
+    get: operations["node_types"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/workflows/validate": {
     parameters: {
       query?: never;
@@ -142,6 +159,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/runs/{run_id}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel Run */
+    post: operations["cancel_run"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -157,6 +191,49 @@ export interface components {
       media_type: string;
       /** Name */
       name: string;
+    };
+    /** CancelResult */
+    CancelResult: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "cancelled" | "completed" | "rejected" | "limited";
+    };
+    /** ExecutionBudgets */
+    ExecutionBudgets: {
+      /**
+       * Max Node Executions
+       * @default 256
+       */
+      max_node_executions: number;
+      /**
+       * Max Active Seconds
+       * @default 120
+       */
+      max_active_seconds: number;
+      /**
+       * Max Concurrency
+       * @default 4
+       */
+      max_concurrency: number;
+    };
+    /** ForkConfig */
+    ForkConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "fork";
+      /** Join */
+      join: string;
+      /** Branches */
+      branches: string[];
     };
     /** HTTPValidationError */
     HTTPValidationError: {
@@ -184,12 +261,63 @@ export interface components {
        */
       database: "ready";
     };
+    /** LoopConfig */
+    LoopConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "loop";
+      ref: components["schemas"]["SubgraphRef"];
+      /** Max Iterations */
+      max_iterations: number;
+      until?: components["schemas"]["Predicate"] | null;
+    };
+    /** NodeTypeSpec */
+    NodeTypeSpec: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph";
+      /** Label */
+      label: string;
+      /** Inputs */
+      inputs: components["schemas"]["PortSpec"][];
+      /** Outputs */
+      outputs: components["schemas"]["PortSpec"][];
+      /** Config Schema */
+      config_schema?: {
+        [key: string]: unknown;
+      };
+    };
+    /** PortSpec */
+    PortSpec: {
+      /** Name */
+      name: string;
+      /**
+       * Type
+       * @enum {string}
+       */
+      type: "control" | "text" | "number";
+    };
     /** Position */
     Position: {
       /** X */
       x: number;
       /** Y */
       y: number;
+    };
+    /** Predicate */
+    Predicate: {
+      left: components["schemas"]["ValueSource"];
+      /**
+       * Operator
+       * @enum {string}
+       */
+      operator: "equals" | "not_equals" | "contains" | "gt" | "gte" | "lt" | "lte";
+      /** Value */
+      value: string | number;
     };
     /** ResumeRequest */
     ResumeRequest: {
@@ -207,6 +335,8 @@ export interface components {
     ReviewPrompt: {
       /** Interrupt Id */
       interrupt_id: string;
+      /** Path */
+      path?: string | null;
       /** Node Id */
       node_id: string;
       /** Question */
@@ -231,17 +361,30 @@ export interface components {
       /** Name */
       name: string;
     };
+    /** RouteConfig */
+    RouteConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "route";
+      condition: components["schemas"]["Predicate"];
+      /** Join */
+      join: string;
+    };
     /** RunEvent */
     RunEvent: {
       /** Node Id */
       node_id: string;
+      /** Path */
+      path?: string | null;
       /** Label */
       label: string;
       /**
        * Kind
        * @enum {string}
        */
-      kind: "note" | "review" | "finish";
+      kind: "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph";
       /** Detail */
       detail: string;
     };
@@ -282,7 +425,7 @@ export interface components {
        * Status
        * @enum {string}
        */
-      status: "paused" | "completed" | "rejected" | "interrupted";
+      status: "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited";
       /**
        * Created At
        * Format: date-time
@@ -300,6 +443,11 @@ export interface components {
       /** Events */
       events: components["schemas"]["RunEvent"][];
       review?: components["schemas"]["ReviewPrompt"] | null;
+      /** Reviews */
+      reviews?: components["schemas"]["ReviewPrompt"][];
+      /** Stop Reason */
+      stop_reason?: string | null;
+      usage?: components["schemas"]["RunUsage"];
     };
     /** RunSummary */
     RunSummary: {
@@ -321,12 +469,56 @@ export interface components {
        * Status
        * @enum {string}
        */
-      status: "paused" | "completed" | "rejected" | "interrupted";
+      status: "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited";
       /**
        * Created At
        * Format: date-time
        */
       created_at: string;
+    };
+    /** RunUsage */
+    RunUsage: {
+      /**
+       * Node Executions
+       * @default 0
+       */
+      node_executions: number;
+      /**
+       * Active Seconds
+       * @default 0
+       */
+      active_seconds: number;
+    };
+    /** SubgraphConfig */
+    SubgraphConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "subgraph";
+      ref: components["schemas"]["SubgraphRef"];
+    };
+    /** SubgraphDefinition */
+    SubgraphDefinition: {
+      /** Name */
+      name: string;
+      /** Start Node */
+      start_node: string;
+      /** Nodes */
+      nodes: components["schemas"]["WorkflowNode"][];
+      /** Edges */
+      edges: components["schemas"]["WorkflowEdge"][];
+      /** Id */
+      id: string;
+      /** Version */
+      version: number;
+    };
+    /** SubgraphRef */
+    SubgraphRef: {
+      /** Id */
+      id: string;
+      /** Version */
+      version: number;
     };
     /** ValidationError */
     ValidationError: {
@@ -353,14 +545,20 @@ export interface components {
       node_count: number;
       workflow: components["schemas"]["Workflow"];
     };
+    /** ValueSource */
+    ValueSource: {
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "brief" | "artifact_count" | "iteration" | "output";
+      /** Node Id */
+      node_id?: string | null;
+      /** Port */
+      port?: string | null;
+    };
     /** Workflow */
     Workflow: {
-      /**
-       * Schema Version
-       * @default 0.1
-       * @constant
-       */
-      schema_version: "0.1";
       /** Name */
       name: string;
       /** Start Node */
@@ -369,6 +567,15 @@ export interface components {
       nodes: components["schemas"]["WorkflowNode"][];
       /** Edges */
       edges: components["schemas"]["WorkflowEdge"][];
+      /**
+       * Schema Version
+       * @default 0.1
+       * @enum {string}
+       */
+      schema_version: "0.1" | "0.2";
+      /** Subgraphs */
+      subgraphs?: components["schemas"]["SubgraphDefinition"][];
+      budgets?: components["schemas"]["ExecutionBudgets"];
     };
     /** WorkflowEdge */
     WorkflowEdge: {
@@ -376,6 +583,16 @@ export interface components {
       source: string;
       /** Target */
       target: string;
+      /**
+       * Source Port
+       * @default next
+       */
+      source_port: string;
+      /**
+       * Target Port
+       * @default in
+       */
+      target_port: string;
     };
     /** WorkflowNode */
     WorkflowNode: {
@@ -385,7 +602,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: "note" | "review" | "finish";
+      kind: "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph";
       /** Label */
       label: string;
       /**
@@ -394,6 +611,19 @@ export interface components {
        */
       instructions: string;
       position: components["schemas"]["Position"];
+      /** Config */
+      config?:
+        | (
+            | components["schemas"]["RouteConfig"]
+            | components["schemas"]["ForkConfig"]
+            | components["schemas"]["SubgraphConfig"]
+            | components["schemas"]["LoopConfig"]
+          )
+        | null;
+      /** Inputs */
+      inputs?: {
+        [key: string]: components["schemas"]["ValueSource"];
+      };
     };
     /** WorkflowRevision */
     WorkflowRevision: {
@@ -440,6 +670,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["Health"];
+        };
+      };
+    };
+  };
+  node_types: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["NodeTypeSpec"][];
         };
       };
     };
@@ -720,6 +970,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RunSnapshot"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  cancel_run: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CancelResult"];
         };
       };
       /** @description Validation Error */
