@@ -1,8 +1,8 @@
 # Current state
 
-Updated 2026-11-14. The advanced runtime is recorded in
-[PR #20](https://github.com/andersj05/ResearchChain/pull/20), targeting dev.
-Use the PR for current CI and merge state. Prior milestones: durability in PR #16,
+Updated 2026-11-14. The advanced runtime was merged into dev through
+[PR #20](https://github.com/andersj05/ResearchChain/pull/20), merge `641dfda`.
+Issue #3 is closed; its final CI checks passed. Prior milestones: durability in PR #16,
 CLI workflow in PR #17, and the frontend redesign in PR #19 (merged into dev).
 
 ## Verified capabilities
@@ -28,7 +28,8 @@ CLI workflow in PR #17, and the frontend redesign in PR #19 (merged into dev).
 
 ## Next work
 
-Next: editor issue #4, building on the issue #3 runtime:
+Active: editor issue #4 on `feat/workflow-editor`, starting from `641dfda`.
+See [implementation sequence](../plans/0002-workflow-editor.md). Remaining work:
 port wiring/reconnection, typed configuration forms, subgraph navigation,
 expand/collapse, grouped undo/redo, JSON import, validation diagnostics, and
 large-graph interaction measurements. Structured graphs currently allow safe
