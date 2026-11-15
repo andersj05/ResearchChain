@@ -18,12 +18,13 @@ HTTPS webhook. No real destination or background monitor is enabled during devel
 - Confirm each condition over spaced observations, independently, so one flapping
   condition cannot hide another. Persist confirmed state and pending delivery
   outside the research database so a database outage can still be reported.
-- Save each event and its stable ID before sending. Retry failed/ambiguous sends
+- Save each event, stable ID and monotonically increasing sequence before sending. Retry failed/ambiguous sends
   with bounded backoff and the same ID. A recipient must deduplicate event IDs;
   a successful HTTP response is transport acknowledgement, not human receipt.
-- Events contain only fixed condition codes, state, an anonymous monitor UUID and
+- Events contain only fixed condition codes, state, a random monitor UUID and
   timestamps. Do not transmit research, run IDs, account details, hostnames,
-  provider information, counts, credentials or raw errors.
+  provider information, counts, provider/owner credentials or raw errors.
+  The configured webhook credential is used only to authenticate to its receiver.
 - Read a webhook URL and optional bearer token only through hidden local prompts.
   Protect local profiles/state with restrictive permissions and current-user
   Windows DPAPI. Do not accept secrets in command arguments or print destinations.

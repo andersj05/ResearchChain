@@ -55,22 +55,23 @@ git switch -c feat/your-feature
 pnpm dev
 ```
 
-| Command                                              | Purpose                                                    |
-| ---------------------------------------------------- | ---------------------------------------------------------- |
-| `pnpm dev:web` / `pnpm dev:api`                      | Run a single service                                       |
-| `pnpm db:up` / `pnpm db:down`                        | Start/stop local Postgres; preserve its named volume       |
-| `pnpm db:backup` / `pnpm db:restore`                 | Create a private snapshot / verify a new recovery database |
-| `pnpm db:keygen` / `pnpm db:seal` / `pnpm db:unseal` | Prepare portable encrypted recovery copies                 |
-| `pnpm access:login` / `pnpm access:revoke`           | Open a private owner link / revoke browser sessions        |
-| `pnpm db:migrate`                                    | Apply application and LangGraph database migrations        |
-| `pnpm test`                                          | Backend validation and real checkpoint/resume tests        |
-| `pnpm typecheck`                                     | TypeScript and strict Python type checks                   |
-| `pnpm lint`                                          | ESLint and Ruff checks                                     |
-| `pnpm format`                                        | Format supported source and docs                           |
-| `pnpm contracts:generate`                            | Regenerate OpenAPI and TypeScript API types                |
-| `pnpm contracts:check`                               | Regenerate and detect tracked contract drift               |
-| `pnpm check`                                         | Formatting, lint, types, backend tests, production build   |
-| `pnpm test:e2e`                                      | Browser tests in a temporary Postgres schema               |
+| Command                                              | Purpose                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
+| `pnpm dev:web` / `pnpm dev:api`                      | Run a single service                                            |
+| `pnpm db:up` / `pnpm db:down`                        | Start/stop local Postgres; preserve its named volume            |
+| `pnpm db:backup` / `pnpm db:restore`                 | Create a private snapshot / verify a new recovery database      |
+| `pnpm db:keygen` / `pnpm db:seal` / `pnpm db:unseal` | Prepare portable encrypted recovery copies                      |
+| `pnpm access:login` / `pnpm access:revoke`           | Open a private owner link / revoke browser sessions             |
+| `pnpm monitor check` / `pnpm monitor --help`         | Read current operational conditions / configure explicit alerts |
+| `pnpm db:migrate`                                    | Apply application and LangGraph database migrations             |
+| `pnpm test`                                          | Backend validation and real checkpoint/resume tests             |
+| `pnpm typecheck`                                     | TypeScript and strict Python type checks                        |
+| `pnpm lint`                                          | ESLint and Ruff checks                                          |
+| `pnpm format`                                        | Format supported source and docs                                |
+| `pnpm contracts:generate`                            | Regenerate OpenAPI and TypeScript API types                     |
+| `pnpm contracts:check`                               | Regenerate and detect tracked contract drift                    |
+| `pnpm check`                                         | Formatting, lint, types, backend tests, production build        |
+| `pnpm test:e2e`                                      | Browser tests in a temporary Postgres schema                    |
 
 Install the test browser once with
 `pnpm --filter @researchchain/web exec playwright install chromium`.

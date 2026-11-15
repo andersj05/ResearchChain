@@ -3,121 +3,126 @@
 Updated 2026-11-15. The owner authorized frequent commits and merging completed
 steps into dev after passing checks. No main promotion or public deployment.
 
-The actual repository is C:\Users\jense\Desktop\ResearchChain. The empty
+The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty
 Documents/ChatGPT folder is not the checkout. Use explicit working directories.
-The current feature checkout is C:\Users\jense\Desktop\ResearchChain-encrypted,
-branch feat/encrypted-backups.
+The current feature checkout is C:/Users/jense/Desktop/ResearchChain-alerts,
+branch feat/operational-alerts. Inspect GitHub and the newest private delivery
+receipt for exact integration status and live service handles.
 
-## ChatGPT sign-in
+## Operational alerts
 
-The latest personally completed sign-in succeeded at approximately 13:03 UTC on
-2026-11-15. The saved connection has plan usage enabled and exposes eight models.
-Verification made no inference request. Private evidence is the main checkout's
-.local/signin-restart-receipt.json. Credit permission remains controlled by the
-owner in ChatGPT and is not attested by ResearchChain. Do not restart a working
-connection unless requested or authentication actually fails.
+[Plan 0015](../plans/0015-operational-alerts.md) implements an explicit operator CLI:
+setup, check, status, once, watch and test. Nothing starts from the web app or
+pnpm dev. Check observes current conditions without a profile or delivery; status
+only reads saved state. No research writes, provider credential reads or model
+calls are needed.
 
-[PR #32](https://github.com/andersj05/ResearchChain/pull/32) adds Connect/Reconnect
-ChatGPT to Run workflow → ChatGPT plan usage. The owner opens a ten-minute local
-consent page, can reopen it after refresh or cancel pending sign-in, and sees the
-result. Success refreshes models. Repeated starts share the current listener;
-GET never starts authentication or replays a failed mutation.
+Conditions cover unavailable database/workbench status, missing consumers, overdue
+commands, held recovery, uncertain outcomes and failed observations. Independent
+confirmation uses spaced samples. Unknown inputs preserve confirmed incidents.
+Profiles are private, immutable and bound to the workspace and canonical origin;
+database password rotation does not change the workspace binding.
 
-Owner sessions, exact Origin and CSRF protect the controls. The existing PKCE,
-browser-bound callback, identity checks and encrypted credential store remain.
-Cancellation before exchange preserves the saved connection; after exchange starts,
-the app reports its actual result. Denial and expiry retain prior credentials.
-A valid identity without plan scopes is reported as disabled. Pending listeners
-close on shutdown. The flow is local and single-process; remote origins disable it.
-Use one CLI or in-app attempt at a time. No database migration was added.
+Persist events, IDs, monotonic sequences and retry deadlines before sending. The
+receiver must deduplicate IDs, ignore older sequences and acknowledge duplicates
+with 2xx. Recovery follows a pending problem after its acknowledgement. Test
+events use sequence zero and cannot acknowledge real incidents. A process-shared
+lock serializes each profile across operators.
 
-PR #32 merged into dev as 258e736e1bebe353d8e11055e5af77ffcf19c238.
-Local checks, exact-head CI 43717211834 and dev CI 43718324056 passed:
-352 backend and 82 browser tests. The live schema-9 verification preserved all
-33 table fingerprints and 12 originals (129,817 bytes), with two workers and
-an idle queue. No inference was made. Main .local/signin-delivery.json holds the
-delivery evidence; the latest sign-in attempt is recorded separately.
-See [the connection guide](../chatgpt-plan.md).
+Verified HTTPS delivery uses only fixed codes, random monitor/event IDs, sequence
+and timestamps. Secrets enter through hidden prompts and stay in protected local
+profiles; transport errors/destinations are not logged. No real profile, receiver,
+notification or background monitor has been enabled during implementation.
+Local-only mode retains its latest event. External delivery and dead-host
+monitoring still need an actual receiver/watchdog and a reviewed test.
 
-## Portable encrypted backups
+Focused coverage includes real synthetic workspace/worker observations, unchanged
+research fingerprints, independent confirmation, unknown inputs, failed/ambiguous
+acknowledgements, retry ordering, real process locks, hidden input, redaction,
+bounded HTTP and a real local TLS receiver. Verify final local/full CI evidence
+through the feature PR and main .local/alerts-delivery.json. No database migration,
+public API change or new dependency is introduced.
+See [monitoring](../monitoring.md) and [ADR 0015](../decisions/0015-operational-alerts.md).
 
-The next issue-9 slice implements db:keygen, db:seal and db:unseal using pinned
-pyrage 1.4.0 and standard age encryption. An encrypted portable X25519 identity
-uses a hidden, confirmed passphrase; later backup encryption needs only its public
-recipient. Both the manifest and PostgreSQL dump are encrypted.
+## Encrypted backup delivery
 
-Recovery authenticates the complete stream before parsing exactly two ordinary
-tar members. It verifies sizes and the dump hash, then leaves the existing
-trusted-source, new-database restore as a separate explicit step. Exclusive file
-creation and ownership-tracked cleanup preserve unrelated files. Hard termination
-can leave private staging; no secure erase or automatic source deletion is claimed.
+[PR #33](https://github.com/andersj05/ResearchChain/pull/33) merged into dev as
+2ad9eead429842c7cb442914e88285db6386a169. Local pnpm check, PR CI 43721570796 and
+dev CI 43722984399 passed with 376 backend and 82 browser tests. The Windows hidden
+prompt was checked with a disposable key. Private evidence is in main
+.local/encryption-delivery.json and .local/encryption-live-check.json.
 
-All 24 focused synthetic checks passed, including a real PostgreSQL backup,
-encrypted round-trip, restore to a new database, original-byte verification,
-wrong keys, tampering, malicious archives, write failure, collisions and interrupt
-cleanup. Full-check and exact-head CI evidence belong in the feature PR and main
-.local/encryption-delivery.json when delivered. No schema/API migration or model
-call is part of this change. See [the recovery guide](../encrypted-backups.md),
-[ADR 0014](../decisions/0014-portable-encrypted-backups.md) and
-[plan 0014](../plans/0014-encrypted-backups.md).
+db:keygen, db:seal and db:unseal use pinned pyrage 1.4.0 and standard age encryption.
+A passphrase-protected portable X25519 identity unlocks recovery; later encryption
+needs only its public recipient. Both the manifest and PostgreSQL dump are encrypted.
+Full authentication precedes strict tar parsing and dump verification. The existing
+trusted-source, new-database restore remains a separate explicit operation.
 
-The owner has not selected an off-machine destination. Do not create a real owner
-recovery key, upload private research, or claim off-machine recovery is complete
-until key handling, the destination and a successful copied-backup recovery are
-concrete. Test keys and test research are disposable.
+The owner has not chosen an off-machine destination or real recovery-key handling.
+Do not create an owner recovery key, upload private research or claim off-machine
+recovery is complete until a chosen copied backup has been successfully restored.
+See [encrypted backups](../encrypted-backups.md) and [ADR 0014](../decisions/0014-portable-encrypted-backups.md).
 
-## Established operations and runtime
+## Live research and access
 
-Retention [PR #31](https://github.com/andersj05/ResearchChain/pull/31) merged into dev
-as 17239c92fc6f8f92172a3eeec706de2c793bacca. Final PR CI 43713259461 and dev CI
-43714066844 passed: 336 backend and 77 browser tests. Schema 9 is live; all 28
-existing research/checkpoint table fingerprints and 12 originals (129,817 bytes)
-were preserved. Read-only validation left all four retention tables empty.
-Private receipts: .local/retention-delivery.json, .local/retention-live-upgrade.json,
-.local/retention-live-check.json and .local/retention-upgrade-rehearsal.json.
+The live verification after PR #33 preserved all 33 schema-9 table fingerprints and
+12 originals (129,817 bytes), with two connected worker consumers and an idle queue.
+The development supervisor required a restart during the code/dependency update;
+the subsequent protected read and connection checks passed. For future updates,
+check the queue before stopping owned services and always restore the workbench.
 
-Run cleanup requires a persisted preview and typed DELETE. It protects active,
-paused, uncertain and referenced runs, preserves evidence/reports/evaluations and
-deletes only selected unreferenced originals. Tombstones reject stale resurrection;
-writer locks, READ COMMITTED enforcement and bounded transactions prevent stale
-snapshot races. Never purge private research as a test. See [retention](../retention.md).
-Do not rerun old schema-7/8 upgrade scripts against the live schema-9 database.
+ChatGPT plan usage remains enabled with eight models, last verified without inference
+at 14:15 UTC on 2026-11-15. The latest requested fresh sign-in expired while awaiting
+personal completion; it preserved the saved connection. See main
+.local/signin-restart-receipt.json. Do not restart a working connection unless
+requested or authentication actually fails. Credit permission is owner-controlled
+in ChatGPT and is not attested by the app.
 
-Operations #30, workers #29, owner access #28, verified backups #27, reports #26,
-evaluations #25, bounded research #24, plan connection #23, evidence #22 and
-editor/runtime #20–21 are merged. Use linked guides and GitHub for their contracts.
+[PR #32](https://github.com/andersj05/ResearchChain/pull/32) supplies Connect/Reconnect
+under Run workflow → ChatGPT plan usage. Personal consent remains separate from
+workbench owner access. The local flow is owner/Origin/CSRF protected and disabled
+for remote origins. See [ChatGPT connection](../chatgpt-plan.md) and
+[owner access](../owner-access.md).
 
-Keep ExecutionControl.lock shared with PostgresSaver.lock. Physical run connections
-own execution/checkpoint fencing; never reconnect locked execution transparently.
-Worker presence uses a separate connection. Durable HTTP 202 commands feed two
-local worker slots; interrupted/uncertain calls are not blindly retried.
-One configured database/schema is one owner workspace. Owner browser sign-in and
-ChatGPT consent are separate. Credentials and owner access state are outside
-research backups. Never log tokens, callback URLs or private research.
+## Runtime invariants
 
-Browser tests use disposable e2e_ schemas and synthetic providers/credential stores.
-Projects run chromium → signin → access → workers → retention. Only stop owned
-live services after confirming the queue is idle when local tests need ports
-3000/8000, then restore them. Use the newest private receipt for session handles.
+One configured database/schema is one owner workspace. Keep ExecutionControl.lock
+shared with PostgresSaver.lock. Physical connections own run/checkpoint fencing;
+never reconnect locked execution transparently. Worker presence uses a separate
+connection. Persisted commands survive API restarts; uncertain model calls are not
+blindly retried. Credentials, owner sessions and monitor profiles stay outside
+research backups.
+
+Retention [PR #31](https://github.com/andersj05/ResearchChain/pull/31) requires a
+persisted preview and typed DELETE, protects active/paused/uncertain/referenced
+work, rechecks references and leaves retry tombstones. Keep writer locks and
+READ COMMITTED enforcement. Never purge private research as a test or rerun old
+schema-7/8 upgrade scripts against the live schema-9 database.
+
+Browser tests use disposable e2e_ schemas and synthetic credentials/providers.
+Projects run chromium → signin → access → workers → retention. No local browser
+suite should displace live services without an idle-queue check and restoration.
+Use ignored .local receipts for the newest process handles, not old chat summaries.
 
 ## Remaining work
 
-[Issue #9](https://github.com/andersj05/ResearchChain/issues/9) still covers external
-alerting, off-machine/PITR recovery, secret operations, strict usage controls and
-workload-based hosting choices. Private uploads, paid services and deployment
-need a concrete authorized destination/configuration.
+[Issue #9](https://github.com/andersj05/ResearchChain/issues/9) still needs actual
+off-machine/PITR recovery, external alert/watchdog setup, operational secret
+rotation, strict usage controls and workload-based hosting choices. Private
+uploads, notifications, paid services and deployment need a concrete authorized
+destination/configuration; local implementation alone does not enable them.
 
 [Issue #6](https://github.com/andersj05/ResearchChain/issues/6) needs actual owner
-review of the paused pilot and stricter spend follow-up. The provider preview cannot
-cap an in-flight response. [Issue #7](https://github.com/andersj05/ResearchChain/issues/7)
-needs real holdouts, independent labels and judge calibration. Never fabricate
+review of the paused pilot and stricter spend follow-up. The provider preview
+cannot cap an in-flight response. [Issue #7](https://github.com/andersj05/ResearchChain/issues/7)
+needs real holdouts, independent labels and judge calibration. Do not fabricate
 feedback, approve checkpoints or add inference calls incidentally.
 
-The unreviewed private pilot has a four-section report, three original sources and
-an unreviewed starter style guide. Private identifiers/export are in main
-.local/report-pilot.json and .local/pilot-report-review.zip. The original research
-pilot used 9,765 input and 4,135 output tokens and remains paused for human review.
+The unreviewed private pilot includes a four-section report, three originals and
+a starter style guide. Private identifiers/export are in main .local/report-pilot.json
+and .local/pilot-report-review.zip. Its research used 9,765 input and 4,135 output
+tokens and remains paused for human review.
 
-GitHub uses gh outside the Windows sandbox. Sandboxed authentication errors do
-not justify logout/login. Write UTF-8 with LF newlines. Never commit .local/,
-credentials, browser state, private research, exports or transcripts.
+Use gh outside the Windows sandbox; sandboxed auth errors do not justify logging
+out or in. Write UTF-8 with LF. Never commit .local, secrets, browser state, private
+research, exports or transcripts.
