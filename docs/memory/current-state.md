@@ -1,78 +1,79 @@
 # Current state
 
-Updated 2026-11-14. The live research implementation is merged into dev through
-[PR #24](https://github.com/andersj05/ResearchChain/pull/24), merge `74f991d`,
-with seven feature commits and passing PR CI. Active branch: `feat/research-evals`.
-The owner authorized frequent commits and merging completed steps into dev after CI.
+Updated 2026-11-14. Active branch: `feat/research-evals`, implementing
+[issue #7](https://github.com/andersj05/ResearchChain/issues/7). The owner authorized
+frequent commits and merging completed steps into dev after CI. Do not promote
+changes to main or publish the application.
 
-## Implemented research step
+## Evaluation implementation
 
-- Workflow 0.3 adds hypothesize/challenge/revise stages, model/settings selection,
-  typed result and review-feedback wiring, and a ready-to-use research template.
-  Legacy 0.1/0.2 canonical hashes and pinned compiler behavior are preserved.
-- Model attempts are journaled before sending. Completed attempts are reused after
-  recovery; uncertain outcomes are stopped without automatic resend. Prompts,
-  model IDs, account registration, limits, evidence snapshots and payloads are pinned.
-- Results include alternatives, falsifiers, questions and evidence requests.
-  Citation IDs, source representations, exact quotations and stable hypothesis IDs
-  are checked. Semantic truth and source independence still require review.
-- Progress reads and cancellation work during model calls. Calls are serialized
-  per run even in forks, with call/tool/time/input/output limits and a token threshold
-  that gates subsequent calls. The provider cannot hard-cap an in-flight response.
-- The workbench displays results, saved payloads, usage, model choice and reviewer
-  feedback. Final review remains explicit. No publication or trading is performed.
+The evaluation desk now supports separate reference outputs, immutable dataset
+revisions, development/holdout checks, frozen-writing and full-research tracks,
+recorded/imported candidates, randomized blind comparisons, explicit quality gates,
+writing ratings, reasons and exact Unicode edits. Saving feedback reveals provenance.
+Judge predictions must precede human feedback; synthetic and ineligible data are
+excluded from calibration. Imports are unverified read-only archives and never
+create local labels. See [the guide](../evaluations.md),
+[ADR 0007](../decisions/0007-evaluations.md), and [plan 0006](../plans/0006-evaluations.md).
 
-A real three-stage `gpt-6.1-sol` pilot completed through the owner's connected plan,
-used 9,765 input and 4,135 output tokens, and is paused for human review. The baseline
-was the owner's published EquityCats reference article, kept out of model inputs.
-The comparison was a narrow development check of a conditional mechanism, not a
-blind evaluation or an empirical market forecast. Private run/comparison artifacts
-remain in local Postgres and ignored `.local/`; never commit them.
+Reference checks are metadata/copy checks, not semantic leakage proofs. Historical
+checks require verified capture timing and dated metadata; unknown vintages block
+export. Dates are UTC calendar days and do not check intraday release times. The
+calibration collection threshold is exploratory, not a reliability guarantee.
+Real independent human labels and held-out studies are still required for issue #7.
 
-See [the workflow guide](../hypothesis-research.md),
-[ADR 0006](../decisions/0006-research-attempts.md), and
-[implementation plan](../plans/0005-bounded-research.md).
+Migration 0006 is applied locally. The prior research pilot is registered as one
+development case with its published EquityCats reference kept outside generation
+inputs and one recorded candidate. The case is explicitly synthetic because it uses
+an illustrative numeric fixture; it is excluded from calibration. No comparison,
+human label, judge prediction or new model call was created during this setup.
+Private setup identifiers and exports remain in ignored `.local/` and Postgres.
 
-## Prior milestones and checks
+Validation: `pnpm check` passed with 205 backend tests, formatting, lint, strict
+Python/TypeScript checks and a production build. A final missing-reference guard
+was then covered by one additional passing test. Generated-contract drift checks
+passed. All 51 browser tests passed against the production build with four workers
+and retries disabled. PR CI is the remaining integration gate. Focused desktop/mobile evaluation flows pass, including edits, ratings,
+reference exclusion, archives and synthetic calibration exclusion. The added tab's
+narrow-screen overflow was fixed; screenshots were inspected.
 
-Runtime [PR #20](https://github.com/andersj05/ResearchChain/pull/20), editor
-[PR #21](https://github.com/andersj05/ResearchChain/pull/21), evidence
-[PR #22](https://github.com/andersj05/ResearchChain/pull/22), and connection PR #23
-are merged into dev. Issues #3–#5 are closed. The connection was verified through
-real browser consent and a completed model response; no API key or credit purchase.
+## Prior research milestone
 
-`pnpm check` passed with 169 backend tests, lint, formatting, strict types and a
-production build. All 47 browser tests passed against production with four workers
-and retries disabled; generated-contract drift checks also passed. The concurrent
-progress-reader race found during testing is fixed and covered. Desktop/mobile
-research screens were inspected. Migration 0005 is applied locally. PR CI passed on `6d6300c`. The automatic dev build on merge `74f991d` also passed (run `43671625736`).
+Research [PR #24](https://github.com/andersj05/ResearchChain/pull/24) merged to dev as
+`74f991d`; PR and post-merge CI passed. Workflow 0.3 runs hypothesize/challenge/revise
+against captured evidence with pinned settings, prompts, account and artifacts.
+Attempts are journaled before sending; uncertain outcomes are not automatically
+resent. Progress, cancellation, exact quotations and citations are validated, while
+semantic truth and independent source support remain human judgments.
 
-## Next work and limits
+The real three-stage `gpt-6.1-sol` pilot used 9,765 input and 4,135 output tokens and
+remains paused for final human review. Its narrow conditional mechanism comparison
+was development feedback, not a blind study or empirical market forecast.
+[Issue #6](https://github.com/andersj05/ResearchChain/issues/6) stays open for owner
+review and strict spend follow-up: token thresholds gate subsequent calls and cannot
+cap an in-flight response. Provider-side credit settings are not attested by the app.
 
-Implement the evaluation dataset and blind-comparison slice described in
-[plan 0006](../plans/0006-evaluations.md). Keep
-[issue #6](https://github.com/andersj05/ResearchChain/issues/6) open for the owner's
-pilot review and follow-up on strict spend enforcement: provider-side credit
-settings are not exposed or attested by this app, and reported-token limits can be
-exceeded by a response already in flight. Do not promise a hard dollar/token cap.
-The owner selected included ChatGPT Pro allowance without paid API fallback.
+The owner chose ChatGPT Pro included usage with no paid API fallback. The existing
+saved account still reports plan usage enabled. A requested sign-in restart timed
+out without a completed callback; it did not remove the existing connection. Do not
+restart sign-in again unless the user asks or an actual authentication error requires
+it. No API key, paid credit purchase or new provider inference was used for evals.
 
-Next are [evals #7](https://github.com/andersj05/ResearchChain/issues/7) and
-[report editing #8](https://github.com/andersj05/ResearchChain/issues/8). Use the pilot's
-source-discipline observations to design evals, while keeping development references
-separate from holdouts. Real empirical research still requires dated independent
-market/positioning sources. The current pilot explicitly identifies that gap.
+Runtime PR #20, editor PR #21, evidence PR #22 and connection PR #23 are merged into
+dev. Issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.lock.
 
-The evidence desk retains immutable originals, corrections, provenance and claim
-relationships. Links do not fetch websites. OCR/estimation is supplied, not automatic.
-Application authentication, remote hosting, retention/quotas and backup operations
-remain unimplemented. Keep ExecutionControl.lock shared with PostgresSaver.lock.
+## Next work
 
-## Workspace
+Complete evaluation CI/merge, then implement
+[report editing #8](https://github.com/andersj05/ResearchChain/issues/8). Keep #7 open
+for real holdout collection and independent human feedback/calibration. Do not invent
+labels, pretend synthetic tests are research evidence, fine-tune, or optimize a lone
+judge score. Real empirical research also needs independent dated market/positioning
+sources; the pilot records that gap.
 
-The repository is `C:\Users\jense\Desktop\ResearchChain`. The old
-Documents/ChatGPT directory is empty. Use the Desktop path for all repository work.
-Run `pnpm dev`, `pnpm check`, and `pnpm test:e2e`. Browser tests inject a synthetic
-provider only in isolated `e2e_` schemas and never contact the connected account.
-GitHub work uses `gh` outside the Windows sandbox. Feature PRs target dev; do not
-promote to main without authorization.
+The repository is `C:\Users\jense\Desktop\ResearchChain`; the old Documents/ChatGPT
+folder is empty. Run `pnpm dev`, `pnpm check`, and `pnpm test:e2e`. Browser tests use
+isolated `e2e_` schemas and a synthetic provider, never the connected account. GitHub
+work uses `gh` outside the Windows sandbox. Keep credentials, private sources,
+exports and browser state out of this public repository. Authentication, remote
+hosting, retention/quotas and backup operations remain future work.
