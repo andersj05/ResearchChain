@@ -4,13 +4,17 @@ import argparse
 import asyncio
 import sys
 import webbrowser
+from uuid import uuid4
 
 import httpx
 
+from researchchain.database import Database
 from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth, ProviderError
 from researchchain.providers.chatgpt_login import browser_login
 from researchchain.providers.chatgpt_plan import ChatGPTPlan
 from researchchain.providers.credentials import ConnectionError, CredentialStore
+from researchchain.usage_models import UsageError
+from researchchain.usage_store import UsageStore
 
 
 def main() -> int:
@@ -105,6 +109,7 @@ def main() -> int:
                     )
                 if args.model not in {choice.slug for choice in choices}:
                     raise ConnectionError("That model is not listed for this ChatGPT account.")
+                UsageStore(Database.from_env()).admit(uuid4(), "connection_test")
                 result = asyncio.run(
                     plan.complete(
                         args.model,
@@ -124,9 +129,11 @@ def main() -> int:
                 )
                 print("Manage usage: https://chatgpt.com/settings/usage")
         return 0
-    except (ConnectionError, OSError) as error:
+    except (ConnectionError, UsageError, OSError) as error:
         print(
-            str(error) if isinstance(error, ConnectionError) else "Local connection setup failed.",
+            str(error)
+            if isinstance(error, (ConnectionError, UsageError))
+            else "Local connection setup failed.",
             file=sys.stderr,
         )
         if isinstance(error, ProviderError):

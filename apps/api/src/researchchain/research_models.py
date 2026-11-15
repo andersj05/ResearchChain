@@ -118,6 +118,7 @@ class ResearchManifest(StrictModel):
 
 
 class ModelAttempt(StrictModel):
+    admission_policy_revision: int | None = Field(default=None, ge=1)
     id: UUID
     path: str
     stage: ResearchStage

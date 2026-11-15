@@ -39,6 +39,8 @@ from researchchain.research_prompt import (
     prompt_hashes,
     validate_result,
 )
+from researchchain.usage_models import UsageError
+from researchchain.usage_store import admit_request
 
 RESEARCH_COMPILER_VERSION = "research-0.3.0"
 
@@ -162,6 +164,7 @@ def make_manifest(
             "remote_tools": [],
             "automatic_billing_fallback": False,
             "token_limit": "stop_before_next_call_after_reported_usage",
+            "workspace_request_allowance": "current_policy_before_each_model_request",
             "spend_control": "included_plan; disable credits in ChatGPT app usage settings",
         },
     )
@@ -176,7 +179,10 @@ def read_manifest(conn: Connection[DictRow], run_id: UUID) -> ResearchManifest |
 
 def read_attempts(conn: Connection[DictRow], run_id: UUID) -> list[ModelAttempt]:
     rows = conn.execute(
-        "SELECT * FROM research_attempts WHERE run_id = %s ORDER BY created_at, id", (run_id,)
+        "SELECT a.*, d.policy_revision AS admission_policy_revision FROM research_attempts a "
+        "LEFT JOIN model_request_admissions d ON d.id = a.id "
+        "WHERE a.run_id = %s ORDER BY a.created_at, a.id",
+        (run_id,),
     )
     return [
         ModelAttempt.model_validate({key: value for key, value in row.items() if key != "run_id"})
@@ -320,6 +326,8 @@ class ResearchExecutor:
                     (original.id, len(payload), attempt_id),
                 )
             self.control.guard(path, False)
+            with self.control.lock:
+                admit_request(self.conn, attempt_id, "research")
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
             result = validate_result(completion.text, node.config.stage, prepared)
@@ -334,6 +342,10 @@ class ResearchExecutor:
                 reason=str(error),
             )
             raise
+        except UsageError as error:
+            status = "limited" if error.status == 429 else "failed"
+            self.finish(attempt_id, status, partial, completion, reason=str(error))
+            raise ExecutionStopped(str(error), status) from None
         except (ConnectionError, ValueError) as error:
             reason = (
                 "Model output failed the research schema or source checks; "

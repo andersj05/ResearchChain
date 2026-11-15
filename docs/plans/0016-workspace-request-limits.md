@@ -7,7 +7,7 @@ connection test can each admit more model requests. Issue #9 also needs an
 operator control that applies across the owner workspace.
 
 Add a rolling 24-hour request allowance and a pause switch. Start with 100
-admissions per 24 hours; the owner can change this to 1â€“10,000 or pause new
+admissions per 24 hours; the owner can change this to 1–10,000 or pause new
 admissions. This bounds requests, not dollars, tokens, provider-side billing or
 requests already admitted. The existing per-run limits remain in force.
 
