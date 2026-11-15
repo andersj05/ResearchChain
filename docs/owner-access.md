@@ -134,6 +134,9 @@ before browser tests. Tests enroll synthetic owners in temporary access
 directories and databases; they never reuse the real owner's session store.
 
 The local owner gate does not complete [issue #9](https://github.com/andersj05/ResearchChain/issues/9).
-Durable hosted workers, public-edge limits, retention, off-machine recovery,
-secret operations and measured hosting costs remain. Do not expose a rollback
-build that lacks the access gate; keep rollback rehearsal on loopback.
+[Local workers](workers.md), [retention](retention.md) and
+[request allowances](request-allowance.md) are implemented. Hosted supervision,
+public-edge controls, off-machine recovery, operational secret handling and
+measured hosting costs still need a concrete configuration and verification.
+Do not expose a rollback build that lacks the access gate; keep rollback rehearsal
+on loopback.

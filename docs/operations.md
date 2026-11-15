@@ -6,9 +6,10 @@ Open **Operations** after signing in, or run:
 pnpm operations
 ```
 
-The tab and CLI show the same workspace aggregates. Refresh status requests a new
-snapshot; there is no automatic polling on this tab. Normal owner session expiry
-still applies. Opening or refreshing status does not submit research or contact a
+The status view in the tab and the CLI show the same workspace aggregates.
+The tab also has separate request-allowance and cleanup controls. Refresh status
+requests a new status snapshot; there is no automatic polling on this tab. Normal
+owner session expiry still applies. Opening or refreshing status does not submit research or contact a
 model provider. The CLI is a local operator command using the configured database.
 
 ## Workers and queue
@@ -72,9 +73,10 @@ once and can change immediately. A failed refresh is clearly labeled and leaves 
 previous timestamp visible. Large workspaces can reach the existing query timeout;
 the interface then reports unavailable status instead of presenting partial success.
 
-No new database migration is required. Restart the worker with matching code to
-register presence; older workers can execute but do not register as connected.
-The existing backup and restore format remains compatible.
+Run the checkout's migrations before starting matching web, API and worker code.
+The request allowance requires schema 10; stop older services before upgrading.
+Follow [backup and restore guidance](backups.md) for compatible code and migration
+checksums. A connected worker alone does not establish version compatibility.
 
 Data is retained by default. [Run cleanup](retention.md) provides explicit previews,
 protected-reference rechecks, deletion receipts and retry tombstones.

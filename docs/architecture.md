@@ -64,19 +64,32 @@ paths, parallel reviews, durable execution budgets, and cancellation. Its compil
 is separate from the preserved v0.1 executor. See [structured workflows](structured-workflows.md)
 and [ADR 0003](decisions/0003-structured-workflows.md) for semantics and limits.
 
-## Next capabilities
+## Research and editorial work
 
-- Complete retention, operational monitoring, off-machine recovery and measured
-  hosting configuration before remote or multi-user use. Local workers, bounded
-  admission, cancellation, owner access and verified backups are implemented.
-- Build on source provenance and claim relationships to test hypotheses, record
-  falsifiers and confidence, and trace numerical assertions into report prose.
-- Put research/retrieval, synthesis, drafting, and editing behind independently
-  testable node interfaces. Model keys and tool credentials remain server-side.
-- Bound run cost, time, iterations, and concurrent tools. Instrument actual node
-  events and artifacts, not hidden reasoning transcripts.
-- Keep the graph editor, evidence desk, run inspector, and report/feedback views
-  distinct. A giant canvas alone is not a usable research workspace.
+Typed [research nodes](hypothesis-research.md) prepare bounded inputs from pinned
+evidence, record model attempts and validate hypothesis/challenge/revision outputs.
+They preserve alternatives, falsifiers and citations while leaving factual judgment
+to human review. Research links do not automatically retrieve new sources.
+The [workspace request allowance](request-allowance.md) commits a shared admission
+before model work; it is separate from per-run limits and cannot cap remote work
+already in flight.
+
+The [report editor](reports.md) retains versioned sections, citations, style guides
+and human feedback. [Evaluations](evaluations.md) separate reference outputs from
+generation inputs and collect blind comparisons with reproducible provenance.
+Their automated tests do not establish research quality or provide human labels.
+
+## Remaining work
+
+- Obtain the owner's pilot assessment and real separate holdouts with independent
+  labels before claiming reliable quality or calibrated judges.
+- Exercise off-machine recovery, external alert/watchdog delivery and secret
+  operations, then prepare hosting configuration from representative measurements.
+  [Retention](retention.md), [monitoring](monitoring.md), request admission limits
+  and private backup/encryption tools are already implemented locally.
+- Keep provider-side spend limitations explicit. New retrieval or other external
+  tool nodes need deliberate scope, timeouts and effect journals before recovery
+  can safely retry them. Credentials remain server-side.
 
 The visual editor will define workflows rather than reverse-engineer arbitrary
 Python source. Advanced code can become a registered, typed node with a deliberate

@@ -39,7 +39,7 @@ the database before upgrades; volumes and checkpoints are not backups. Use the
 
 ## Optional ChatGPT plan connection
 
-Use **Run workflow â†’ ChatGPT plan usage â†’ Connect ChatGPT** in a research
+Use **Run workflow → ChatGPT plan usage → Connect ChatGPT** in a research
 workflow, or `pnpm provider:login`, to connect an eligible ChatGPT plan, then
 `pnpm provider:models` and `pnpm provider:verify --model <slug>` to verify a small
 response. See [the connection guide](chatgpt-plan.md) for account management,
@@ -170,11 +170,13 @@ ownership across API restarts.
 
 ## Production prerequisites
 
-Owner access, bounded local workers and verified backups are implemented.
-Before remote hosting, complete operational secret management, retention,
-off-machine recovery, redacted monitoring and workload-based hosting configuration.
-Preserve explicit provider consent and the documented in-flight spend limitations.
-The local service is not a production deployment.
+Owner access, bounded local workers, explicit retention, request allowances,
+verified backups and monitoring tools are implemented. Before remote hosting,
+exercise operational secret management, an off-machine copy/restore and external
+alert/watchdog setup, then prepare hosting configuration from workload measurements.
+See [operations](operations.md) for the current controls. Preserve explicit provider
+consent and the documented in-flight spend limitations. The local service is not
+a production deployment.
 
 Use a direct Postgres connection for this runtime: session advisory locks and the
 checkpointer deliberately share a physical connection. Transaction-mode poolers
@@ -182,7 +184,7 @@ are incompatible with that locking contract. Worker ownership and recovery follo
 [ADR 0011](decisions/0011-durable-workers.md). New external tools require their own
 effect journal before automatic recovery can safely include them.
 
-Retention browser tests run after other suites so synthetic cleanup cannot remove
-their active fixtures. Focus with
+Retention and request-allowance browser tests follow the core workflow suites,
+in that order, so synthetic cleanup cannot remove active fixtures. Focus retention with
 `pnpm test:e2e --project=retention --no-deps --workers=1`. All deletion uses the
 runner's disposable e2e_ workspace; never select the private database for tests.
