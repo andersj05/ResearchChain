@@ -39,7 +39,8 @@
     "db:unseal": "uv run --project apps/api python -m researchchain.backup unseal",
     "access:login": "uv run --project apps/api python -m researchchain.access login",
     "access:status": "uv run --project apps/api python -m researchchain.access status",
-    "access:revoke": "uv run --project apps/api python -m researchchain.access revoke"
+    "access:revoke": "uv run --project apps/api python -m researchchain.access revoke",
+    "monitor": "uv run --project apps/api python -m researchchain.monitor"
   },
   "devDependencies": {
     "concurrently": "10.0.7",

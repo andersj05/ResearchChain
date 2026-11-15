@@ -84,8 +84,9 @@ The existing restricted restore, schema checks, original-byte verification and
 worker recovery holds remain required. No command switches the live database,
 approves a review or replays a provider call.
 
-Provider credentials and owner password/session state remain outside research
-archives. On a new machine, enroll owner access and reconnect ChatGPT separately.
+Provider credentials, owner password/session state and [monitor profiles](monitoring.md)
+remain outside research archives. On a new machine, enroll owner access, reconnect
+ChatGPT and configure any operational monitor separately.
 
 ## File handling and limits
 

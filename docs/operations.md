@@ -76,5 +76,8 @@ The existing backup and restore format remains compatible.
 Data is retained by default. [Run cleanup](retention.md) provides explicit previews,
 protected-reference rechecks, deletion receipts and retry tombstones.
 [Encrypted backups](encrypted-backups.md) prepare portable recovery packages; an
-actual off-machine copy and restore still require a chosen destination. External
-alerting, strict spend enforcement and measured hosting remain open in issue #9.
+actual off-machine copy and restore still require a chosen destination. The explicit
+[monitor CLI](monitoring.md) can confirm operational incidents and deliver fixed
+condition codes to an owner-configured HTTPS receiver. It does not start from
+Operations or pnpm dev. Actual external delivery/watchdog setup, strict spend
+enforcement and measured hosting remain open in issue #9.

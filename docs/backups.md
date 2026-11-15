@@ -147,8 +147,9 @@ and [ownership reassignment](https://www.postgresql.org/docs/18/sql-reassign-own
 
 ## Owner access after restore
 
-Research archives exclude owner password/session state as well as provider
-credentials. A different database/schema is a separate owner workspace. After
+Research archives exclude owner password/session state, provider credentials
+and [monitor profiles/outboxes](monitoring.md). Recreate monitor configuration
+separately on a recovery machine; do not replay an old alert outbox implicitly. A different database/schema is a separate owner workspace. After
 switching the app deliberately to the verified target, enroll it with
 `pnpm access:login`; never copy stale session-state files over live credentials.
 See [owner recovery](owner-access.md). This does not reconnect or authorize
