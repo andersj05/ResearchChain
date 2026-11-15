@@ -60,7 +60,10 @@ Source and claim lists load 50 records at a time; use **Load more** for older
 entries. Search filters loaded sources. Selection remains visible when reopening
 run setup even if newer records move it beyond the first page.
 
-The current runtime does not yet read source content with a model or perform live
-research. Provider coverage, credentials, spend limits, retrieval, and model context
-handling belong to the next milestone. Storage decisions and local-hosting limits
-are in [ADR 0004](decisions/0004-evidence-provenance.md).
+[Research workflows](hypothesis-research.md) can read pinned captured originals
+through the connected ChatGPT plan, with bounded inputs, recorded attempts and
+human review. Source links do not automatically fetch websites; capture additional
+evidence before starting a new run. See [request allowances](request-allowance.md)
+for the shared admission limit and [owner access](owner-access.md) for the local
+workspace boundary. [ADR 0004](decisions/0004-evidence-provenance.md) records the
+original storage decision.

@@ -98,6 +98,8 @@ Starting a worker cannot automatically replay held jobs. See [backups](backups.m
 
 This is a bounded local worker service for one owner workspace. It provides no
 public deployment, distributed provider-secret service, arbitrary tool execution
-or automatic data deletion. Retention, off-machine recovery, external alerting
-and hosting costs remain part of issue #9. See
+or automatic data deletion. [Explicit cleanup](retention.md),
+[request allowances](request-allowance.md) and [monitoring tools](monitoring.md)
+are implemented. Actual off-machine recovery, external alert/watchdog setup and
+measured hosting configuration remain part of issue #9. See
 [ADR 0011](decisions/0011-durable-workers.md).
