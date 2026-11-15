@@ -7,7 +7,9 @@ import psycopg
 from fastapi import FastAPI, Query, Request
 from fastapi.responses import JSONResponse
 
+from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
+from researchchain.evidence_api import evidence_router
 from researchchain.models import (
     CancelResult,
     Health,
@@ -34,6 +36,7 @@ def create_app(database: Database | None = None) -> FastAPI:
         yield
 
     app = FastAPI(title="ResearchChain API", version="0.2.0", lifespan=lifespan)
+    app.include_router(evidence_router(database))
     runs = RunStore(database)
     revisions = RevisionStore(database)
 
@@ -44,6 +47,10 @@ def create_app(database: Database | None = None) -> FastAPI:
     @app.exception_handler(ConflictError)
     async def conflict(request: Request, error: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(error)})
+
+    @app.exception_handler(EvidenceError)
+    async def invalid_evidence(request: Request, error: EvidenceError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": str(error)})
 
     @app.exception_handler(psycopg.Error)
     async def database_error(request: Request, error: psycopg.Error) -> JSONResponse:

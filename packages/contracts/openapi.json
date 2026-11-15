@@ -5,6 +5,414 @@
     "version": "0.2.0"
   },
   "paths": {
+    "/api/artifacts": {
+      "post": {
+        "summary": "Upload Artifact",
+        "operationId": "upload_artifact",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 240,
+              "title": "Name"
+            }
+          },
+          {
+            "name": "rights",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "enum": ["owned", "public_domain", "open_license", "permission"],
+              "type": "string",
+              "title": "Rights"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/octet-stream": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{content_id}": {
+      "get": {
+        "summary": "Get Artifact",
+        "operationId": "get_artifact",
+        "parameters": [
+          {
+            "name": "content_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "title": "Content Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ArtifactInfo"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/artifacts/{content_id}/content": {
+      "get": {
+        "summary": "Artifact Content",
+        "operationId": "artifact_content",
+        "parameters": [
+          {
+            "name": "content_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "pattern": "^sha256:[a-f0-9]{64}$",
+              "title": "Content Id"
+            }
+          },
+          {
+            "name": "preview",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Preview"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence": {
+      "post": {
+        "summary": "Create Evidence",
+        "operationId": "create_evidence",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvidenceCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Evidence",
+        "operationId": "list_evidence",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidencePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evidence/{evidence_id}": {
+      "get": {
+        "summary": "Get Evidence",
+        "operationId": "get_evidence",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidenceRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/claims": {
+      "post": {
+        "summary": "Create Claim",
+        "operationId": "create_claim",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClaimCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Claims",
+        "operationId": "list_claims",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimPage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/claims/{claim_id}": {
+      "get": {
+        "summary": "Get Claim",
+        "operationId": "get_claim",
+        "parameters": [
+          {
+            "name": "claim_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Claim Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClaimRecord"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/health": {
       "get": {
         "summary": "Health",
@@ -460,6 +868,42 @@
   },
   "components": {
     "schemas": {
+      "ArtifactInfo": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Id"
+          },
+          "media_type": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Media Type"
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Name"
+          },
+          "byte_size": {
+            "type": "integer",
+            "maximum": 20971520.0,
+            "minimum": 1.0,
+            "title": "Byte Size"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "media_type", "name", "byte_size", "created_at"],
+        "title": "ArtifactInfo"
+      },
       "ArtifactRef": {
         "properties": {
           "id": {
@@ -503,6 +947,718 @@
         "type": "object",
         "required": ["id", "status"],
         "title": "CancelResult"
+      },
+      "ClaimCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["hypothesis", "observation", "interpretation"],
+            "title": "Kind",
+            "default": "hypothesis"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimLink"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Links"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "text"],
+        "title": "ClaimCreate"
+      },
+      "ClaimLink": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Evidence Id"
+          },
+          "relation": {
+            "type": "string",
+            "enum": ["supports", "contradicts", "context"],
+            "title": "Relation"
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 3000,
+            "title": "Rationale",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["evidence_id", "relation"],
+        "title": "ClaimLink"
+      },
+      "ClaimPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimRecord"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items", "total"],
+        "title": "ClaimPage"
+      },
+      "ClaimRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["hypothesis", "observation", "interpretation"],
+            "title": "Kind",
+            "default": "hypothesis"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "links": {
+            "items": {
+              "$ref": "#/components/schemas/ClaimLink"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Links"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "text", "created_at"],
+        "title": "ClaimRecord"
+      },
+      "ContentPreview": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text",
+            "default": ""
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "default": false
+          },
+          "columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columns"
+          },
+          "rows": {
+            "items": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "type": "array",
+            "title": "Rows"
+          },
+          "row_count": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Row Count"
+          },
+          "numeric_columns": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Numeric Columns"
+          },
+          "parser_version": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "csv-1"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parser Version"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ContentPreview"
+      },
+      "EvidenceCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["link", "report", "discussion", "image", "dataset", "text"],
+            "title": "Kind"
+          },
+          "representation": {
+            "type": "string",
+            "enum": [
+              "original",
+              "chart_screenshot",
+              "ocr_interpretation",
+              "digitized_estimate",
+              "numeric_data"
+            ],
+            "title": "Representation",
+            "default": "original"
+          },
+          "availability": {
+            "type": "string",
+            "enum": ["available", "reference_only", "missing", "paywalled"],
+            "title": "Availability",
+            "default": "available"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Author",
+            "default": ""
+          },
+          "publisher": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Publisher",
+            "default": ""
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "retrieved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieved At"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "rights": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "owned",
+              "public_domain",
+              "open_license",
+              "permission",
+              "restricted"
+            ],
+            "title": "Rights",
+            "default": "unknown"
+          },
+          "rights_note": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Rights Note",
+            "default": ""
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Method",
+            "default": ""
+          },
+          "table_format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["csv", "tsv"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Format"
+          },
+          "units": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Units",
+            "default": ""
+          },
+          "uncertainty": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Uncertainty",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Notes",
+            "default": ""
+          },
+          "artifact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Artifact Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 200000,
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "kind"],
+        "title": "EvidenceCreate"
+      },
+      "EvidencePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "next_offset": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Offset"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items", "total"],
+        "title": "EvidencePage"
+      },
+      "EvidenceRecord": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["link", "report", "discussion", "image", "dataset", "text"],
+            "title": "Kind"
+          },
+          "representation": {
+            "type": "string",
+            "enum": [
+              "original",
+              "chart_screenshot",
+              "ocr_interpretation",
+              "digitized_estimate",
+              "numeric_data"
+            ],
+            "title": "Representation",
+            "default": "original"
+          },
+          "availability": {
+            "type": "string",
+            "enum": ["available", "reference_only", "missing", "paywalled"],
+            "title": "Availability",
+            "default": "available"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Author",
+            "default": ""
+          },
+          "publisher": {
+            "type": "string",
+            "maxLength": 240,
+            "title": "Publisher",
+            "default": ""
+          },
+          "published_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Published Date"
+          },
+          "retrieved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Retrieved At"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "rights": {
+            "type": "string",
+            "enum": [
+              "unknown",
+              "owned",
+              "public_domain",
+              "open_license",
+              "permission",
+              "restricted"
+            ],
+            "title": "Rights",
+            "default": "unknown"
+          },
+          "rights_note": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Rights Note",
+            "default": ""
+          },
+          "location": {
+            "$ref": "#/components/schemas/SourceLocation"
+          },
+          "parent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Parent Id"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "method": {
+            "type": "string",
+            "maxLength": 4000,
+            "title": "Method",
+            "default": ""
+          },
+          "table_format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["csv", "tsv"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Table Format"
+          },
+          "units": {
+            "type": "string",
+            "maxLength": 1000,
+            "title": "Units",
+            "default": ""
+          },
+          "uncertainty": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Uncertainty",
+            "default": ""
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Notes",
+            "default": ""
+          },
+          "artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ArtifactInfo"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "content_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "captured_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captured At"
+          },
+          "capture_method": {
+            "type": "string",
+            "enum": ["user_upload", "user_text", "reference"],
+            "title": "Capture Method"
+          },
+          "untrusted": {
+            "type": "boolean",
+            "const": true,
+            "title": "Untrusted",
+            "default": true
+          },
+          "preview": {
+            "$ref": "#/components/schemas/ContentPreview"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "kind", "created_at", "capture_method"],
+        "title": "EvidenceRecord"
       },
       "ExecutionBudgets": {
         "properties": {
@@ -1096,6 +2252,51 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RunUsage"
+      },
+      "SourceLocation": {
+        "properties": {
+          "page_start": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page Start"
+          },
+          "page_end": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 1000000.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page End"
+          },
+          "section": {
+            "type": "string",
+            "maxLength": 500,
+            "title": "Section",
+            "default": ""
+          },
+          "excerpt": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Excerpt",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SourceLocation"
       },
       "SubgraphConfig": {
         "properties": {
