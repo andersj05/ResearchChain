@@ -38,18 +38,21 @@ The runtime and visual editor are already merged into dev through
 
 ## Next work and limits
 
-Active branch: `feat/hypothesis-research`, starting from `81701c0`; only this
-completion handoff has changed. Next is
-[issue #6](https://github.com/andersj05/ResearchChain/issues/6): a bounded live
-hypothesis-testing workflow with human-approved provider setup. A safe presence
-check found no configured OpenAI key in the process environment or repository env
-files. A user choice is pending: secure OpenAI key setup or another provider. The
-OpenAI API key skill requires that decision before API-dependent implementation;
-no provider code, calls, or credentials have been added. Then come
+Active branch: `feat/hypothesis-research`. The owner selected included ChatGPT Pro
+usage through the official local-app Sign in with ChatGPT route. The provider
+connection and setup commands are implemented; sign-in validation, protected
+storage, refresh/revocation, account separation, and stream handling have focused
+tests. Real browser consent succeeded. A completed `gpt-6.1-sol` connection response
+reported 14 input and 8 output tokens through ChatGPT plan usage. See the
+[connection guide](../chatgpt-plan.md) and [ADR 0005](../decisions/0005-chatgpt-plan.md).
+
+The remaining [issue #6](https://github.com/andersj05/ResearchChain/issues/6) work is
+the bounded live hypothesis workflow, independent evidence challenge, execution
+budgets, reproducible manifests, and a human baseline comparison. Then come
 [evals #7](https://github.com/andersj05/ResearchChain/issues/7) and
 [report editing #8](https://github.com/andersj05/ResearchChain/issues/8).
 
-No model/provider calls or credentials are configured by this milestone. Registering
+One live connection check is verified. Research execution is not wired to the provider yet. Registering
 links does not fetch websites. OCR/estimation is supplied, not automatically run.
 The deterministic runtime is not yet a research agent. Source permissions and
 metadata are user declarations; table parsing does not verify financial claims.
