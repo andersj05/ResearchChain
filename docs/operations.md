@@ -73,7 +73,8 @@ No new database migration is required. Restart the worker with matching code to
 register presence; older workers can execute but do not register as connected.
 The existing backup and restore format remains compatible.
 
-Data is retained by default. This view adds no automatic deletion. Explicit retention
-controls, protected-reference rechecks, deletion receipts and retry tombstones are
-the next milestone. Off-machine recovery, strict spend enforcement and measured
-hosting decisions also remain open in issue #9.
+Data is retained by default. [Run cleanup](retention.md) provides explicit previews,
+protected-reference rechecks, deletion receipts and retry tombstones.
+[Encrypted backups](encrypted-backups.md) prepare portable recovery packages; an
+actual off-machine copy and restore still require a chosen destination. External
+alerting, strict spend enforcement and measured hosting remain open in issue #9.
