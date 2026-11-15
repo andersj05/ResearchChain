@@ -9,10 +9,12 @@ export function EvidencePicker({
   selected,
   onChange,
   disabled = false,
+  label = "Evidence for this run",
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
+  label?: string;
 }) {
   const [items, setItems] = useState<EvidenceRecord[]>([]);
   const [next, setNext] = useState<number | null>(null);
@@ -63,7 +65,7 @@ export function EvidencePicker({
   return (
     <fieldset className="evidence-picker" disabled={disabled}>
       <legend>
-        Evidence for this run <span className="count">{selected.length}</span>
+        {label} <span className="count">{selected.length}</span>
       </legend>
       <p className="field-hint">
         Selected records stay pinned. Missing sources remain marked as unavailable.

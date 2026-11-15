@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
 import { Button } from "@ui-sdk/react/button";
@@ -99,7 +100,8 @@ export function Workbench() {
           );
         }
         const view = parameters.get("view");
-        if (view && ["workflow", "runs", "revisions", "evidence"].includes(view)) setTab(view);
+        if (view && ["workflow", "runs", "revisions", "evidence", "evaluations"].includes(view))
+          setTab(view);
       } catch (cause) {
         if (active) {
           setError(cause instanceof Error ? cause.message : "Unable to load the workspace.");
@@ -369,6 +371,7 @@ export function Workbench() {
             <TabsTab value="workflow">Workflow</TabsTab>
             <TabsTab value="evidence">Evidence</TabsTab>
             <TabsTab value="runs">Runs</TabsTab>
+            <TabsTab value="evaluations">Evaluations</TabsTab>
             <TabsTab value="revisions">Revisions</TabsTab>
           </TabsList>
           <div className="actions workspace-actions">
@@ -542,6 +545,9 @@ export function Workbench() {
         </TabsPanel>
         <TabsPanel className="evidence-view" value="evidence">
           <EvidenceDesk />
+        </TabsPanel>
+        <TabsPanel className="evaluations-view" value="evaluations">
+          <EvaluationDesk />
         </TabsPanel>
         <TabsPanel className="runs-view" value="runs">
           <h1 className="sr-only">Runs</h1>

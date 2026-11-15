@@ -184,6 +184,7 @@ h3 {
   align-self: stretch;
 }
 .workspace-tabs [role="tab"] {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1321,7 +1322,9 @@ footer p {
   }
   .workspace-tabs {
     width: 100%;
-    gap: 24px;
+    min-width: 0;
+    overflow-x: auto;
+    gap: 16px;
     order: 2;
   }
   .workspace-actions {
@@ -2031,4 +2034,251 @@ footer p {
 }
 .review-box textarea {
   margin: 8px 0 14px;
+}
+
+/* Evaluation workbench */
+.evaluations-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.evaluation-desk {
+  min-height: 100%;
+  background: var(--surface);
+}
+.eval-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 16px 32px;
+  border-bottom: 1px solid var(--line);
+}
+.eval-navigation [aria-pressed="true"] {
+  background: var(--blue-soft);
+  color: var(--blue);
+  border-color: var(--blue);
+}
+.eval-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+}
+.eval-list {
+  padding: 24px;
+  border-right: 1px solid var(--line);
+}
+.eval-list h2 {
+  font-size: 13px;
+  margin-top: 24px;
+}
+.eval-main {
+  min-width: 0;
+  padding: 24px 32px;
+}
+.eval-content,
+.eval-review,
+.evaluation-desk > .eval-form {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 32px;
+}
+.eval-form {
+  max-width: 900px;
+}
+.eval-grid,
+.eval-pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.eval-case-form,
+.eval-grade,
+.eval-candidate,
+.eval-edit,
+.eval-score {
+  border: 1px solid var(--line);
+  padding: 20px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.eval-case-form legend,
+.eval-grade legend,
+.eval-references legend {
+  font-weight: 600;
+  font-size: 13px;
+  padding: 0 5px;
+}
+.eval-case-form .evidence-picker {
+  margin-top: 24px;
+}
+.eval-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
+}
+.eval-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin: 0;
+}
+.eval-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 20px 0;
+}
+.eval-empty {
+  padding: 36px 12px;
+  max-width: 650px;
+}
+.eval-empty li {
+  margin: 12px 0;
+}
+.eval-banner {
+  padding: 12px 32px;
+}
+.eval-brief {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.65;
+}
+.eval-comparison-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  text-align: left;
+  gap: 7px;
+  border: 1px solid var(--line);
+  background: transparent;
+  padding: 18px;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+}
+.eval-comparison-row:hover {
+  background: var(--soft);
+}
+.eval-comparison-row span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.evaluation-desk details {
+  margin: 16px 0;
+}
+.evaluation-desk summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+}
+.evaluation-desk pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 16px;
+  background: var(--soft);
+  font-size: 12px;
+  max-height: 480px;
+  overflow: auto;
+}
+.eval-checks {
+  padding: 12px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.eval-checks p {
+  line-height: 1.5;
+}
+.eval-draft {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--line);
+}
+.eval-draft h3 {
+  margin-top: 0;
+}
+.eval-draft-text {
+  min-height: 360px;
+  height: 480px;
+  resize: vertical;
+  font-family: inherit;
+  line-height: 1.65;
+  background: var(--surface);
+}
+.eval-draft .button {
+  margin-top: 12px;
+}
+.eval-review .eval-pair {
+  margin-top: 24px;
+}
+.eval-reveal article {
+  min-width: 0;
+}
+.eval-reveal h4 {
+  overflow-wrap: anywhere;
+}
+.eval-edit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.eval-case-select {
+  max-width: 500px;
+  margin-bottom: 28px;
+}
+.eval-notice {
+  background: var(--amber-soft);
+  color: var(--amber);
+  padding: 12px;
+}
+.eval-judge {
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+.eval-score dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 24px;
+}
+.eval-score dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 760px) {
+  .eval-layout,
+  .eval-grid,
+  .eval-pair {
+    grid-template-columns: 1fr;
+  }
+  .eval-list {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 16px;
+  }
+  .eval-main,
+  .eval-content,
+  .eval-review,
+  .evaluation-desk > .eval-form {
+    padding: 20px 16px;
+  }
+  .eval-navigation {
+    padding: 12px 16px;
+  }
+  .eval-draft {
+    padding: 16px;
+  }
+  .eval-draft-text {
+    height: 360px;
+    min-height: 240px;
+  }
+  .eval-case-form,
+  .eval-grade {
+    padding: 16px;
+  }
+  .eval-edit-row {
+    flex-wrap: wrap;
+  }
 }

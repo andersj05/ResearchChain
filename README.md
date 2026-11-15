@@ -13,6 +13,8 @@ form, challenge, and revise hypotheses against captured evidence, with human rev
 
 The [evidence desk](docs/evidence-desk.md) captures permitted originals, tracks
 source provenance and claim relationships, and pins evidence versions to runs.
+The [evaluation desk](docs/evaluations.md) freezes cases and compares saved outputs
+with blind human judgments, edited spans and separate judge calibration.
 
 Setup and commands: [development guide](docs/development.md).
 Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
