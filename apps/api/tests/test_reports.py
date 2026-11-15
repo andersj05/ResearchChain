@@ -65,7 +65,7 @@ def seeded(database: Database) -> Any:
     guides = StyleGuides(database)
     guide = guides.create(style_request())
     store, request, provider = setup_run(database)
-    source = evidence(database, text="An exact synthetic quotation. A 😀 observation.")
+    source = evidence(database, text="An exact synthetic quotation. A ðŸ˜€ observation.")
     snapshot = store.start(request.model_copy(update={"evidence_ids": [source.id]}))
     create = ReportCreate(
         id=uuid4(),
@@ -81,7 +81,7 @@ def seeded(database: Database) -> Any:
 
 def revision_request(record: Any, **changes: Any) -> ReportSave:
     sections = [s.model_dump(mode="json") for s in record.sections]
-    sections[0]["body"] = "A 😀 revised interpretation, with explicit uncertainty."
+    sections[0]["body"] = "A ðŸ˜€ revised interpretation, with explicit uncertainty."
     return ReportSave.model_validate(
         {
             "id": uuid4(),
@@ -195,7 +195,7 @@ def test_feedback_is_immutable_unicode_bound_and_not_inherited(database: Databas
         saved,
         section_id=section.id,
         section_hash=saved.section_hashes[section.id],
-        anchor={"start": 2, "end": 3, "quote": "😀"},
+        anchor={"start": 2, "end": 3, "quote": "ðŸ˜€"},
     )
     comment = store.feedback(saved.id, request)
     assert comment.training_consent is False and comment.actor == "human"
@@ -367,7 +367,7 @@ def test_report_api_and_safe_offline_export(client: TestClient, database: Databa
         )
     )
     section = record.sections[0].model_dump(mode="json")
-    section.update(body='A 😀 draft <script>alert("report")</script>', chart_ids=[str(chart.id)])
+    section.update(body='A ðŸ˜€ draft <script>alert("report")</script>', chart_ids=[str(chart.id)])
     request = revision_request(record, sections=[section], evidence_ids=[source.id, chart.id])
     response = client.post("/api/reports/revisions", json=request.model_dump(mode="json"))
     assert response.status_code == 201
@@ -375,8 +375,8 @@ def test_report_api_and_safe_offline_export(client: TestClient, database: Databa
     exported = client.get(f"/api/reports/{saved_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
-    assert exported.headers["cache-control"] == "no-store"
-    schema = client.get("/openapi.json").json()
+    assert set(exported.headers["cache-control"].split(", ")) == {"no-store", "private"}
+    schema = client.get("/api/openapi.json").json()
     content = schema["paths"]["/api/reports/{key}/export"]["get"]["responses"]["200"]["content"]
     assert set(content) == {"application/zip"}
     assert content["application/zip"]["schema"]["format"] == "binary"
@@ -384,7 +384,7 @@ def test_report_api_and_safe_offline_export(client: TestClient, database: Databa
         html = archive.read("index.html").decode("utf-8")
         assert "<script>" not in html and "&lt;script&gt;" in html
         assert "unreviewed" in html and "Not published" in html
-        assert "😀" in html
+        assert "ðŸ˜€" in html
         assert "Content-Security-Policy" in html
         bundle = json.loads(archive.read("report.json"))
         assert bundle["report"]["revision"]["provenance"]["attempt"]["id"] == str(
