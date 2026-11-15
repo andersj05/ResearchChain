@@ -51,6 +51,9 @@ for (const width of [1440, 390]) {
     const input = snapshot.model_attempts![1]!.input_artifact_id!;
     const captured = await request.get(`/api/artifacts/${encodeURIComponent(input)}/content`);
     expect(await captured.text()).toContain("Seek independent observations before concluding.");
+    await page.getByRole("region", { name: "Run inspector" }).evaluate((element) => {
+      element.scrollTop = 0;
+    });
     await page.screenshot({ path: testInfo.outputPath("research-results.png"), fullPage: true });
     await page.getByText("Research manifest", { exact: true }).click();
     const download = page.waitForEvent("download");

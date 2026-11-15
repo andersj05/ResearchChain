@@ -265,3 +265,12 @@ def test_provider_api_and_account_required_before_start(database: Database) -> N
         result = client.post("/api/runs", json=body)
         assert result.status_code == 422 and not provider.calls
         assert store.list() == []
+
+
+def test_concurrent_readers_do_not_hide_a_completed_review(database: Database) -> None:
+    store, request, _ = setup_run(database)
+    first = store.start(request)
+    with store._locked(request.id):
+        current = store.get(request.id)
+    assert current.status == "paused"
+    assert current.review == first.review

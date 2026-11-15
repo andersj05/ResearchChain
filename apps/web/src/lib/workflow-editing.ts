@@ -37,10 +37,17 @@ export function updateGraph(workflow: Workflow, scope: GraphScope, graph: Graph)
     nodes: graph.nodes,
     edges: graph.edges,
   };
-  if (!scope) return { ...workflow, ...patch };
+  const usesFeedback = graph.nodes.some((node) => {
+    const sources = Object.values(node.inputs ?? {});
+    if (node.config?.type === "route") sources.push(node.config.condition.left);
+    if (node.config?.type === "loop" && node.config.until) sources.push(node.config.until.left);
+    return sources.some((source) => source.port === "feedback");
+  });
+  const version = usesFeedback ? "0.3" : workflow.schema_version;
+  if (!scope) return { ...workflow, ...patch, schema_version: version };
   return {
     ...workflow,
-    schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
+    schema_version: version === "0.3" ? "0.3" : "0.2",
     subgraphs: workflow.subgraphs?.map((item) =>
       item.id === scope.id && item.version === scope.version ? { ...item, ...patch } : item,
     ),

@@ -428,11 +428,14 @@ class RunStore:
                 (f"run:{run_id}",),
             ).fetchone()
             assert lock is not None
+            unfinished = self._unfinished(conn, run_id) is not None
             return self._snapshot(
                 conn,
                 self._manifest(conn, run_id),
-                interrupted=self._unfinished(conn, run_id) is not None,
-                running=not lock["acquired"],
+                interrupted=unfinished,
+                # Other readers briefly own this lock too. Only an unfinished
+                # command indicates that a worker may still be executing.
+                running=unfinished and not lock["acquired"],
             )
 
     def list(self, limit: int = 20) -> list[RunSummary]:
