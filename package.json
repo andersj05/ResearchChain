@@ -29,7 +29,9 @@
     "provider:select": "uv run --project apps/api python -m researchchain.provider select",
     "provider:logout": "uv run --project apps/api python -m researchchain.provider logout",
     "provider:models": "uv run --project apps/api python -m researchchain.provider models",
-    "provider:verify": "uv run --project apps/api python -m researchchain.provider verify"
+    "provider:verify": "uv run --project apps/api python -m researchchain.provider verify",
+    "db:backup": "uv run --project apps/api python -m researchchain.backup create",
+    "db:restore": "uv run --project apps/api python -m researchchain.backup restore"
   },
   "devDependencies": {
     "concurrently": "10.0.7",

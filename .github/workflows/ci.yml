@@ -62,6 +62,8 @@ jobs:
       - run: pnpm db:migrate
       - run: pnpm contracts:check
       - run: pnpm check
+        env:
+          RESEARCHCHAIN_PG_CONTAINER: ${{ job.services.postgres.id }}
       - run: pnpm --filter @researchchain/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

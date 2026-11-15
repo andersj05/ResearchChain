@@ -1,10 +1,37 @@
 # Current state
 
-Updated 2026-11-15. Report editing is implemented in
-[PR #26](https://github.com/andersj05/ResearchChain/pull/26), targeting dev.
-Active branch: `feat/report-editing`. Local validation is complete; final-head CI
-and merge are still pending. The owner authorized frequent commits and merging
+Updated 2026-11-15. Active branch: `feat/backup-restore`, based on report
+editor dev merge `c9bc2d0`. The owner authorized frequent commits and merging
 completed steps into dev after CI. Do not promote to main or deploy publicly.
+
+## Backup and recovery
+
+The local backup/restore slice of [issue #9](https://github.com/andersj05/ResearchChain/issues/9)
+is implemented and locally verified; CI and merge are pending. It creates private
+PostgreSQL custom archives with a manifest sharing the same exported snapshot.
+The migration lock is acquired before that snapshot. Restore requires a trusted
+archive and a new database, uses a temporary restricted owner, verifies migration,
+schema, table and original-byte hashes, then transfers ownership. Failed targets
+are quarantined; no source replacement, automatic app switch or provider call occurs.
+
+`pnpm check` passed with 240 backend tests, formatting, lint, strict Python and
+TypeScript checks, and the production build. The 23 new tests cover binary originals,
+reports/feedback/style/evaluations, paused resume, uncertain model requests,
+concurrent writes, migration locking, public-schema restore, partial-upgrade
+recovery, corruption/target guards, private permissions and redacted errors.
+CI now selects its Postgres service container for matching client tools.
+
+A private owner rehearsal from clean commit `1342cef` verified 27 tables, 86 rows
+and 12 originals (129,817 bytes) in a separate database, with zero provider calls.
+The live database was not switched. Ignored `.local/backup-rehearsal.json` records
+the private destination and receipt; the archive directory contains the complete
+manifest and restore receipt. The source app is currently stopped for verification.
+See [the operator guide](../backups.md) and [ADR 0009](../decisions/0009-verified-backups.md).
+
+This is a local logical backup, not PITR or a full-cluster backup. Provider
+credentials, roles/grants, external schemas and server settings are excluded.
+Archives contain executable SQL and must be trusted. Retention/off-machine copies
+and hosted recovery objectives remain operational work.
 
 ## Report editing
 
@@ -28,8 +55,17 @@ correction passed its focused API/export test and regenerated contracts.
 The full production browser suite passed all 55 tests with four workers and retries
 disabled. Desktop/mobile report screenshots were inspected. The browser cases cover
 draft recovery, lost-response retries, conflicting saves, exact Unicode anchoring,
-style pinning, review invalidation and export. Final CI must pass before merging.
-Migration 0007 is not yet applied to the owner's public schema.
+style pinning, review invalidation and export. PR CI `43679633006` passed on
+`743972c`; post-merge dev CI `43680029694` passed on `c9bc2d0`.
+
+Migration 0007 is applied locally; do not edit its checksum. The existing final
+research result is now a private, unreviewed four-section report with three source
+originals and an explicitly unreviewed editorial starter guide. It has no feedback,
+made no additional model attempt, and left the research run paused. The offline
+review export's three original hashes were verified. Private identifiers/setup and
+the ZIP remain in ignored `.local/report-pilot.json`, `.local/register-report-pilot.py`
+and `.local/pilot-report-review.zip`. The live local API returned the report
+successfully; opening its Codex browser tab was queued, not visually confirmed.
 
 ## Evaluation and research
 
@@ -66,15 +102,13 @@ issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.
 
 ## Next work
 
-Finish PR #26 CI/merge, apply migration 0007, and prepare the existing private
-research pilot in the report editor with an explicitly unreviewed starter guide.
-Do not create human feedback or approve its research review.
-
-Then prepare [operational controls #9](https://github.com/andersj05/ResearchChain/issues/9):
+Finish CI and merge for the backup/restore slice of
+[plan 0008](../plans/0008-operational-preparation.md). Then continue
+[operational controls #9](https://github.com/andersj05/ResearchChain/issues/9):
 authentication/authorization, execution and request limits, secrets, redacted
-observability, retention, tested backup/restore and deployment configuration.
-The issue explicitly requires workload measurements before hosting selection and
-does not authorize a production deployment. Keep #6/#7 human review work open.
+observability, retention, and concrete deployment configuration. The issue requires
+workload measurements before hosting selection and does not authorize production
+deployment. Keep #6/#7 human review work open; do not invent feedback or labels.
 
 The repository is `C:\Users\jense\Desktop\ResearchChain`; the old Documents/ChatGPT
 folder is empty. Browser tests use isolated `e2e_` schemas and a synthetic provider.

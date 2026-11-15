@@ -31,7 +31,8 @@ development or tests. The Compose credentials are only local development default
 Run `pnpm db:migrate` after pulling database changes. Application migrations are
 ordered SQL files with checksums; applied files must never be edited. The same
 command applies LangGraph's checkpoint migrations under a database lock. Back up
-the database before upgrades; volumes and checkpoints are not backups.
+the database before upgrades; volumes and checkpoints are not backups. Use the
+[backup, verified restore and migration recovery procedure](backups.md).
 
 ## Optional ChatGPT plan connection
 
@@ -50,26 +51,29 @@ git switch -c feat/your-feature
 pnpm dev
 ```
 
-| Command                         | Purpose                                                  |
-| ------------------------------- | -------------------------------------------------------- |
-| `pnpm dev:web` / `pnpm dev:api` | Run a single service                                     |
-| `pnpm db:up` / `pnpm db:down`   | Start/stop local Postgres; preserve its named volume     |
-| `pnpm db:migrate`               | Apply application and LangGraph database migrations      |
-| `pnpm test`                     | Backend validation and real checkpoint/resume tests      |
-| `pnpm typecheck`                | TypeScript and strict Python type checks                 |
-| `pnpm lint`                     | ESLint and Ruff checks                                   |
-| `pnpm format`                   | Format supported source and docs                         |
-| `pnpm contracts:generate`       | Regenerate OpenAPI and TypeScript API types              |
-| `pnpm contracts:check`          | Regenerate and detect tracked contract drift             |
-| `pnpm check`                    | Formatting, lint, types, backend tests, production build |
-| `pnpm test:e2e`                 | Browser tests in a temporary Postgres schema             |
+| Command                              | Purpose                                                    |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `pnpm dev:web` / `pnpm dev:api`      | Run a single service                                       |
+| `pnpm db:up` / `pnpm db:down`        | Start/stop local Postgres; preserve its named volume       |
+| `pnpm db:backup` / `pnpm db:restore` | Create a private snapshot / verify a new recovery database |
+| `pnpm db:migrate`                    | Apply application and LangGraph database migrations        |
+| `pnpm test`                          | Backend validation and real checkpoint/resume tests        |
+| `pnpm typecheck`                     | TypeScript and strict Python type checks                   |
+| `pnpm lint`                          | ESLint and Ruff checks                                     |
+| `pnpm format`                        | Format supported source and docs                           |
+| `pnpm contracts:generate`            | Regenerate OpenAPI and TypeScript API types                |
+| `pnpm contracts:check`               | Regenerate and detect tracked contract drift               |
+| `pnpm check`                         | Formatting, lint, types, backend tests, production build   |
+| `pnpm test:e2e`                      | Browser tests in a temporary Postgres schema               |
 
 Install the test browser once with
 `pnpm --filter @researchchain/web exec playwright install chromium`.
 On Linux CI the install command also uses `--with-deps`.
 
 Backend tests fail if Postgres is unavailable; they do not silently skip durability
-checks. Browser tests own their API/web processes and fail if ports 8000/3000 are
+checks. Backup tests require matching PostgreSQL clients or the local container
+and create/drop only their own randomly named `test_restore_*` databases. CI
+selects its Postgres service container explicitly. Browser tests own their API/web processes and fail if ports 8000/3000 are
 already occupied. Stop `pnpm dev` first. Run browser tests from the repository root
 so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema.
 Focus a browser test with `pnpm test:e2e --grep "narrow screen"`. Screenshots and
