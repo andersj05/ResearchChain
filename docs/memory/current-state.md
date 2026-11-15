@@ -1,9 +1,10 @@
 # Current state
 
-Updated 2026-11-14. Active branch: `feat/research-evals`, implementing
-[issue #7](https://github.com/andersj05/ResearchChain/issues/7). The owner authorized
-frequent commits and merging completed steps into dev after CI. Do not promote
-changes to main or publish the application.
+Updated 2026-11-14. The evaluation workbench is merged into dev through
+[PR #25](https://github.com/andersj05/ResearchChain/pull/25), merge `2dba860`,
+with eight feature commits and passing PR CI. Active branch: `feat/report-editing`.
+The owner authorized frequent commits and merging completed steps into dev after CI.
+Do not promote changes to main or publish the application.
 
 ## Evaluation implementation
 
@@ -29,13 +30,12 @@ an illustrative numeric fixture; it is excluded from calibration. No comparison,
 human label, judge prediction or new model call was created during this setup.
 Private setup identifiers and exports remain in ignored `.local/` and Postgres.
 
-Validation: `pnpm check` passed with 205 backend tests, formatting, lint, strict
-Python/TypeScript checks and a production build. A final missing-reference guard
-was then covered by one additional passing test. Generated-contract drift checks
-passed. All 51 browser tests passed against the production build with four workers
-and retries disabled. PR CI is the remaining integration gate. Focused desktop/mobile evaluation flows pass, including edits, ratings,
-reference exclusion, archives and synthetic calibration exclusion. The added tab's
-narrow-screen overflow was fixed; screenshots were inspected.
+Validation: PR CI `43675847316` passed on `5158987`, including 206 backend tests,
+formatting, lint, strict Python/TypeScript checks, contract drift and a production
+build. All 51 browser tests passed in CI; the same full suite also passed locally
+against production with four workers and retries disabled. Desktop/mobile screens
+were inspected. The added tab's narrow-screen overflow was fixed. The automatic
+dev check on merge `2dba860` is running as `43676146112`.
 
 ## Prior research milestone
 
@@ -64,8 +64,8 @@ dev. Issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresS
 
 ## Next work
 
-Complete evaluation CI/merge, then implement
-[report editing #8](https://github.com/andersj05/ResearchChain/issues/8). Keep #7 open
+Implement [report editing #8](https://github.com/andersj05/ResearchChain/issues/8)
+using [plan 0007](../plans/0007-report-editing.md). Keep #7 open
 for real holdout collection and independent human feedback/calibration. Do not invent
 labels, pretend synthetic tests are research evidence, fine-tune, or optimize a lone
 judge score. Real empirical research also needs independent dated market/positioning
