@@ -37,6 +37,11 @@ OpenAI's consent/settings if you want to stay within included usage. The command
 waits up to ten minutes. `--no-browser` prints only the local entry link for a
 browser on the same computer; do not share the link or OAuth callback.
 
+The explicit verification request consumes a slot in the configured workspace's
+[request allowance](request-allowance.md). Apply current database migrations first.
+A paused or exhausted local allowance is separate from sign-in status; inspect
+Operations before changing credentials. Sign-in and catalog reads consume no slot.
+
 The model list comes from the selected account. A listed model is not proof that
 inference is available. Verify makes one small request and succeeds only after a
 completed response with the expected text. It does not send research, enable tools,

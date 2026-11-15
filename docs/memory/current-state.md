@@ -5,11 +5,37 @@ steps into dev after passing checks. No main promotion or public deployment.
 
 The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty
 Documents/ChatGPT folder is not the checkout. Use explicit working directories.
-The current feature checkout is C:/Users/jense/Desktop/ResearchChain-alerts,
-branch feat/operational-alerts. Inspect GitHub and the newest private delivery
+The current feature checkout is C:/Users/jense/Desktop/ResearchChain-usage,
+branch feat/workspace-request-limits. Inspect GitHub and the newest private delivery
 receipt for exact integration status and live service handles.
 
+## Workspace request allowance
+
+[Plan 0016](../plans/0016-workspace-request-limits.md) adds a rolling 24-hour
+request allowance shared by runs, worker processes and explicit connection tests.
+The initial policy permits 100 admissions, with an editable 1-10,000 range and
+a pause control in Operations. This is a local request bound, not a billing cap.
+
+Schema 10 adds immutable policy revisions and admission receipts. Short READ
+COMMITTED transactions serialize admissions and policy edits, commit before
+model work, and retain the physical execution connection's run/checkpoint locks.
+Unknown/failed outcomes do not refund admissions. Cleanup preserves the counter;
+verified database backups include both tables. Migration imports existing research
+attempts conservatively. Older workers must be stopped before upgrading.
+
+Owner controls use revision checks and never replay an unconfirmed save. Current
+usage is read explicitly; dirty settings survive refresh and changed settings
+must be reviewed. Per-attempt metadata records the admission policy revision.
+See [request allowance](../request-allowance.md) and [ADR 0016](../decisions/0016-workspace-request-allowance.md).
+Final validation and integration evidence belong in the feature PR and main
+.local/usage-delivery.json.
+
 ## Operational alerts
+
+[PR #34](https://github.com/andersj05/ResearchChain/pull/34) merged into dev as
+6832edc32d8529e9e7323c1fd8e55e18affb0625. Local checks, PR CI 43728513306 and
+dev CI 43729957644 passed: 420 backend and 82 browser tests. Private evidence is
+in main .local/alerts-delivery.json.
 
 [Plan 0015](../plans/0015-operational-alerts.md) implements an explicit operator CLI:
 setup, check, status, once, watch and test. Nothing starts from the web app or
@@ -65,18 +91,17 @@ See [encrypted backups](../encrypted-backups.md) and [ADR 0014](../decisions/001
 
 ## Live research and access
 
-The live verification after PR #33 preserved all 33 schema-9 table fingerprints and
-12 originals (129,817 bytes), with two connected worker consumers and an idle queue.
-The development supervisor required a restart during the code/dependency update;
-the subsequent protected read and connection checks passed. For future updates,
-check the queue before stopping owned services and always restore the workbench.
+The live verification after PR #34 preserved all 33 schema-9 table fingerprints
+and 12 originals (129,817 bytes), with two connected consumers and an idle queue.
+Always fence admissions/check the idle queue before stopping owned services, and
+restore the workbench after local browser tests or code upgrades. Consult the
+newest private delivery receipt for current process handles and schema state.
 
-ChatGPT plan usage remains enabled with eight models, last verified without inference
-at 14:15 UTC on 2026-11-15. The latest requested fresh sign-in expired while awaiting
-personal completion; it preserved the saved connection. See main
-.local/signin-restart-receipt.json. Do not restart a working connection unless
-requested or authentication actually fails. Credit permission is owner-controlled
-in ChatGPT and is not attested by the app.
+The owner completed a fresh ChatGPT sign-in during this step on 2026-11-15.
+Plan usage is enabled and eight models were verified without inference. See main
+.local/signin-restart-receipt.json. That restart request is complete; do not
+restart it again without a new owner request or an actual authentication failure.
+Credit permission remains owner-controlled in ChatGPT and is not attested by the app.
 
 [PR #32](https://github.com/andersj05/ResearchChain/pull/32) supplies Connect/Reconnect
 under Run workflow → ChatGPT plan usage. Personal consent remains separate from
@@ -108,7 +133,7 @@ Use ignored .local receipts for the newest process handles, not old chat summari
 
 [Issue #9](https://github.com/andersj05/ResearchChain/issues/9) still needs actual
 off-machine/PITR recovery, external alert/watchdog setup, operational secret
-rotation, strict usage controls and workload-based hosting choices. Private
+rotation, provider-side hard spend controls and workload-based hosting choices. Private
 uploads, notifications, paid services and deployment need a concrete authorized
 destination/configuration; local implementation alone does not enable them.
 

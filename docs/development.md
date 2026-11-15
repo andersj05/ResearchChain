@@ -63,6 +63,7 @@ pnpm dev
 | `pnpm db:keygen` / `pnpm db:seal` / `pnpm db:unseal` | Prepare portable encrypted recovery copies                      |
 | `pnpm access:login` / `pnpm access:revoke`           | Open a private owner link / revoke browser sessions             |
 | `pnpm monitor check` / `pnpm monitor --help`         | Read current operational conditions / configure explicit alerts |
+| `pnpm usage status` / `pnpm usage --help`            | Read/change the shared request allowance and pause control      |
 | `pnpm db:migrate`                                    | Apply application and LangGraph database migrations             |
 | `pnpm test`                                          | Backend validation and real checkpoint/resume tests             |
 | `pnpm typecheck`                                     | TypeScript and strict Python type checks                        |
