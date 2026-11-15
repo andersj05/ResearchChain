@@ -45,7 +45,7 @@ real browser consent and a completed model response; no API key or credit purcha
 production build. All 47 browser tests passed against production with four workers
 and retries disabled; generated-contract drift checks also passed. The concurrent
 progress-reader race found during testing is fixed and covered. Desktop/mobile
-research screens were inspected. Migration 0005 is applied locally. PR CI passed on `6d6300c`. The automatic dev build on merge `74f991d` is in progress.
+research screens were inspected. Migration 0005 is applied locally. PR CI passed on `6d6300c`. The automatic dev build on merge `74f991d` also passed (run `43671625736`).
 
 ## Next work and limits
 
