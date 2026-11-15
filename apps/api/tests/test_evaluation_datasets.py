@@ -19,7 +19,7 @@ from researchchain.evaluation_models import (
 )
 from researchchain.evidence import EvidenceStore
 from researchchain.evidence_models import EvidenceCreate, EvidenceRecord
-from researchchain.revisions import ConflictError
+from researchchain.revisions import ConflictError, NotFoundError
 
 REFERENCE = (
     "Synthetic reference answer: investors rebalance constrained portfolios when "
@@ -264,3 +264,17 @@ def test_invalid_case_ranges_and_duplicate_ids_are_rejected(database: Database) 
         dataset(
             database, case_for(source, period_start=date(2040, 1, 1), as_of_date=date(2040, 2, 1))
         )
+
+
+def test_missing_reference_in_later_case_returns_not_found(database: Database) -> None:
+    source = evidence(database)
+    request = EvaluationDatasetCreate(
+        id=uuid4(),
+        title="Multiple cases",
+        cases=[
+            case_for(source),
+            case_for(source, id="other", reference_ids=[uuid4()]),
+        ],
+    )
+    with pytest.raises(NotFoundError, match="reference"):
+        EvaluationDatasets(database).create(request)

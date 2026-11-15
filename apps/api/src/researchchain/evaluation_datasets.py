@@ -147,6 +147,10 @@ class EvaluationDatasets:
                 for row in conn.execute("SELECT document FROM evaluation_references")
                 if (ref := EvaluationReference.model_validate(row["document"]))
             }
+            if any(
+                key not in reference_hashes for case in request.cases for key in case.reference_ids
+            ):
+                raise NotFoundError("Evaluation reference not found.")
             snapshots: dict[UUID, str | None] = {}
             for case in [*prior_cases, *request.cases]:
                 for evidence_id in case.evidence_ids:

@@ -51,7 +51,8 @@ A topic identifier is an owner declaration, not automatic semantic topic detecti
 The anchor reference cannot be promoted to a holdout. Keep separate real topics
 or periods; a synthetic fixture is not evidence of research quality.
 
-Historical cases require both a period start and an as-of cutoff. Publication and
+Historical cases require both a period start and an as-of cutoff. Dates use whole
+UTC calendar days; intraday release-time leakage is not checked. Publication and
 data dates after the cutoff fail. Missing publication dates, missing numeric-data
 vintages, unavailable content, and captures made after the cutoff are unknown and
 block generation export. Parent and correction lineage are checked too. A declared
