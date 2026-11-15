@@ -19,12 +19,18 @@ export function EvidencePicker({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [initialSelection] = useState(selected);
   useEffect(() => {
     let active = true;
     api<EvidencePage>("evidence?limit=50")
-      .then((page) => {
+      .then(async (page) => {
+        const retained = await Promise.all(
+          initialSelection
+            .filter((id) => !page.items.some((item) => item.id === id))
+            .map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)),
+        );
         if (active) {
-          setItems(page.items);
+          setItems([...retained, ...page.items]);
           setNext(page.next_offset ?? null);
         }
       })
@@ -37,7 +43,7 @@ export function EvidencePicker({
     return () => {
       active = false;
     };
-  }, []);
+  }, [initialSelection]);
   async function more() {
     setError("");
     setLoading(true);

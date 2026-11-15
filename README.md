@@ -10,6 +10,9 @@ LangGraph + FastAPI for execution, with Postgres revisions and checkpoints. Runs
 survive API restarts and stay pinned to their original workflow. The first workflow is a deterministic development
 exercise; it does not call a model, browse sources, or generate investment research.
 
+The [evidence desk](docs/evidence-desk.md) captures permitted originals, tracks
+source provenance and claim relationships, and pins evidence versions to runs.
+
 Setup and commands: [development guide](docs/development.md).
 Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
 [PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).

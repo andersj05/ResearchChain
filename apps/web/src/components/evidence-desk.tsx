@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { api } from "@/lib/workflow";
 import {
@@ -17,6 +17,7 @@ import { EvidenceDetail } from "@/components/evidence-detail";
 import { ClaimForm } from "@/components/claim-form";
 
 export function EvidenceDesk() {
+  const desk = useRef<HTMLElement>(null);
   const [sources, setSources] = useState<EvidenceRecord[]>([]);
   const [claims, setClaims] = useState<ClaimRecord[]>([]);
   const [selected, setSelected] = useState<EvidenceRecord | null>(null);
@@ -68,6 +69,10 @@ export function EvidenceDesk() {
       active = false;
     };
   }, [loadEpoch]);
+  useEffect(() => {
+    desk.current?.parentElement?.scrollTo({ top: 0 });
+  }, [form, selected]);
+
   function select(record: EvidenceRecord) {
     setSelected(record);
     setForm(null);
@@ -110,7 +115,7 @@ export function EvidenceDesk() {
       .includes(search.toLowerCase()),
   );
   return (
-    <section className="evidence-desk" aria-label="Evidence desk">
+    <section ref={desk} className="evidence-desk" aria-label="Evidence desk">
       <header className="evidence-header">
         <div>
           <p className="eyebrow">Research inputs</p>

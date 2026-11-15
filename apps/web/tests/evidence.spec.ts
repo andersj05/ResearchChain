@@ -204,3 +204,39 @@ test("upload through the web proxy preserves every original byte above ten MB", 
   const original = await request.get(`/api/artifacts/${record.content_hash}/content`);
   expect(await original.body()).toEqual(bytes);
 });
+
+test("run setup retains selected evidence outside the first library page", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post("/api/evidence", {
+    data: {
+      id: randomUUID(),
+      title: "Older selected source",
+      kind: "text",
+      text: "Synthetic earlier source",
+      rights: "owned",
+    },
+  });
+  const record: EvidenceRecord = await response.json();
+  await page.route("**/api/evidence?limit=50*", async (route) => {
+    const offset = new URL(route.request().url()).searchParams.get("offset");
+    await route.fulfill({
+      json:
+        offset === "50"
+          ? { items: [record], total: 51, next_offset: null }
+          : { items: [], total: 51, next_offset: 50 },
+    });
+  });
+  await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Load more sources", exact: true }).click();
+  await page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }).check();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Run workflow" }).click();
+  await expect(
+    page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }),
+  ).toBeChecked();
+  await page
+    .getByRole("checkbox", { name: "Older selected source Captured", exact: true })
+    .uncheck();
+});

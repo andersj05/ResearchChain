@@ -55,8 +55,8 @@ export function EvidenceDetail({
       </div>
       {!artifact && (
         <p className="source-notice">
-          No original was captured. This record has no content hash or verified excerpt beyond the
-          metadata you supplied.
+          No original was captured. This record has no content hash. The source content and any
+          supplied excerpt have not been verified.
         </p>
       )}
       {record.representation === "digitized_estimate" && (

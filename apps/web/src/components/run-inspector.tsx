@@ -126,6 +126,7 @@ export function RunInspector({
                 </div>
               </div>
             ))}
+          <PinnedEvidence key={run.id} ids={run.evidence_ids ?? []} />
           <h3 className="steps-heading">
             Completed steps <span className="count">{run.events.length}</span>
           </h3>
@@ -144,7 +145,6 @@ export function RunInspector({
           ) : (
             <p className="muted">No completed steps yet.</p>
           )}
-          <PinnedEvidence key={run.id} ids={run.evidence_ids ?? []} />
           <details className="run-details">
             <summary>Pinned workflow &amp; run details</summary>
             <p className="muted">
