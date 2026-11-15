@@ -54,12 +54,13 @@ def browser_login(
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(document)))
             self.send_header("Cache-Control", "no-store")
-            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Referrer-Policy", "same-origin" if cookie else "no-referrer")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header(
                 "Content-Security-Policy",
                 "default-src 'none'; style-src 'unsafe-inline'; "
-                "form-action 'self'; frame-ancestors 'none'; base-uri 'none'",
+                "form-action 'self' https://auth.openai.com; "
+                "frame-ancestors 'none'; base-uri 'none'",
             )
             if cookie:
                 self.send_header(

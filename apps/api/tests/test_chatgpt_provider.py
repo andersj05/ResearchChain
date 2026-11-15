@@ -492,3 +492,90 @@ def test_absolute_stream_timeout_closes_transport(harness: Harness) -> None:
             )
         )
     assert closed
+
+
+@pytest.mark.parametrize(
+    "status,body,shape,code",
+    [
+        (403, {"detail": "private upstream diagnostic"}, "detail", None),
+        (
+            429,
+            {
+                "error": {
+                    "code": "subscription_sharing_usage_limit_exceeded",
+                    "param": "model",
+                    "message": "private upstream diagnostic",
+                }
+            },
+            "error_object",
+            "subscription_sharing_usage_limit_exceeded",
+        ),
+    ],
+)
+def test_admission_errors_preserve_safe_diagnostics(
+    harness: Harness,
+    status: int,
+    body: dict[str, Any],
+    shape: str,
+    code: str | None,
+) -> None:
+    harness.complete()
+    transport = httpx.MockTransport(
+        lambda request: httpx.Response(
+            status,
+            json=body,
+            headers={"x-request-id": "request-test-123"},
+        )
+    )
+    with pytest.raises(ProviderError) as caught:
+        asyncio.run(
+            ChatGPTPlan(harness.auth).complete(
+                "test-model",
+                "test",
+                account_id=CLIENT,
+                transport=transport,
+            )
+        )
+    assert caught.value.status == status and caught.value.shape == shape
+    assert caught.value.code == code and caught.value.request_id == "request-test-123"
+    assert "private upstream" not in str(caught.value)
+    assert harness.store.read().accounts[CLIENT].tokens is not None
+
+
+def test_account_switch_between_selection_and_request_stops_call(harness: Harness) -> None:
+    harness.complete()
+    account, _ = ChatGPTPlan(harness.auth).models()
+    harness.begin(new=True)
+    harness.complete(client_id="oaiapp_second")
+    with pytest.raises(ConnectionError, match="account changed"):
+        asyncio.run(ChatGPTPlan(harness.auth).complete("test-model", "test", account_id=account))
+
+
+def test_missing_content_type_still_requires_a_completed_sse_response(harness: Harness) -> None:
+    harness.complete()
+    content = events(
+        {"type": "response.output_text.delta", "delta": "ok"},
+        {"type": "response.completed", "response": {"id": "resp_test", "status": "completed"}},
+    )
+    transport = httpx.MockTransport(lambda request: httpx.Response(200, content=content))
+    result = asyncio.run(
+        ChatGPTPlan(harness.auth).complete(
+            "test-model",
+            "test",
+            account_id=CLIENT,
+            transport=transport,
+        )
+    )
+    assert result.text == "ok"
+    invalid = httpx.MockTransport(
+        lambda request: httpx.Response(200, content=b"<html>not a response</html>")
+    )
+    with pytest.raises(ConnectionError, match="without response.completed"):
+        asyncio.run(
+            ChatGPTPlan(harness.auth).complete(
+                "test-model",
+                "test",
+                account_id=CLIENT,
+                transport=invalid,
+            )
+        )

@@ -113,7 +113,10 @@ class ChatGPTPlan:
                                 content=error_body,
                             )
                         )
-                    if not response.headers.get("content-type", "").startswith("text/event-stream"):
+                    content_type = response.headers.get("content-type")
+                    # The direct plan route can omit this header. Accept only
+                    # valid Responses SSE events below, never plain JSON/HTML.
+                    if content_type and not content_type.startswith("text/event-stream"):
                         raise ConnectionError("OpenAI did not return a Responses event stream.")
                     async for chunk in response.aiter_bytes():
                         size += len(chunk)
