@@ -19,11 +19,14 @@ still use the configured local workspace and protected provider account.
 
 ```text
 pnpm worker status
+pnpm operations
 pnpm worker --once
 pnpm worker configure --max-parallel 2 --max-pending 100
 ```
 
-Status prints workspace limits and persisted job counts. Once processes at most
+Worker status prints workspace limits and persisted job counts. Operations adds
+connected consumers, live ownership, storage and reported usage; see
+[workspace operations](operations.md). Once processes at most
 one available command. Configure changes durable workspace limits; first drain
 pending commands and stop workers. The defaults are two simultaneous commands
 and 100 pending commands, including active ones. Supported ranges are 1 to 8 parallel
@@ -42,7 +45,10 @@ POST /api/runs, /api/runs/{id}/resume and /api/runs/{id}/recover return HTTP 202
 with command_id, run_id, kind and accepted_at. Read GET /api/runs/{id} for current
 progress. Receipts identify accepted commands; they do not imply successful
 execution. A repeated start or exact review returns the same receipt. Changed
-inputs or review decisions conflict. The queue returns 429 with Retry-After
+inputs or review decisions conflict. A new review waits up to one second for an
+idle snapshot reader to release the run lock; it does not wait for active execution.
+A longer idle read returns a retryable response without recording the decision.
+The queue returns 429 with Retry-After
 when capacity or its bounded admission lock is unavailable; reuse the request ID
 when retrying.
 
@@ -92,6 +98,6 @@ Starting a worker cannot automatically replay held jobs. See [backups](backups.m
 
 This is a bounded local worker service for one owner workspace. It provides no
 public deployment, distributed provider-secret service, arbitrary tool execution
-or automatic data deletion. Retention, off-machine recovery, operational monitoring
+or automatic data deletion. Retention, off-machine recovery, external alerting
 and hosting costs remain part of issue #9. See
 [ADR 0011](decisions/0011-durable-workers.md).

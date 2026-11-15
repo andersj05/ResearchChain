@@ -1,50 +1,66 @@
 # Current state
 
-Updated 2026-11-15. Durable workers are implemented in
-[PR #29](https://github.com/andersj05/ResearchChain/pull/29) on feat/durable-workers.
-The owner authorized frequent commits and merging completed steps after CI.
-Do not promote to main or deploy publicly.
+Updated 2026-11-15. Owner workspace operations is implemented on
+feat/workspace-operations. The owner authorized frequent commits and merging each
+completed step after CI. Do not promote to main or deploy publicly.
+
+## Workspace operations
+
+The Operations tab and pnpm operations show workspace-scoped worker presence,
+reserved capacity, queued/executing/abandoned/interrupted commands, stored data and
+reported token usage. Responses contain aggregates only, require owner access and
+do not invoke providers. Manual refresh adds no background session keepalive.
+
+Each serving worker consumer holds a separate session presence lock. Execution still
+uses its original physical run/checkpoint connection. An executing command must
+hold both its run lock and a workspace slot on the same connection; idle run readers
+do not count as execution. Database outage messages are redacted and bounded.
+
+A real overlapping-read race was fixed: new review admission waits up to one second
+for an idle reader, then validates the checkpoint normally. Longer contention is
+retryable without saving a decision; active execution is rejected immediately.
+Deterministic tests cover release, timeout, no duplicate review and busy workers.
+Browser review tests wait for durable checkpoints within a bounded execution window.
+
+Local pnpm check passed with 312 backend tests, formatting, lint, strict types and
+the production build before the final reader-admission fix. That fix passed the
+16-case dispatch suite and strict Python checks. The full 71-case production browser
+suite passed with four workers and retries disabled. Desktop/mobile status layouts
+were inspected. Final PR CI repeats the complete checks before integration.
+Local logs are .local/operations-check.log and
+.local/operations-production-browser-v4.log; the final integration receipt and
+live check are .local/operations-delivery.json and .local/operations-live-check.json
+when present. Verify these and GitHub before assuming the service or merge state.
+
+No migration or private purge is introduced. The live workspace stays on schema 8.
+A private baseline fingerprints all 29 tables for the post-restart comparison.
+See [operations](../operations.md), [ADR 0012](../decisions/0012-workspace-operations.md)
+and [plan 0011](../plans/0011-workspace-operations.md).
+
+The next implementation step is explicit retention: bounded preview, confirmation,
+reference rechecks, idempotent deletion receipts and minimal run-ID tombstones.
+Protect reports/evaluations, active or uncertain work and shared original bytes.
+Test deletion only on synthetic data. Operational inventory does not satisfy
+retention acceptance criteria. Local design findings are in
+.local/retention-next-notes.md; they still need implementation and race verification.
 
 ## Durable workers
 
-Start, resume and recover now return HTTP 202 command receipts. A separate local
-worker follows durable jobs using workspace-wide slot locks and the existing
-physical run/checkpoint connection. Defaults are two parallel commands and 100
-pending commands. API restarts do not stop independent workers, and duplicate
-requests return the same receipt without waiting for model execution.
+[PR #29](https://github.com/andersj05/ResearchChain/pull/29) merged as 1d143c8 with
+passing dev CI 43701571474. Commands return HTTP 202 receipts and independent workers
+follow the durable queue. Defaults are two parallel commands and 100 pending commands.
+API restarts preserve accepted work; retries retain their original identity.
 
-New commands recover abandoned ownership from confirmed progress, with at most
-three automatic ownership losses before explicit recovery. Uncertain model effects
-are never resent. Old unfinished commands are not automatically enqueued, paused
-human reviews remain paused, and restored pending jobs are held for explicit review.
-The browser preserves an unconfirmed start's request ID through refresh and follows
-queued work. execution_pending keeps polling terminal runs until their worker has
-saved final progress, including a cancelled partial model response.
+Replacement workers use confirmed progress and at most three automatic ownership
+losses before explicit recovery. Uncertain model effects are not resent. Human-review
+pauses remain paused, legacy unfinished commands are not automatically queued, and
+restored pending work is held. execution_pending retains final-progress polling.
 
-Migration/backup lock waiters now poll outside transactions, avoiding a real
-deadlock with concurrent checkpoint indexes. The regression covers concurrent
-fresh migrations and a backup waiting while an index migration completes.
-
-CI [43700300306](https://github.com/andersj05/ResearchChain/actions/runs/43700300306)
-passed on 0e92425: pnpm check with 300 backend tests, formatting, lint, strict
-Python/TypeScript checks and the production build; all 67 production browser tests
-passed. The local 67-case development browser suite also passed with four workers
-and retries disabled. Desktop and phone queued-run screenshots were inspected.
-The final local full check and production run are recorded in ignored
-.local/workers-final-check-v2.log and .local/workers-production-browser.log.
-
-A compatible clean e7ee33e checkout created a private schema-7 backup and restored
-it into a separate database. Migration 0008 preserved every existing table
-fingerprint, all 12 originals and 129,817 original bytes. The restored queue was
-empty and a worker performed no inference. The four-section report remained
-unreviewed with no feedback; its research run remained paused. The source stayed
-on schema 7 during this rehearsal. The backup location, compatible code and
-verified target are in ignored .local/worker-upgrade-rehearsal.json.
-
-Before changing or assuming the live service state, inspect the private aggregate
-receipts .local/workers-live-upgrade.json and .local/workers-live-check.json when
-present. The prepared upgrade verifies the retained backup checksum and exact
-source inventory before migrating. API, browser and worker must use matching code.
+The schema-8 upgrade was rehearsed on a verified restored copy and then applied
+without changing retained research. ChatGPT plan access was reconnected and verified
+without new inference. Historical private evidence is in
+.local/worker-upgrade-rehearsal.json, .local/workers-live-upgrade.json and
+.local/workers-live-check.json. Prefer newer operations receipts when available.
 See [workers](../workers.md), [ADR 0011](../decisions/0011-durable-workers.md) and
 [plan 0010](../plans/0010-durable-workers.md).
 
@@ -83,7 +99,7 @@ UTF-8 and write UTF-8 with explicit LF newlines; otherwise Unicode anchors and
 labels can be damaged, or local Prettier checks can fail on CRLF despite a clean
 normalized Git diff. The introduced encoding changes were repaired and verified.
 
-Issue #9 remains open for retention, redacted operations, off-machine recovery,
+Issue #9 remains open for retention, external alerting, off-machine recovery,
 secret operations and measured hosting decisions. Issues #6 and #7 still require
 actual owner review/labels and their documented provider/evaluation work.
 

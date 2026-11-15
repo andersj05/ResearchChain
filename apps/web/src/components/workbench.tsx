@@ -6,6 +6,7 @@ import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { AccessControls } from "@/components/access-controls";
 import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
+import { OperationsDesk } from "@/components/operations-desk";
 import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
@@ -127,7 +128,15 @@ export function Workbench() {
         const view = parameters.get("view");
         if (
           view &&
-          ["workflow", "runs", "revisions", "evidence", "evaluations", "reports"].includes(view)
+          [
+            "workflow",
+            "runs",
+            "revisions",
+            "evidence",
+            "evaluations",
+            "reports",
+            "operations",
+          ].includes(view)
         )
           setTab(view);
       } catch (cause) {
@@ -436,6 +445,7 @@ export function Workbench() {
             <TabsTab value="reports">Reports</TabsTab>
             <TabsTab value="evaluations">Evaluations</TabsTab>
             <TabsTab value="revisions">Revisions</TabsTab>
+            <TabsTab value="operations">Operations</TabsTab>
           </TabsList>
           <div className="actions workspace-actions">
             {tab === "workflow" && (
@@ -639,6 +649,9 @@ export function Workbench() {
         </TabsPanel>
         <TabsPanel className="evaluations-view" value="evaluations">
           <EvaluationDesk />
+        </TabsPanel>
+        <TabsPanel className="operations-view" value="operations">
+          <OperationsDesk onOpenRuns={() => switchTab("runs")} />
         </TabsPanel>
         <TabsPanel className="runs-view" value="runs">
           <h1 className="sr-only">Runs</h1>

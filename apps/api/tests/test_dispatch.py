@@ -1,6 +1,7 @@
 """Real Postgres admission, competing workers and safe journal recovery."""
 
 from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 from typing import Any
 from uuid import uuid4
 
@@ -11,7 +12,7 @@ from test_research_runtime import approve, setup_run
 from researchchain.database import Database
 from researchchain.dispatch import RunQueue
 from researchchain.dispatch_models import DispatchError, QueueLimits
-from researchchain.models import RunRequest, Workflow
+from researchchain.models import ResumeRequest, RunRequest, Workflow
 from researchchain.research import ResearchExecutor
 from researchchain.revisions import ConflictError, RevisionStore
 from researchchain.runtime import RunStore
@@ -92,6 +93,14 @@ def test_duplicate_and_recovery_return_while_provider_is_busy(database: Database
             with pytest.raises(ConflictError, match="different inputs"):
                 queue.start(request.model_copy(update={"brief": "Different request"}))
             assert len(provider.calls) == 1
+            with pytest.raises(ConflictError, match="executing"):
+                executor.submit(
+                    queue.resume,
+                    request.id,
+                    ResumeRequest(
+                        checkpoint_id="synthetic", interrupt_id="synthetic", decision="approve"
+                    ),
+                ).result(timeout=1)
         finally:
             provider.released.set()
         assert work.result(timeout=5)
@@ -310,3 +319,66 @@ def test_database_disconnect_fences_old_worker_and_cancels_inflight_provider(
             provider.released.set()
     assert runs.get(request.id).status == "failed"
     assert len(provider.calls) == 1
+
+
+def test_review_waits_for_idle_snapshot_reader_then_is_admitted_once(
+    database: Database, workflow: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue, request = setup_queue(database, workflow)
+    queue.start(request)
+    assert RunWorker(queue.runs).run_once()
+    paused = queue.runs.get(request.id)
+    review = approve(paused)
+    contended = Event()
+    original = queue._own_run
+
+    def observe(conn, run_id):
+        owned = original(conn, run_id)
+        if not owned:
+            contended.set()
+        return owned
+
+    monkeypatch.setattr(queue, "_own_run", observe)
+    with database.connection() as reader, ThreadPoolExecutor(max_workers=1) as executor:
+        reader.execute("SELECT pg_advisory_lock(hashtextextended(%s, 0))", (f"run:{request.id}",))
+        pending = executor.submit(queue.resume, request.id, review)
+        try:
+            assert contended.wait(5)
+            assert not pending.done()
+        finally:
+            reader.execute("SELECT pg_advisory_unlock_all()")
+        accepted = pending.result(timeout=5)
+    assert queue.resume(request.id, review) == accepted
+    assert RunWorker(queue.runs).run_once()
+    assert queue.runs.get(request.id).status == "completed"
+    with database.connection() as conn:
+        assert (
+            conn.execute(
+                "SELECT count(*) AS n FROM run_commands WHERE run_id = %s AND kind = 'resume'",
+                (request.id,),
+            ).fetchone()["n"]
+            == 1
+        )
+
+
+def test_long_idle_reader_returns_retry_without_recording_a_review(
+    database: Database, workflow: dict
+) -> None:
+    queue, request = setup_queue(database, workflow)
+    queue.start(request)
+    assert RunWorker(queue.runs).run_once()
+    paused = queue.runs.get(request.id)
+    with database.connection() as reader, ThreadPoolExecutor(max_workers=1) as executor:
+        reader.execute("SELECT pg_advisory_lock(hashtextextended(%s, 0))", (f"run:{request.id}",))
+        pending = executor.submit(queue.resume, request.id, approve(paused))
+        with pytest.raises(DispatchError, match="Retry the same review"):
+            pending.result(timeout=3)
+        assert (
+            reader.execute(
+                "SELECT count(*) AS n FROM run_commands WHERE run_id = %s", (request.id,)
+            ).fetchone()["n"]
+            == 1
+        )
+    assert queue.runs.get(request.id) == paused
+    accepted = queue.resume(request.id, approve(paused))
+    assert queue.resume(request.id, approve(paused)) == accepted
