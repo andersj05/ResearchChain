@@ -62,7 +62,16 @@ def report_router(database: Database) -> APIRouter:
     def feedback(key: UUID, request: ReportFeedbackCreate) -> ReportFeedback:
         return reports.feedback(key, request)
 
-    @router.get("/reports/{key}/export", operation_id="export_report")
+    @router.get(
+        "/reports/{key}/export",
+        operation_id="export_report",
+        response_class=Response,
+        responses={
+            200: {
+                "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}}
+            }
+        },
+    )
     def export(key: UUID) -> Response:
         return Response(
             content=export_report(database, reports.get(key)),

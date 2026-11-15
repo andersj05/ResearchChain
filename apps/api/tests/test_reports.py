@@ -376,6 +376,10 @@ def test_report_api_and_safe_offline_export(client: TestClient, database: Databa
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
     assert exported.headers["cache-control"] == "no-store"
+    schema = client.get("/openapi.json").json()
+    content = schema["paths"]["/api/reports/{key}/export"]["get"]["responses"]["200"]["content"]
+    assert set(content) == {"application/zip"}
+    assert content["application/zip"]["schema"]["format"] == "binary"
     with ZipFile(io.BytesIO(exported.content)) as archive:
         html = archive.read("index.html").decode("utf-8")
         assert "<script>" not in html and "&lt;script&gt;" in html
