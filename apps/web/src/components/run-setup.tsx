@@ -1,5 +1,6 @@
 "use client";
 
+import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
 import {
   Dialog,
@@ -17,6 +18,8 @@ export function RunSetup({
   onOpenChange,
   brief,
   onBriefChange,
+  evidenceIds,
+  onEvidenceChange,
   name,
   revision,
   busy,
@@ -28,6 +31,8 @@ export function RunSetup({
   onOpenChange: (open: boolean) => void;
   brief: string;
   onBriefChange: (value: string) => void;
+  evidenceIds: string[];
+  onEvidenceChange: (ids: string[]) => void;
   name: string;
   revision: number | null;
   busy: boolean;
@@ -83,6 +88,9 @@ export function RunSetup({
           <p className="field-hint">
             The run keeps its own saved revision. Later edits won’t change it.
           </p>
+          {open && (
+            <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />
+          )}
           {error && (
             <div className="error" role="alert">
               {error}

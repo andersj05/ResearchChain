@@ -13,6 +13,7 @@ from psycopg import Connection
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 
+from researchchain.artifacts import EvidenceError, read_artifact
 from researchchain.compiler import (
     STRUCTURED_COMPILER_VERSION,
     ExecutionStopped,
@@ -21,6 +22,7 @@ from researchchain.compiler import (
 )
 from researchchain.controls import ExecutionControl, control_state, set_terminal
 from researchchain.database import Database
+from researchchain.evidence import read_evidence
 from researchchain.models import (
     CancelResult,
     ResumeRequest,
@@ -180,6 +182,7 @@ class RunStore:
             workflow=revision.workflow,
             brief=manifest["brief"],
             artifacts=manifest["artifacts"],
+            evidence_ids=self._evidence_ids(conn, manifest["id"]),
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             status=status,
@@ -263,10 +266,42 @@ class RunStore:
         self._complete_command(conn, command["id"], snapshot)
         return snapshot
 
+    @staticmethod
+    def _evidence_ids(conn: Connection[DictRow], run_id: UUID) -> list[UUID]:
+        return [
+            row["evidence_id"]
+            for row in conn.execute(
+                "SELECT evidence_id FROM run_evidence WHERE run_id = %s ORDER BY ordinal", (run_id,)
+            )
+        ]
+
     def start(self, request: RunRequest) -> RunSnapshot:
         with self._locked(request.id) as conn:
             existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
+            if existing and (
+                existing["revision_id"] != request.revision_id
+                or existing["brief"] != request.brief
+                or self._evidence_ids(conn, request.id) != request.evidence_ids
+            ):
+                raise ConflictError("This run ID already belongs to different inputs.")
             artifacts = [item.model_dump() for item in request.artifacts]
+            if existing is None:
+                if len({item.id for item in request.artifacts}) != len(request.artifacts):
+                    raise EvidenceError("Select each original only once.")
+                for item in request.artifacts:
+                    stored = read_artifact(conn, item.id)
+                    if stored.name != item.name or stored.media_type != item.media_type:
+                        raise EvidenceError("Artifact metadata must match the captured original.")
+            # Accepted legacy requests deliberately bypass new availability rules.
+            # Their saved addresses and command receipts remain valid after migration.
+            for evidence_id in request.evidence_ids:
+                source = read_evidence(conn, evidence_id)
+                if source.artifact and source.artifact.id not in {item["id"] for item in artifacts}:
+                    artifacts.append(
+                        source.artifact.model_dump(include={"id", "name", "media_type"})
+                    )
+            if len(artifacts) > 100:
+                raise EvidenceError("A run supports at most 100 unique originals.")
             if existing is None:
                 with conn.transaction():
                     workflow = read_revision(conn, request.revision_id).workflow
@@ -283,16 +318,18 @@ class RunStore:
                             Jsonb(artifacts),
                         ),
                     )
+                    for ordinal, evidence_id in enumerate(request.evidence_ids):
+                        conn.execute(
+                            "INSERT INTO run_evidence (run_id, evidence_id, ordinal) "
+                            "VALUES (%s, %s, %s)",
+                            (request.id, evidence_id, ordinal),
+                        )
                     conn.execute("INSERT INTO run_controls (run_id) VALUES (%s)", (request.id,))
                     conn.execute(
                         "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
                         (uuid4(), request.id),
                     )
-            elif (
-                existing["revision_id"] != request.revision_id
-                or existing["brief"] != request.brief
-                or existing["artifacts"] != artifacts
-            ):
+            elif existing["artifacts"] != artifacts:
                 raise ConflictError("This run ID already belongs to different inputs.")
             manifest = self._manifest(conn, request.id)
             command = conn.execute(

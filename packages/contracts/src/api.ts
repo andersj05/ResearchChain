@@ -4,6 +4,127 @@
  */
 
 export interface paths {
+  "/api/artifacts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Upload Artifact */
+    post: operations["upload_artifact"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/artifacts/{content_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Artifact */
+    get: operations["get_artifact"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/artifacts/{content_id}/content": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Artifact Content */
+    get: operations["artifact_content"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/evidence": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Evidence */
+    get: operations["list_evidence"];
+    put?: never;
+    /** Create Evidence */
+    post: operations["create_evidence"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/evidence/{evidence_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Evidence */
+    get: operations["get_evidence"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/claims": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Claims */
+    get: operations["list_claims"];
+    put?: never;
+    /** Create Claim */
+    post: operations["create_claim"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/claims/{claim_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Claim */
+    get: operations["get_claim"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/health": {
     parameters: {
       query?: never;
@@ -180,9 +301,25 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** ArtifactInfo */
+    ArtifactInfo: {
+      /** Id */
+      id: string;
+      /** Media Type */
+      media_type: string;
+      /** Name */
+      name: string;
+      /** Byte Size */
+      byte_size: number;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
     /**
      * ArtifactRef
-     * @description Content address only. Upload/availability verification belongs to ingestion.
+     * @description Stable manifest wire shape, also retained by runs created before ingestion.
      */
     ArtifactRef: {
       /** Id */
@@ -204,6 +341,320 @@ export interface components {
        * @enum {string}
        */
       status: "cancelled" | "completed" | "rejected" | "limited";
+    };
+    /** ClaimCreate */
+    ClaimCreate: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Text */
+      text: string;
+      /**
+       * Kind
+       * @default hypothesis
+       * @enum {string}
+       */
+      kind: "hypothesis" | "observation" | "interpretation";
+      /** As Of Date */
+      as_of_date?: string | null;
+      /** Replaces Id */
+      replaces_id?: string | null;
+      /** Links */
+      links?: components["schemas"]["ClaimLink"][];
+    };
+    /** ClaimLink */
+    ClaimLink: {
+      /**
+       * Evidence Id
+       * Format: uuid
+       */
+      evidence_id: string;
+      /**
+       * Relation
+       * @enum {string}
+       */
+      relation: "supports" | "contradicts" | "context";
+      location?: components["schemas"]["SourceLocation"];
+      /**
+       * Rationale
+       * @default
+       */
+      rationale: string;
+    };
+    /** ClaimPage */
+    ClaimPage: {
+      /** Items */
+      items: components["schemas"]["ClaimRecord"][];
+      /** Total */
+      total: number;
+      /** Next Offset */
+      next_offset?: number | null;
+    };
+    /** ClaimRecord */
+    ClaimRecord: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Text */
+      text: string;
+      /**
+       * Kind
+       * @default hypothesis
+       * @enum {string}
+       */
+      kind: "hypothesis" | "observation" | "interpretation";
+      /** As Of Date */
+      as_of_date?: string | null;
+      /** Replaces Id */
+      replaces_id?: string | null;
+      /** Links */
+      links?: components["schemas"]["ClaimLink"][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** ContentPreview */
+    ContentPreview: {
+      /**
+       * Text
+       * @default
+       */
+      text: string;
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
+      /** Columns */
+      columns?: string[];
+      /** Rows */
+      rows?: string[][];
+      /** Row Count */
+      row_count?: number | null;
+      /** Numeric Columns */
+      numeric_columns?: string[];
+      /** Parser Version */
+      parser_version?: "csv-1" | null;
+    };
+    /** EvidenceCreate */
+    EvidenceCreate: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Title */
+      title: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "link" | "report" | "discussion" | "image" | "dataset" | "text";
+      /**
+       * Representation
+       * @default original
+       * @enum {string}
+       */
+      representation:
+        | "original"
+        | "chart_screenshot"
+        | "ocr_interpretation"
+        | "digitized_estimate"
+        | "numeric_data";
+      /**
+       * Availability
+       * @default available
+       * @enum {string}
+       */
+      availability: "available" | "reference_only" | "missing" | "paywalled";
+      /** Source Url */
+      source_url?: string | null;
+      /**
+       * Author
+       * @default
+       */
+      author: string;
+      /**
+       * Publisher
+       * @default
+       */
+      publisher: string;
+      /** Published Date */
+      published_date?: string | null;
+      /** Retrieved At */
+      retrieved_at?: string | null;
+      /** As Of Date */
+      as_of_date?: string | null;
+      /**
+       * Rights
+       * @default unknown
+       * @enum {string}
+       */
+      rights: "unknown" | "owned" | "public_domain" | "open_license" | "permission" | "restricted";
+      /**
+       * Rights Note
+       * @default
+       */
+      rights_note: string;
+      location?: components["schemas"]["SourceLocation"];
+      /** Parent Id */
+      parent_id?: string | null;
+      /** Replaces Id */
+      replaces_id?: string | null;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /** Table Format */
+      table_format?: ("csv" | "tsv") | null;
+      /**
+       * Units
+       * @default
+       */
+      units: string;
+      /**
+       * Uncertainty
+       * @default
+       */
+      uncertainty: string;
+      /**
+       * Notes
+       * @default
+       */
+      notes: string;
+      /** Artifact Id */
+      artifact_id?: string | null;
+      /**
+       * Text
+       * @default
+       */
+      text: string;
+    };
+    /** EvidencePage */
+    EvidencePage: {
+      /** Items */
+      items: components["schemas"]["EvidenceRecord"][];
+      /** Total */
+      total: number;
+      /** Next Offset */
+      next_offset?: number | null;
+    };
+    /** EvidenceRecord */
+    EvidenceRecord: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Title */
+      title: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "link" | "report" | "discussion" | "image" | "dataset" | "text";
+      /**
+       * Representation
+       * @default original
+       * @enum {string}
+       */
+      representation:
+        | "original"
+        | "chart_screenshot"
+        | "ocr_interpretation"
+        | "digitized_estimate"
+        | "numeric_data";
+      /**
+       * Availability
+       * @default available
+       * @enum {string}
+       */
+      availability: "available" | "reference_only" | "missing" | "paywalled";
+      /** Source Url */
+      source_url?: string | null;
+      /**
+       * Author
+       * @default
+       */
+      author: string;
+      /**
+       * Publisher
+       * @default
+       */
+      publisher: string;
+      /** Published Date */
+      published_date?: string | null;
+      /** Retrieved At */
+      retrieved_at?: string | null;
+      /** As Of Date */
+      as_of_date?: string | null;
+      /**
+       * Rights
+       * @default unknown
+       * @enum {string}
+       */
+      rights: "unknown" | "owned" | "public_domain" | "open_license" | "permission" | "restricted";
+      /**
+       * Rights Note
+       * @default
+       */
+      rights_note: string;
+      location?: components["schemas"]["SourceLocation"];
+      /** Parent Id */
+      parent_id?: string | null;
+      /** Replaces Id */
+      replaces_id?: string | null;
+      /**
+       * Method
+       * @default
+       */
+      method: string;
+      /** Table Format */
+      table_format?: ("csv" | "tsv") | null;
+      /**
+       * Units
+       * @default
+       */
+      units: string;
+      /**
+       * Uncertainty
+       * @default
+       */
+      uncertainty: string;
+      /**
+       * Notes
+       * @default
+       */
+      notes: string;
+      artifact?: components["schemas"]["ArtifactInfo"] | null;
+      /** Content Hash */
+      content_hash?: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Captured At */
+      captured_at?: string | null;
+      /**
+       * Capture Method
+       * @enum {string}
+       */
+      capture_method: "user_upload" | "user_text" | "reference";
+      /**
+       * Untrusted
+       * @default true
+       * @constant
+       */
+      untrusted: true;
+      preview?: components["schemas"]["ContentPreview"];
     };
     /** ExecutionBudgets */
     ExecutionBudgets: {
@@ -404,6 +855,8 @@ export interface components {
       brief: string;
       /** Artifacts */
       artifacts?: components["schemas"]["ArtifactRef"][];
+      /** Evidence Ids */
+      evidence_ids?: string[];
     };
     /** RunSnapshot */
     RunSnapshot: {
@@ -437,6 +890,8 @@ export interface components {
       brief: string;
       /** Artifacts */
       artifacts: components["schemas"]["ArtifactRef"][];
+      /** Evidence Ids */
+      evidence_ids?: string[];
       /** Compiler Version */
       compiler_version: string;
       /** Checkpoint Id */
@@ -490,6 +945,23 @@ export interface components {
        * @default 0
        */
       active_seconds: number;
+    };
+    /** SourceLocation */
+    SourceLocation: {
+      /** Page Start */
+      page_start?: number | null;
+      /** Page End */
+      page_end?: number | null;
+      /**
+       * Section
+       * @default
+       */
+      section: string;
+      /**
+       * Excerpt
+       * @default
+       */
+      excerpt: string;
     };
     /** SubgraphConfig */
     SubgraphConfig: {
@@ -656,6 +1128,298 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  upload_artifact: {
+    parameters: {
+      query: {
+        name: string;
+        rights: "owned" | "public_domain" | "open_license" | "permission";
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/octet-stream": string;
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtifactInfo"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_artifact: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        content_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ArtifactInfo"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  artifact_content: {
+    parameters: {
+      query?: {
+        preview?: boolean;
+      };
+      header?: never;
+      path: {
+        content_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": unknown;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_evidence: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvidencePage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_evidence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["EvidenceCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvidenceRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_evidence: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        evidence_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["EvidenceRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_claims: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClaimPage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_claim: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ClaimCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClaimRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_claim: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        claim_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ClaimRecord"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   health: {
     parameters: {
       query?: never;

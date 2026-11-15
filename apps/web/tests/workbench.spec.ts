@@ -162,7 +162,7 @@ test("canvas movement and workspace tabs support the keyboard", async ({ page })
   const tab = page.getByRole("tab", { name: "Workflow", exact: true });
   await tab.focus();
   await tab.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Runs", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Evidence", exact: true })).toHaveAttribute(
     "aria-selected",
     "true",
   );

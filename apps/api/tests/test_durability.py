@@ -205,7 +205,10 @@ def test_crash_between_nodes_recovers_saved_progress(
 def test_checkpoint_only_contains_artifact_addresses(
     database: Database, client: TestClient, workflow: dict[str, Any]
 ) -> None:
-    artifact = {"id": "sha256:" + "a" * 64, "name": "Synthetic chart", "media_type": "image/png"}
+    uploaded = client.post(
+        "/api/artifacts?name=synthetic.txt&rights=owned", content=b"Synthetic observation"
+    ).json()
+    artifact = {key: uploaded[key] for key in ("id", "name", "media_type")}
     run = start(client, workflow, artifacts=[artifact])
     assert run["artifacts"] == [artifact]
     with database.connection() as conn:

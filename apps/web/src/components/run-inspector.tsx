@@ -1,5 +1,6 @@
 "use client";
 
+import { PinnedEvidence } from "@/components/pinned-evidence";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { RotateCw, Check, X } from "lucide-react";
@@ -125,6 +126,7 @@ export function RunInspector({
                 </div>
               </div>
             ))}
+          <PinnedEvidence key={run.id} ids={run.evidence_ids ?? []} />
           <h3 className="steps-heading">
             Completed steps <span className="count">{run.events.length}</span>
           </h3>

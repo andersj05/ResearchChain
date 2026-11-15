@@ -42,9 +42,12 @@ External effects in future tool nodes will still require their own idempotency
 keys; checkpoints alone do not provide exactly-once network side effects.
 
 Artifact references use content addresses (`sha256:<digest>`) in the manifest;
-graph state contains only those IDs. Artifact upload, byte storage, and availability
-verification are not implemented yet. Never treat an asserted hash as evidence of
-source availability or correctness.
+graph state contains only those IDs. The evidence desk stores bounded immutable
+originals in Postgres, records provenance and claim relationships, and pins selected
+evidence versions to a run. New inputs are checked against captured bytes; accepted
+legacy manifests remain compatible. A valid hash establishes content identity, not
+source correctness. See [evidence desk](evidence-desk.md) and
+[ADR 0004](decisions/0004-evidence-provenance.md).
 
 The service binds to loopback and has no authentication. Browser drafts remain
 optional local convenience copies; saved revisions and runs live in Postgres.
@@ -57,14 +60,10 @@ and [ADR 0003](decisions/0003-structured-workflows.md) for semantics and limits.
 
 ## Next capabilities
 
-- Add artifact storage, background execution, cancellation, retention, and backups
-  before long-running or multi-user use.
-- Expose structured ports, conditional routes, loop settings, and nested definitions
-  through the visual editor (issue #4).
-- Track evidence source URL, retrieval time, publication time, as-of date, content
-  hash, permission, and excerpt/chart location. Keep screenshots distinct from data.
-- Store claims, support, contradictions, hypotheses, falsifiers, and confidence
-  separately from report prose. Make every important numerical assertion traceable.
+- Add background execution, retention, quotas, and backups before long-running
+  or multi-user use. The visual editor and durable cancellation are implemented.
+- Build on source provenance and claim relationships to test hypotheses, record
+  falsifiers and confidence, and trace numerical assertions into report prose.
 - Put research/retrieval, synthesis, drafting, and editing behind independently
   testable node interfaces. Model keys and tool credentials remain server-side.
 - Bound run cost, time, iterations, and concurrent tools. Instrument actual node
