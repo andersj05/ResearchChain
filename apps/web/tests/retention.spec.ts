@@ -46,7 +46,8 @@ for (const width of [1440, 390]) {
     page,
     request,
   }, info) => {
-    await seedTerminal(request);
+    test.setTimeout(90000);
+    await Promise.all(Array.from({ length: width === 1440 ? 10 : 1 }, () => seedTerminal(request)));
     await page.setViewportSize({ width, height: 1000 });
     const { panel, record } = await openPreview(page);
     expect(record.runs.length).toBeGreaterThan(0);
@@ -57,7 +58,14 @@ for (const width of [1440, 390]) {
     await expect(remove).toBeDisabled();
     await panel.getByLabel("Type DELETE to confirm this selection").fill("DELETE");
     await expect(remove).toBeEnabled();
+    // The panel sits in a scrolling workbench. Give an element screenshot enough
+    // viewport height; Playwright's automatic resize can otherwise capture its
+    // scroll ancestor instead of the full reviewed selection.
+    const panelHeight = await panel.evaluate((element) => element.getBoundingClientRect().height);
+    await page.setViewportSize({ width, height: Math.ceil(panelHeight) + 180 });
+    await panel.scrollIntoViewIfNeeded();
     await panel.screenshot({ path: info.outputPath(`cleanup-review-${width}.png`) });
+    await page.setViewportSize({ width, height: 1000 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       width,
     );

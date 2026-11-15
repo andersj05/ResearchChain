@@ -1,6 +1,6 @@
 # Explicit retention controls
 
-Status: implementing on feat/retention-controls for issue #9.
+Status: implemented in PR #31 for issue #9; merge after final CI.
 
 ## Outcome
 

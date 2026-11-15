@@ -1,6 +1,6 @@
 # 0013: Confirmed run retention
 
-Status: proposed, 2026-11-15.
+Status: accepted, 2026-11-15; implemented in PR #31.
 
 ResearchChain keeps research by default. Owner cleanup targets a reviewed, bounded
 set of terminal runs by creation time. Reports, evaluation data and evidence remain
