@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { ResearchResults } from "@/components/research-results";
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
@@ -14,6 +16,7 @@ export function RunStatus({ status }: { status: RunSummary["status"] }) {
     interrupted: "Needs recovery",
     cancelled: "Cancelled",
     limited: "Limit reached",
+    failed: "Needs attention",
   }[status];
   return (
     <span className={`run-status status-${status}`}>
@@ -43,12 +46,17 @@ export function RunInspector({
 }: {
   run: RunSnapshot | null;
   busy: boolean;
-  onResume: (decision: "approve" | "reject", interruptId?: string) => Promise<void>;
+  onResume: (
+    decision: "approve" | "reject",
+    interruptId?: string,
+    feedback?: string,
+  ) => Promise<void>;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
   onCancel: () => Promise<void>;
   onOpenRevision: () => Promise<void>;
 }) {
+  const [feedback, setFeedback] = useState<Record<string, string>>({});
   return (
     <section className="run-inspector" aria-label="Run inspector">
       {run ? (
@@ -65,8 +73,10 @@ export function RunInspector({
             <span>Revision {run.revision_number}</span>
             <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
             <div className="actions run-actions">
-              {(run.status === "paused" || run.status === "interrupted") && (
-                <Button className="button" disabled={busy} onClick={onCancel}>
+              {(run.status === "paused" ||
+                run.status === "interrupted" ||
+                run.status === "running") && (
+                <Button className="button" onClick={onCancel}>
                   Cancel run
                 </Button>
               )}
@@ -97,6 +107,7 @@ export function RunInspector({
               </Button>
             </div>
           )}
+          <ResearchResults run={run} />
           {run.status === "paused" &&
             (run.reviews?.length ? run.reviews : run.review ? [run.review] : []).map((review) => (
               <div
@@ -108,18 +119,37 @@ export function RunInspector({
                 <h3>{review.question}</h3>
                 {review.path && <p className="muted">{review.path.replaceAll("/", " › ")}</p>}
                 <p>This decision applies to this checkpoint of revision {run.revision_number}.</p>
+                {run.workflow.schema_version === "0.3" && (
+                  <label>
+                    Reviewer feedback
+                    <textarea
+                      rows={3}
+                      maxLength={6000}
+                      disabled={busy}
+                      value={feedback[review.interrupt_id] ?? ""}
+                      onChange={(event) =>
+                        setFeedback({ ...feedback, [review.interrupt_id]: event.target.value })
+                      }
+                      placeholder="What should the next step challenge or revise?"
+                    />
+                  </label>
+                )}
                 <div className="actions">
                   <Button
                     className="button primary"
                     disabled={busy}
-                    onClick={() => onResume("approve", review.interrupt_id)}
+                    onClick={() =>
+                      onResume("approve", review.interrupt_id, feedback[review.interrupt_id] ?? "")
+                    }
                   >
                     <Check size={16} aria-hidden="true" /> Approve and continue
                   </Button>
                   <Button
                     className="button"
                     disabled={busy}
-                    onClick={() => onResume("reject", review.interrupt_id)}
+                    onClick={() =>
+                      onResume("reject", review.interrupt_id, feedback[review.interrupt_id] ?? "")
+                    }
                   >
                     <X size={16} aria-hidden="true" /> Reject and stop
                   </Button>

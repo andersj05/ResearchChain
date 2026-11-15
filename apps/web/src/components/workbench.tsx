@@ -15,6 +15,8 @@ import {
   ApiError,
   type ValidationIssue,
   initialWorkflow,
+  researchWorkflow,
+  executionTimeout,
   type RunRequest,
   type RunSnapshot,
   type RunSummary,
@@ -54,6 +56,8 @@ export function Workbench() {
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
+  const [providerAccount, setProviderAccount] = useState<string | null>(null);
+  const [executingId, setExecutingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const pendingStart = useRef<RunRequest | null>(null);
   const busyRef = useRef(false);
@@ -110,6 +114,30 @@ export function Workbench() {
       active = false;
     };
   }, [initialize]);
+
+  const pollId = executingId ?? (run?.status === "running" ? run.id : null);
+  useEffect(() => {
+    if (!pollId) return;
+    let active = true;
+    let timer: ReturnType<typeof setTimeout>;
+    async function poll() {
+      try {
+        const snapshot = await api<RunSnapshot>(`runs/${pollId}`);
+        if (active) setRun(snapshot);
+      } catch (cause) {
+        if (active && !(cause instanceof ApiError && cause.status === 404)) {
+          setError("Progress could not be refreshed. The run may still be executing.");
+        }
+      } finally {
+        if (active) timer = setTimeout(poll, 1000);
+      }
+    }
+    timer = setTimeout(poll, 300);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [pollId]);
 
   function change(next: Workflow, group?: string) {
     recordChange(next, group);
@@ -206,7 +234,8 @@ export function Workbench() {
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
       pendingStart.current.brief !== brief ||
-      JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds)
+      JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds) ||
+      pendingStart.current.provider_account_id !== (workflow.research ? providerAccount : null)
     ) {
       pendingStart.current = {
         id: crypto.randomUUID(),
@@ -214,12 +243,18 @@ export function Workbench() {
         brief,
         artifacts: [],
         evidence_ids: evidenceIds,
+        provider_account_id: workflow.research ? providerAccount : null,
       };
     }
     const request = pendingStart.current;
     rememberRun(request.id);
+    setRun(null);
+    setExecutingId(request.id);
+    setSetupOpen(false);
+    setTab("runs");
+    setMessage("Starting run. Waiting for saved progress…");
     try {
-      await api<RunSnapshot>("runs", request);
+      await api<RunSnapshot>("runs", request, executionTimeout);
       const result = await openRun(request.id);
       pendingStart.current = null;
       setMessage(`Run ${result.status}. Progress saved.`);
@@ -230,19 +265,28 @@ export function Workbench() {
       await openRun(request.id).catch(() => undefined);
       await refreshHistory().catch(() => undefined);
       throw cause;
+    } finally {
+      setExecutingId(null);
     }
   }
 
-  async function resumeRun(decision: "approve" | "reject", interruptId?: string) {
+  async function resumeRun(decision: "approve" | "reject", interruptId?: string, feedback = "") {
     if (!run?.review || !run.checkpoint_id) return;
+    setExecutingId(run.id);
     try {
-      await api<RunSnapshot>(`runs/${run.id}/resume`, {
-        decision,
-        checkpoint_id: run.checkpoint_id,
-        interrupt_id: interruptId ?? run.review.interrupt_id,
-      });
+      await api<RunSnapshot>(
+        `runs/${run.id}/resume`,
+        {
+          decision,
+          checkpoint_id: run.checkpoint_id,
+          interrupt_id: interruptId ?? run.review.interrupt_id,
+          feedback,
+        },
+        executionTimeout,
+      );
       setMessage("Review decision saved.");
     } finally {
+      setExecutingId(null);
       // Idempotent responses may describe an older review. Read current state.
       await openRun(run.id);
       await refreshHistory();
@@ -354,6 +398,10 @@ export function Workbench() {
               onBriefChange={setBrief}
               evidenceIds={evidenceIds}
               onEvidenceChange={setEvidenceIds}
+              research={workflow.research}
+              onResearch={(research) => change({ ...workflow, research })}
+              accountId={providerAccount}
+              onAccount={setProviderAccount}
               name={workflow.name}
               revision={saved ? revision.number : null}
               busy={busy}
@@ -396,6 +444,18 @@ export function Workbench() {
             />
             <div className="editor-footer">
               <div className="actions">
+                <Button
+                  className="button small"
+                  disabled={!loaded || busy}
+                  onClick={() => {
+                    change(structuredClone(researchWorkflow));
+                    setDocumentEpoch((value) => value + 1);
+                    setSelected(researchWorkflow.start_node);
+                    setMessage("Research template loaded. Undo restores your previous draft.");
+                  }}
+                >
+                  Use research template
+                </Button>
                 <Button
                   className="button small"
                   disabled={busy || !canUndo}
@@ -535,17 +595,20 @@ export function Workbench() {
             <RunInspector
               run={run}
               busy={busy}
-              onResume={(value, interruptId) => action(() => resumeRun(value, interruptId))}
-              onCancel={() =>
-                action(async () => {
-                  if (run) {
-                    await api(`runs/${run.id}/cancel`, {});
-                    await openRun(run.id);
-                    await refreshHistory();
-                    setMessage("Run cancelled.");
-                  }
-                })
+              onResume={(value, interruptId, feedback) =>
+                action(() => resumeRun(value, interruptId, feedback))
               }
+              onCancel={async () => {
+                if (!run) return;
+                try {
+                  await api(`runs/${run.id}/cancel`, {});
+                  const result = await openRun(run.id);
+                  await refreshHistory();
+                  setMessage(`Run ${result.status}.`);
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "Cancellation failed.");
+                }
+              }}
               onRefresh={() =>
                 action(async () => {
                   if (run) {
@@ -558,7 +621,12 @@ export function Workbench() {
               onRecover={() =>
                 action(async () => {
                   if (run) {
-                    await api(`runs/${run.id}/recover`, {});
+                    setExecutingId(run.id);
+                    try {
+                      await api(`runs/${run.id}/recover`, {}, executionTimeout);
+                    } finally {
+                      setExecutingId(null);
+                    }
                     await openRun(run.id);
                     await refreshHistory();
                     setMessage("Run recovered from saved progress.");

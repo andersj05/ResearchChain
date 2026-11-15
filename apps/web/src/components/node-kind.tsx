@@ -1,4 +1,5 @@
 export const nodeKinds = {
+  research: { label: "Hypothesis research", shortLabel: "Research" },
   note: { label: "Research note", shortLabel: "Note" },
   review: {
     label: "Human review",

@@ -1,5 +1,7 @@
 "use client";
 
+import { ResearchConnection } from "@/components/research-settings";
+import type { ResearchSettings } from "@/lib/workflow";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
 import {
@@ -26,7 +28,15 @@ export function RunSetup({
   loaded,
   error,
   onStart,
+  research,
+  onResearch,
+  accountId,
+  onAccount,
 }: {
+  research?: ResearchSettings | null;
+  onResearch: (settings: ResearchSettings) => void;
+  accountId: string | null;
+  onAccount: (id: string | null) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   brief: string;
@@ -67,7 +77,7 @@ export function RunSetup({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (brief.trim() && !busy) void onStart();
+            if (brief.trim() && !busy && (!research || accountId)) void onStart();
           }}
         >
           <div className="run-context">
@@ -88,6 +98,15 @@ export function RunSetup({
           <p className="field-hint">
             The run keeps its own saved revision. Later edits won’t change it.
           </p>
+          {open && research && (
+            <ResearchConnection
+              settings={research}
+              onSettings={onResearch}
+              accountId={accountId}
+              onAccount={onAccount}
+              disabled={busy}
+            />
+          )}
           {open && (
             <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />
           )}
@@ -100,7 +119,11 @@ export function RunSetup({
             <DialogClose className="button" disabled={busy}>
               Cancel
             </DialogClose>
-            <Button className="button primary" type="submit" disabled={busy || !brief.trim()}>
+            <Button
+              className="button primary"
+              type="submit"
+              disabled={busy || !brief.trim() || (!!research && !accountId)}
+            >
               {busy ? "Starting…" : "Start run"}
               <Play size={14} aria-hidden="true" />
             </Button>
