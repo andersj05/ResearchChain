@@ -1,6 +1,11 @@
 # Current state
 
-Updated 2026-11-14. The evidence milestone is merged into dev through
+Updated 2026-11-14. The ChatGPT-plan connection is merged into dev through
+[PR #23](https://github.com/andersj05/ResearchChain/pull/23), merge `dcf5ffa`,
+with passing CI (147 backend and 42 browser tests). Real sign-in and a completed
+`gpt-6.1-sol` response are verified. No API key or credit purchase was needed.
+
+The evidence milestone is merged into dev through
 [PR #22](https://github.com/andersj05/ResearchChain/pull/22), merge `81701c0`,
 with seven feature commits and passing CI. Issue #5 is closed.
 The runtime and visual editor are already merged into dev through
@@ -38,7 +43,7 @@ The runtime and visual editor are already merged into dev through
 
 ## Next work and limits
 
-Active branch: `feat/hypothesis-research`. The owner selected included ChatGPT Pro
+Active branch: `feat/bounded-research`, starting from `dcf5ffa`. The owner selected included ChatGPT Pro
 usage through the official local-app Sign in with ChatGPT route. The provider
 connection and setup commands are implemented; sign-in validation, protected
 storage, refresh/revocation, account separation, and stream handling have focused
@@ -53,8 +58,8 @@ budgets, reproducible manifests, and a human baseline comparison. Then come
 [report editing #8](https://github.com/andersj05/ResearchChain/issues/8).
 
 The provider step passes `pnpm check` with 147 backend tests, lint/format checks,
-strict types, and a production build. Desktop/mobile sign-in browser tests pass
-with a synthetic exchange; existing workbench/evidence browser tests also passed.
+strict types, and a production build. All 42 browser tests pass in CI, including the desktop/mobile sign-in tests
+with a synthetic exchange and the existing workbench/evidence interactions.
 The sign-in screens were visually inspected.
 
 One live connection check is verified. Research execution is not wired to the
