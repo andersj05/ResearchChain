@@ -36,7 +36,9 @@ def run_request(client: httpx.Client, path: str, **kwargs: Any) -> httpx.Respons
     while time.monotonic() < deadline:
         snapshot = client.get(f"/api/runs/{receipt['run_id']}")
         assert snapshot.status_code == 200, snapshot.text
-        if snapshot.json()["status"] not in {"queued", "running"}:
+        current = snapshot.json()
+        # Terminal intent may precede the worker's final progress write.
+        if current["status"] not in {"queued", "running"} and not current["execution_pending"]:
             return snapshot
         time.sleep(0.02)
     raise AssertionError("Accepted synthetic command did not finish within 15 seconds.")

@@ -15,7 +15,8 @@ export async function runRequest(
       async () => {
         snapshot = await request.get(`/api/runs/${receipt.run_id}`);
         expect(snapshot.status()).toBe(200);
-        return ["queued", "running"].includes((await snapshot.json()).status);
+        const current = await snapshot.json();
+        return current.execution_pending || ["queued", "running"].includes(current.status);
       },
       { timeout: 30000, intervals: [100, 250, 500] },
     )
