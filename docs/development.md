@@ -39,7 +39,8 @@ the database before upgrades; volumes and checkpoints are not backups. Use the
 
 ## Optional ChatGPT plan connection
 
-Use `pnpm provider:login` to connect an eligible ChatGPT plan, then
+Use **Run workflow â†’ ChatGPT plan usage â†’ Connect ChatGPT** in a research
+workflow, or `pnpm provider:login`, to connect an eligible ChatGPT plan, then
 `pnpm provider:models` and `pnpm provider:verify --model <slug>` to verify a small
 response. See [the connection guide](chatgpt-plan.md) for account management,
 protected credential storage, usage controls, and current limits. This setup supports the [live research template](hypothesis-research.md). The deterministic

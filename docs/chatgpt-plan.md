@@ -7,7 +7,23 @@ API-credit purchase, and access to Codex's credential files are not needed.
 
 ## Connect and check
 
-From the repository root:
+In a research workflow, open **Run workflow** and find **ChatGPT plan usage**.
+Choose **Connect ChatGPT** (or **Reconnect ChatGPT**), then **Open sign-in page**.
+On that page, choose **Continue with ChatGPT**, sign in and allow plan usage.
+Leave credit use disabled to stay within the included allowance. Return to the
+workbench; it reports the result and refreshes the available models automatically.
+
+The consent page lasts ten minutes. Reopening the run dialog or refreshing the
+workbench recovers the current link without starting another attempt. **Cancel
+sign-in** closes a pending listener and keeps the saved connection. Once exchange
+has started, the app finishes verifying the account and reports the actual result.
+Expiry or denial also keeps the previous credentials; granting identity without
+plan permission instead reports **plan usage is disabled**.
+
+Starting sign-in, checking its progress and refreshing models do not run research.
+Credit permission is managed in ChatGPT and is not attested by ResearchChain.
+
+The CLI remains available from the repository root:
 
 ```text
 pnpm provider:login
@@ -68,7 +84,16 @@ and exact registration checks protect the exchange. A lock serializes credential
 updates and rotating refresh tokens across processes. Atomic writes replace the
 whole record. Callback query strings and authorization URLs are never logged.
 
-The connection CLI supplies local account setup and connectivity checks.
+The owner-protected in-app controls support one active sign-in per local API
+process. Mutations require the owner session, exact Origin and CSRF token.
+Read-only status never starts sign-in, and only a local entry URL is returned to
+the workbench. Credentials, authorization hints and callbacks remain out of its
+API responses. Failed requests are checked with GET rather than replayed.
+Pending attempts are cancelled on service shutdown; after restart, explicitly
+start again. Use one CLI or in-app flow at a time. This is a single-process local
+feature; it is disabled for remote origins and is not a hosted authentication flow.
+
+The connection CLI supplies additional account setup and connectivity checks.
 [Research workflows](hypothesis-research.md) use the selected account through
 [durable workers](workers.md), with pinned inputs, budgets, cancellation and human
 review checkpoints. The human baseline and strict in-flight spend controls remain

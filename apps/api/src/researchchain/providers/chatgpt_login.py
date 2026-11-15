@@ -88,7 +88,10 @@ def browser_login(
                     "Set-Cookie", "rc_signin=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
                 )
             self.end_headers()
-            self.wfile.write(document)
+            try:
+                self.wfile.write(document)
+            except OSError:
+                pass  # Closing a tab must not undo an already validated connection.
 
         def local_request(self) -> bool:
             return self.headers.get("Host") == f"127.0.0.1:{server.server_port}"
@@ -166,7 +169,10 @@ def browser_login(
                 if cancelled.is_set() or (exchanging is not None and not exchanging()):
                     raise LoginCancelled()
                 result = auth.complete(pending, {key: value[0] for key, value in values.items()})
-                permitted = bool(result.tokens and PLAN_SCOPE in result.tokens.scopes)
+                finished = True
+                permitted = bool(
+                    result.tokens and {PLAN_SCOPE, "resource.invoke"} <= result.tokens.scopes
+                )
                 if permitted:
                     first = not result.welcomed
                     self.respond(
@@ -176,10 +182,13 @@ def browser_login(
                         '<p><a href="https://chatgpt.com/settings/usage">Manage usage</a></p>'
                         '<p><a class="button" href="http://127.0.0.1:3000">Got it</a></p>',
                     )
-                    with auth.store.locked():
-                        saved = auth.store.read()
-                        saved.accounts[result.client_id].welcomed = True
-                        auth.store.write(saved)
+                    try:
+                        with auth.store.locked():
+                            saved = auth.store.read()
+                            saved.accounts[result.client_id].welcomed = True
+                            auth.store.write(saved)
+                    except (ConnectionError, OSError):
+                        pass  # Welcome display metadata cannot invalidate saved credentials.
                 else:
                     self.respond(
                         "Signed in; plan use is disabled",

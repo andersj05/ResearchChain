@@ -21,6 +21,7 @@ from researchchain.main import create_app
 from researchchain.provider_signin import SignInError, SignInService, SignInStatus
 from researchchain.providers.chatgpt_auth import PendingLogin
 from researchchain.providers.chatgpt_login import browser_login
+from researchchain.providers.credentials import ConnectionError
 
 
 class BrowserHarness:
@@ -293,3 +294,19 @@ def test_remote_origin_disables_local_signin(
         assert client.get("/api/providers/chatgpt/sign-in").json()["available"] is False
         assert client.post("/api/providers/chatgpt/sign-in").status_code == 503
     assert harness.calls == 0
+
+
+def test_welcome_marker_failure_preserves_success(harness: BrowserHarness) -> None:
+    write = harness.oauth.store.write
+
+    def fail_marker(saved: Any) -> None:
+        if any(account.welcomed for account in saved.accounts.values()):
+            raise ConnectionError("Could not save welcome display metadata.")
+        write(saved)
+
+    harness.oauth.store.write = fail_marker
+    harness.start()
+    with httpx.Client(trust_env=False) as browser:
+        assert browser.get(harness.authorize(browser)).status_code == 200
+    assert harness.wait("connected").url is None
+    assert harness.oauth.store.read().accounts[CLIENT].tokens is not None
