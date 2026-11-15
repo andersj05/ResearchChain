@@ -304,3 +304,47 @@ def test_simultaneous_same_evidence_request_creates_one_record(database: Databas
         records = list(pool.map(lambda _: EvidenceStore(database).create(request), range(4)))
     assert all(record == records[0] for record in records)
     assert EvidenceStore(database).list().total == 1
+
+
+def test_corrections_cannot_remove_estimated_lineage(client: TestClient) -> None:
+    artifact = client.post("/api/artifacts?name=synthetic.png&rights=owned", content=PNG).json()
+    screenshot = create(
+        client, text="", artifact_id=artifact["id"], representation="chart_screenshot"
+    )
+    intermediate = create(client, replaces_id=screenshot["id"])
+    for ancestor in (screenshot, intermediate):
+        result = client.post(
+            "/api/evidence",
+            json=source(
+                replaces_id=ancestor["id"],
+                representation="numeric_data",
+                table_format="csv",
+                units="percent",
+                method="Synthetic",
+                text="period,value\nA,12\n",
+            ),
+        )
+        assert result.status_code == 422 and "estimates" in result.text
+
+
+@pytest.mark.parametrize(
+    "changes",
+    [
+        {"text": "bad\x00text"},
+        {"author": "bad\x00name"},
+        {"location": {"excerpt": "bad\x00excerpt"}},
+    ],
+)
+def test_null_characters_return_validation_errors(
+    client: TestClient, changes: dict[str, Any]
+) -> None:
+    assert client.post("/api/evidence", json=source(**changes)).status_code == 422
+
+
+def test_declared_upload_length_must_match(client: TestClient) -> None:
+    response = client.post(
+        "/api/artifacts?name=synthetic.txt&rights=owned",
+        content=b"x",
+        headers={"content-length": "2"},
+    )
+    assert response.status_code == 400

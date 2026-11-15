@@ -62,22 +62,23 @@ def validate_lineage(conn: Connection[DictRow], request: EvidenceCreate) -> None
                 raise EvidenceError(
                     "Interpretations and estimates need a captured parent original."
                 )
-        if request.representation == "numeric_data":
-            # Inspect the entire immutable ancestry: an estimate cannot be relabelled
-            # as source data by inserting an intermediate 'original' record.
-            row = conn.execute(
-                "WITH RECURSIVE lineage AS ("
-                " SELECT id, parent_id, document FROM evidence_records WHERE id = %s"
-                " UNION ALL SELECT e.id, e.parent_id, e.document FROM evidence_records e"
-                " JOIN lineage l ON e.id = l.parent_id)"
-                " SELECT 1 FROM lineage WHERE document->>'representation' IN"
-                " ('chart_screenshot', 'ocr_interpretation', 'digitized_estimate') LIMIT 1",
-                (request.parent_id,),
-            ).fetchone()
-            if row:
-                raise EvidenceError(
-                    "Chart-derived values must remain digitized estimates, not source numeric data."
-                )
+    if request.representation == "numeric_data":
+        # Traverse derivations AND corrections so removing a parent field in a
+        # later version cannot turn an earlier estimate into source data.
+        ancestors = [item for item in (request.parent_id, request.replaces_id) if item]
+        row = conn.execute(
+            "WITH RECURSIVE lineage AS ("
+            " SELECT id, parent_id, replaces_id, document FROM evidence_records WHERE id = ANY(%s)"
+            " UNION SELECT e.id, e.parent_id, e.replaces_id, e.document FROM evidence_records e"
+            " JOIN lineage l ON e.id = l.parent_id OR e.id = l.replaces_id)"
+            " SELECT 1 FROM lineage WHERE document->>'representation' IN"
+            " ('chart_screenshot', 'ocr_interpretation', 'digitized_estimate') LIMIT 1",
+            (ancestors,),
+        ).fetchone()
+        if row:
+            raise EvidenceError(
+                "Chart-derived values must remain digitized estimates, not source numeric data."
+            )
 
 
 class EvidenceStore:

@@ -1,10 +1,10 @@
 """Immutable source and claim contracts. Source content is always untrusted data."""
 
 from datetime import date, datetime
-from typing import Annotated, Literal, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, HttpUrl, model_validator
+from pydantic import AwareDatetime, Field, HttpUrl, field_validator, model_validator
 
 from researchchain.graph import StrictModel
 from researchchain.models import ArtifactRef
@@ -19,7 +19,21 @@ Representation = Literal[
 ]
 
 
-class SourceLocation(StrictModel):
+class EvidenceModel(StrictModel):
+    @field_validator("*")
+    @classmethod
+    def storable_text(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            if "\x00" in value:
+                raise ValueError("Evidence metadata and text cannot contain null characters.")
+            try:
+                value.encode("utf-8")
+            except UnicodeEncodeError as error:
+                raise ValueError("Evidence text must contain valid Unicode characters.") from error
+        return value
+
+
+class SourceLocation(EvidenceModel):
     page_start: int | None = Field(default=None, ge=1, le=1000000)
     page_end: int | None = Field(default=None, ge=1, le=1000000)
     section: str = Field(default="", max_length=500)
@@ -49,7 +63,7 @@ class ContentPreview(StrictModel):
     parser_version: Literal["csv-1"] | None = None
 
 
-class EvidenceFields(StrictModel):
+class EvidenceFields(EvidenceModel):
     id: UUID
     title: str = Field(min_length=1, max_length=240)
     kind: Literal["link", "report", "discussion", "image", "dataset", "text"]
@@ -141,14 +155,14 @@ class EvidencePage(StrictModel):
     next_offset: int | None = None
 
 
-class ClaimLink(StrictModel):
+class ClaimLink(EvidenceModel):
     evidence_id: UUID
     relation: Literal["supports", "contradicts", "context"]
     location: SourceLocation = Field(default_factory=SourceLocation)
     rationale: str = Field(default="", max_length=3000)
 
 
-class ClaimCreate(StrictModel):
+class ClaimCreate(EvidenceModel):
     id: UUID
     text: str = Field(min_length=1, max_length=6000)
     kind: Literal["hypothesis", "observation", "interpretation"] = "hypothesis"

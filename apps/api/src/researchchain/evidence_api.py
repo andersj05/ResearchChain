@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
+from starlette.requests import ClientDisconnect
 
 from researchchain.artifacts import MAX_ARTIFACT_BYTES, ArtifactStore
 from researchchain.database import Database
@@ -57,10 +58,15 @@ def evidence_router(database: Database) -> APIRouter:
             if size < 0 or size > MAX_ARTIFACT_BYTES:
                 raise HTTPException(413, "Originals must be at most 20 MB.")
         content = bytearray()
-        async for chunk in request.stream():
-            if len(content) + len(chunk) > MAX_ARTIFACT_BYTES:
-                raise HTTPException(413, "Originals must be at most 20 MB.")
-            content.extend(chunk)
+        try:
+            async for chunk in request.stream():
+                if len(content) + len(chunk) > MAX_ARTIFACT_BYTES:
+                    raise HTTPException(413, "Originals must be at most 20 MB.")
+                content.extend(chunk)
+        except ClientDisconnect as error:
+            raise HTTPException(400, "Upload interrupted. Retry the original file.") from error
+        if declared and len(content) != int(declared):
+            raise HTTPException(400, "Upload length does not match the original.")
         return await run_in_threadpool(artifacts.put, bytes(content), name)
 
     @router.get("/artifacts/{content_id}", response_model=ArtifactInfo, operation_id="get_artifact")
