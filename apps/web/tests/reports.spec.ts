@@ -1,101 +1,8 @@
-import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
-import research from "../../../examples/hypothesis-research.json";
+import { expect, test, type Page } from "./fixtures";
 import type { ReportRevision, ReportView, StyleGuide } from "../src/lib/reports";
 
-const png = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=",
-  "base64",
-);
-async function prepare(request: APIRequestContext, tag: string) {
-  const sourceResponse = await request.post("/api/evidence", {
-    data: {
-      id: crypto.randomUUID(),
-      title: `Report source ${tag}`,
-      kind: "text",
-      rights: "owned",
-      text: "An exact synthetic quotation. This is not market evidence.",
-    },
-  });
-  expect(sourceResponse.status()).toBe(201);
-  const source = await sourceResponse.json();
-  const uploaded = await request.post("/api/artifacts?name=chart.png&rights=owned", {
-    data: png,
-    headers: { "Content-Type": "application/octet-stream" },
-  });
-  expect(uploaded.status()).toBe(201);
-  const artifact = await uploaded.json();
-  const chartResponse = await request.post("/api/evidence", {
-    data: {
-      id: crypto.randomUUID(),
-      title: `Captured chart ${tag}`,
-      kind: "image",
-      representation: "chart_screenshot",
-      rights: "owned",
-      artifact_id: artifact.id,
-      notes: "Synthetic image fixture; no market observations.",
-    },
-  });
-  expect(chartResponse.status()).toBe(201);
-  const chart = await chartResponse.json();
-  const document = structuredClone(research);
-  document.name = `Report research ${tag}`;
-  document.research.model = "test-model";
-  const workflowResponse = await request.post("/api/revisions", { data: document });
-  expect(workflowResponse.status()).toBe(201);
-  const revision = await workflowResponse.json();
-  const runResponse = await request.post("/api/runs", {
-    data: {
-      id: crypto.randomUUID(),
-      revision_id: revision.id,
-      brief: "Synthetic report editing fixture.",
-      evidence_ids: [source.id, chart.id],
-      provider_account_id: "oaiapp_fixture",
-    },
-    timeout: 45000,
-  });
-  expect(runResponse.status()).toBe(201);
-  return { source, chart, run: await runResponse.json() };
-}
-function styleBody(tag: string) {
-  return {
-    id: crypto.randomUUID(),
-    title: `Guide ${tag}`,
-    analytical_structure: "Mechanism, alternatives, falsifiers.",
-    voice: "Direct and conditional.",
-    source_discipline: "Cite original sources and dates.",
-    scenarios: "Conditional, not forecasts.",
-    examples: [
-      {
-        kind: "structure",
-        principle: "Explain alternatives.",
-        example: "A could explain X; B is not excluded.",
-      },
-      {
-        kind: "voice",
-        principle: "Name uncertainty.",
-        example: "The source cannot establish causation.",
-      },
-    ],
-    change_note: "Synthetic guide.",
-  };
-}
-async function seed(request: APIRequestContext, tag: string) {
-  const context = await prepare(request, tag);
-  const style = await request.post("/api/style-guides", { data: styleBody(tag) });
-  expect(style.status()).toBe(201);
-  const guide: StyleGuide = await style.json();
-  const response = await request.post("/api/reports", {
-    data: {
-      id: crypto.randomUUID(),
-      title: `Report ${tag}`,
-      run_id: context.run.id,
-      attempt_id: context.run.model_attempts[0].id,
-      style_guide_id: guide.id,
-    },
-  });
-  expect(response.status()).toBe(201);
-  return { ...context, guide, record: (await response.json()) as ReportRevision };
-}
+import { prepare, seed } from "./report-fixture";
+
 function saveBody(record: ReportRevision, body: string) {
   return {
     id: crypto.randomUUID(),
@@ -150,7 +57,10 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: `Report ${tag}`, exact: true })).toBeVisible();
     const firstId = new URL(page.url()).searchParams.get("report")!;
     const first: ReportView = await (await request.get(`/api/reports/${firstId}`)).json();
-    await edit(page, "A 😀 carefully supported observation. Its interpretation remains uncertain.");
+    await edit(
+      page,
+      "A ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬ carefully supported observation. Its interpretation remains uncertain.",
+    );
     await page.getByRole("button", { name: "Add source reference", exact: true }).click();
     await page
       .getByRole("combobox", { name: "Reference source", exact: true })
@@ -185,10 +95,10 @@ for (const width of [1440, 390]) {
     ).toBeDisabled();
     await page.reload();
     await expect(page.getByRole("textbox", { name: "Section text", exact: true })).toHaveValue(
-      "A 😀 carefully supported observation. Its interpretation remains uncertain.",
+      "A ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬ carefully supported observation. Its interpretation remains uncertain.",
     );
     await expect(
-      page.getByText("Unsaved edits · Recovered from this browser", { exact: true }),
+      page.getByText("Unsaved edits Ãƒâ€šÃ‚Â· Recovered from this browser", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Save report revision", exact: true }).click();
     await expect(page.getByText("Saved revision 2", { exact: true })).toBeVisible();
@@ -214,7 +124,7 @@ for (const width of [1440, 390]) {
     });
     await review.getByRole("button", { name: "Use selected text", exact: true }).click();
     await expect(
-      review.getByText("Characters 2–3 (Unicode code points)", { exact: true }),
+      review.getByText("Characters 2ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“3 (Unicode code points)", { exact: true }),
     ).toBeVisible();
     await review
       .getByRole("textbox", { name: "Feedback reason", exact: true })
@@ -291,7 +201,11 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("report save receipt survives a lost response and refresh", async ({ page, request }) => {
+test("report save receipt survives a lost response and refresh", async ({
+  page,
+  request,
+  ownerSession,
+}) => {
   page.on("dialog", (d) => d.accept());
   const { record } = await seed(request, crypto.randomUUID().slice(0, 8));
   await page.goto(`/?view=reports&report=${record.id}`);
@@ -316,8 +230,8 @@ test("report save receipt survives a lost response and refresh", async ({ page, 
   expect((await (await request.get(`/api/reports/${record.id}/history`)).json()).length).toBe(2);
   expect(
     await page.evaluate(
-      (id) => localStorage.getItem(`researchchain.report.draft.${id}`),
-      record.id,
+      (key) => localStorage.getItem(key),
+      `${ownerSession.prefix}.report.draft.${record.id}`,
     ),
   ).toBeNull();
 });

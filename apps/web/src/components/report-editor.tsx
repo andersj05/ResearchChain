@@ -6,6 +6,13 @@ import { EvidencePicker } from "@/components/evidence-picker";
 import { ReportSectionSources, ReportSource } from "@/components/report-sources";
 import { ReportReview } from "@/components/report-review";
 import { StyleGuideContent } from "@/components/style-guide-editor";
+import { useOwner } from "@/components/access-context";
+import {
+  apiFetch,
+  importLegacyDraft,
+  legacyDraftAvailable,
+  ownerStoragePrefix,
+} from "@/lib/access";
 import { api, ApiError } from "@/lib/workflow";
 import { stableRequestId } from "@/lib/evaluations";
 import {
@@ -34,9 +41,15 @@ export function ReportEditor({
   onOpen: (id: string) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
+  const { owner } = useOwner();
+  const storagePrefix = ownerStoragePrefix(owner);
   const record = view.revision;
   const [original] = useState(() => reportDraft(record));
-  const storageKey = `researchchain.report.draft.${record.id}`;
+  const legacyKey = `researchchain.report.draft.${record.id}`;
+  const storageKey = `${storagePrefix}.report.draft.${record.id}`;
+  const [legacyAvailable, setLegacyAvailable] = useState(() =>
+    legacyDraftAvailable(legacyKey, storagePrefix),
+  );
   const [recovery] = useState(() => {
     let raw: string | null = null;
     try {
@@ -150,8 +163,8 @@ export function ReportEditor({
         <div>
           <h2>{record.title}</h2>
           <p>
-            Revision {record.version} ·{" "}
-            {record.author === "human" ? "Human revision" : "Research seed"} · {view.review_status}
+            Revision {record.version} Â·{" "}
+            {record.author === "human" ? "Human revision" : "Research seed"} Â· {view.review_status}
           </p>
         </div>
         <div className="actions">
@@ -196,7 +209,7 @@ export function ReportEditor({
             disabled={busy || dirty}
             onClick={() =>
               action(async () => {
-                const response = await fetch(`/api/reports/${record.id}/export`, {
+                const response = await apiFetch(`/api/reports/${record.id}/export`, {
                   cache: "no-store",
                   signal: AbortSignal.timeout(60000),
                 });
@@ -217,8 +230,31 @@ export function ReportEditor({
       </header>
       <p className="report-save-state" role="status">
         {dirty ? "Unsaved edits" : `Saved revision ${record.version}`}
-        {recovered && dirty ? " · Recovered from this browser" : ""}
+        {recovered && dirty ? " Â· Recovered from this browser" : ""}
       </p>
+      {legacyAvailable && (
+        <div className="report-banner source-notice">
+          <p>An older draft for this revision was saved before owner sign-in.</p>
+          <Button
+            className="button"
+            disabled={busy || dirty || !!invalidRecovery}
+            onClick={() =>
+              action(async () => {
+                const raw = importLegacyDraft(legacyKey, storagePrefix);
+                const saved = parseRecovery(raw, record.id);
+                localStorage.setItem(storageKey, raw);
+                retry.current = saved.pending;
+                setPendingBody(saved.pending?.body ?? null);
+                setDraft(saved.draft);
+                setRecovered(true);
+                setLegacyAvailable(false);
+              })
+            }
+          >
+            Import my older report draft
+          </Button>
+        </div>
+      )}
       {error && (
         <p className="error report-banner" role="alert">
           {error}
@@ -290,7 +326,7 @@ export function ReportEditor({
                   {[view.style_guide, ...styles.filter((s) => s.id !== view.style_guide.id)].map(
                     (s) => (
                       <option key={s.id} value={s.id}>
-                        {s.title} · v{s.version}
+                        {s.title} Â· v{s.version}
                       </option>
                     ),
                   )}
@@ -491,7 +527,7 @@ export function ReportEditor({
                 onClick={() => action(() => onOpen(h.id))}
               >
                 <strong>
-                  Revision {h.version} · {h.author === "human" ? "Human" : "Research seed"}
+                  Revision {h.version} Â· {h.author === "human" ? "Human" : "Research seed"}
                 </strong>
                 <span>{h.change_note}</span>
               </Button>
@@ -508,7 +544,7 @@ export function ReportEditor({
               >
                 {record.provenance.run_id.slice(0, 8)}
               </a>{" "}
-              · {record.provenance.attempt.stage}
+              Â· {record.provenance.attempt.stage}
             </p>
             <p>{record.provenance.attempt.returned_model ?? record.provenance.attempt.model}</p>
             <p className="field-hint">

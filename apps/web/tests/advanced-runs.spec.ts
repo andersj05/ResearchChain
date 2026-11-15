@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import legacy from "../../../examples/research-workflow.json";
 import example from "../../../examples/advanced-workflow.json";
 
@@ -25,9 +25,9 @@ test("nested reviews show the iteration, survive refresh, and finish", async ({
   await openWorkflow(page, request, example);
   const inspector = page.getByRole("region", { name: "Run inspector" });
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
-  await expect(inspector).toContainText("root › review_loop › iteration-1 › review");
+  await expect(inspector).toContainText("root â€º review_loop â€º iteration-1 â€º review");
   await page.getByRole("button", { name: "Approve and continue" }).click();
-  await expect(inspector).toContainText("root › review_loop › iteration-2 › review");
+  await expect(inspector).toContainText("root â€º review_loop â€º iteration-2 â€º review");
   await page.reload();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("nested-review-desktop.png"), fullPage: true });

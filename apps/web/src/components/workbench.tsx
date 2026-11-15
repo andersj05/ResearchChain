@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { useOwner } from "@/components/access-context";
+import { AccessControls } from "@/components/access-controls";
+import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
 import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
@@ -28,9 +31,15 @@ import {
   type ValidationResult,
 } from "@/lib/workflow";
 
-const storageKey = "researchchain.workflow.v0.1";
+const legacyKey = "researchchain.workflow.v0.1";
 
 export function Workbench() {
+  const { owner, active: accessActive } = useOwner();
+  const storagePrefix = ownerStoragePrefix(owner);
+  const storageKey = storagePrefix + ".workflow.v0.1";
+  const [legacyAvailable, setLegacyAvailable] = useState(() =>
+    legacyDraftAvailable(legacyKey, storagePrefix),
+  );
   const {
     workflow,
     change: recordChange,
@@ -53,7 +62,7 @@ export function Workbench() {
   const [run, setRun] = useState<RunSnapshot | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [tab, setTab] = useState("workflow");
-  const [message, setMessage] = useState("Loading saved workspace…");
+  const [message, setMessage] = useState("Loading saved workspaceÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -123,7 +132,7 @@ export function Workbench() {
 
   const pollId = executingId ?? (run?.status === "running" ? run.id : null);
   useEffect(() => {
-    if (!pollId) return;
+    if (!pollId || !accessActive) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
@@ -143,7 +152,7 @@ export function Workbench() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pollId]);
+  }, [pollId, accessActive]);
 
   function change(next: Workflow, group?: string) {
     recordChange(next, group);
@@ -258,7 +267,7 @@ export function Workbench() {
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
-    setMessage("Starting run. Waiting for saved progress…");
+    setMessage("Starting run. Waiting for saved progressÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦");
     try {
       await api<RunSnapshot>("runs", request, executionTimeout);
       const result = await openRun(request.id);
@@ -368,6 +377,7 @@ export function Workbench() {
         </span>
         <span className="breadcrumb-title">{workflow.name || "Untitled workflow"}</span>
         <span className="local-badge">Local workspace</span>
+        <AccessControls key={accessActive ? "active" : "locked"} />
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">
@@ -519,6 +529,31 @@ export function Workbench() {
                   >
                     Load saved draft
                   </Button>
+                  {legacyAvailable && (
+                    <Button
+                      className="button"
+                      disabled={!loaded || busy}
+                      onClick={() =>
+                        action(async () => {
+                          const raw = importLegacyDraft(legacyKey, storagePrefix);
+                          const validated = await api<ValidationResult>(
+                            "workflows/validate",
+                            JSON.parse(raw),
+                          );
+                          localStorage.setItem(storageKey, JSON.stringify(validated.workflow));
+                          change(validated.workflow);
+                          setDocumentEpoch((value) => value + 1);
+                          setSelected(validated.workflow.start_node);
+                          setLegacyAvailable(false);
+                          setMessage(
+                            "Older browser draft imported for this owner. The original was kept.",
+                          );
+                        })
+                      }
+                    >
+                      Import my draft saved before sign-in
+                    </Button>
+                  )}
                   <input
                     ref={importInput}
                     type="file"
@@ -603,7 +638,9 @@ export function Workbench() {
                   ))}
                 </ul>
               ) : (
-                <p className="muted">{loaded ? "Your runs will appear here." : "Loading runs…"}</p>
+                <p className="muted">
+                  {loaded ? "Your runs will appear here." : "Loading runsÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦"}
+                </p>
               )}
             </aside>
             <RunInspector
@@ -667,7 +704,7 @@ export function Workbench() {
             <div className="section-heading">
               <div>
                 <h2>Saved revisions</h2>
-                <p className="muted">Latest 50 · load any revision to continue editing.</p>
+                <p className="muted">Latest 50 Ãƒâ€šÃ‚Â· load any revision to continue editing.</p>
               </div>
               <Button
                 className="button"
@@ -732,7 +769,7 @@ export function Workbench() {
       </Tabs>
       <footer>
         <p role="status" aria-label="Workspace status" aria-live="polite">
-          {busy ? "Working…" : message}
+          {busy ? "WorkingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" : message}
         </p>
         <a className="text-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
           API reference <ExternalLink size={12} aria-hidden="true" />

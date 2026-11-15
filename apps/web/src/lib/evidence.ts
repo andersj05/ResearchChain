@@ -1,3 +1,4 @@
+import { apiFetch } from "@/lib/access";
 import type { components } from "@researchchain/contracts";
 
 export type EvidenceCreate = components["schemas"]["EvidenceCreate"];
@@ -37,7 +38,7 @@ export async function uploadOriginal(file: File, rights: string): Promise<Artifa
   if (!file.size || file.size > 20 * 1024 * 1024)
     throw new Error("Choose a file between 1 byte and 20 MB.");
   const params = new URLSearchParams({ name: file.name, rights });
-  const response = await fetch(`/api/artifacts?${params}`, {
+  const response = await apiFetch(`/api/artifacts?${params}`, {
     method: "POST",
     body: file,
     headers: { "Content-Type": "application/octet-stream" },

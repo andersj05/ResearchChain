@@ -1,4 +1,4 @@
-import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { expect, test, type Page, type APIRequestContext } from "./fixtures";
 
 async function source(request: APIRequestContext, tag: string) {
   const result = await request.post("/api/evidence", {
@@ -21,7 +21,7 @@ async function addCandidate(page: Page, tag: string, suffix: string) {
   await page.getByRole("combobox", { name: "Output source", exact: true }).selectOption("imported");
   await page
     .getByLabel("Candidate text", { exact: true })
-    .fill(`A 😀 synthetic draft ${suffix} with a carefully stated limitation.`);
+    .fill(`A ðŸ˜€ synthetic draft ${suffix} with a carefully stated limitation.`);
   await page
     .getByRole("combobox", { name: "Output origin", exact: true })
     .selectOption("synthetic");
@@ -74,7 +74,7 @@ for (const width of [1440, 390]) {
       .getByRole("checkbox", { name: new RegExp(`Evaluation source ${tag}`) })
       .check();
     await page
-      .getByRole("checkbox", { name: `Hidden baseline ${tag} · development only`, exact: true })
+      .getByRole("checkbox", { name: `Hidden baseline ${tag} Â· development only`, exact: true })
       .check();
     await page
       .getByRole("checkbox", { name: "Synthetic fixture (excluded from calibration)", exact: true })
@@ -194,7 +194,7 @@ for (const width of [1440, 390]) {
       page.getByRole("region", { name: "Archived comparison", exact: true }),
     ).toBeVisible();
     await expect(
-      page.getByText("Imported archive · unverified provenance.", { exact: false }),
+      page.getByText("Imported archive Â· unverified provenance.", { exact: false }),
     ).toBeVisible();
     await page.locator(".evaluations-view").evaluate((element) => {
       element.scrollTop = 0;
@@ -278,7 +278,7 @@ test("reference form stores a development-only baseline", async ({ page, request
     .fill(`A synthetic reference answer ${tag}, stored outside the generation evidence.`);
   await page.getByRole("button", { name: "Save reference", exact: true }).click();
   await expect(
-    page.getByText(`Reference ${tag} · development only`, { exact: true }),
+    page.getByText(`Reference ${tag} Â· development only`, { exact: true }),
   ).toBeVisible();
   const refs = await (await request.get("/api/evaluations/references")).json();
   expect(

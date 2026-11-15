@@ -1,5 +1,5 @@
 import { writeFile } from "node:fs/promises";
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import type { Workflow } from "../src/lib/workflow";
 
 // Observational measurement, not a machine-dependent pass/fail latency gate.

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import research from "../../../examples/hypothesis-research.json";
 import { addTemplate } from "../src/lib/workflow-editing";
