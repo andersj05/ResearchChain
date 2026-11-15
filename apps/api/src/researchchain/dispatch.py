@@ -35,6 +35,10 @@ def slot_key(database: Database, slot: int) -> str:
     return f"worker:{database.schema}:{slot}"
 
 
+def presence_key(database: Database) -> str:
+    return f"worker-presence:{database.schema}"
+
+
 class RunQueue:
     def __init__(self, runs: RunStore) -> None:
         self.runs = runs

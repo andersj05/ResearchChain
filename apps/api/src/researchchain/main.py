@@ -31,6 +31,8 @@ from researchchain.models import (
     Workflow,
     WorkflowRevision,
 )
+from researchchain.operations import OperationsStore
+from researchchain.operations_models import OperationsSnapshot
 from researchchain.providers.credentials import ConnectionError as ProviderConnectionError
 from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.report_api import report_router
@@ -108,6 +110,10 @@ def create_app(
     @app.exception_handler(ProviderConnectionError)
     async def provider_error(request: Request, error: ProviderConnectionError) -> JSONResponse:
         return JSONResponse(status_code=422, content={"detail": str(error)})
+
+    @app.get("/api/operations", response_model=OperationsSnapshot, operation_id="operations_status")
+    def operations_status() -> OperationsSnapshot:
+        return OperationsStore(database).snapshot()
 
     @app.get("/api/providers/chatgpt", response_model=ProviderStatus, operation_id="chatgpt_status")
     def chatgpt_status() -> ProviderStatus:

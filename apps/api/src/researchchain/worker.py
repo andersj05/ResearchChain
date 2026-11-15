@@ -13,7 +13,7 @@ from psycopg.rows import DictRow
 
 from researchchain.controls import set_terminal
 from researchchain.database import Database
-from researchchain.dispatch import RunQueue, queue_limits, slot_key
+from researchchain.dispatch import RunQueue, presence_key, queue_limits, slot_key
 from researchchain.dispatch_models import DispatchError, QueueLimits
 from researchchain.runtime import RunStore
 
@@ -148,13 +148,26 @@ class RunWorker:
             return False
 
     def serve(self, stop: Event, poll_seconds: float = 0.5) -> None:
+        outage_logged = False
         while not stop.is_set():
             try:
-                worked = self.run_once()
+                # Independent presence session: never reuse or reconnect the
+                # physical connection fencing an executing command/checkpoint.
+                with self.database.connection() as presence:
+                    presence.execute(
+                        "SELECT pg_advisory_lock_shared(hashtextextended(%s, 0))",
+                        (presence_key(self.database),),
+                    )
+                    while not stop.is_set():
+                        presence.execute("SELECT 1")
+                        worked = self.run_once()
+                        outage_logged = False
+                        if not worked:
+                            stop.wait(poll_seconds)
             except psycopg.Error:
-                LOG.warning("Research worker database connection failed; polling will retry.")
-                worked = False
-            if not worked:
+                if not outage_logged:
+                    LOG.warning("Research worker database connection failed; polling will retry.")
+                    outage_logged = True
                 stop.wait(poll_seconds)
 
 

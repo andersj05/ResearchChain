@@ -1662,6 +1662,24 @@
         }
       }
     },
+    "/api/operations": {
+      "get": {
+        "summary": "Operations Status",
+        "operationId": "operations_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/providers/chatgpt": {
       "get": {
         "summary": "Chatgpt Status",
@@ -5089,6 +5107,36 @@
         "required": ["kind", "label", "inputs", "outputs"],
         "title": "NodeTypeSpec"
       },
+      "OperationsSnapshot": {
+        "properties": {
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "window_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Started At"
+          },
+          "workers": {
+            "$ref": "#/components/schemas/WorkerOperations"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/QueueOperations"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageOperations"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageOperations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["observed_at", "window_started_at", "workers", "queue", "storage", "usage"],
+        "title": "OperationsSnapshot"
+      },
       "OwnerSession": {
         "properties": {
           "owner_id": {
@@ -5351,6 +5399,51 @@
         "type": "object",
         "required": ["accounts"],
         "title": "ProviderStatus"
+      },
+      "QueueOperations": {
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Queued"
+          },
+          "executing": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Executing"
+          },
+          "awaiting_takeover": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Awaiting Takeover"
+          },
+          "interrupted": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Interrupted"
+          },
+          "finished_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Finished 24H"
+          },
+          "oldest_pending_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Pending Seconds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["queued", "executing", "awaiting_takeover", "interrupted", "finished_24h"],
+        "title": "QueueOperations"
       },
       "RecordedEvaluationOutput": {
         "properties": {
@@ -6855,6 +6948,57 @@
         "type": "object",
         "title": "SourceLocation"
       },
+      "StorageOperations": {
+        "properties": {
+          "runs": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Runs"
+          },
+          "evidence_records": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Evidence Records"
+          },
+          "report_revisions": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Report Revisions"
+          },
+          "evaluation_datasets": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Evaluation Datasets"
+          },
+          "originals": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Originals"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Bytes"
+          },
+          "schema_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Schema Bytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "runs",
+          "evidence_records",
+          "report_revisions",
+          "evaluation_datasets",
+          "originals",
+          "original_bytes",
+          "schema_bytes"
+        ],
+        "title": "StorageOperations"
+      },
       "StyleExample": {
         "properties": {
           "kind": {
@@ -7149,6 +7293,45 @@
         "required": ["id", "version"],
         "title": "SubgraphRef"
       },
+      "UsageOperations": {
+        "properties": {
+          "attempts_started_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempts Started 24H"
+          },
+          "reported_input_tokens_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reported Input Tokens 24H"
+          },
+          "reported_output_tokens_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reported Output Tokens 24H"
+          },
+          "incomplete_usage_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Incomplete Usage 24H"
+          },
+          "uncertain_attempts": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Uncertain Attempts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "attempts_started_24h",
+          "reported_input_tokens_24h",
+          "reported_output_tokens_24h",
+          "incomplete_usage_24h",
+          "uncertain_attempts"
+        ],
+        "title": "UsageOperations"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -7240,6 +7423,36 @@
         "type": "object",
         "required": ["source"],
         "title": "ValueSource"
+      },
+      "WorkerOperations": {
+        "properties": {
+          "connected_consumers": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Connected Consumers"
+          },
+          "max_parallel": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Max Parallel"
+          },
+          "max_pending": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Max Pending"
+          },
+          "reserved_slots": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reserved Slots"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["connected_consumers", "max_parallel", "max_pending", "reserved_slots"],
+        "title": "WorkerOperations"
       },
       "Workflow": {
         "properties": {

@@ -608,6 +608,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/operations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Operations Status */
+    get: operations["operations_status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/providers/chatgpt": {
     parameters: {
       query?: never;
@@ -2090,6 +2107,23 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** OperationsSnapshot */
+    OperationsSnapshot: {
+      /**
+       * Observed At
+       * Format: date-time
+       */
+      observed_at: string;
+      /**
+       * Window Started At
+       * Format: date-time
+       */
+      window_started_at: string;
+      workers: components["schemas"]["WorkerOperations"];
+      queue: components["schemas"]["QueueOperations"];
+      storage: components["schemas"]["StorageOperations"];
+      usage: components["schemas"]["UsageOperations"];
+    };
     /** OwnerSession */
     OwnerSession: {
       /**
@@ -2206,6 +2240,21 @@ export interface components {
        * @constant
        */
       usage_url: "https://chatgpt.com/settings/usage";
+    };
+    /** QueueOperations */
+    QueueOperations: {
+      /** Queued */
+      queued: number;
+      /** Executing */
+      executing: number;
+      /** Awaiting Takeover */
+      awaiting_takeover: number;
+      /** Interrupted */
+      interrupted: number;
+      /** Finished 24H */
+      finished_24h: number;
+      /** Oldest Pending Seconds */
+      oldest_pending_seconds?: number | null;
     };
     /** RecordedEvaluationOutput */
     RecordedEvaluationOutput: {
@@ -2951,6 +3000,23 @@ export interface components {
        */
       excerpt: string;
     };
+    /** StorageOperations */
+    StorageOperations: {
+      /** Runs */
+      runs: number;
+      /** Evidence Records */
+      evidence_records: number;
+      /** Report Revisions */
+      report_revisions: number;
+      /** Evaluation Datasets */
+      evaluation_datasets: number;
+      /** Originals */
+      originals: number;
+      /** Original Bytes */
+      original_bytes: number;
+      /** Schema Bytes */
+      schema_bytes: number;
+    };
     /** StyleExample */
     StyleExample: {
       /**
@@ -3062,6 +3128,19 @@ export interface components {
       /** Version */
       version: number;
     };
+    /** UsageOperations */
+    UsageOperations: {
+      /** Attempts Started 24H */
+      attempts_started_24h: number;
+      /** Reported Input Tokens 24H */
+      reported_input_tokens_24h: number;
+      /** Reported Output Tokens 24H */
+      reported_output_tokens_24h: number;
+      /** Incomplete Usage 24H */
+      incomplete_usage_24h: number;
+      /** Uncertain Attempts */
+      uncertain_attempts: number;
+    };
     /** ValidationError */
     ValidationError: {
       /** Location */
@@ -3098,6 +3177,17 @@ export interface components {
       node_id?: string | null;
       /** Port */
       port?: string | null;
+    };
+    /** WorkerOperations */
+    WorkerOperations: {
+      /** Connected Consumers */
+      connected_consumers: number;
+      /** Max Parallel */
+      max_parallel: number;
+      /** Max Pending */
+      max_pending: number;
+      /** Reserved Slots */
+      reserved_slots: number;
     };
     /** Workflow */
     Workflow: {
@@ -4499,6 +4589,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  operations_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationsSnapshot"];
         };
       };
     };
