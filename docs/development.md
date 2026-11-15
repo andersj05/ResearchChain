@@ -177,3 +177,8 @@ checkpointer deliberately share a physical connection. Transaction-mode poolers
 are incompatible with that locking contract. Worker ownership and recovery follow
 [ADR 0011](decisions/0011-durable-workers.md). New external tools require their own
 effect journal before automatic recovery can safely include them.
+
+Retention browser tests run after other suites so synthetic cleanup cannot remove
+their active fixtures. Focus with
+`pnpm test:e2e --project=retention --no-deps --workers=1`. All deletion uses the
+runner's disposable e2e_ workspace; never select the private database for tests.

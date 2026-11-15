@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import type { components } from "@researchchain/contracts";
 import { useOwner } from "@/components/access-context";
+import { RetentionPanel } from "@/components/retention-panel";
 import { api } from "@/lib/workflow";
 
 type Snapshot = components["schemas"]["OperationsSnapshot"];
@@ -221,6 +222,7 @@ export function OperationsDesk({ onOpenRuns }: { onOpenRuns: () => void }) {
           </div>
         </>
       )}
+      <RetentionPanel />
     </section>
   );
 }

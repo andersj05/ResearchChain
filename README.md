@@ -29,6 +29,8 @@ storage and recorded usage without submitting new research.
 Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
 [PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).
 See the [CLI workflow and repository configuration](docs/github.md).
+[Run cleanup](docs/retention.md) previews terminal runs, protects referenced research
+and requires explicit confirmation before deleting execution history and unused originals.
 
 ## How we work
 

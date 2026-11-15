@@ -2792,3 +2792,126 @@ footer p {
     padding: 20px;
   }
 }
+
+/* Cleanup is a reviewed, explicit action; saved state contains request IDs only. */
+.retention-panel {
+  margin-top: 24px;
+}
+.retention-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+.retention-panel p {
+  margin: 10px 0;
+}
+.retention-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.retention-controls label,
+.retention-confirm {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.retention-controls select {
+  min-width: 140px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.retention-review,
+.retention-history,
+.retention-receipt {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.retention-panel h3 {
+  font-size: 14px;
+}
+.retention-panel .retention-total {
+  font-size: 14px;
+  color: var(--text);
+}
+.retention-panel .operations-error {
+  color: var(--red);
+}
+.retention-runs {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.retention-runs li {
+  display: grid;
+  gap: 5px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.retention-runs span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.retention-panel code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.retention-panel details {
+  margin: 16px 0;
+  font-size: 12px;
+}
+.retention-originals {
+  max-height: 200px;
+  overflow: auto;
+}
+.retention-originals li,
+.retention-history li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.retention-confirm {
+  max-width: 320px;
+  margin: 20px 0 12px;
+}
+.retention-confirm input {
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.retention-protected {
+  margin-top: 24px;
+}
+.retention-protected ul,
+.retention-history ul {
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.retention-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.retention-panel .retention-notice {
+  padding: 12px;
+  background: var(--amber-soft);
+}
+@media (max-width: 700px) {
+  .retention-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .retention-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .retention-panel .button {
+    white-space: normal;
+  }
+}

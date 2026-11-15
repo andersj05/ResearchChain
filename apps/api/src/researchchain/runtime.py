@@ -45,6 +45,7 @@ from researchchain.research import (
     read_attempts,
     read_manifest,
 )
+from researchchain.retention_guards import require_retained_run
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
@@ -146,6 +147,7 @@ class RunStore:
             yield conn
 
     def _manifest(self, conn: Connection[DictRow], run_id: UUID) -> DictRow:
+        require_retained_run(conn, run_id)
         row = conn.execute("SELECT * FROM runs WHERE id = %s", (run_id,)).fetchone()
         if row is None:
             raise NotFoundError("Run not found.")
@@ -339,6 +341,7 @@ class RunStore:
 
     def start_command(self, conn: Connection[DictRow], request: RunRequest) -> DictRow:
         """Validate and journal inputs; the caller serializes admission and commits."""
+        require_retained_run(conn, request.id)
         existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
         if existing and (
             existing["revision_id"] != request.revision_id

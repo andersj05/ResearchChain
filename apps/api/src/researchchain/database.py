@@ -97,6 +97,9 @@ class Database:
                 raise RuntimeError(
                     "Applied migrations differ from this checkout. Restore compatible code."
                 )
+            # Retention guards also protect upstream checkpoint writes. Create/upgrade
+            # these tables under the migration lock before application migrations.
+            PostgresSaver(conn).setup()
             for name, checksum, statement in migrations():
                 if name not in applied:
                     with conn.transaction():
@@ -105,9 +108,6 @@ class Database:
                             "INSERT INTO schema_migrations (name, checksum) VALUES (%s, %s)",
                             (name, checksum),
                         )
-            # The upstream checkpointer has its own append-only migration list.
-            # Its concurrent indexes require autocommit, outside our transactions.
-            PostgresSaver(conn).setup()
             self.check_ready(conn)
 
     def check_ready(self, conn: Connection[DictRow]) -> None:

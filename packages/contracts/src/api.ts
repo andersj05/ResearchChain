@@ -608,6 +608,74 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/retention/previews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview */
+    post: operations["create_retention_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/retention/previews/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get */
+    get: operations["get_retention_preview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/retention/previews/{key}/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply */
+    post: operations["apply_retention_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/retention/receipts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["list_retention_receipts"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/operations": {
     parameters: {
       query?: never;
@@ -2757,6 +2825,128 @@ export interface components {
        */
       feedback: string;
     };
+    /** RetentionConfirm */
+    RetentionConfirm: {
+      /** Digest */
+      digest: string;
+      /**
+       * Confirmation
+       * @constant
+       */
+      confirmation: "DELETE";
+    };
+    /** RetentionOriginal */
+    RetentionOriginal: {
+      /** Artifact Id */
+      artifact_id: string;
+      /** Byte Size */
+      byte_size: number;
+      /** Fingerprint */
+      fingerprint: string;
+    };
+    /** RetentionPreview */
+    RetentionPreview: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Cutoff
+       * Format: date-time
+       */
+      cutoff: string;
+      request: components["schemas"]["RetentionRequest"];
+      /** Runs */
+      runs: components["schemas"]["RetentionRun"][];
+      /** Originals */
+      originals: components["schemas"]["RetentionOriginal"][];
+      /** Retained Originals */
+      retained_originals: number;
+      /** Original Bytes */
+      original_bytes: number;
+      /** Protected Runs */
+      protected_runs: {
+        [key: string]: number;
+      };
+      /** More Eligible */
+      more_eligible: number;
+      /** Digest */
+      digest: string;
+    };
+    /** RetentionReceipt */
+    RetentionReceipt: {
+      /**
+       * Preview Id
+       * Format: uuid
+       */
+      preview_id: string;
+      /**
+       * Applied At
+       * Format: date-time
+       */
+      applied_at: string;
+      /** Run Ids */
+      run_ids: string[];
+      /** Original Ids */
+      original_ids: string[];
+      /** Deleted Rows */
+      deleted_rows: {
+        [key: string]: number;
+      };
+      /** Original Bytes */
+      original_bytes: number;
+    };
+    /** RetentionRequest */
+    RetentionRequest: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Older Than Days
+       * @default 30
+       */
+      older_than_days: number;
+      /**
+       * Max Runs
+       * @default 5
+       */
+      max_runs: number;
+    };
+    /** RetentionRun */
+    RetentionRun: {
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Status */
+      status: string;
+      /** Fingerprint */
+      fingerprint: string;
+    };
+    /** RetentionView */
+    RetentionView: {
+      preview: components["schemas"]["RetentionPreview"];
+      receipt?: components["schemas"]["RetentionReceipt"] | null;
+    };
     /** ReviewPrompt */
     ReviewPrompt: {
       /** Interrupt Id */
@@ -4589,6 +4779,125 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_retention_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetentionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionPreview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_retention_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  apply_retention_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetentionConfirm"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_retention_receipts: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionReceipt"][];
         };
       };
     };
