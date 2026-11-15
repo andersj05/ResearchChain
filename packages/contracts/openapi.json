@@ -413,6 +413,711 @@
         }
       }
     },
+    "/api/evaluations/references": {
+      "get": {
+        "summary": "References",
+        "operationId": "list_evaluation_references",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationReference"
+                  },
+                  "type": "array",
+                  "title": "Response List Evaluation References"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Reference",
+        "operationId": "create_evaluation_reference",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationReferenceCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationReference"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/datasets": {
+      "get": {
+        "summary": "List Datasets",
+        "operationId": "list_evaluation_datasets",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationDatasetSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Evaluation Datasets"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Dataset",
+        "operationId": "create_evaluation_dataset",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationDatasetCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationDataset"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/datasets/{dataset_id}": {
+      "get": {
+        "summary": "Get Dataset",
+        "operationId": "get_evaluation_dataset",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dataset Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationDataset"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/datasets/{dataset_id}/cases/{case_id}/checks": {
+      "get": {
+        "summary": "Checks",
+        "operationId": "check_evaluation_inputs",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationChecks"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/datasets/{dataset_id}/cases/{case_id}/inputs": {
+      "get": {
+        "summary": "Inputs",
+        "operationId": "get_evaluation_inputs",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationInputs"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/datasets/{dataset_id}/cases/{case_id}/candidates": {
+      "get": {
+        "summary": "List Candidates",
+        "operationId": "list_evaluation_candidates",
+        "parameters": [
+          {
+            "name": "dataset_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Dataset Id"
+            }
+          },
+          {
+            "name": "case_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Case Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationCandidate"
+                  },
+                  "title": "Response List Evaluation Candidates"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/candidates": {
+      "post": {
+        "summary": "Create Candidate",
+        "operationId": "create_evaluation_candidate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationCandidateCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationCandidate"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/comparisons": {
+      "get": {
+        "summary": "List Comparisons",
+        "operationId": "list_evaluation_comparisons",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationComparisonSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Evaluation Comparisons"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Comparison",
+        "operationId": "create_evaluation_comparison",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationComparisonCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationComparison"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/comparisons/{comparison_id}": {
+      "get": {
+        "summary": "Get Comparison",
+        "operationId": "get_evaluation_comparison",
+        "parameters": [
+          {
+            "name": "comparison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comparison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationComparison"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/comparisons/{comparison_id}/feedback": {
+      "post": {
+        "summary": "Feedback",
+        "operationId": "submit_evaluation_feedback",
+        "parameters": [
+          {
+            "name": "comparison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comparison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationFeedbackCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationComparison"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/comparisons/{comparison_id}/judges": {
+      "post": {
+        "summary": "Predict",
+        "operationId": "create_evaluation_judge",
+        "parameters": [
+          {
+            "name": "comparison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comparison Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationJudgeCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationJudge"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Judges",
+        "operationId": "list_evaluation_judges",
+        "parameters": [
+          {
+            "name": "comparison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comparison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationJudge"
+                  },
+                  "title": "Response List Evaluation Judges"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/calibration": {
+      "get": {
+        "summary": "Calibration",
+        "operationId": "get_evaluation_calibration",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationCalibration"
+                  },
+                  "type": "array",
+                  "title": "Response Get Evaluation Calibration"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/comparisons/{comparison_id}/export": {
+      "get": {
+        "summary": "Export",
+        "operationId": "export_evaluation_comparison",
+        "parameters": [
+          {
+            "name": "comparison_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Comparison Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationBundle"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/evaluations/archives": {
+      "get": {
+        "summary": "List Archives",
+        "operationId": "list_evaluation_archives",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/EvaluationArchive"
+                  },
+                  "type": "array",
+                  "title": "Response List Evaluation Archives"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Import Bundle",
+        "operationId": "import_evaluation_comparison",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluationBundle"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvaluationArchive"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/providers/chatgpt": {
       "get": {
         "summary": "Chatgpt Status",
@@ -1206,6 +1911,1562 @@
         "type": "object",
         "title": "ContentPreview"
       },
+      "EvaluationArchive": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "bundle": {
+            "$ref": "#/components/schemas/EvaluationBundle"
+          },
+          "status": {
+            "type": "string",
+            "const": "imported_unverified",
+            "title": "Status",
+            "default": "imported_unverified"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "content_hash", "title", "created_at", "bundle"],
+        "title": "EvaluationArchive"
+      },
+      "EvaluationBundle": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "evaluation-comparison-1",
+            "title": "Version",
+            "default": "evaluation-comparison-1"
+          },
+          "dataset": {
+            "$ref": "#/components/schemas/EvaluationDataset"
+          },
+          "comparison": {
+            "$ref": "#/components/schemas/EvaluationComparison"
+          },
+          "judges": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationJudge"
+            },
+            "type": "array",
+            "title": "Judges"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["dataset", "comparison", "judges", "content_hash"],
+        "title": "EvaluationBundle"
+      },
+      "EvaluationCalibration": {
+        "properties": {
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "prompt_version": {
+            "type": "string",
+            "title": "Prompt Version"
+          },
+          "prompt_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Prompt Hash"
+          },
+          "track": {
+            "type": "string",
+            "enum": ["frozen_writing", "full_research"],
+            "title": "Track"
+          },
+          "partition": {
+            "type": "string",
+            "enum": ["development", "holdout"],
+            "title": "Partition"
+          },
+          "labeled_pairs": {
+            "type": "integer",
+            "title": "Labeled Pairs"
+          },
+          "distinct_cases": {
+            "type": "integer",
+            "title": "Distinct Cases"
+          },
+          "excluded_pairs": {
+            "type": "integer",
+            "title": "Excluded Pairs"
+          },
+          "accuracy": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accuracy"
+          },
+          "brier_score": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Brier Score"
+          },
+          "ready_for_calibration": {
+            "type": "boolean",
+            "title": "Ready For Calibration"
+          },
+          "note": {
+            "type": "string",
+            "title": "Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "model",
+          "prompt_version",
+          "prompt_hash",
+          "track",
+          "partition",
+          "labeled_pairs",
+          "distinct_cases",
+          "excluded_pairs",
+          "accuracy",
+          "brier_score",
+          "ready_for_calibration",
+          "note"
+        ],
+        "title": "EvaluationCalibration"
+      },
+      "EvaluationCandidate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Dataset Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Artifact Id"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/EvaluationProvenance"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/EvaluationChecks"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "dataset_id",
+          "case_id",
+          "label",
+          "text",
+          "content_hash",
+          "artifact_id",
+          "provenance",
+          "checks",
+          "created_at"
+        ],
+        "title": "EvaluationCandidate"
+      },
+      "EvaluationCandidateCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Dataset Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Label"
+          },
+          "source": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/ImportedEvaluationOutput"
+              },
+              {
+                "$ref": "#/components/schemas/RecordedEvaluationOutput"
+              }
+            ],
+            "title": "Source",
+            "discriminator": {
+              "propertyName": "type",
+              "mapping": {
+                "imported": "#/components/schemas/ImportedEvaluationOutput",
+                "run": "#/components/schemas/RecordedEvaluationOutput"
+              }
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "dataset_id", "case_id", "label", "source"],
+        "title": "EvaluationCandidateCreate"
+      },
+      "EvaluationCase": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "topic": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_-]{0,63}$",
+            "title": "Topic"
+          },
+          "partition": {
+            "type": "string",
+            "enum": ["development", "holdout"],
+            "title": "Partition"
+          },
+          "track": {
+            "type": "string",
+            "enum": ["frozen_writing", "full_research"],
+            "title": "Track"
+          },
+          "brief": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "title": "Brief"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Evidence Ids"
+          },
+          "reference_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 10,
+            "title": "Reference Ids"
+          },
+          "synthetic": {
+            "type": "boolean",
+            "title": "Synthetic",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "topic", "partition", "track", "brief", "evidence_ids"],
+        "title": "EvaluationCase"
+      },
+      "EvaluationCheck": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": ["pass", "fail", "unknown", "not_applicable"],
+            "title": "Status"
+          },
+          "findings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Findings"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["status", "findings"],
+        "title": "EvaluationCheck"
+      },
+      "EvaluationChecks": {
+        "properties": {
+          "reference_exclusion": {
+            "$ref": "#/components/schemas/EvaluationCheck"
+          },
+          "historical_cutoff": {
+            "$ref": "#/components/schemas/EvaluationCheck"
+          },
+          "input_match": {
+            "$ref": "#/components/schemas/EvaluationCheck"
+          },
+          "eligible": {
+            "type": "boolean",
+            "title": "Eligible"
+          },
+          "reference_registry_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Reference Registry Hash"
+          },
+          "scope": {
+            "type": "string",
+            "const": "metadata_and_copy_detection_only",
+            "title": "Scope",
+            "default": "metadata_and_copy_detection_only"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "reference_exclusion",
+          "historical_cutoff",
+          "input_match",
+          "eligible",
+          "reference_registry_hash"
+        ],
+        "title": "EvaluationChecks"
+      },
+      "EvaluationComparison": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Dataset Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "track": {
+            "type": "string",
+            "enum": ["frozen_writing", "full_research"],
+            "title": "Track"
+          },
+          "partition": {
+            "type": "string",
+            "enum": ["development", "holdout"],
+            "title": "Partition"
+          },
+          "brief": {
+            "type": "string",
+            "title": "Brief"
+          },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "synthetic": {
+            "type": "boolean",
+            "title": "Synthetic",
+            "default": false
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "left": {
+            "$ref": "#/components/schemas/EvaluationSide"
+          },
+          "right": {
+            "$ref": "#/components/schemas/EvaluationSide"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationFeedback"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "reveal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/EvaluationReveal"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "dataset_id",
+          "case_id",
+          "title",
+          "track",
+          "partition",
+          "brief",
+          "evidence",
+          "left",
+          "right",
+          "created_at"
+        ],
+        "title": "EvaluationComparison"
+      },
+      "EvaluationComparisonCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "candidate_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "minItems": 2,
+            "title": "Candidate Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "candidate_ids"],
+        "title": "EvaluationComparisonCreate"
+      },
+      "EvaluationComparisonSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "track": {
+            "type": "string",
+            "enum": ["frozen_writing", "full_research"],
+            "title": "Track"
+          },
+          "partition": {
+            "type": "string",
+            "enum": ["development", "holdout"],
+            "title": "Partition"
+          },
+          "reviewed": {
+            "type": "boolean",
+            "title": "Reviewed"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "track", "partition", "reviewed", "created_at"],
+        "title": "EvaluationComparisonSummary"
+      },
+      "EvaluationDataset": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCase"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cases"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "cases", "series_id", "version", "content_hash", "created_at"],
+        "title": "EvaluationDataset"
+      },
+      "EvaluationDatasetCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "cases": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationCase"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Cases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "cases"],
+        "title": "EvaluationDatasetCreate"
+      },
+      "EvaluationDatasetSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "case_count": {
+            "type": "integer",
+            "title": "Case Count"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "series_id", "version", "title", "case_count", "created_at"],
+        "title": "EvaluationDatasetSummary"
+      },
+      "EvaluationEdit": {
+        "properties": {
+          "side": {
+            "type": "string",
+            "enum": ["left", "right"],
+            "title": "Side"
+          },
+          "start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "End"
+          },
+          "original": {
+            "type": "string",
+            "maxLength": 100000,
+            "title": "Original"
+          },
+          "replacement": {
+            "type": "string",
+            "maxLength": 100000,
+            "title": "Replacement"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["side", "start", "end", "original", "replacement", "reason"],
+        "title": "EvaluationEdit"
+      },
+      "EvaluationFeedback": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "left_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Left Hash"
+          },
+          "right_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Right Hash"
+          },
+          "preference": {
+            "type": "string",
+            "enum": ["left", "right", "tie", "abstain"],
+            "title": "Preference"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["human", "synthetic"],
+            "title": "Origin",
+            "default": "human"
+          },
+          "left_gates": {
+            "$ref": "#/components/schemas/EvaluationGates"
+          },
+          "right_gates": {
+            "$ref": "#/components/schemas/EvaluationGates"
+          },
+          "left_ratings": {
+            "$ref": "#/components/schemas/EvaluationRatings"
+          },
+          "right_ratings": {
+            "$ref": "#/components/schemas/EvaluationRatings"
+          },
+          "edits": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationEdit"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Edits"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "left_qualified": {
+            "type": "boolean",
+            "title": "Left Qualified"
+          },
+          "right_qualified": {
+            "type": "boolean",
+            "title": "Right Qualified"
+          },
+          "indexing": {
+            "type": "string",
+            "const": "unicode_code_points",
+            "title": "Indexing",
+            "default": "unicode_code_points"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "left_hash",
+          "right_hash",
+          "preference",
+          "reason",
+          "left_gates",
+          "right_gates",
+          "created_at",
+          "left_qualified",
+          "right_qualified"
+        ],
+        "title": "EvaluationFeedback"
+      },
+      "EvaluationFeedbackCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "left_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Left Hash"
+          },
+          "right_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Right Hash"
+          },
+          "preference": {
+            "type": "string",
+            "enum": ["left", "right", "tie", "abstain"],
+            "title": "Preference"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["human", "synthetic"],
+            "title": "Origin",
+            "default": "human"
+          },
+          "left_gates": {
+            "$ref": "#/components/schemas/EvaluationGates"
+          },
+          "right_gates": {
+            "$ref": "#/components/schemas/EvaluationGates"
+          },
+          "left_ratings": {
+            "$ref": "#/components/schemas/EvaluationRatings"
+          },
+          "right_ratings": {
+            "$ref": "#/components/schemas/EvaluationRatings"
+          },
+          "edits": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationEdit"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Edits"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "left_hash",
+          "right_hash",
+          "preference",
+          "reason",
+          "left_gates",
+          "right_gates"
+        ],
+        "title": "EvaluationFeedbackCreate"
+      },
+      "EvaluationGates": {
+        "properties": {
+          "factual_accuracy": {
+            "type": "string",
+            "enum": ["pass", "fail", "unassessed"],
+            "title": "Factual Accuracy",
+            "default": "unassessed"
+          },
+          "numerical_accuracy": {
+            "type": "string",
+            "enum": ["pass", "fail", "unassessed"],
+            "title": "Numerical Accuracy",
+            "default": "unassessed"
+          },
+          "citation_support": {
+            "type": "string",
+            "enum": ["pass", "fail", "unassessed"],
+            "title": "Citation Support",
+            "default": "unassessed"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["reason"],
+        "title": "EvaluationGates"
+      },
+      "EvaluationInputs": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "evaluation-inputs-1",
+            "title": "Version",
+            "default": "evaluation-inputs-1"
+          },
+          "dataset_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Dataset Id"
+          },
+          "case_id": {
+            "type": "string",
+            "title": "Case Id"
+          },
+          "track": {
+            "type": "string",
+            "enum": ["frozen_writing", "full_research"],
+            "title": "Track"
+          },
+          "brief": {
+            "type": "string",
+            "title": "Brief"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "text_content": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Text Content"
+          },
+          "delivery": {
+            "type": "string",
+            "const": "text_and_content_addresses",
+            "title": "Delivery",
+            "default": "text_and_content_addresses"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/EvaluationChecks"
+          },
+          "input_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Input Hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "dataset_id",
+          "case_id",
+          "track",
+          "brief",
+          "as_of_date",
+          "evidence",
+          "checks",
+          "input_hash"
+        ],
+        "title": "EvaluationInputs"
+      },
+      "EvaluationJudge": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "prompt_version": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Prompt Version"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "left_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Left Hash"
+          },
+          "right_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Right Hash"
+          },
+          "probabilities": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": ["left", "right", "tie"]
+            },
+            "type": "object",
+            "title": "Probabilities"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "prompt_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Prompt Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "source": {
+            "type": "string",
+            "const": "imported_prediction",
+            "title": "Source",
+            "default": "imported_prediction"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "model",
+          "prompt_version",
+          "prompt",
+          "left_hash",
+          "right_hash",
+          "probabilities",
+          "reason",
+          "prompt_hash",
+          "created_at"
+        ],
+        "title": "EvaluationJudge"
+      },
+      "EvaluationJudgeCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "prompt_version": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Prompt Version"
+          },
+          "prompt": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "title": "Prompt"
+          },
+          "left_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Left Hash"
+          },
+          "right_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Right Hash"
+          },
+          "probabilities": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "enum": ["left", "right", "tie"]
+            },
+            "type": "object",
+            "title": "Probabilities"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "model",
+          "prompt_version",
+          "prompt",
+          "left_hash",
+          "right_hash",
+          "probabilities",
+          "reason"
+        ],
+        "title": "EvaluationJudgeCreate"
+      },
+      "EvaluationProvenance": {
+        "properties": {
+          "verification": {
+            "type": "string",
+            "enum": ["recorded_run", "declared_import"],
+            "title": "Verification"
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["model", "human", "synthetic"],
+            "title": "Origin"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "workflow_version": {
+            "type": "string",
+            "title": "Workflow Version"
+          },
+          "workflow_hash": {
+            "type": "string",
+            "title": "Workflow Hash"
+          },
+          "prompt_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Prompt Versions"
+          },
+          "prompt_hashes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Prompt Hashes"
+          },
+          "tool_version": {
+            "type": "string",
+            "title": "Tool Version"
+          },
+          "tool_config_hash": {
+            "type": "string",
+            "title": "Tool Config Hash"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "generation_input_hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Generation Input Hash"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "attempt_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Id"
+          },
+          "renderer": {
+            "type": "string",
+            "enum": ["research-text-1", "plain-text-1"],
+            "title": "Renderer"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "verification",
+          "origin",
+          "model",
+          "workflow_version",
+          "workflow_hash",
+          "prompt_versions",
+          "prompt_hashes",
+          "tool_version",
+          "tool_config_hash",
+          "evidence",
+          "generation_input_hash",
+          "renderer"
+        ],
+        "title": "EvaluationProvenance"
+      },
+      "EvaluationRatings": {
+        "properties": {
+          "analytical_depth": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Analytical Depth"
+          },
+          "counterarguments": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Counterarguments"
+          },
+          "scenarios": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Scenarios"
+          },
+          "clarity": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Clarity"
+          },
+          "voice": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Voice"
+          },
+          "edit_burden": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 5.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Edit Burden"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "EvaluationRatings"
+      },
+      "EvaluationReference": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["human_published", "human_supplied", "synthetic"],
+            "title": "Origin"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Author"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "source_evidence_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Evidence Id"
+          },
+          "development_only": {
+            "type": "boolean",
+            "title": "Development Only",
+            "default": false
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "text", "origin", "author", "content_hash", "created_at"],
+        "title": "EvaluationReference"
+      },
+      "EvaluationReferenceCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["human_published", "human_supplied", "synthetic"],
+            "title": "Origin"
+          },
+          "author": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Author"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2083,
+                "minLength": 1,
+                "format": "uri"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "source_evidence_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Evidence Id"
+          },
+          "development_only": {
+            "type": "boolean",
+            "title": "Development Only",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "text", "origin", "author"],
+        "title": "EvaluationReferenceCreate"
+      },
+      "EvaluationReveal": {
+        "properties": {
+          "left": {
+            "$ref": "#/components/schemas/EvaluationCandidate"
+          },
+          "right": {
+            "$ref": "#/components/schemas/EvaluationCandidate"
+          },
+          "references": {
+            "items": {
+              "$ref": "#/components/schemas/EvaluationReference"
+            },
+            "type": "array",
+            "title": "References"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["left", "right", "references"],
+        "title": "EvaluationReveal"
+      },
+      "EvaluationSide": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "checks": {
+            "$ref": "#/components/schemas/EvaluationChecks"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["text", "content_hash", "checks"],
+        "title": "EvaluationSide"
+      },
       "EvidenceCreate": {
         "properties": {
           "id": {
@@ -1918,6 +4179,80 @@
         "required": ["id", "statement", "alternatives", "falsifiers", "assessment", "citations"],
         "title": "Hypothesis"
       },
+      "ImportedEvaluationOutput": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "imported",
+            "title": "Type",
+            "default": "imported"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 100000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "origin": {
+            "type": "string",
+            "enum": ["model", "human", "synthetic"],
+            "title": "Origin"
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Model"
+          },
+          "workflow_version": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Workflow Version"
+          },
+          "prompt_version": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Prompt Version"
+          },
+          "tool_version": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Tool Version"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Evidence Ids"
+          },
+          "generation_input": {
+            "type": "string",
+            "maxLength": 200000,
+            "minLength": 1,
+            "title": "Generation Input"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "text",
+          "origin",
+          "model",
+          "workflow_version",
+          "prompt_version",
+          "tool_version",
+          "evidence_ids",
+          "generation_input"
+        ],
+        "title": "ImportedEvaluationOutput"
+      },
       "LoopConfig": {
         "properties": {
           "type": {
@@ -2315,6 +4650,30 @@
         "type": "object",
         "required": ["accounts"],
         "title": "ProviderStatus"
+      },
+      "RecordedEvaluationOutput": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "run",
+            "title": "Type",
+            "default": "run"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "attempt_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Attempt Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["run_id", "attempt_id"],
+        "title": "RecordedEvaluationOutput"
       },
       "ResearchCitation": {
         "properties": {

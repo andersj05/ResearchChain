@@ -9,6 +9,7 @@ from fastapi.responses import JSONResponse
 
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
+from researchchain.evaluation_api import evaluation_router
 from researchchain.evidence_api import evidence_router
 from researchchain.models import (
     CancelResult,
@@ -42,6 +43,7 @@ def create_app(
 
     app = FastAPI(title="ResearchChain API", version="0.3.0", lifespan=lifespan)
     app.include_router(evidence_router(database))
+    app.include_router(evaluation_router(database))
     runs = RunStore(database, provider)
     revisions = RevisionStore(database)
 
