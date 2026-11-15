@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from graph_fixtures import split
 from test_research_contracts import research_document, result_document
 
 from researchchain.artifacts import read_content
@@ -274,3 +275,31 @@ def test_concurrent_readers_do_not_hide_a_completed_review(database: Database) -
         current = store.get(request.id)
     assert current.status == "paused"
     assert current.review == first.review
+
+
+def test_parallel_research_charges_usage_before_admitting_another_call(database: Database) -> None:
+    class SlowProvider(FakeProvider):
+        async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
+            await asyncio.sleep(0.2)
+            return await super().complete(manifest, prepared, on_delta)
+
+    document = split()
+    document.update(
+        schema_version="0.3", research={"model": "test-model", "limits": {"max_total_tokens": 30}}
+    )
+    for node in document["nodes"]:
+        if node["id"] in {"left", "right"}:
+            node.update(kind="research", config={"type": "research"})
+    revision = RevisionStore(database).save(Workflow.model_validate(document))
+    provider = SlowProvider()
+    result = RunStore(database, provider).start(
+        RunRequest(
+            id=uuid4(),
+            revision_id=revision.id,
+            brief="Synthetic parallel test",
+            provider_account_id=provider.account.id,
+        )
+    )
+    assert result.status == "limited"
+    assert len(provider.calls) == 1
+    assert result.usage.input_tokens + result.usage.output_tokens == 40

@@ -170,10 +170,11 @@ test("reviewer feedback upgrades a draft and keeps old revisions unchanged", asy
   request,
 }) => {
   const original = structuredClone(initialWorkflow);
-  const updated = updateGraph(original, null, {
-    ...original,
-    nodes: original.nodes.map((node) =>
-      node.id === original.edges.find((edge) => edge.source === "review")?.target
+  const draft = addTemplate(original, null, "note", "review").workflow;
+  const updated = updateGraph(draft, null, {
+    ...draft,
+    nodes: draft.nodes.map((node) =>
+      node.id === draft.edges.find((edge) => edge.source === "review")?.target
         ? { ...node, inputs: { text: { source: "output", node_id: "review", port: "feedback" } } }
         : node,
     ),

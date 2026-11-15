@@ -7,8 +7,9 @@ challenge conclusions, and write reports with human editorial judgment in the lo
 
 The foundation uses Next.js + TypeScript + UI SDK for the editor, and Python +
 LangGraph + FastAPI for execution, with Postgres revisions and checkpoints. Runs
-survive API restarts and stay pinned to their original workflow. The first workflow is a deterministic development
-exercise; it does not call a model, browse sources, or generate investment research.
+survive API restarts and stay pinned to their original workflow. The default example remains a deterministic exercise. The
+[research template](docs/hypothesis-research.md) uses the connected ChatGPT plan to
+form, challenge, and revise hypotheses against captured evidence, with human review.
 
 The [evidence desk](docs/evidence-desk.md) captures permitted originals, tracks
 source provenance and claim relationships, and pins evidence versions to runs.

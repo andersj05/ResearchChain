@@ -141,9 +141,7 @@ class ChatGPTPlan:
                     async for chunk in response.aiter_bytes():
                         size += len(chunk)
                         if size > 2 * 1024 * 1024:
-                            raise ConnectionError(
-                                "Response exceeded the connection check's size limit."
-                            )
+                            raise ConnectionError("Response exceeded the response size limit.")
                         pending += chunk
                         while b"\n" in pending:
                             line, pending = pending.split(b"\n", 1)
@@ -173,7 +171,7 @@ class ChatGPTPlan:
                                     on_delta(text[:output_chars])
                                 if len(text) > output_chars:
                                     raise ConnectionError(
-                                        "Response exceeded the connection check's output limit."
+                                        "Response exceeded the response output limit."
                                     )
                             elif kind in {"error", "response.failed"}:
                                 response_body = event.get("response")
@@ -196,9 +194,7 @@ class ChatGPTPlan:
                                     ),
                                 )
                             elif kind == "response.incomplete":
-                                raise ConnectionError(
-                                    "The ChatGPT response was incomplete; the check did not pass."
-                                )
+                                raise ConnectionError("The ChatGPT response was incomplete.")
                             elif kind == "response.completed":
                                 result = event.get("response")
                                 if (
@@ -230,9 +226,5 @@ class ChatGPTPlan:
                         if len(pending) > 256 * 1024:
                             raise ConnectionError("OpenAI returned an oversized stream event.")
         except (httpx.HTTPError, TimeoutError):
-            raise ConnectionError(
-                "ChatGPT connection check timed out or was interrupted. It did not pass."
-            ) from None
-        raise ConnectionError(
-            "The stream ended without response.completed; the check did not pass."
-        )
+            raise ConnectionError("The ChatGPT response timed out or was interrupted.") from None
+        raise ConnectionError("The stream ended without response.completed.")
