@@ -1,7 +1,10 @@
 # Current state
 
-Updated 2026-11-15. Owner workspace operations is implemented on
-feat/workspace-operations. The owner authorized frequent commits and merging each
+Updated 2026-11-15. Owner workspace operations merged to dev in PR #30 as
+acd22c1. PR CI 43706801164 and dev CI 43707800550 passed (314 backend tests
+and 71 production browser tests). The live schema-8 check preserved all 29
+table fingerprints and 12 originals without new inference. Retention controls
+are now being implemented in a separate feat/retention-controls checkout. The owner authorized frequent commits and merging each
 completed step after CI. Do not promote to main or deploy publicly.
 
 ## Workspace operations
