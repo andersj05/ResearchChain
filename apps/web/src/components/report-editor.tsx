@@ -163,8 +163,8 @@ export function ReportEditor({
         <div>
           <h2>{record.title}</h2>
           <p>
-            Revision {record.version} Â·{" "}
-            {record.author === "human" ? "Human revision" : "Research seed"} Â· {view.review_status}
+            Revision {record.version} ·{" "}
+            {record.author === "human" ? "Human revision" : "Research seed"} · {view.review_status}
           </p>
         </div>
         <div className="actions">
@@ -230,7 +230,7 @@ export function ReportEditor({
       </header>
       <p className="report-save-state" role="status">
         {dirty ? "Unsaved edits" : `Saved revision ${record.version}`}
-        {recovered && dirty ? " Â· Recovered from this browser" : ""}
+        {recovered && dirty ? " · Recovered from this browser" : ""}
       </p>
       {legacyAvailable && (
         <div className="report-banner source-notice">
@@ -326,7 +326,7 @@ export function ReportEditor({
                   {[view.style_guide, ...styles.filter((s) => s.id !== view.style_guide.id)].map(
                     (s) => (
                       <option key={s.id} value={s.id}>
-                        {s.title} Â· v{s.version}
+                        {s.title} · v{s.version}
                       </option>
                     ),
                   )}
@@ -527,7 +527,7 @@ export function ReportEditor({
                 onClick={() => action(() => onOpen(h.id))}
               >
                 <strong>
-                  Revision {h.version} Â· {h.author === "human" ? "Human" : "Research seed"}
+                  Revision {h.version} · {h.author === "human" ? "Human" : "Research seed"}
                 </strong>
                 <span>{h.change_note}</span>
               </Button>
@@ -544,7 +544,7 @@ export function ReportEditor({
               >
                 {record.provenance.run_id.slice(0, 8)}
               </a>{" "}
-              Â· {record.provenance.attempt.stage}
+              · {record.provenance.attempt.stage}
             </p>
             <p>{record.provenance.attempt.returned_model ?? record.provenance.attempt.model}</p>
             <p className="field-hint">

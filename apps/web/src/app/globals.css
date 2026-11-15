@@ -423,7 +423,7 @@ h3 {
   margin-left: auto;
 }
 .workflow-settings[open] summary::after {
-  content: "âˆ’";
+  content: "−";
 }
 label {
   display: block;
@@ -958,7 +958,7 @@ code {
   padding-bottom: 0;
 }
 .event-list li::before {
-  content: "âœ“";
+  content: "✓";
   display: grid;
   place-items: center;
   position: absolute;
@@ -1030,7 +1030,7 @@ code {
   overflow-wrap: anywhere;
 }
 .run-details .event-list li::before {
-  content: "Â·";
+  content: "·";
   color: var(--muted);
   background: var(--soft);
 }

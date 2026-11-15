@@ -57,10 +57,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: `Report ${tag}`, exact: true })).toBeVisible();
     const firstId = new URL(page.url()).searchParams.get("report")!;
     const first: ReportView = await (await request.get(`/api/reports/${firstId}`)).json();
-    await edit(
-      page,
-      "A ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬ carefully supported observation. Its interpretation remains uncertain.",
-    );
+    await edit(page, "A 😀 carefully supported observation. Its interpretation remains uncertain.");
     await page.getByRole("button", { name: "Add source reference", exact: true }).click();
     await page
       .getByRole("combobox", { name: "Reference source", exact: true })
@@ -95,10 +92,10 @@ for (const width of [1440, 390]) {
     ).toBeDisabled();
     await page.reload();
     await expect(page.getByRole("textbox", { name: "Section text", exact: true })).toHaveValue(
-      "A ÃƒÂ°Ã…Â¸Ã‹Å“Ã¢â€šÂ¬ carefully supported observation. Its interpretation remains uncertain.",
+      "A 😀 carefully supported observation. Its interpretation remains uncertain.",
     );
     await expect(
-      page.getByText("Unsaved edits Ãƒâ€šÃ‚Â· Recovered from this browser", { exact: true }),
+      page.getByText("Unsaved edits · Recovered from this browser", { exact: true }),
     ).toBeVisible();
     await page.getByRole("button", { name: "Save report revision", exact: true }).click();
     await expect(page.getByText("Saved revision 2", { exact: true })).toBeVisible();
@@ -124,7 +121,7 @@ for (const width of [1440, 390]) {
     });
     await review.getByRole("button", { name: "Use selected text", exact: true }).click();
     await expect(
-      review.getByText("Characters 2ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“3 (Unicode code points)", { exact: true }),
+      review.getByText("Characters 2–3 (Unicode code points)", { exact: true }),
     ).toBeVisible();
     await review
       .getByRole("textbox", { name: "Feedback reason", exact: true })

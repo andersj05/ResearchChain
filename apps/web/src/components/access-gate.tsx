@@ -135,7 +135,7 @@ export function AccessGate() {
                   disabled={busy}
                 />
                 <Button type="submit" className="button primary" disabled={busy || !password}>
-                  {busy ? "Signing inâ€¦" : "Sign in"}
+                  {busy ? "Signing in…" : "Sign in"}
                 </Button>
               </form>
             )}

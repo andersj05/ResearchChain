@@ -116,7 +116,7 @@ test("inspect a screenshot and distinguish derived estimates from numeric source
   await page.getByLabel("Source kind").selectOption("image");
   await page.getByLabel("Representation", { exact: true }).selectOption("chart_screenshot");
   await page.getByLabel("Access rights", { exact: true }).selectOption("owned");
-  await page.getByLabel("Original file Â· up to 20 MB").setInputFiles({
+  await page.getByLabel("Original file · up to 20 MB").setInputFiles({
     name: "synthetic.png",
     mimeType: "image/png",
     buffer: Buffer.from(
@@ -196,7 +196,7 @@ test("upload through the web proxy preserves every original byte above ten MB", 
   await page.getByLabel("Source title", { exact: true }).fill("Large synthetic original");
   await page.getByLabel("Access rights", { exact: true }).selectOption("owned");
   await page
-    .getByLabel("Original file Â· up to 20 MB")
+    .getByLabel("Original file · up to 20 MB")
     .setInputFiles({ name: "synthetic-large.txt", mimeType: "text/plain", buffer: bytes });
   const record = await saveSource(page);
   expect(record.artifact?.byte_size).toBe(bytes.length);

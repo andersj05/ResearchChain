@@ -62,7 +62,7 @@ export function Workbench() {
   const [run, setRun] = useState<RunSnapshot | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [tab, setTab] = useState("workflow");
-  const [message, setMessage] = useState("Loading saved workspaceÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦");
+  const [message, setMessage] = useState("Loading saved workspace…");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -267,7 +267,7 @@ export function Workbench() {
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
-    setMessage("Starting run. Waiting for saved progressÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦");
+    setMessage("Starting run. Waiting for saved progress…");
     try {
       await api<RunSnapshot>("runs", request, executionTimeout);
       const result = await openRun(request.id);
@@ -638,9 +638,7 @@ export function Workbench() {
                   ))}
                 </ul>
               ) : (
-                <p className="muted">
-                  {loaded ? "Your runs will appear here." : "Loading runsÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦"}
-                </p>
+                <p className="muted">{loaded ? "Your runs will appear here." : "Loading runs…"}</p>
               )}
             </aside>
             <RunInspector
@@ -704,7 +702,7 @@ export function Workbench() {
             <div className="section-heading">
               <div>
                 <h2>Saved revisions</h2>
-                <p className="muted">Latest 50 Ãƒâ€šÃ‚Â· load any revision to continue editing.</p>
+                <p className="muted">Latest 50 · load any revision to continue editing.</p>
               </div>
               <Button
                 className="button"
@@ -769,7 +767,7 @@ export function Workbench() {
       </Tabs>
       <footer>
         <p role="status" aria-label="Workspace status" aria-live="polite">
-          {busy ? "WorkingÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦" : message}
+          {busy ? "Working…" : message}
         </p>
         <a className="text-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
           API reference <ExternalLink size={12} aria-hidden="true" />
