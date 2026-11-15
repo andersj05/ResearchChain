@@ -5,11 +5,15 @@ description = "Validated workflow execution for ResearchChain"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "fastapi>=0.121,<1",
+  "httpx>=0.28,<1",
   "langgraph>=1,<2",
   "langgraph-checkpoint-postgres>=3,<4",
+  "portalocker>=3.2,<5",
   "psycopg[binary,pool]>=3.3,<4",
   "pydantic>=2.12,<3",
+  "pyjwt[crypto]>=2.10,<3",
   "python-dotenv>=1,<2",
+  "pywin32>=311 ; sys_platform == 'win32'",
   "uvicorn>=0.38,<1",
 ]
 
@@ -21,7 +25,11 @@ build-backend = "hatchling.build"
 packages = ["src/researchchain"]
 
 [dependency-groups]
-dev = ["httpx>=0.28,<1", "mypy>=1.18,<2", "pytest>=8,<10", "ruff>=0.14,<1"]
+dev = [
+ "mypy>=1.18,<2",
+ "pytest>=8,<10",
+ "ruff>=0.14,<1",
+]
 
 [tool.ruff]
 target-version = "py312"
