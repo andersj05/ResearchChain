@@ -2927,3 +2927,56 @@ footer p {
   gap: 8px;
   margin: 12px 0;
 }
+
+.request-allowance {
+  margin-top: 24px;
+}
+.allowance-heading,
+.allowance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.allowance-heading h2 {
+  margin: 0;
+}
+.allowance-form {
+  display: grid;
+  gap: 18px;
+  margin: 22px 0;
+}
+.allowance-maximum {
+  display: grid;
+  gap: 8px;
+  max-width: 240px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.allowance-pause {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.allowance-pause input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.allowance-actions {
+  justify-content: flex-start;
+}
+.request-allowance .allowance-notice {
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .allowance-heading {
+    align-items: stretch;
+  }
+  .allowance-heading .button,
+  .allowance-actions .button {
+    width: 100%;
+  }
+}
