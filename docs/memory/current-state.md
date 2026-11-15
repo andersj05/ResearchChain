@@ -1,13 +1,54 @@
 # Current state
 
-Updated 2026-11-15. Active branch: `feat/backup-restore`, based on report
-editor dev merge `c9bc2d0`. The owner authorized frequent commits and merging
-completed steps into dev after CI. Do not promote to main or deploy publicly.
+Updated 2026-11-15. Owner access is implemented on `feat/workbench-auth` in
+[PR #28](https://github.com/andersj05/ResearchChain/pull/28), targeting dev.
+The owner authorized frequent commits and merging completed steps after CI.
+Do not promote to main or deploy publicly.
+
+## Owner access
+
+The workbench has a separate owner sign-in. Initial enrollment/recovery uses a
+five-minute, single-use link issued by `pnpm access:login`; normal visits use an
+Argon2id password. Sessions expire after 30 idle minutes or 12 hours, support
+revocation and require exact Origin plus session-bound CSRF on mutations.
+Every private API, original hash, export and execution action is protected.
+Health is minimal; documentation moved under the protected /api prefix.
+
+One configured database target/schema is one owner workspace. Requests cannot
+select a different scope. Existing records and hashes need no data migration.
+Owner state is protected separately from research backups and provider credentials.
+This does not add collaborator accounts, public hosting, paid API access or model calls.
+See [the operator guide](../owner-access.md) and
+[ADR 0010](../decisions/0010-owner-workspace-access.md).
+
+The browser preserves open drafts through reauthentication for the same identity,
+scopes saved drafts by owner/workspace, requires explicit legacy-draft import and
+does not replay rejected mutations. A controlled regression also verifies that a
+late style-list refresh cannot remove a newly saved guide. Stale-review coverage
+now holds a captured old request instead of depending on UI timing.
+
+Local `pnpm check` passed with 273 backend tests (353.47 seconds), formatting,
+lint, strict types and the production build. The subsequent style-refresh fix
+passed lint/types/build and all 63 production browser tests with four workers and
+retries disabled (2.3 minutes). Final checks and PR CI are being repeated on that fix.
+Tests use temporary research schemas and synthetic owner stores. The real owner
+store reports setup required, no password and zero sessions. The dev server is
+stopped for tests. After merge, reopen the real workbench with a private owner link
+and verify that the saved Pro connection and unreviewed pilot are preserved.
+
+On Windows, Python's default text encoding here is CP1252. Always read source as
+UTF-8 and write UTF-8 with explicit LF newlines; otherwise Unicode anchors and
+labels can be damaged, or local Prettier checks can fail on CRLF despite a clean
+normalized Git diff. The introduced encoding changes were repaired and verified.
+
+Issue #9 remains open for durable hosted workers, retention, off-machine recovery,
+secret operations and measured hosting decisions. Issues #6 and #7 still require
+actual owner review/labels and their documented provider/evaluation work.
 
 ## Backup and recovery
 
 The local backup/restore slice of [issue #9](https://github.com/andersj05/ResearchChain/issues/9)
-is implemented and locally verified; CI and merge are pending. It creates private
+is merged and verified. It creates private
 PostgreSQL custom archives with a manifest sharing the same exported snapshot.
 The migration lock is acquired before that snapshot. Restore requires a trusted
 archive and a new database, uses a temporary restricted owner, verifies migration,
@@ -19,13 +60,19 @@ TypeScript checks, and the production build. The 23 new tests cover binary origi
 reports/feedback/style/evaluations, paused resume, uncertain model requests,
 concurrent writes, migration locking, public-schema restore, partial-upgrade
 recovery, corruption/target guards, private permissions and redacted errors.
-CI now selects its Postgres service container for matching client tools.
+CI selects its Postgres service container for matching client tools.
+PR CI `43683923758` passed on `626f009`, including all 55 production browser
+tests. Post-merge dev CI `43684326455` passed on `5c13438`. Strict Python
+checks also passed for both Linux and Windows; process flags are detected portably.
 
 A private owner rehearsal from clean commit `1342cef` verified 27 tables, 86 rows
 and 12 originals (129,817 bytes) in a separate database, with zero provider calls.
 The live database was not switched. Ignored `.local/backup-rehearsal.json` records
 the private destination and receipt; the archive directory contains the complete
-manifest and restore receipt. The source app is currently stopped for verification.
+manifest and restore receipt. Before owner-access work, the local workbench was verified on the original database:
+API health was healthy and the saved active Pro account reported plan usage enabled. The pilot remains
+an unreviewed four-section report with no feedback. Revalidate and stop the owned
+dev service before future browser tests.
 See [the operator guide](../backups.md) and [ADR 0009](../decisions/0009-verified-backups.md).
 
 This is a local logical backup, not PITR or a full-cluster backup. Provider
@@ -34,6 +81,9 @@ Archives contain executable SQL and must be trusted. Retention/off-machine copie
 and hosted recovery objectives remain operational work.
 
 ## Report editing
+
+[PR #26](https://github.com/andersj05/ResearchChain/pull/26) merged as `c9bc2d0`;
+issue #8 is closed.
 
 The Reports tab seeds an immutable report from a completed research attempt.
 It supports ordered section drafting, fact/interpretation/scenario classifications,
@@ -102,13 +152,16 @@ issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.
 
 ## Next work
 
-Finish CI and merge for the backup/restore slice of
-[plan 0008](../plans/0008-operational-preparation.md). Then continue
-[operational controls #9](https://github.com/andersj05/ResearchChain/issues/9):
-authentication/authorization, execution and request limits, secrets, redacted
-observability, retention, and concrete deployment configuration. The issue requires
-workload measurements before hosting selection and does not authorize production
-deployment. Keep #6/#7 human review work open; do not invent feedback or labels.
+Implement [plan 0009](../plans/0009-workbench-auth.md) on `feat/workbench-auth`:
+owner authentication, session lifecycle and explicit workspace/resource access.
+The access-model question is pending; assume one owner initially unless the owner
+requests separate collaborator accounts. Keep provider sign-in separate.
+
+[Operational controls #9](https://github.com/andersj05/ResearchChain/issues/9)
+remains open for auth, durable worker ownership, execution/request limits, secrets,
+redacted observability, retention, off-machine/PITR recovery and workload-based
+hosting configuration. Backup completion was recorded in the issue. Keep #6/#7
+human review work open; do not invent feedback, labels or new research calls.
 
 The repository is `C:\Users\jense\Desktop\ResearchChain`; the old Documents/ChatGPT
 folder is empty. Browser tests use isolated `e2e_` schemas and a synthetic provider.

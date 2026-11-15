@@ -4,6 +4,108 @@
  */
 
 export interface paths {
+  "/api/access/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["owner_access_status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/exchange": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Exchange */
+    post: operations["exchange_owner_link"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Login */
+    post: operations["owner_password_login"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Password */
+    post: operations["change_owner_password"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout */
+    post: operations["owner_logout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/logout-all": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout All */
+    post: operations["owner_logout_all"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/artifacts": {
     parameters: {
       query?: never;
@@ -699,6 +801,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AccessStatus */
+    AccessStatus: {
+      /** Authenticated */
+      authenticated: boolean;
+      /** Password Enabled */
+      password_enabled: boolean;
+      session?: components["schemas"]["OwnerSession"] | null;
+    };
     /** ArtifactInfo */
     ArtifactInfo: {
       /** Id */
@@ -1817,18 +1927,6 @@ export interface components {
        * @constant
        */
       status: "ok";
-      /**
-       * Mode
-       * @default local-development
-       * @constant
-       */
-      mode: "local-development";
-      /**
-       * Database
-       * @default ready
-       * @constant
-       */
-      database: "ready";
     };
     /** Hypothesis */
     Hypothesis: {
@@ -1874,6 +1972,14 @@ export interface components {
       evidence_ids: string[];
       /** Generation Input */
       generation_input: string;
+    };
+    /** LinkExchange */
+    LinkExchange: {
+      /**
+       * Code
+       * Format: password
+       */
+      code: string;
     };
     /** LoopConfig */
     LoopConfig: {
@@ -1960,6 +2066,52 @@ export interface components {
       config_schema?: {
         [key: string]: unknown;
       };
+    };
+    /** OwnerSession */
+    OwnerSession: {
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id: string;
+      /** Owner Name */
+      owner_name: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Csrf Token */
+      csrf_token: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Idle Expires At
+       * Format: date-time
+       */
+      idle_expires_at: string;
+      /** Password Enabled */
+      password_enabled: boolean;
+      /** Recent Authentication */
+      recent_authentication: boolean;
+    };
+    /** PasswordChange */
+    PasswordChange: {
+      /**
+       * Password
+       * Format: password
+       */
+      password: string;
+      /** Current Password */
+      current_password?: string | null;
+    };
+    /** PasswordLogin */
+    PasswordLogin: {
+      /**
+       * Password
+       * Format: password
+       */
+      password: string;
     };
     /** PortSpec */
     PortSpec: {
@@ -2742,6 +2894,15 @@ export interface components {
        */
       usage_complete: boolean;
     };
+    /** SignOutResult */
+    SignOutResult: {
+      /**
+       * Signed Out
+       * @default true
+       * @constant
+       */
+      signed_out: true;
+    };
     /** SourceLocation */
     SourceLocation: {
       /** Page Start */
@@ -3007,6 +3168,165 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  owner_access_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+    };
+  };
+  exchange_owner_link: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LinkExchange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  owner_password_login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordLogin"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  change_owner_password: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordChange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  owner_logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignOutResult"];
+        };
+      };
+    };
+  };
+  owner_logout_all: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignOutResult"];
+        };
+      };
+    };
+  };
   upload_artifact: {
     parameters: {
       query: {

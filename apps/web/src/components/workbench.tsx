@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { useOwner } from "@/components/access-context";
+import { AccessControls } from "@/components/access-controls";
+import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
 import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
@@ -28,9 +31,15 @@ import {
   type ValidationResult,
 } from "@/lib/workflow";
 
-const storageKey = "researchchain.workflow.v0.1";
+const legacyKey = "researchchain.workflow.v0.1";
 
 export function Workbench() {
+  const { owner, active: accessActive } = useOwner();
+  const storagePrefix = ownerStoragePrefix(owner);
+  const storageKey = storagePrefix + ".workflow.v0.1";
+  const [legacyAvailable, setLegacyAvailable] = useState(() =>
+    legacyDraftAvailable(legacyKey, storagePrefix),
+  );
   const {
     workflow,
     change: recordChange,
@@ -123,7 +132,7 @@ export function Workbench() {
 
   const pollId = executingId ?? (run?.status === "running" ? run.id : null);
   useEffect(() => {
-    if (!pollId) return;
+    if (!pollId || !accessActive) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
@@ -143,7 +152,7 @@ export function Workbench() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pollId]);
+  }, [pollId, accessActive]);
 
   function change(next: Workflow, group?: string) {
     recordChange(next, group);
@@ -368,6 +377,7 @@ export function Workbench() {
         </span>
         <span className="breadcrumb-title">{workflow.name || "Untitled workflow"}</span>
         <span className="local-badge">Local workspace</span>
+        <AccessControls key={accessActive ? "active" : "locked"} />
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">
@@ -519,6 +529,31 @@ export function Workbench() {
                   >
                     Load saved draft
                   </Button>
+                  {legacyAvailable && (
+                    <Button
+                      className="button"
+                      disabled={!loaded || busy}
+                      onClick={() =>
+                        action(async () => {
+                          const raw = importLegacyDraft(legacyKey, storagePrefix);
+                          const validated = await api<ValidationResult>(
+                            "workflows/validate",
+                            JSON.parse(raw),
+                          );
+                          localStorage.setItem(storageKey, JSON.stringify(validated.workflow));
+                          change(validated.workflow);
+                          setDocumentEpoch((value) => value + 1);
+                          setSelected(validated.workflow.start_node);
+                          setLegacyAvailable(false);
+                          setMessage(
+                            "Older browser draft imported for this owner. The original was kept.",
+                          );
+                        })
+                      }
+                    >
+                      Import my draft saved before sign-in
+                    </Button>
+                  )}
                   <input
                     ref={importInput}
                     type="file"

@@ -3,6 +3,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 import pytest
+from access_fixtures import owner_client
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import IntegrityError
@@ -78,7 +79,7 @@ def test_concurrent_workers_cannot_approve_the_next_review(
     workflow["nodes"][1]["kind"] = "review"
     first = start(client, workflow)
     assert first["review"]["node_id"] == "challenge"
-    with TestClient(create_app(database)) as other, ThreadPoolExecutor(max_workers=2) as executor:
+    with owner_client(create_app(database)) as other, ThreadPoolExecutor(max_workers=2) as executor:
         futures = [
             executor.submit(worker.post, f"/api/runs/{first['id']}/resume", json=decision(first))
             for worker in (client, other)
@@ -256,7 +257,7 @@ def test_migrations_are_repeatable_and_verify_checksums(
     database: Database, client: TestClient
 ) -> None:
     database.migrate()
-    assert client.get("/api/health").json()["database"] == "ready"
+    assert client.get("/api/health").json() == {"status": "ok"}
     with database.connection() as conn:
         conn.execute("UPDATE schema_migrations SET checksum = 'changed'")
     assert client.get("/api/health").status_code == 503

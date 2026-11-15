@@ -2,9 +2,184 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ResearchChain API",
+    "description": "Private owner workspace. Sign in through /api/access; mutations require the session's X-ResearchChain-CSRF header and the configured browser Origin.",
     "version": "0.3.0"
   },
   "paths": {
+    "/api/access/status": {
+      "get": {
+        "tags": ["Owner access"],
+        "summary": "Status",
+        "operationId": "owner_access_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/exchange": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Exchange",
+        "operationId": "exchange_owner_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkExchange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/login": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Login",
+        "operationId": "owner_password_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/password": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Password",
+        "operationId": "change_owner_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/logout": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Logout",
+        "operationId": "owner_logout",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignOutResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/logout-all": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Logout All",
+        "operationId": "owner_logout_all",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignOutResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artifacts": {
       "post": {
         "summary": "Upload Artifact",
@@ -1960,6 +2135,32 @@
   },
   "components": {
     "schemas": {
+      "AccessStatus": {
+        "properties": {
+          "authenticated": {
+            "type": "boolean",
+            "title": "Authenticated"
+          },
+          "password_enabled": {
+            "type": "boolean",
+            "title": "Password Enabled"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnerSession"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["authenticated", "password_enabled"],
+        "title": "AccessStatus"
+      },
       "ArtifactInfo": {
         "properties": {
           "id": {
@@ -4476,18 +4677,6 @@
             "const": "ok",
             "title": "Status",
             "default": "ok"
-          },
-          "mode": {
-            "type": "string",
-            "const": "local-development",
-            "title": "Mode",
-            "default": "local-development"
-          },
-          "database": {
-            "type": "string",
-            "const": "ready",
-            "title": "Database",
-            "default": "ready"
           }
         },
         "additionalProperties": false,
@@ -4621,6 +4810,22 @@
           "generation_input"
         ],
         "title": "ImportedEvaluationOutput"
+      },
+      "LinkExchange": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 43,
+            "format": "password",
+            "title": "Code",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["code"],
+        "title": "LinkExchange"
       },
       "LoopConfig": {
         "properties": {
@@ -4855,6 +5060,105 @@
         "type": "object",
         "required": ["kind", "label", "inputs", "outputs"],
         "title": "NodeTypeSpec"
+      },
+      "OwnerSession": {
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          },
+          "workspace_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Workspace Id"
+          },
+          "csrf_token": {
+            "type": "string",
+            "title": "Csrf Token"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Idle Expires At"
+          },
+          "password_enabled": {
+            "type": "boolean",
+            "title": "Password Enabled"
+          },
+          "recent_authentication": {
+            "type": "boolean",
+            "title": "Recent Authentication"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "owner_id",
+          "owner_name",
+          "workspace_id",
+          "csrf_token",
+          "expires_at",
+          "idle_expires_at",
+          "password_enabled",
+          "recent_authentication"
+        ],
+        "title": "OwnerSession"
+      },
+      "PasswordChange": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 15,
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          },
+          "current_password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["password"],
+        "title": "PasswordChange"
+      },
+      "PasswordLogin": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["password"],
+        "title": "PasswordLogin"
       },
       "PortSpec": {
         "properties": {
@@ -6456,6 +6760,19 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RunUsage"
+      },
+      "SignOutResult": {
+        "properties": {
+          "signed_out": {
+            "type": "boolean",
+            "const": true,
+            "title": "Signed Out",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SignOutResult"
       },
       "SourceLocation": {
         "properties": {
