@@ -334,90 +334,93 @@ class RunStore:
             )
         ]
 
+    def start_command(self, conn: Connection[DictRow], request: RunRequest) -> DictRow:
+        """Validate and journal inputs; the caller serializes admission and commits."""
+        existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
+        if existing and (
+            existing["revision_id"] != request.revision_id
+            or existing["brief"] != request.brief
+            or self._evidence_ids(conn, request.id) != request.evidence_ids
+        ):
+            raise ConflictError("This run ID already belongs to different inputs.")
+        existing_research = read_manifest(conn, request.id) if existing else None
+        if existing and request.provider_account_id != (
+            existing_research.account_id if existing_research else None
+        ):
+            raise ConflictError("This run ID already belongs to a different provider account.")
+        artifacts = [item.model_dump() for item in request.artifacts]
+        if existing is None:
+            if len({item.id for item in request.artifacts}) != len(request.artifacts):
+                raise EvidenceError("Select each original only once.")
+            for item in request.artifacts:
+                stored = read_artifact(conn, item.id)
+                if stored.name != item.name or stored.media_type != item.media_type:
+                    raise EvidenceError("Artifact metadata must match the captured original.")
+        # Accepted legacy requests deliberately bypass new availability rules.
+        # Their saved addresses and command receipts remain valid after migration.
+        for evidence_id in request.evidence_ids:
+            source = read_evidence(conn, evidence_id)
+            if source.artifact and source.artifact.id not in {item["id"] for item in artifacts}:
+                artifacts.append(source.artifact.model_dump(include={"id", "name", "media_type"}))
+        if len(artifacts) > 100:
+            raise EvidenceError("A run supports at most 100 unique originals.")
+        if existing is None:
+            workflow = read_revision(conn, request.revision_id).workflow
+            research_manifest = None
+            if workflow.research:
+                if not request.provider_account_id:
+                    raise EvidenceError(
+                        "Select the connected provider account for this research run."
+                    )
+                account = self.provider.pin_account(
+                    request.provider_account_id, workflow.research.model
+                )
+                research_manifest = make_manifest(
+                    conn, workflow, request.revision_id, request.evidence_ids, account
+                )
+            elif request.provider_account_id:
+                raise EvidenceError("Provider selection is only valid for a research workflow.")
+            with conn.transaction():
+                conn.execute(
+                    "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (
+                        request.id,
+                        request.revision_id,
+                        compiler_version(workflow),
+                        request.brief,
+                        Jsonb(artifacts),
+                    ),
+                )
+                if research_manifest:
+                    conn.execute(
+                        "INSERT INTO run_research_manifests (run_id, manifest) VALUES (%s, %s)",
+                        (request.id, Jsonb(research_manifest.model_dump(mode="json"))),
+                    )
+                for ordinal, evidence_id in enumerate(request.evidence_ids):
+                    conn.execute(
+                        "INSERT INTO run_evidence (run_id, evidence_id, ordinal) "
+                        "VALUES (%s, %s, %s)",
+                        (request.id, evidence_id, ordinal),
+                    )
+                conn.execute("INSERT INTO run_controls (run_id) VALUES (%s)", (request.id,))
+                conn.execute(
+                    "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
+                    (uuid4(), request.id),
+                )
+        elif existing["artifacts"] != artifacts:
+            raise ConflictError("This run ID already belongs to different inputs.")
+        command = conn.execute(
+            "SELECT * FROM run_commands WHERE run_id = %s AND kind = 'start'", (request.id,)
+        ).fetchone()
+        assert command is not None
+        return command
+
     def start(self, request: RunRequest) -> RunSnapshot:
+        """Synchronous driver for local runtime operations and focused tests."""
         with self._locked(request.id) as conn:
-            existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
-            if existing and (
-                existing["revision_id"] != request.revision_id
-                or existing["brief"] != request.brief
-                or self._evidence_ids(conn, request.id) != request.evidence_ids
-            ):
-                raise ConflictError("This run ID already belongs to different inputs.")
-            existing_research = read_manifest(conn, request.id) if existing else None
-            if existing and request.provider_account_id != (
-                existing_research.account_id if existing_research else None
-            ):
-                raise ConflictError("This run ID already belongs to a different provider account.")
-            artifacts = [item.model_dump() for item in request.artifacts]
-            if existing is None:
-                if len({item.id for item in request.artifacts}) != len(request.artifacts):
-                    raise EvidenceError("Select each original only once.")
-                for item in request.artifacts:
-                    stored = read_artifact(conn, item.id)
-                    if stored.name != item.name or stored.media_type != item.media_type:
-                        raise EvidenceError("Artifact metadata must match the captured original.")
-            # Accepted legacy requests deliberately bypass new availability rules.
-            # Their saved addresses and command receipts remain valid after migration.
-            for evidence_id in request.evidence_ids:
-                source = read_evidence(conn, evidence_id)
-                if source.artifact and source.artifact.id not in {item["id"] for item in artifacts}:
-                    artifacts.append(
-                        source.artifact.model_dump(include={"id", "name", "media_type"})
-                    )
-            if len(artifacts) > 100:
-                raise EvidenceError("A run supports at most 100 unique originals.")
-            if existing is None:
-                workflow = read_revision(conn, request.revision_id).workflow
-                research_manifest = None
-                if workflow.research:
-                    if not request.provider_account_id:
-                        raise EvidenceError(
-                            "Select the connected provider account for this research run."
-                        )
-                    account = self.provider.pin_account(
-                        request.provider_account_id, workflow.research.model
-                    )
-                    research_manifest = make_manifest(
-                        conn, workflow, request.revision_id, request.evidence_ids, account
-                    )
-                elif request.provider_account_id:
-                    raise EvidenceError("Provider selection is only valid for a research workflow.")
-                with conn.transaction():
-                    conn.execute(
-                        "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
-                        "VALUES (%s, %s, %s, %s, %s)",
-                        (
-                            request.id,
-                            request.revision_id,
-                            compiler_version(workflow),
-                            request.brief,
-                            Jsonb(artifacts),
-                        ),
-                    )
-                    if research_manifest:
-                        conn.execute(
-                            "INSERT INTO run_research_manifests (run_id, manifest) VALUES (%s, %s)",
-                            (request.id, Jsonb(research_manifest.model_dump(mode="json"))),
-                        )
-                    for ordinal, evidence_id in enumerate(request.evidence_ids):
-                        conn.execute(
-                            "INSERT INTO run_evidence (run_id, evidence_id, ordinal) "
-                            "VALUES (%s, %s, %s)",
-                            (request.id, evidence_id, ordinal),
-                        )
-                    conn.execute("INSERT INTO run_controls (run_id) VALUES (%s)", (request.id,))
-                    conn.execute(
-                        "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
-                        (uuid4(), request.id),
-                    )
-            elif existing["artifacts"] != artifacts:
-                raise ConflictError("This run ID already belongs to different inputs.")
-            manifest = self._manifest(conn, request.id)
-            command = conn.execute(
-                "SELECT * FROM run_commands WHERE run_id = %s AND kind = 'start'", (request.id,)
-            ).fetchone()
-            assert command is not None
-            return self._drive(conn, manifest, command)
+            command = self.start_command(conn, request)
+            return self._drive(conn, self._manifest(conn, request.id), command)
 
     def get(self, run_id: UUID) -> RunSnapshot:
         with self.database.connection() as conn:
@@ -463,52 +466,59 @@ class RunStore:
             )
             return [RunSummary.model_validate(row) for row in rows]
 
+    def resume_command(
+        self, conn: Connection[DictRow], run_id: UUID, request: ResumeRequest
+    ) -> DictRow:
+        """Journal an exact review; the caller serializes admission and owns the run."""
+        manifest = self._manifest(conn, run_id)
+        existing = conn.execute(
+            "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
+            (run_id, request.interrupt_id),
+        ).fetchone()
+        if existing is not None:
+            if (
+                existing["decision"] != request.decision
+                or existing["checkpoint_id"] != request.checkpoint_id
+                or existing["feedback"] != request.feedback
+            ):
+                raise ConflictError("This review already has a different recorded decision.")
+            return existing
+        if (
+            request.feedback
+            and read_revision(conn, manifest["revision_id"]).workflow.schema_version != "0.3"
+        ):
+            raise ConflictError("Reviewer feedback requires workflow version 0.3.")
+        if self._unfinished(conn, run_id) is not None:
+            raise ConflictError("Recover this run's interrupted request before reviewing it.")
+        snapshot = self._snapshot(conn, manifest)
+        if (
+            snapshot.status != "paused"
+            or not any(item.interrupt_id == request.interrupt_id for item in snapshot.reviews)
+            or snapshot.checkpoint_id != request.checkpoint_id
+        ):
+            raise ConflictError(
+                "This review is no longer current. Refresh the run before deciding."
+            )
+        command = conn.execute(
+            "INSERT INTO run_commands "
+            "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "
+            "VALUES (%s, %s, 'resume', %s, %s, %s, %s) RETURNING *",
+            (
+                uuid4(),
+                run_id,
+                request.checkpoint_id,
+                request.interrupt_id,
+                request.decision,
+                request.feedback,
+            ),
+        ).fetchone()
+        assert command is not None
+        return command
+
     def resume(self, run_id: UUID, request: ResumeRequest) -> RunSnapshot:
         with self._locked(run_id) as conn:
-            manifest = self._manifest(conn, run_id)
-            existing = conn.execute(
-                "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
-                (run_id, request.interrupt_id),
-            ).fetchone()
-            if existing is not None:
-                if (
-                    existing["decision"] != request.decision
-                    or existing["checkpoint_id"] != request.checkpoint_id
-                    or existing["feedback"] != request.feedback
-                ):
-                    raise ConflictError("This review already has a different recorded decision.")
-                return self._drive(conn, manifest, existing)
-            if (
-                request.feedback
-                and read_revision(conn, manifest["revision_id"]).workflow.schema_version != "0.3"
-            ):
-                raise ConflictError("Reviewer feedback requires workflow version 0.3.")
-            if self._unfinished(conn, run_id) is not None:
-                raise ConflictError("Recover this run's interrupted request before reviewing it.")
-            snapshot = self._snapshot(conn, manifest)
-            if (
-                snapshot.status != "paused"
-                or not any(item.interrupt_id == request.interrupt_id for item in snapshot.reviews)
-                or snapshot.checkpoint_id != request.checkpoint_id
-            ):
-                raise ConflictError(
-                    "This review is no longer current. Refresh the run before deciding."
-                )
-            command = conn.execute(
-                "INSERT INTO run_commands "
-                "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "
-                "VALUES (%s, %s, 'resume', %s, %s, %s, %s) RETURNING *",
-                (
-                    uuid4(),
-                    run_id,
-                    request.checkpoint_id,
-                    request.interrupt_id,
-                    request.decision,
-                    request.feedback,
-                ),
-            ).fetchone()
-            assert command is not None
-            return self._drive(conn, manifest, command)
+            command = self.resume_command(conn, run_id, request)
+            return self._drive(conn, self._manifest(conn, run_id), command)
 
     def recover(self, run_id: UUID) -> RunSnapshot:
         with self._locked(run_id) as conn:
