@@ -141,5 +141,3 @@ class ValidationResult(StrictModel):
 
 class Health(StrictModel):
     status: Literal["ok"] = "ok"
-    mode: Literal["local-development"] = "local-development"
-    database: Literal["ready"] = "ready"

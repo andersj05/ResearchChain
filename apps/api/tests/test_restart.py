@@ -8,10 +8,14 @@ import time
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from dataclasses import replace
 from uuid import uuid4
 
 import httpx
 
+from researchchain.access_api import CSRF_HEADER
+from researchchain.access_config import AccessConfig
+from researchchain.access_service import AccessService
 from researchchain.database import Database
 
 
@@ -20,10 +24,13 @@ def api_process(database: Database) -> Iterator[httpx.Client]:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
+    origin = f"http://127.0.0.1:{port}"
+    access = AccessService(replace(AccessConfig.from_env(database), origin=origin))
     environment = {
         **os.environ,
         "DATABASE_URL": database.url,
         "DATABASE_SCHEMA": database.schema,
+        "RESEARCHCHAIN_PUBLIC_ORIGIN": origin,
     }
     process = subprocess.Popen(
         [
@@ -43,7 +50,7 @@ def api_process(database: Database) -> Iterator[httpx.Client]:
         stderr=subprocess.PIPE,
     )
     try:
-        with httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=5) as client:
+        with httpx.Client(base_url=origin, timeout=5, headers={"Origin": origin}) as client:
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 if process.poll() is not None:
@@ -56,6 +63,11 @@ def api_process(database: Database) -> Iterator[httpx.Client]:
                 time.sleep(0.05)
             else:
                 raise AssertionError("Test API did not become ready within 20 seconds.")
+            response = client.post(
+                "/api/access/exchange", json={"code": access.issue_link().get_secret_value()}
+            )
+            assert response.status_code == 200, response.text
+            client.headers[CSRF_HEADER] = response.json()["session"]["csrf_token"]
             yield client
     finally:
         if process.poll() is None:

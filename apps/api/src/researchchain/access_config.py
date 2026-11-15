@@ -25,12 +25,18 @@ class AccessConfig:
     grant_seconds: int = 5 * 60
 
     def __post_init__(self) -> None:
-        parsed = urlsplit(self.origin)
+        try:
+            parsed = urlsplit(self.origin)
+            port = parsed.port
+        except ValueError:
+            raise AccessError("Configure one valid workbench origin.", 503) from None
         if (
             parsed.scheme not in {"http", "https"}
             or not parsed.hostname
-            or parsed.username
-            or parsed.password
+            or parsed.username is not None
+            or parsed.password is not None
+            or port == 0
+            or any(c.isspace() or c in "\\%" for c in self.origin)
             or parsed.query
             or parsed.fragment
             or parsed.path not in {"", "/"}
@@ -44,8 +50,15 @@ class AccessConfig:
             loopback = False
         if parsed.scheme != "https" and not loopback:
             raise AccessError("Non-loopback workbench origins require HTTPS.", 503)
-        if self.origin.endswith("/"):
-            raise AccessError("Configure the workbench origin without a trailing slash.", 503)
+        host = f"[{parsed.hostname}]" if ":" in parsed.hostname else parsed.hostname
+        default_port = 443 if parsed.scheme == "https" else 80
+        canonical = f"{parsed.scheme}://{host}"
+        if port is not None and port != default_port:
+            canonical += f":{port}"
+        if self.origin != canonical:
+            raise AccessError(
+                "Use a canonical workbench origin without a path or default port.", 503
+            )
         if not 60 <= self.idle_seconds <= self.session_seconds <= 86400:
             raise AccessError("Session limits must be bounded between one minute and one day.", 503)
 

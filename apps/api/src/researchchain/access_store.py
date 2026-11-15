@@ -14,6 +14,7 @@ from researchchain.access_config import AccessConfig
 from researchchain.access_models import AccessError, AccessState
 from researchchain.backup_files import private_directory
 from researchchain.backup_models import BackupError
+from researchchain.backup_tools import ROOT
 from researchchain.providers.credentials import protect, unprotect
 
 MAX_STATE = 1024 * 1024
@@ -28,6 +29,11 @@ class AccessStore:
     @contextmanager
     def locked(self) -> Iterator[None]:
         try:
+            resolved = self.directory.resolve()
+            if resolved.is_relative_to(ROOT):
+                parts = resolved.relative_to(ROOT).parts
+                if not parts or parts[0] not in {".local", "data", "artifacts"}:
+                    raise AccessError("Keep owner access files outside tracked source.", 503)
             self.directory.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
             if not self.directory.exists():
                 try:

@@ -6,7 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from access_fixtures import owner_client
 from graph_fixtures import split
 from test_research_contracts import research_document, result_document
 
@@ -256,7 +256,7 @@ def test_recovery_reuses_completed_result_before_checkpoint(
 
 def test_provider_api_and_account_required_before_start(database: Database) -> None:
     store, request, provider = setup_run(database)
-    with TestClient(create_app(database, provider)) as client:
+    with owner_client(create_app(database, provider)) as client:
         result = client.get("/api/providers/chatgpt")
         assert result.status_code == 200
         assert result.json()["accounts"][0]["id"] == "oaiapp_fixture"

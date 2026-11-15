@@ -4,9 +4,15 @@ from typing import Annotated
 from uuid import UUID
 
 import psycopg
-from fastapi import FastAPI, Query, Request
+from fastapi import FastAPI, Query, Request, Response
+from fastapi.exception_handlers import request_validation_exception_handler
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from researchchain.access_api import AccessMiddleware, access_router
+from researchchain.access_config import AccessConfig
+from researchchain.access_models import AccessError
+from researchchain.access_service import AccessService
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
 from researchchain.evaluation_api import evaluation_router
@@ -33,16 +39,46 @@ from researchchain.runtime import RunStore
 
 
 def create_app(
-    database: Database | None = None, provider: ResearchProvider | None = None
+    database: Database | None = None,
+    provider: ResearchProvider | None = None,
+    access: AccessService | None = None,
 ) -> FastAPI:
     database = database or Database.from_env()
+    config = AccessConfig.from_env(database)
+    access = access or AccessService(config)
+    if access.config.workspace_id != config.workspace_id:
+        raise ValueError("Owner access must be bound to this database workspace.")
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database.ready()
         yield
 
-    app = FastAPI(title="ResearchChain API", version="0.3.0", lifespan=lifespan)
+    app = FastAPI(
+        title="ResearchChain API",
+        version="0.3.0",
+        lifespan=lifespan,
+        docs_url="/api/docs",
+        redoc_url=None,
+        openapi_url="/api/openapi.json",
+        description="Private owner workspace. Sign in through /api/access; mutations require "
+        "the session's X-ResearchChain-CSRF header and the configured browser Origin.",
+    )
+    app.state.access = access
+    app.add_middleware(AccessMiddleware, access=access)
+    app.include_router(access_router(access))
+
+    @app.exception_handler(AccessError)
+    async def access_error(request: Request, error: AccessError) -> JSONResponse:
+        headers = {"Retry-After": "60"} if error.status == 429 else None
+        return JSONResponse({"detail": str(error)}, status_code=error.status, headers=headers)
+
+    @app.exception_handler(RequestValidationError)
+    async def invalid_request(request: Request, error: RequestValidationError) -> Response:
+        if request.url.path.startswith("/api/access/"):
+            return JSONResponse({"detail": "Invalid sign-in request."}, status_code=422)
+        return await request_validation_exception_handler(request, error)
+
     app.include_router(evidence_router(database))
     app.include_router(evaluation_router(database))
     app.include_router(report_router(database))
@@ -87,9 +123,7 @@ def create_app(
         except (psycopg.Error, RuntimeError):
             return JSONResponse(
                 status_code=503,
-                content={
-                    "detail": "Database is not ready. Start Postgres and run pnpm db:migrate."
-                },
+                content={"detail": "The service is not ready."},
             )
         return Health()
 

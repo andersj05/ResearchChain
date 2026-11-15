@@ -209,3 +209,39 @@ def test_corrupt_access_state_is_preserved_and_errors_are_redacted(access: Acces
         access.status(None)
     assert "PRIVATE-SENTINEL" not in str(error.value)
     assert access.store.path.read_bytes() == invalid
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://localhost:0",
+        "http://localhost:99999",
+        "http://localhost:invalid",
+        "http://localhost/",
+        "http://localhost:80",
+        "https://EXAMPLE.test",
+        "https://example.test/path",
+        "https://user@example.test",
+        "https://example.test/#secret",
+        "https://example.test?query=1",
+        "https://example.test\n",
+        "http://[",
+    ],
+)
+def test_invalid_or_noncanonical_origins_fail_closed(access: AccessService, origin: str) -> None:
+    with pytest.raises(AccessError):
+        replace(access.config, origin=origin)
+
+
+def test_access_storage_rejects_existing_tracked_directory(
+    access: AccessService, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import researchchain.access_store as module
+
+    directory = tmp_path / "src"
+    directory.mkdir()
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    service = AccessService(replace(access.config, directory=directory))
+    with pytest.raises(AccessError, match="tracked"):
+        service.issue_link()
+    assert list(directory.iterdir()) == []
