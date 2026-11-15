@@ -52,11 +52,16 @@ budgets, reproducible manifests, and a human baseline comparison. Then come
 [evals #7](https://github.com/andersj05/ResearchChain/issues/7) and
 [report editing #8](https://github.com/andersj05/ResearchChain/issues/8).
 
-One live connection check is verified. Research execution is not wired to the provider yet. Registering
-links does not fetch websites. OCR/estimation is supplied, not automatically run.
+The provider step passes `pnpm check` with 147 backend tests, lint/format checks,
+strict types, and a production build. Desktop/mobile sign-in browser tests pass
+with a synthetic exchange; existing workbench/evidence browser tests also passed.
+The sign-in screens were visually inspected.
+
+One live connection check is verified. Research execution is not wired to the
+provider yet. Registering links does not fetch websites. OCR/estimation is supplied, not automatically run.
 The deterministic runtime is not yet a research agent. Source permissions and
 metadata are user declarations; table parsing does not verify financial claims.
-Authentication, remote hosting, retention/quotas, and backup operations remain
+Application authentication, remote hosting, retention/quotas, and backup operations remain
 unimplemented. Originals and orphan uploads are retained in local Postgres.
 
 ## Workspace and commands
