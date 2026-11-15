@@ -7,8 +7,8 @@ steps into dev after passing checks. No main promotion or public deployment.
 
 The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty
 Documents/ChatGPT directory is not the checkout. Use explicit working directories.
-The documentation checkout is C:/Users/jense/Desktop/ResearchChain-handoff,
-branch feat/implementation-handoff. Check GitHub and the private delivery receipts
+The evaluation protocol checkout is C:/Users/jense/Desktop/ResearchChain-evaluation,
+branch feat/evaluation-study. Check GitHub and the private delivery receipts
 for current integration state; do not infer it from an old service handle.
 
 [PR #35](https://github.com/andersj05/ResearchChain/pull/35) delivered the workspace
@@ -60,6 +60,24 @@ review is .local/pilot-review-owner/index.html, copied from .local/pilot-report-
 after verifying that its complete report view matches the database. An owner
 feedback question is pending. Do not supply or record that judgment on the owner's behalf.
 
+A first real frozen-writing case and randomized comparison are also ready for review.
+Four public primary-source extracts and eight captured/derived records were frozen
+before generation. Their date, reference-exclusion and exact-input checks passed.
+The case uses the actual November 15 capture cutoff; it is not a historical forecast
+test. One source is explicitly a web-text extract because direct download was blocked.
+
+The reserved three-stage run completed with 29,544 input and 6,322 output tokens
+in about 146 active seconds, using three included-plan requests. Its first and final
+notes became the two recorded candidates, without output selection or retries.
+The final run checkpoint and the A/B judgment remain open. There are no human labels
+or judge predictions, and this correlated pair does not establish quality or calibration.
+The offline copy preserves both complete blind texts and all four source byte hashes.
+
+Main .local/evaluation-inflation-20261115/comparison-delivery.json records the exact
+comparison and live review URL; review/index.html is the offline copy. The reservation,
+source captures and generation packet remain private. A review question is pending.
+Use [the study protocol](../evaluation-study.md) for collection and interpretation.
+
 ## Runtime and upgrade invariants
 
 Keep ExecutionControl.lock shared with PostgresSaver.lock. The physical database
@@ -90,8 +108,9 @@ Restore any displaced live services after testing.
 - [#6](https://github.com/andersj05/ResearchChain/issues/6): actual owner assessment
   of the paused pilot/development comparison and provider-side spend controls.
   The request cap is local; the provider route cannot cap an in-flight response.
-- [#7](https://github.com/andersj05/ResearchChain/issues/7): real separate holdouts,
-  independent human labels and judge calibration against those labels. Do not
+- [#7](https://github.com/andersj05/ResearchChain/issues/7): additional real separate
+  holdouts, actual human assessment of the prepared comparison and judge calibration
+  against independent human labels. Do not
   fabricate judgments, claim synthetic fixtures as quality evidence or optimize
   a judge before a reliable baseline exists.
 - [#9](https://github.com/andersj05/ResearchChain/issues/9): a chosen off-machine
