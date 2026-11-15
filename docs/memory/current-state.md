@@ -1,8 +1,8 @@
 # Current state
 
-Updated 2026-11-14. The evidence milestone is implemented in
-[PR #22](https://github.com/andersj05/ResearchChain/pull/22) on
-`feat/evidence-provenance`; local checks pass and CI is the remaining merge gate.
+Updated 2026-11-14. The evidence milestone is merged into dev through
+[PR #22](https://github.com/andersj05/ResearchChain/pull/22), merge `81701c0`,
+with seven feature commits and passing CI. Issue #5 is closed.
 The runtime and visual editor are already merged into dev through
 [PR #20](https://github.com/andersj05/ResearchChain/pull/20) and
 [PR #21](https://github.com/andersj05/ResearchChain/pull/21). Issues #3 and #4 are closed.
@@ -38,9 +38,14 @@ The runtime and visual editor are already merged into dev through
 
 ## Next work and limits
 
-Finish PR #22's CI gate, merge into dev, and close issue #5 once merged. Next is
+Active branch: `feat/hypothesis-research`, starting from `81701c0`; only this
+completion handoff has changed. Next is
 [issue #6](https://github.com/andersj05/ResearchChain/issues/6): a bounded live
-hypothesis-testing workflow with human-approved provider setup. Then come
+hypothesis-testing workflow with human-approved provider setup. A safe presence
+check found no configured OpenAI key in the process environment or repository env
+files. A user choice is pending: secure OpenAI key setup or another provider. The
+OpenAI API key skill requires that decision before API-dependent implementation;
+no provider code, calls, or credentials have been added. Then come
 [evals #7](https://github.com/andersj05/ResearchChain/issues/7) and
 [report editing #8](https://github.com/andersj05/ResearchChain/issues/8).
 
