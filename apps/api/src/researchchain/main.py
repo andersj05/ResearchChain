@@ -22,12 +22,17 @@ from researchchain.models import (
     Workflow,
     WorkflowRevision,
 )
+from researchchain.providers.credentials import ConnectionError as ProviderConnectionError
 from researchchain.registry import NodeTypeSpec, node_types
+from researchchain.research import ResearchProvider
+from researchchain.research_models import ProviderStatus
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
 from researchchain.runtime import RunStore
 
 
-def create_app(database: Database | None = None) -> FastAPI:
+def create_app(
+    database: Database | None = None, provider: ResearchProvider | None = None
+) -> FastAPI:
     database = database or Database.from_env()
 
     @asynccontextmanager
@@ -35,9 +40,9 @@ def create_app(database: Database | None = None) -> FastAPI:
         database.ready()
         yield
 
-    app = FastAPI(title="ResearchChain API", version="0.2.0", lifespan=lifespan)
+    app = FastAPI(title="ResearchChain API", version="0.3.0", lifespan=lifespan)
     app.include_router(evidence_router(database))
-    runs = RunStore(database)
+    runs = RunStore(database, provider)
     revisions = RevisionStore(database)
 
     @app.exception_handler(NotFoundError)
@@ -47,6 +52,14 @@ def create_app(database: Database | None = None) -> FastAPI:
     @app.exception_handler(ConflictError)
     async def conflict(request: Request, error: ConflictError) -> JSONResponse:
         return JSONResponse(status_code=409, content={"detail": str(error)})
+
+    @app.exception_handler(ProviderConnectionError)
+    async def provider_error(request: Request, error: ProviderConnectionError) -> JSONResponse:
+        return JSONResponse(status_code=422, content={"detail": str(error)})
+
+    @app.get("/api/providers/chatgpt", response_model=ProviderStatus, operation_id="chatgpt_status")
+    def chatgpt_status() -> ProviderStatus:
+        return runs.provider.status()
 
     @app.exception_handler(EvidenceError)
     async def invalid_evidence(request: Request, error: EvidenceError) -> JSONResponse:

@@ -214,6 +214,7 @@ def test_registry_and_openapi_keep_typed_workflow_contracts(client: TestClient) 
         "join",
         "loop",
         "subgraph",
+        "research",
     }
     assert {"name": "text", "type": "text"} in registry["note"]["outputs"]
     assert "max_iterations" in registry["loop"]["config_schema"]["properties"]

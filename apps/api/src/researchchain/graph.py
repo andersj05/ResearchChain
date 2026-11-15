@@ -329,13 +329,15 @@ class Workflow(GraphDefinition):
         if self.schema_version != "0.3":
             if has_research or self.research:
                 raise ValueError("Research nodes and settings require schema version 0.3.")
-            if any(
-                source.port == "feedback"
-                for graph in all_graphs
-                for node in graph.nodes
-                for source in node.inputs.values()
-            ):
-                raise ValueError("Reviewer feedback inputs require schema version 0.3.")
+            for graph in all_graphs:
+                for node in graph.nodes:
+                    sources = list(node.inputs.values())
+                    if isinstance(node.config, RouteConfig):
+                        sources.append(node.config.condition.left)
+                    if isinstance(node.config, LoopConfig) and node.config.until:
+                        sources.append(node.config.until.left)
+                    if any(source.port == "feedback" for source in sources):
+                        raise ValueError("Reviewer feedback requires schema version 0.3.")
         if has_research and self.research is None:
             raise ValueError("Research nodes require provider, model, and execution settings.")
         if legacy and (self.subgraphs or self.budgets != ExecutionBudgets()):

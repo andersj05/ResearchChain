@@ -71,7 +71,8 @@ class ExecutionControl:
 
 def control_state(conn: Connection[DictRow], run_id: UUID) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT terminal_status, reason, active_seconds, "
+        "SELECT terminal_status, reason, active_seconds + "
+        "COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0) AS active_seconds, "
         "(SELECT count(*) FROM run_node_executions WHERE run_id = %s) AS node_executions "
         "FROM run_controls WHERE run_id = %s",
         (run_id, run_id),
