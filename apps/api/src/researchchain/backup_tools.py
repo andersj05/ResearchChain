@@ -80,7 +80,8 @@ def execute(
             stderr=subprocess.PIPE,
             timeout=TIMEOUT,
             check=False,
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            # The constant exists only on Windows; zero is the portable default.
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
         )
     except (OSError, subprocess.TimeoutExpired):
         raise BackupError(
