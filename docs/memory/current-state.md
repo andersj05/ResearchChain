@@ -1,7 +1,7 @@
 # Current state
 
-Updated 2026-11-15. Owner access is implemented on `feat/workbench-auth` in
-[PR #28](https://github.com/andersj05/ResearchChain/pull/28), targeting dev.
+Updated 2026-11-15. Owner access [PR #28](https://github.com/andersj05/ResearchChain/pull/28)
+merged into dev as `e7ee33e`. The next slice is prepared on `feat/durable-workers`.
 The owner authorized frequent commits and merging completed steps after CI.
 Do not promote to main or deploy publicly.
 
@@ -27,14 +27,24 @@ does not replay rejected mutations. A controlled regression also verifies that a
 late style-list refresh cannot remove a newly saved guide. Stale-review coverage
 now holds a captured old request instead of depending on UI timing.
 
-Local `pnpm check` passed with 273 backend tests (353.47 seconds), formatting,
-lint, strict types and the production build. The subsequent style-refresh fix
-passed lint/types/build and all 63 production browser tests with four workers and
-retries disabled (2.3 minutes). Final checks and PR CI are being repeated on that fix.
-Tests use temporary research schemas and synthetic owner stores. The real owner
-store reports setup required, no password and zero sessions. The dev server is
-stopped for tests. After merge, reopen the real workbench with a private owner link
-and verify that the saved Pro connection and unreviewed pilot are preserved.
+Final `pnpm check` passed on `aba1c02` with 273 backend tests (352.44 seconds),
+formatting, lint, strict types and the production build. All 63 production browser
+tests passed with four workers and retries disabled (2.3 minutes). PR CI
+`43692130107` passed on that head; post-merge dev CI `43692774005` passed on
+`e7ee33e`. Tests use temporary research schemas and synthetic owner stores.
+
+A live check after merge returned health 200 and anonymous private-read 401.
+An ephemeral owner session verified the active Pro connection with plan usage
+enabled, eight available models and no provider error. The existing report still
+has four sections, three sources, unreviewed status and zero feedback. Its run
+remains paused with the same three model attempts. The audit session was signed
+out; no model call or review decision was made. Aggregate results are in ignored
+`.local/owner-access-live-check.json`. The loopback dev service is running again.
+A fresh private owner link opened in the default browser and was consumed:
+one active owner session, zero pending links, password not yet set. The owner can
+choose it from Set owner password in the header; use `pnpm access:login` again
+if recent authentication expires. Stop the owned dev service before the next
+browser suite.
 
 On Windows, Python's default text encoding here is CP1252. Always read source as
 UTF-8 and write UTF-8 with explicit LF newlines; otherwise Unicode anchors and
@@ -152,15 +162,16 @@ issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.
 
 ## Next work
 
-Implement [plan 0009](../plans/0009-workbench-auth.md) on `feat/workbench-auth`:
-owner authentication, session lifecycle and explicit workspace/resource access.
-The access-model question is pending; assume one owner initially unless the owner
-requests separate collaborator accounts. Keep provider sign-in separate.
+Implement [plan 0010](../plans/0010-durable-workers.md) on `feat/durable-workers`.
+The current start/resume/recover HTTP handlers still drive execution synchronously.
+Separate durable command admission from bounded worker execution, preserving
+pinned inputs, exact review checks, cancellation and uncertain-request protection.
+One owner per configured workspace remains the implemented access scope.
 
 [Operational controls #9](https://github.com/andersj05/ResearchChain/issues/9)
-remains open for auth, durable worker ownership, execution/request limits, secrets,
+remains open for durable worker ownership, execution/request limits, secrets,
 redacted observability, retention, off-machine/PITR recovery and workload-based
-hosting configuration. Backup completion was recorded in the issue. Keep #6/#7
+hosting configuration. Backup and owner-access completion are recorded in the issue. Keep #6/#7
 human review work open; do not invent feedback, labels or new research calls.
 
 The repository is `C:\Users\jense\Desktop\ResearchChain`; the old Documents/ChatGPT
