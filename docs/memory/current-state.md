@@ -40,11 +40,12 @@ Runtime [PR #20](https://github.com/andersj05/ResearchChain/pull/20), editor
 are merged into dev. Issues #3–#5 are closed. The connection was verified through
 real browser consent and a completed model response; no API key or credit purchase.
 
-Research checks passed before final review fixes with 167 backend tests and all
-46 browser scenarios (one concurrent-reader race exposed by a retry). That race
-is fixed with a backend regression test. Final checks now include 169 backend and
-47 browser scenarios; their final outcomes and PR CI must be verified before merge.
-Desktop/mobile research screens were inspected. Migration 0005 is applied locally.
+`pnpm check` passed with 169 backend tests, lint, formatting, strict types and a
+production build. All 47 browser tests passed against production with four workers
+and retries disabled; generated-contract drift checks also passed. The concurrent
+progress-reader race found during testing is fixed and covered. Desktop/mobile
+research screens were inspected. Migration 0005 is applied locally. PR CI still
+must pass before merge.
 
 ## Next work and limits
 

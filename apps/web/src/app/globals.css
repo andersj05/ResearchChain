@@ -1970,7 +1970,7 @@ footer p {
   font-weight: 600;
 }
 .research-results {
-  margin: 24px 0;
+  margin: 24px auto;
   min-width: 0;
 }
 .research-results .section-heading {
