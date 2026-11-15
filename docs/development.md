@@ -33,6 +33,14 @@ ordered SQL files with checksums; applied files must never be edited. The same
 command applies LangGraph's checkpoint migrations under a database lock. Back up
 the database before upgrades; volumes and checkpoints are not backups.
 
+## Optional ChatGPT plan connection
+
+Use `pnpm provider:login` to connect an eligible ChatGPT plan, then
+`pnpm provider:models` and `pnpm provider:verify --model <slug>` to verify a small
+response. See [the connection guide](chatgpt-plan.md) for account management,
+protected credential storage, usage controls, and current limits. This setup does
+not yet add live research nodes to the deterministic workflow runtime.
+
 ## Iteration
 
 ```text

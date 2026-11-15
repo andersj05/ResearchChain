@@ -20,6 +20,8 @@ Confirmed with the owner, 2026-11-13.
 - Visual refinement (2026-11-14): square corners throughout; remove decorative
   graphics and redundant icons. Favor explicit labels and predictable editing.
 - Use LangGraph for orchestration. Do not lock the system to a single model vendor.
+- Provider choice (2026-11-14): use the owner's ChatGPT Pro included allowance via
+  the official local-app Sign in with ChatGPT flow. No paid API fallback.
 - Branch structure is `main` → `dev` → `feat/<feature-name>`.
 - Prioritize short, reproducible iteration loops with meaningful quality checks.
 - Track development through GitHub issues and PRs using `gh`; no GitHub Projects
