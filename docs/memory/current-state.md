@@ -1,10 +1,10 @@
 # Current state
 
-Updated 2026-11-15. Report editing is implemented in
-[PR #26](https://github.com/andersj05/ResearchChain/pull/26), targeting dev.
-Active branch: `feat/report-editing`. Local validation is complete; final-head CI
-and merge are still pending. The owner authorized frequent commits and merging
-completed steps into dev after CI. Do not promote to main or deploy publicly.
+Updated 2026-11-15. Report editing merged into dev through
+[PR #26](https://github.com/andersj05/ResearchChain/pull/26), merge `c9bc2d0`,
+with seven feature-branch commits. Issue #8 is closed. Active branch:
+`feat/backup-restore`. The owner authorized frequent commits and merging completed
+steps into dev after CI. Do not promote to main or deploy publicly.
 
 ## Report editing
 
@@ -28,8 +28,17 @@ correction passed its focused API/export test and regenerated contracts.
 The full production browser suite passed all 55 tests with four workers and retries
 disabled. Desktop/mobile report screenshots were inspected. The browser cases cover
 draft recovery, lost-response retries, conflicting saves, exact Unicode anchoring,
-style pinning, review invalidation and export. Final CI must pass before merging.
-Migration 0007 is not yet applied to the owner's public schema.
+style pinning, review invalidation and export. PR CI `43679633006` passed on
+`743972c`; post-merge dev CI `43680029694` passed on `c9bc2d0`.
+
+Migration 0007 is applied locally; do not edit its checksum. The existing final
+research result is now a private, unreviewed four-section report with three source
+originals and an explicitly unreviewed editorial starter guide. It has no feedback,
+made no additional model attempt, and left the research run paused. The offline
+review export's three original hashes were verified. Private identifiers/setup and
+the ZIP remain in ignored `.local/report-pilot.json`, `.local/register-report-pilot.py`
+and `.local/pilot-report-review.zip`. The live local API returned the report
+successfully; opening its Codex browser tab was queued, not visually confirmed.
 
 ## Evaluation and research
 
@@ -66,15 +75,13 @@ issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.
 
 ## Next work
 
-Finish PR #26 CI/merge, apply migration 0007, and prepare the existing private
-research pilot in the report editor with an explicitly unreviewed starter guide.
-Do not create human feedback or approve its research review.
-
-Then prepare [operational controls #9](https://github.com/andersj05/ResearchChain/issues/9):
+Implement [plan 0008](../plans/0008-operational-preparation.md), starting with a
+tested backup/restore workflow on `feat/backup-restore`. Then continue
+[operational controls #9](https://github.com/andersj05/ResearchChain/issues/9):
 authentication/authorization, execution and request limits, secrets, redacted
-observability, retention, tested backup/restore and deployment configuration.
-The issue explicitly requires workload measurements before hosting selection and
-does not authorize a production deployment. Keep #6/#7 human review work open.
+observability, retention, and concrete deployment configuration. The issue requires
+workload measurements before hosting selection and does not authorize production
+deployment. Keep #6/#7 human review work open; do not invent feedback or labels.
 
 The repository is `C:\Users\jense\Desktop\ResearchChain`; the old Documents/ChatGPT
 folder is empty. Browser tests use isolated `e2e_` schemas and a synthetic provider.
