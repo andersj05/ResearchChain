@@ -42,3 +42,22 @@ def database() -> Iterator[Database]:
 def client(database: Database) -> Iterator[TestClient]:
     with TestClient(create_app(database)) as client:
         yield client
+
+
+@pytest.fixture
+def restore_target(database: Database) -> Iterator[str]:
+    name = "test_restore_" + uuid4().hex
+    try:
+        yield name
+    finally:
+        assert name.startswith("test_restore_") and len(name) == 45
+        with database.connection() as conn:
+            owner = conn.execute(
+                "SELECT pg_get_userbyid(datdba) AS owner FROM pg_database WHERE datname=%s",
+                (name,),
+            ).fetchone()
+            conn.execute(
+                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(sql.Identifier(name))
+            )
+            if owner and owner["owner"].startswith("rc_restore_"):
+                conn.execute(sql.SQL("DROP ROLE {}").format(sql.Identifier(owner["owner"])))
