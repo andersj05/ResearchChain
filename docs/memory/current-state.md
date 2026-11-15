@@ -35,7 +35,7 @@ formatting, lint, strict Python/TypeScript checks, contract drift and a producti
 build. All 51 browser tests passed in CI; the same full suite also passed locally
 against production with four workers and retries disabled. Desktop/mobile screens
 were inspected. The added tab's narrow-screen overflow was fixed. The automatic
-dev check on merge `2dba860` is running as `43676146112`.
+dev check on merge `2dba860` also passed (`43676146112`).
 
 ## Prior research milestone
 
