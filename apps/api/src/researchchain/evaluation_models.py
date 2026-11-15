@@ -1,11 +1,11 @@
 """Versioned evaluation inputs, immutable labels, and explicitly blind review views."""
 
-from datetime import date, datetime
+from datetime import date
 from math import isclose
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, HttpUrl, model_validator
+from pydantic import AwareDatetime, Field, HttpUrl, model_validator
 
 from researchchain.evidence_models import EvidenceRecord
 from researchchain.research_models import Address, ResearchModel
@@ -38,7 +38,7 @@ class EvaluationReferenceCreate(ResearchModel):
 
 class EvaluationReference(EvaluationReferenceCreate):
     content_hash: Address
-    created_at: datetime
+    created_at: AwareDatetime
 
 
 class EvaluationCase(ResearchModel):
@@ -84,7 +84,7 @@ class EvaluationDataset(EvaluationDatasetCreate):
     series_id: UUID
     version: int
     content_hash: Hash
-    created_at: datetime
+    created_at: AwareDatetime
 
 
 class EvaluationDatasetSummary(ResearchModel):
@@ -93,7 +93,7 @@ class EvaluationDatasetSummary(ResearchModel):
     version: int
     title: str
     case_count: int
-    created_at: datetime
+    created_at: AwareDatetime
 
 
 class EvaluationCheck(ResearchModel):
@@ -177,7 +177,7 @@ class EvaluationCandidate(ResearchModel):
     artifact_id: Address
     provenance: EvaluationProvenance
     checks: EvaluationChecks
-    created_at: datetime
+    created_at: AwareDatetime
 
 
 class EvaluationComparisonCreate(ResearchModel):
@@ -245,7 +245,7 @@ class EvaluationFeedbackCreate(ResearchModel):
 
 
 class EvaluationFeedback(EvaluationFeedbackCreate):
-    created_at: datetime
+    created_at: AwareDatetime
     left_qualified: bool
     right_qualified: bool
     indexing: Literal["unicode_code_points"] = "unicode_code_points"
@@ -268,7 +268,7 @@ class EvaluationComparison(ResearchModel):
     evidence: list[EvidenceRecord]
     left: EvaluationSide
     right: EvaluationSide
-    created_at: datetime
+    created_at: AwareDatetime
     feedback: EvaluationFeedback | None = None
     reveal: EvaluationReveal | None = None
 
@@ -279,7 +279,7 @@ class EvaluationComparisonSummary(ResearchModel):
     track: Track
     partition: Partition
     reviewed: bool
-    created_at: datetime
+    created_at: AwareDatetime
 
 
 class EvaluationJudgeCreate(ResearchModel):
@@ -305,7 +305,7 @@ class EvaluationJudgeCreate(ResearchModel):
 
 class EvaluationJudge(EvaluationJudgeCreate):
     prompt_hash: Hash
-    created_at: datetime
+    created_at: AwareDatetime
     source: Literal["imported_prediction"] = "imported_prediction"
 
 
@@ -336,6 +336,6 @@ class EvaluationArchive(ResearchModel):
     id: UUID
     content_hash: Hash
     title: str
-    created_at: datetime
+    created_at: AwareDatetime
     bundle: EvaluationBundle
     status: Literal["imported_unverified"] = "imported_unverified"

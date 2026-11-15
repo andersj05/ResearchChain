@@ -33,7 +33,11 @@ def words(text: str) -> str:
 
 def strings(value: Any) -> list[str]:
     if isinstance(value, str):
-        return [value]
+        try:
+            nested = json.loads(value)
+        except ValueError:
+            return [value]
+        return strings(nested) if isinstance(nested, dict | list) else [value]
     if isinstance(value, list):
         return [text for item in value for text in strings(item)]
     if isinstance(value, dict):
