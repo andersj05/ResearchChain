@@ -40,6 +40,11 @@ cover active time, step count, loops and parallelism. Paused human-review time i
 excluded. Model attempts within a run are serialized even inside parallel branches,
 so returned usage is charged before another request is admitted.
 
+The [workspace request allowance](request-allowance.md) also limits admissions across
+runs, workers and accounts. Operations can pause new requests or change its rolling
+24-hour allowance. Cleanup does not replenish it. Runs stopped by the guard need
+an explicit new start when capacity is available.
+
 The reported-token threshold stops the **next** request. It is not a hard cap on
 an in-flight response: the current plan route does not support `max_output_tokens`.
 A timeout, output limit or cancellation closes the local stream but cannot guarantee

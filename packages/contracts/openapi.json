@@ -1889,6 +1889,64 @@
         }
       }
     },
+    "/api/usage": {
+      "get": {
+        "tags": ["request-allowance"],
+        "summary": "Status",
+        "operationId": "status_api_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usage/policy": {
+      "post": {
+        "tags": ["request-allowance"],
+        "summary": "Configure",
+        "operationId": "configure_api_usage_policy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsagePolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/operations": {
       "get": {
         "summary": "Operations Status",
@@ -5135,6 +5193,18 @@
       },
       "ModelAttempt": {
         "properties": {
+          "admission_policy_revision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admission Policy Revision"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -7877,6 +7947,113 @@
           "uncertain_attempts"
         ],
         "title": "UsageOperations"
+      },
+      "UsagePolicy": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "maximum": 9.223372036854776e18,
+            "minimum": 1.0,
+            "title": "Revision"
+          },
+          "max_requests_24h": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Max Requests 24H"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "changed_by": {
+            "type": "string",
+            "enum": ["initial", "owner", "operator"],
+            "title": "Changed By"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Changed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["revision", "max_requests_24h", "paused", "changed_by", "changed_at"],
+        "title": "UsagePolicy"
+      },
+      "UsagePolicyUpdate": {
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "maximum": 9.223372036854776e18,
+            "minimum": 1.0,
+            "title": "Expected Revision"
+          },
+          "max_requests_24h": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Max Requests 24H"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expected_revision", "max_requests_24h", "paused"],
+        "title": "UsagePolicyUpdate"
+      },
+      "UsageSnapshot": {
+        "properties": {
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "window_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Started At"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/UsagePolicy"
+          },
+          "admitted_requests_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Admitted Requests 24H"
+          },
+          "remaining_requests": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Remaining Requests"
+          },
+          "next_slot_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Slot At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "observed_at",
+          "window_started_at",
+          "policy",
+          "admitted_requests_24h",
+          "remaining_requests"
+        ],
+        "title": "UsageSnapshot"
       },
       "ValidationError": {
         "properties": {

@@ -711,6 +711,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_usage_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/usage/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Configure */
+    post: operations["configure_api_usage_policy_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/operations": {
     parameters: {
       query?: never;
@@ -2138,6 +2172,8 @@ export interface components {
     };
     /** ModelAttempt */
     ModelAttempt: {
+      /** Admission Policy Revision */
+      admission_policy_revision?: number | null;
       /**
        * Id
        * Format: uuid
@@ -3401,6 +3437,54 @@ export interface components {
       incomplete_usage_24h: number;
       /** Uncertain Attempts */
       uncertain_attempts: number;
+    };
+    /** UsagePolicy */
+    UsagePolicy: {
+      /** Revision */
+      revision: number;
+      /** Max Requests 24H */
+      max_requests_24h: number;
+      /** Paused */
+      paused: boolean;
+      /**
+       * Changed By
+       * @enum {string}
+       */
+      changed_by: "initial" | "owner" | "operator";
+      /**
+       * Changed At
+       * Format: date-time
+       */
+      changed_at: string;
+    };
+    /** UsagePolicyUpdate */
+    UsagePolicyUpdate: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Max Requests 24H */
+      max_requests_24h: number;
+      /** Paused */
+      paused: boolean;
+    };
+    /** UsageSnapshot */
+    UsageSnapshot: {
+      /**
+       * Observed At
+       * Format: date-time
+       */
+      observed_at: string;
+      /**
+       * Window Started At
+       * Format: date-time
+       */
+      window_started_at: string;
+      policy: components["schemas"]["UsagePolicy"];
+      /** Admitted Requests 24H */
+      admitted_requests_24h: number;
+      /** Remaining Requests */
+      remaining_requests: number;
+      /** Next Slot At */
+      next_slot_at?: string | null;
     };
     /** ValidationError */
     ValidationError: {
@@ -5040,6 +5124,59 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["RetentionReceipt"][];
+        };
+      };
+    };
+  };
+  status_api_usage_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageSnapshot"];
+        };
+      };
+    };
+  };
+  configure_api_usage_policy_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UsagePolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageSnapshot"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

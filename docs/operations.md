@@ -54,7 +54,10 @@ only token counts reported in the journal; missing counts remain explicit, inclu
 in-progress attempts. It does not measure remaining ChatGPT allowance or billing.
 Uncertain attempts spans all time: unknown outcomes, plus unfinished preparing or
 requesting attempts without a live executing owner. Review these before new work.
-Existing token thresholds still cannot cap a request already in flight.
+Existing token thresholds still cannot cap a request already in flight. The
+[Request allowance panel](request-allowance.md) adds a shared rolling 24-hour
+admission limit and pause control. It has its own explicit refresh and timestamp;
+status reads never change the policy or consume a slot.
 
 ## Access and limits
 
@@ -79,5 +82,5 @@ protected-reference rechecks, deletion receipts and retry tombstones.
 actual off-machine copy and restore still require a chosen destination. The explicit
 [monitor CLI](monitoring.md) can confirm operational incidents and deliver fixed
 condition codes to an owner-configured HTTPS receiver. It does not start from
-Operations or pnpm dev. Actual external delivery/watchdog setup, strict spend
+Operations or pnpm dev. Actual external delivery/watchdog setup, provider-side spend
 enforcement and measured hosting remain open in issue #9.

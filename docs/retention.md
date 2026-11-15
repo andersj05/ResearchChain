@@ -62,3 +62,6 @@ authorization boundary against the database owner.
 
 All implementation deletion tests use disposable synthetic schemas. The private
 workspace is never purged as a verification step.
+
+Workspace [request admission receipts](request-allowance.md) and policy history
+are retained independently of research. Run cleanup cannot reset that allowance.

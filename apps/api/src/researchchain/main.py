@@ -46,6 +46,8 @@ from researchchain.retention_api import retention_router
 from researchchain.retention_models import RetentionError
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
 from researchchain.runtime import RunStore
+from researchchain.usage_api import usage_router
+from researchchain.usage_models import UsageError
 
 
 def create_app(
@@ -105,6 +107,7 @@ def create_app(
     app.include_router(evaluation_router(database))
     app.include_router(report_router(database))
     app.include_router(retention_router(database))
+    app.include_router(usage_router(database))
     runs = RunStore(database, provider)
     queue = RunQueue(runs)
     app.state.runs = runs
@@ -125,6 +128,10 @@ def create_app(
             content={"detail": str(error)},
             headers={"Retry-After": "1"} if error.status == 429 else None,
         )
+
+    @app.exception_handler(UsageError)
+    async def usage_error(request: Request, error: UsageError) -> JSONResponse:
+        return JSONResponse(status_code=error.status, content={"detail": str(error)})
 
     @app.exception_handler(NotFoundError)
     async def not_found(request: Request, error: NotFoundError) -> JSONResponse:
