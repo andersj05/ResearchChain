@@ -1118,6 +1118,372 @@
         }
       }
     },
+    "/api/style-guides": {
+      "get": {
+        "summary": "List Styles",
+        "operationId": "list_style_guides",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/StyleGuide"
+                  },
+                  "type": "array",
+                  "title": "Response List Style Guides"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Style",
+        "operationId": "create_style_guide",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StyleGuideCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleGuide"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/style-guides/{key}": {
+      "get": {
+        "summary": "Get Style",
+        "operationId": "get_style_guide",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StyleGuide"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports": {
+      "get": {
+        "summary": "List Reports",
+        "operationId": "list_reports",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/ReportSummary"
+                  },
+                  "type": "array",
+                  "title": "Response List Reports"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "Create Report",
+        "operationId": "create_report",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRevision"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/revisions": {
+      "post": {
+        "summary": "Save Report",
+        "operationId": "save_report_revision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportSave"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportRevision"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{key}": {
+      "get": {
+        "summary": "Get Report",
+        "operationId": "get_report",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{key}/history": {
+      "get": {
+        "summary": "History",
+        "operationId": "report_history",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ReportSummary"
+                  },
+                  "title": "Response Report History"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{key}/feedback": {
+      "post": {
+        "summary": "Feedback",
+        "operationId": "report_feedback",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReportFeedbackCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportFeedback"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/{key}/export": {
+      "get": {
+        "summary": "Export",
+        "operationId": "export_report",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/providers/chatgpt": {
       "get": {
         "summary": "Chatgpt Status",
@@ -4675,6 +5041,658 @@
         "required": ["run_id", "attempt_id"],
         "title": "RecordedEvaluationOutput"
       },
+      "ReportAnchor": {
+        "properties": {
+          "start": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Start"
+          },
+          "end": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "End"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Quote"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["start", "end", "quote"],
+        "title": "ReportAnchor"
+      },
+      "ReportCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "attempt_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Attempt Id"
+          },
+          "style_guide_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Style Guide Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "title", "run_id", "attempt_id", "style_guide_id"],
+        "title": "ReportCreate"
+      },
+      "ReportEdit": {
+        "properties": {
+          "section_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Section Id"
+          },
+          "change": {
+            "type": "string",
+            "enum": ["added", "removed", "edited", "moved"],
+            "title": "Change"
+          },
+          "before_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Before Hash"
+          },
+          "after_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "After Hash"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["section_id", "change", "before_hash", "after_hash"],
+        "title": "ReportEdit"
+      },
+      "ReportFeedback": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "report_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Report Hash"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "section_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hash"
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["comment", "preference", "decision"],
+            "title": "Kind"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["accept", "reject", "prefer_current", "prefer_previous", "tie"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "compared_revision_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compared Revision Id"
+          },
+          "compared_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Compared Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "actor": {
+            "type": "string",
+            "const": "human",
+            "title": "Actor",
+            "default": "human"
+          },
+          "training_consent": {
+            "type": "boolean",
+            "const": false,
+            "title": "Training Consent",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "report_hash",
+          "kind",
+          "reason",
+          "revision_id",
+          "compared_revision_id",
+          "compared_hash",
+          "created_at"
+        ],
+        "title": "ReportFeedback"
+      },
+      "ReportFeedbackCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "report_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Report Hash"
+          },
+          "section_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Id"
+          },
+          "section_hash": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Section Hash"
+          },
+          "anchor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReportAnchor"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["comment", "preference", "decision"],
+            "title": "Kind"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["accept", "reject", "prefer_current", "prefer_previous", "tie"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Reason"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "report_hash", "kind", "reason"],
+        "title": "ReportFeedbackCreate"
+      },
+      "ReportProvenance": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "brief": {
+            "type": "string",
+            "title": "Brief"
+          },
+          "workflow_hash": {
+            "type": "string",
+            "title": "Workflow Hash"
+          },
+          "manifest": {
+            "$ref": "#/components/schemas/ResearchManifest"
+          },
+          "attempt": {
+            "$ref": "#/components/schemas/ModelAttempt"
+          },
+          "renderer": {
+            "type": "string",
+            "const": "report-seed-1",
+            "title": "Renderer",
+            "default": "report-seed-1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["run_id", "brief", "workflow_hash", "manifest", "attempt"],
+        "title": "ReportProvenance"
+      },
+      "ReportRevision": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "style_guide_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Style Guide Id"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSection"
+            },
+            "type": "array",
+            "title": "Sections"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/ReportProvenance"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "section_hashes": {
+            "additionalProperties": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Section Hashes"
+          },
+          "edits": {
+            "items": {
+              "$ref": "#/components/schemas/ReportEdit"
+            },
+            "type": "array",
+            "title": "Edits"
+          },
+          "author": {
+            "type": "string",
+            "enum": ["research_seed", "human"],
+            "title": "Author"
+          },
+          "change_note": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Change Note"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "series_id",
+          "version",
+          "replaces_id",
+          "title",
+          "style_guide_id",
+          "sections",
+          "sources",
+          "provenance",
+          "content_hash",
+          "section_hashes",
+          "edits",
+          "author",
+          "change_note",
+          "created_at"
+        ],
+        "title": "ReportRevision"
+      },
+      "ReportSave": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "base_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Base Revision Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "style_guide_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Style Guide Id"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Evidence Ids"
+          },
+          "sections": {
+            "items": {
+              "$ref": "#/components/schemas/ReportSection"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "minItems": 1,
+            "title": "Sections"
+          },
+          "change_note": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Change Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "base_revision_id",
+          "title",
+          "style_guide_id",
+          "evidence_ids",
+          "sections",
+          "change_note"
+        ],
+        "title": "ReportSave"
+      },
+      "ReportSection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "heading": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Heading"
+          },
+          "body": {
+            "type": "string",
+            "maxLength": 60000,
+            "minLength": 1,
+            "title": "Body"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["fact", "interpretation", "scenario"],
+            "title": "Kind",
+            "default": "interpretation"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCitation"
+            },
+            "type": "array",
+            "maxItems": 40,
+            "title": "Citations"
+          },
+          "chart_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Chart Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "heading", "body"],
+        "title": "ReportSection"
+      },
+      "ReportSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "author": {
+            "type": "string",
+            "enum": ["research_seed", "human"],
+            "title": "Author"
+          },
+          "change_note": {
+            "type": "string",
+            "title": "Change Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "series_id", "version", "title", "created_at", "author", "change_note"],
+        "title": "ReportSummary"
+      },
+      "ReportView": {
+        "properties": {
+          "revision": {
+            "$ref": "#/components/schemas/ReportRevision"
+          },
+          "current_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Current Revision Id"
+          },
+          "style_guide": {
+            "$ref": "#/components/schemas/StyleGuide"
+          },
+          "source_bases": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Source Bases"
+          },
+          "feedback": {
+            "items": {
+              "$ref": "#/components/schemas/ReportFeedback"
+            },
+            "type": "array",
+            "title": "Feedback"
+          },
+          "review_status": {
+            "type": "string",
+            "enum": ["unreviewed", "accepted", "rejected"],
+            "title": "Review Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "revision",
+          "current_revision_id",
+          "style_guide",
+          "source_bases",
+          "feedback",
+          "review_status"
+        ],
+        "title": "ReportView"
+      },
       "ResearchCitation": {
         "properties": {
           "evidence_id": {
@@ -5480,6 +6498,218 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SourceLocation"
+      },
+      "StyleExample": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": ["structure", "voice"],
+            "title": "Kind"
+          },
+          "principle": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Principle"
+          },
+          "example": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Example"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["kind", "principle", "example"],
+        "title": "StyleExample"
+      },
+      "StyleGuide": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "analytical_structure": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Analytical Structure"
+          },
+          "voice": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Voice"
+          },
+          "source_discipline": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Source Discipline"
+          },
+          "scenarios": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Scenarios"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/StyleExample"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Examples"
+          },
+          "change_note": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Change Note"
+          },
+          "series_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Series Id"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "content_hash": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Content Hash"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "use_scope": {
+            "type": "string",
+            "const": "editorial_development",
+            "title": "Use Scope",
+            "default": "editorial_development"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "analytical_structure",
+          "voice",
+          "source_discipline",
+          "scenarios",
+          "examples",
+          "change_note",
+          "series_id",
+          "version",
+          "content_hash",
+          "created_at"
+        ],
+        "title": "StyleGuide"
+      },
+      "StyleGuideCreate": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "replaces_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Replaces Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 240,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "analytical_structure": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Analytical Structure"
+          },
+          "voice": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Voice"
+          },
+          "source_discipline": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Source Discipline"
+          },
+          "scenarios": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Scenarios"
+          },
+          "examples": {
+            "items": {
+              "$ref": "#/components/schemas/StyleExample"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 2,
+            "title": "Examples"
+          },
+          "change_note": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Change Note"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "analytical_structure",
+          "voice",
+          "source_discipline",
+          "scenarios",
+          "examples",
+          "change_note"
+        ],
+        "title": "StyleGuideCreate"
       },
       "SubgraphConfig": {
         "properties": {

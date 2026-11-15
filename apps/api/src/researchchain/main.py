@@ -25,6 +25,7 @@ from researchchain.models import (
 )
 from researchchain.providers.credentials import ConnectionError as ProviderConnectionError
 from researchchain.registry import NodeTypeSpec, node_types
+from researchchain.report_api import report_router
 from researchchain.research import ResearchProvider
 from researchchain.research_models import ProviderStatus
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
@@ -44,6 +45,7 @@ def create_app(
     app = FastAPI(title="ResearchChain API", version="0.3.0", lifespan=lifespan)
     app.include_router(evidence_router(database))
     app.include_router(evaluation_router(database))
+    app.include_router(report_router(database))
     runs = RunStore(database, provider)
     revisions = RevisionStore(database)
 
