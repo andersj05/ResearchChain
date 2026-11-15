@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
@@ -52,6 +53,7 @@ export function Workbench() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
   const [loaded, setLoaded] = useState(false);
   const pendingStart = useRef<RunRequest | null>(null);
   const busyRef = useRef(false);
@@ -93,7 +95,7 @@ export function Workbench() {
           );
         }
         const view = parameters.get("view");
-        if (view && ["workflow", "runs", "revisions"].includes(view)) setTab(view);
+        if (view && ["workflow", "runs", "revisions", "evidence"].includes(view)) setTab(view);
       } catch (cause) {
         if (active) {
           setError(cause instanceof Error ? cause.message : "Unable to load the workspace.");
@@ -203,13 +205,15 @@ export function Workbench() {
     if (
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
-      pendingStart.current.brief !== brief
+      pendingStart.current.brief !== brief ||
+      JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds)
     ) {
       pendingStart.current = {
         id: crypto.randomUUID(),
         revision_id: pinned.id,
         brief,
         artifacts: [],
+        evidence_ids: evidenceIds,
       };
     }
     const request = pendingStart.current;
@@ -319,6 +323,7 @@ export function Workbench() {
         <div className="navigation-bar">
           <TabsList className="workspace-tabs" aria-label="Workspace">
             <TabsTab value="workflow">Workflow</TabsTab>
+            <TabsTab value="evidence">Evidence</TabsTab>
             <TabsTab value="runs">Runs</TabsTab>
             <TabsTab value="revisions">Revisions</TabsTab>
           </TabsList>
@@ -347,6 +352,8 @@ export function Workbench() {
               onOpenChange={setSetupOpen}
               brief={brief}
               onBriefChange={setBrief}
+              evidenceIds={evidenceIds}
+              onEvidenceChange={setEvidenceIds}
               name={workflow.name}
               revision={saved ? revision.number : null}
               busy={busy}
@@ -472,6 +479,9 @@ export function Workbench() {
               <span className="muted editor-footnote">Edits apply to future runs.</span>
             </div>
           </section>
+        </TabsPanel>
+        <TabsPanel className="evidence-view" value="evidence">
+          <EvidenceDesk />
         </TabsPanel>
         <TabsPanel className="runs-view" value="runs">
           <h1 className="sr-only">Runs</h1>
