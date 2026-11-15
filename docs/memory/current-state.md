@@ -1,7 +1,14 @@
 # Current state
 
-Updated 2026-11-15. Durable workers are implemented in
-[PR #29](https://github.com/andersj05/ResearchChain/pull/29) on feat/durable-workers.
+Updated 2026-11-15. Durable workers merged into dev in
+[PR #29](https://github.com/andersj05/ResearchChain/pull/29) as 1d143c8.
+Post-merge CI 43701571474 passed. The live workspace was upgraded to migration 0008
+after the verified restore rehearsal; retained records were unchanged. ChatGPT
+plan access was reconnected and verified without new model work.
+
+The next step is owner-only operational status on feat/workspace-operations; see
+[plan 0011](../plans/0011-workspace-operations.md). Retention deletion follows with
+reference protection, retry tombstones and synthetic-only verification.
 The owner authorized frequent commits and merging completed steps after CI.
 Do not promote to main or deploy publicly.
 
