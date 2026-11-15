@@ -13,8 +13,15 @@ export default defineConfig({
   use: { baseURL: "http://127.0.0.1:3000", trace: "retain-on-failure" },
   projects: [
     {
+      name: "retention",
+      testMatch: /retention\.spec\.ts/,
+      dependencies: ["workers"],
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "chromium",
-      testIgnore: /(access|workers)\.spec\.ts/,
+      testIgnore: /(access|workers|retention)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
