@@ -48,13 +48,10 @@ for (const width of [1440, 390]) {
       .getByRole("textbox", { name: "Reviewer feedback", exact: true })
       .fill("Seek independent observations before concluding.");
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run running", exact: true })).toBeVisible(
-      executionWait,
-    );
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible(
-      executionWait,
-    );
-    await expect(page.locator('[aria-label="Review final_review"]')).toBeVisible();
+    // Wait for the next durable checkpoint, not a transient running frame
+    // or the previous review still visible while its command is queued.
+    await expect(page.locator('[aria-label="Review final_review"]')).toBeVisible(executionWait);
+    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(snapshot.model_attempts).toHaveLength(3);
     expect(snapshot.usage?.input_tokens).toBe(75);

@@ -106,7 +106,19 @@ class RunQueue:
                 (run_id, request.interrupt_id),
             ).fetchone()
             if not exists and not self._own_run(conn, run_id):
-                raise ConflictError("This run is executing. Refresh before reviewing it.")
+                if self.runs._unfinished(conn, run_id) is not None:
+                    raise ConflictError("This run is executing. Refresh before reviewing it.")
+                # An idle snapshot reader (or a worker saving its final receipt)
+                # can briefly retain the lock after the command is complete.
+                # Wait only for idle ownership, under the admission's 1s limit.
+                try:
+                    with conn.transaction():
+                        conn.execute(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                            (f"run:{run_id}",),
+                        )
+                except LockNotAvailable:
+                    raise DispatchError("This run is busy. Retry the same review.") from None
             command = self.runs.resume_command(conn, run_id, request)
             if not exists:
                 self._enqueue(conn, command)

@@ -45,7 +45,10 @@ POST /api/runs, /api/runs/{id}/resume and /api/runs/{id}/recover return HTTP 202
 with command_id, run_id, kind and accepted_at. Read GET /api/runs/{id} for current
 progress. Receipts identify accepted commands; they do not imply successful
 execution. A repeated start or exact review returns the same receipt. Changed
-inputs or review decisions conflict. The queue returns 429 with Retry-After
+inputs or review decisions conflict. A new review waits up to one second for an
+idle snapshot reader to release the run lock; it does not wait for active execution.
+A longer idle read returns a retryable response without recording the decision.
+The queue returns 429 with Retry-After
 when capacity or its bounded admission lock is unavailable; reuse the request ID
 when retrying.
 
