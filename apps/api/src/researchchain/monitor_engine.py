@@ -48,8 +48,12 @@ def prepare_event(state: MonitorState, now: datetime) -> None:
     if state.pending is not None or state.confirmed == state.acknowledged:
         return
     assert state.last_sampled_at is not None
+    if state.sequence >= 9223372036854775807:
+        raise MonitorError("This monitor exhausted its event sequence. Create a new profile.")
+    state.sequence += 1
     state.pending = AlertEvent(
         monitor_id=state.monitor_id,
+        sequence=state.sequence,
         created_at=now,
         observed_at=state.last_sampled_at,
         kind="problem" if state.confirmed else "recovered",

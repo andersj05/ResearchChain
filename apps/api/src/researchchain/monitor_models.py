@@ -112,6 +112,7 @@ class AlertEvent(StrictModel):
     version: Literal["researchchain.operational-alert.v1"] = "researchchain.operational-alert.v1"
     id: UUID = Field(default_factory=uuid4)
     monitor_id: UUID
+    sequence: int = Field(default=0, ge=0, le=9223372036854775807)
     created_at: AwareDatetime
     observed_at: AwareDatetime
     kind: Literal["problem", "recovered", "test"]
@@ -121,6 +122,8 @@ class AlertEvent(StrictModel):
     def consistent(self) -> Self:
         if self.active != sorted(set(self.active)):
             raise ValueError("Alert conditions must be unique and ordered.")
+        if (self.kind == "test") != (self.sequence == 0):
+            raise ValueError("Operational alerts need a positive sequence; tests use zero.")
         if (self.kind == "problem") != bool(self.active):
             raise ValueError("Alert kind must match its active conditions.")
         return self
@@ -129,6 +132,7 @@ class AlertEvent(StrictModel):
 class MonitorState(StrictModel):
     version: Literal[1] = 1
     monitor_id: UUID
+    sequence: int = Field(default=0, ge=0, le=9223372036854775807)
     last_sampled_at: AwareDatetime | None = None
     streaks: dict[Condition, Streak] = Field(
         default_factory=lambda: {code: Streak() for code in Condition}
@@ -149,4 +153,11 @@ class MonitorState(StrictModel):
         for event in (self.pending, self.last_event):
             if event is not None and (event.monitor_id != self.monitor_id or event.kind == "test"):
                 raise ValueError("Alert identity does not match its monitor.")
+        acknowledged = self.last_event.sequence if self.last_event is not None else 0
+        if self.pending is None:
+            valid_sequence = self.sequence == acknowledged
+        else:
+            valid_sequence = self.pending.sequence == self.sequence == acknowledged + 1
+        if not valid_sequence:
+            raise ValueError("The monitor event sequence is inconsistent.")
         return self

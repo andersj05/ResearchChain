@@ -28,6 +28,7 @@ def event():
     )
     alert = AlertEvent(
         monitor_id=config.id,
+        sequence=1,
         created_at=NOW,
         observed_at=NOW,
         kind="problem",
@@ -90,6 +91,7 @@ def test_webhook_payload_identity_headers_and_logs_are_safe(caplog) -> None:
         "version",
         "id",
         "monitor_id",
+        "sequence",
         "created_at",
         "observed_at",
         "kind",

@@ -115,6 +115,7 @@ def test_crash_after_send_retries_original_event_then_reports_recovery(
     assert result["sampled"] is False and result["delivery"] == "acknowledged"
     recovery = AlertEvent.model_validate_json(receiver.events[-1])
     assert recovery.kind == "recovered" and recovery.id != persisted.pending.id
+    assert recovery.sequence == 2 and persisted.pending.sequence == 1
 
 
 def test_interruption_during_send_preserves_event_and_prevents_an_immediate_retry(

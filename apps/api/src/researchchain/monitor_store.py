@@ -108,6 +108,7 @@ class MonitorStore:
             if self._read(self.profile_path, MonitorSettings).id != state.monitor_id:
                 raise ValueError
             raw = state.model_dump_json().encode()
+            MonitorState.model_validate_json(raw)
             if len(raw) > MAX_STATE:
                 raise ValueError
             descriptor, temporary = tempfile.mkstemp(prefix=".monitor-", dir=self.directory)
