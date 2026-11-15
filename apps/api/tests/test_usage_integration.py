@@ -170,3 +170,34 @@ def test_connection_verification_has_the_same_no_send_boundary(database, monkeyp
     with database.connection() as conn:
         row = conn.execute("SELECT source FROM model_request_admissions").fetchone()
     assert row["source"] == "connection_test"
+
+
+def test_cancellation_after_admission_is_checked_before_contacting_the_provider(
+    database, monkeypatch
+):
+    from threading import Event
+
+    from researchchain import research as research_module
+
+    admitted, release = Event(), Event()
+    original = research_module.admit_request
+
+    def delayed_return(conn, request_id, source):
+        receipt = original(conn, request_id, source)
+        admitted.set()
+        assert release.wait(10)
+        return receipt
+
+    monkeypatch.setattr(research_module, "admit_request", delayed_return)
+    runs, request, provider = setup_run(database)
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        pending = pool.submit(runs.start, request)
+        try:
+            assert admitted.wait(10)
+            assert runs.cancel(request.id).status == "cancelled"
+        finally:
+            release.set()
+        result = pending.result(timeout=15)
+    assert result.status == "cancelled"
+    assert not provider.calls
+    assert UsageStore(database).snapshot().admitted_requests_24h == 1

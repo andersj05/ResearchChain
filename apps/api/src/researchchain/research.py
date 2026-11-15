@@ -328,6 +328,9 @@ class ResearchExecutor:
             self.control.guard(path, False)
             with self.control.lock:
                 admit_request(self.conn, attempt_id, "research")
+            # Admission may wait behind another process. Recheck cancellation and
+            # elapsed time before starting provider work; keep the consumed slot.
+            self.control.guard(path, False)
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
             result = validate_result(completion.text, node.config.stage, prepared)
