@@ -55,6 +55,12 @@ $$;
 
 CREATE FUNCTION retention_writer_lock() RETURNS trigger LANGUAGE plpgsql AS $$
 BEGIN
+    -- A transaction snapshot from before cleanup cannot see its new tombstones.
+    -- Ordinary application writes are READ COMMITTED; backup snapshots are read-only.
+    IF current_setting('transaction_isolation') NOT IN ('read committed', 'read uncommitted') THEN
+        RAISE EXCEPTION 'Research writes require READ COMMITTED for retention checks.'
+            USING ERRCODE = '25001';
+    END IF;
     PERFORM pg_advisory_xact_lock_shared(hashtextextended('retention:' || TG_TABLE_SCHEMA, 0));
     RETURN NULL;
 END;

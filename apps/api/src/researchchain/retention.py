@@ -233,7 +233,9 @@ class RetentionStore:
     def _locked(self) -> Iterator[Connection[DictRow]]:
         try:
             with self.database.connection() as conn, conn.transaction():
+                conn.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
                 conn.execute("SET LOCAL lock_timeout = '1000ms'")
+                conn.execute("SET LOCAL transaction_timeout = '30000ms'")
                 # Admission precedes retention. Run locks below never wait; a worker
                 # may own one while waiting to make a shared-retention write.
                 for key in (

@@ -575,3 +575,22 @@ def test_backup_restore_preserves_cleanup_receipt_and_nonresurrection(
     with pytest.raises(RetentionError) as error:
         RunStore(restored).start(request)
     assert error.value.status == 410
+
+
+@pytest.mark.parametrize("isolation", ["REPEATABLE READ", "SERIALIZABLE"])
+def test_snapshot_isolated_writer_is_rejected_instead_of_missing_tombstone(
+    database, workflow, isolation
+):
+    _, request, _ = terminal(database, workflow)
+    store = RetentionStore(database)
+    record = preview(store)
+    with database.connection() as writer, writer.transaction():
+        writer.execute(sql.SQL("SET TRANSACTION ISOLATION LEVEL " + isolation))
+        assert writer.execute("SELECT 1 FROM runs WHERE id=%s", (request.id,)).fetchone()
+        apply(store, record)
+        with pytest.raises(psycopg.DatabaseError) as error, writer.transaction():
+            writer.execute(
+                "INSERT INTO evaluation_archives (id,content_hash,document) VALUES (%s,%s,%s)",
+                (uuid4(), uuid4().hex, Jsonb({"run_id": str(request.id)})),
+            )
+        assert error.value.sqlstate == "25001"

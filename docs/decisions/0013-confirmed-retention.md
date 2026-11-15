@@ -30,3 +30,11 @@ Cleanup is not full erasure: referenced originals, unrelated orphan uploads,
 workflow revisions, exported files and backups remain. PostgreSQL can reuse freed
 space without immediately reducing files on disk. There is no automatic expiry
 job. All destructive implementation tests use isolated synthetic workspaces.
+
+Writes use READ COMMITTED, with volatile trigger reads after the retention lock.
+Snapshot-isolated writes are rejected because their older snapshot can miss a
+committed tombstone. Read-only backup snapshots remain supported. See PostgreSQL
+[function snapshot rules](https://www.postgresql.org/docs/18/xfunc-volatility.html)
+and [transaction isolation](https://www.postgresql.org/docs/18/transaction-iso.html).
+The complete cleanup transaction is capped at thirty seconds and rolls back on
+timeout; a failed reference scan never becomes permission to delete.
