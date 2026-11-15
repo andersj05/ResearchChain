@@ -1,10 +1,49 @@
 # Current state
 
-Updated 2026-11-15. Backup/restore merged into dev through
-[PR #27](https://github.com/andersj05/ResearchChain/pull/27), merge `5c13438`,
-with six feature commits. Active branch: `feat/workbench-auth`. The owner authorized
-frequent commits and merging completed steps into dev after CI. Do not promote
-to main or deploy publicly.
+Updated 2026-11-15. Owner access is implemented on `feat/workbench-auth` in
+[PR #28](https://github.com/andersj05/ResearchChain/pull/28), targeting dev.
+The owner authorized frequent commits and merging completed steps after CI.
+Do not promote to main or deploy publicly.
+
+## Owner access
+
+The workbench has a separate owner sign-in. Initial enrollment/recovery uses a
+five-minute, single-use link issued by `pnpm access:login`; normal visits use an
+Argon2id password. Sessions expire after 30 idle minutes or 12 hours, support
+revocation and require exact Origin plus session-bound CSRF on mutations.
+Every private API, original hash, export and execution action is protected.
+Health is minimal; documentation moved under the protected /api prefix.
+
+One configured database target/schema is one owner workspace. Requests cannot
+select a different scope. Existing records and hashes need no data migration.
+Owner state is protected separately from research backups and provider credentials.
+This does not add collaborator accounts, public hosting, paid API access or model calls.
+See [the operator guide](../owner-access.md) and
+[ADR 0010](../decisions/0010-owner-workspace-access.md).
+
+The browser preserves open drafts through reauthentication for the same identity,
+scopes saved drafts by owner/workspace, requires explicit legacy-draft import and
+does not replay rejected mutations. A controlled regression also verifies that a
+late style-list refresh cannot remove a newly saved guide. Stale-review coverage
+now holds a captured old request instead of depending on UI timing.
+
+Local `pnpm check` passed with 273 backend tests (353.47 seconds), formatting,
+lint, strict types and the production build. The subsequent style-refresh fix
+passed lint/types/build and all 63 production browser tests with four workers and
+retries disabled (2.3 minutes). Final checks and PR CI are being repeated on that fix.
+Tests use temporary research schemas and synthetic owner stores. The real owner
+store reports setup required, no password and zero sessions. The dev server is
+stopped for tests. After merge, reopen the real workbench with a private owner link
+and verify that the saved Pro connection and unreviewed pilot are preserved.
+
+On Windows, Python's default text encoding here is CP1252. Always read source as
+UTF-8 and write UTF-8 with explicit LF newlines; otherwise Unicode anchors and
+labels can be damaged, or local Prettier checks can fail on CRLF despite a clean
+normalized Git diff. The introduced encoding changes were repaired and verified.
+
+Issue #9 remains open for durable hosted workers, retention, off-machine recovery,
+secret operations and measured hosting decisions. Issues #6 and #7 still require
+actual owner review/labels and their documented provider/evaluation work.
 
 ## Backup and recovery
 
@@ -30,8 +69,8 @@ A private owner rehearsal from clean commit `1342cef` verified 27 tables, 86 row
 and 12 originals (129,817 bytes) in a separate database, with zero provider calls.
 The live database was not switched. Ignored `.local/backup-rehearsal.json` records
 the private destination and receipt; the archive directory contains the complete
-manifest and restore receipt. The local workbench is running again on the original database. API health is
-healthy; the saved active Pro account reports plan usage enabled. The pilot remains
+manifest and restore receipt. Before owner-access work, the local workbench was verified on the original database:
+API health was healthy and the saved active Pro account reported plan usage enabled. The pilot remains
 an unreviewed four-section report with no feedback. Revalidate and stop the owned
 dev service before future browser tests.
 See [the operator guide](../backups.md) and [ADR 0009](../decisions/0009-verified-backups.md).
