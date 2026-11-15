@@ -1,6 +1,6 @@
 # Workspace operations
 
-Status: implementing on feat/workspace-operations for issue #9.
+Status: implemented on feat/workspace-operations for issue #9; require passing CI before merge.
 
 ## Outcome
 
@@ -23,6 +23,8 @@ queue. Post-merge CI 43701571474 passed. Existing ChatGPT plan access was refres
   estimate billing, remaining plan allowance or automatic spend enforcement.
 - Offer manual refresh in an Operations tab, protected by normal owner access.
   Do not introduce background polling that extends owner session idle time.
+- New reviews briefly wait for idle readers instead of falsely reporting execution.
+  Long reads remain retryable; active work is rejected immediately.
 - Verify real worker lifecycle, queue classification, workspace isolation, redaction,
   session protection and desktop/mobile behavior using synthetic data only.
 - Run pnpm check and the production browser suite; commit coherent steps and merge
