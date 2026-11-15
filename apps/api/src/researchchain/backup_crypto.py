@@ -35,8 +35,10 @@ def new_private_directory(path: Path) -> Path:
 
 
 @contextmanager
-def private_file(path: Path) -> Iterator[BinaryIO]:
+def private_file(path: Path, *, owned: set[Path] | None = None) -> Iterator[BinaryIO]:
     with path.open("x+b") as output:
+        if owned is not None:
+            owned.add(path)
         if os.name != "nt":
             path.chmod(0o600)
         yield output
@@ -79,15 +81,14 @@ def create_recovery_key(directory: Path, password: str) -> str:
     except Exception:
         raise BackupError("Could not protect the recovery key.") from None
     destination = new_private_directory(directory)
-    owned: list[Path] = []
+    owned: set[Path] = set()
     try:
         for name, data in (
             (KEY_FILE, protected),
             (RECIPIENT_FILE, (public + "\n").encode("ascii")),
         ):
             path = destination / name
-            with private_file(path) as output:
-                owned.append(path)
+            with private_file(path, owned=owned) as output:
                 output.write(data)
     except BaseException:
         for path in owned:

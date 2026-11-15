@@ -27,7 +27,6 @@ from researchchain.backup_files import (
     MANIFEST,
     MAX_MANIFEST,
     file_digest,
-    publish_manifest,
     read_manifest,
 )
 from researchchain.backup_models import BackupError, BackupManifest
@@ -129,19 +128,18 @@ def require_space(directory: Path, size: int) -> None:
 def seal_backup(source: Path, output: Path, recipient_file: Path) -> dict[str, object]:
     source = check_path(source)
     recipient = read_recipient(recipient_file)
-    # Validate source metadata before creating a destination.
     manifest = read_manifest(source)
     destination = new_private_directory(output)
-    payload_path, pending = destination / "payload.pending", destination / "encrypted.pending"
+    payload_path = destination / "payload.pending"
+    owned: set[Path] = set()
     published = False
     try:
         require_space(destination, 2 * manifest.archive_bytes + MAX_MANIFEST)
-        with private_file(payload_path) as payload:
+        with private_file(payload_path, owned=owned) as payload:
             build_payload(source, payload)
-            with private_file(pending) as encrypted:
+            with private_file(destination / ENCRYPTED, owned=owned) as encrypted:
                 encrypt_stream(payload, encrypted, recipient)
                 size, digest = file_digest(encrypted)
-        pending.rename(destination / ENCRYPTED)
         receipt: dict[str, object] = {
             "format": "researchchain-encrypted-backup-1",
             "created_at": datetime.now(UTC).isoformat(),
@@ -150,16 +148,16 @@ def seal_backup(source: Path, output: Path, recipient_file: Path) -> dict[str, o
             "recipient": str(recipient),
             "provider_calls": 0,
         }
-        with private_file(destination / RECEIPT) as metadata:
+        # Exclusive creation also works on filesystems without atomic hard links.
+        # Publish success only after the full ciphertext has been synced.
+        with private_file(destination / RECEIPT, owned=owned) as metadata:
             metadata.write((json.dumps(receipt, indent=2) + "\n").encode("utf-8"))
         published = True
         return receipt
     finally:
-        payload_path.unlink(missing_ok=True)
-        pending.unlink(missing_ok=True)
-        if not published:
-            (destination / ENCRYPTED).unlink(missing_ok=True)
-            (destination / RECEIPT).unlink(missing_ok=True)
+        for path in owned:
+            if not published or path == payload_path:
+                path.unlink(missing_ok=True)
 
 
 def unseal_backup(
@@ -169,22 +167,20 @@ def unseal_backup(
     with regular_file(encrypted_file) as encrypted:
         destination = new_private_directory(output)
         payload_path = destination / "payload.pending"
-        database_path = destination / "database.pending"
+        owned: set[Path] = set()
         published = False
         try:
             require_space(destination, 2 * os.fstat(encrypted.fileno()).st_size)
-            with private_file(payload_path) as payload:
+            with private_file(payload_path, owned=owned) as payload:
                 decrypt_stream(encrypted, payload, identity)
                 # Only after full age authentication succeeds may tar data be parsed.
-                with private_file(database_path) as database:
+                with private_file(destination / ARCHIVE, owned=owned) as database:
                     manifest = inspect_payload(payload, database)
-            database_path.rename(destination / ARCHIVE)
-            publish_manifest(destination, manifest)
+            with private_file(destination / MANIFEST, owned=owned) as metadata:
+                metadata.write((manifest.model_dump_json(indent=2) + "\n").encode("utf-8"))
             published = True
             return manifest
         finally:
-            payload_path.unlink(missing_ok=True)
-            database_path.unlink(missing_ok=True)
-            if not published:
-                for name in (ARCHIVE, MANIFEST, "manifest.pending"):
-                    (destination / name).unlink(missing_ok=True)
+            for path in owned:
+                if not published or path == payload_path:
+                    path.unlink(missing_ok=True)

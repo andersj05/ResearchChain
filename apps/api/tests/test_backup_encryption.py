@@ -380,3 +380,40 @@ def test_encrypted_backup_restores_real_database(
     with restored.connection() as conn:
         assert read_content(conn, artifact.id) == original
     assert RunStore(database).get(paused.id) == paused
+
+
+def test_output_collision_is_never_deleted_or_overwritten(
+    keys: Path, tmp_path: Path, monkeypatch: Any
+) -> None:
+    from researchchain.backup_bundle import build_payload
+
+    source, output = tmp_path / "source", tmp_path / "output"
+    fake_backup(source)
+
+    def collide(directory: Any, payload: Any) -> Any:
+        manifest = build_payload(directory, payload)
+        (output / ENCRYPTED).write_bytes(b"unrelated-owner-file")
+        return manifest
+
+    monkeypatch.setattr("researchchain.backup_bundle.build_payload", collide)
+    with pytest.raises(FileExistsError):
+        seal_backup(source, output, keys / RECIPIENT_FILE)
+    assert (output / ENCRYPTED).read_bytes() == b"unrelated-owner-file"
+    assert sorted(p.name for p in output.iterdir()) == [ENCRYPTED]
+
+
+def test_interrupt_cleans_owned_staging_and_keeps_source(
+    keys: Path, tmp_path: Path, monkeypatch: Any
+) -> None:
+    source, output = tmp_path / "source", tmp_path / "output"
+    fake_backup(source)
+
+    def interrupt(source: Any, destination: Any, recipient: Any) -> None:
+        destination.write(b"partial")
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr("researchchain.backup_bundle.encrypt_stream", interrupt)
+    with pytest.raises(KeyboardInterrupt):
+        seal_backup(source, output, keys / RECIPIENT_FILE)
+    assert list(output.iterdir()) == []
+    assert (source / ARCHIVE).read_bytes() == b"PGDMP synthetic-private-payload"
