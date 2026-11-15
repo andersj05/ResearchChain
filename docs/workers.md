@@ -76,6 +76,11 @@ or changing research inputs. Stop web, API and worker processes during an upgrad
 Back up with compatible pre-upgrade code and rehearse migration on a separate
 restored database before applying it to the owner's database.
 
+Migration and backup lock waiters poll outside database transactions, with a
+ten-second deadline. They must not retain snapshots while waiting: PostgreSQL's
+[concurrent index builds](https://www.postgresql.org/docs/18/sql-createindex.html#SQL-CREATEINDEX-CONCURRENTLY)
+can wait for older snapshots, including a blocking advisory-lock statement.
+
 A verified restore places unfinished queued/running jobs on hold, records the
 held-command count, and leaves checkpoints, receipts and effect records intact.
 Before explicit recovery, reconcile any source activity after the archive snapshot.

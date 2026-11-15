@@ -7,13 +7,13 @@ import pytest
 
 from researchchain.backup_inventory import compare_inventory, inventory
 from researchchain.backup_models import BackupError
-from researchchain.database import Database
+from researchchain.database import Database, migrations
 
 
 def test_inventory_verifies_content_and_structure(database: Database) -> None:
     with database.connection() as conn, conn.transaction():
         first = inventory(conn, database.schema)
-        assert first.tables["schema_migrations"].rows == 7
+        assert first.tables["schema_migrations"].rows == len(migrations())
         assert first.artifact_count == 0
         compare_inventory(first, inventory(conn, database.schema))
         conn.execute("CREATE TABLE backup_test_value (id integer)")
