@@ -34,6 +34,9 @@
     "provider:verify": "uv run --project apps/api python -m researchchain.provider verify",
     "db:backup": "uv run --project apps/api python -m researchchain.backup create",
     "db:restore": "uv run --project apps/api python -m researchchain.backup restore",
+    "db:keygen": "uv run --project apps/api python -m researchchain.backup keygen",
+    "db:seal": "uv run --project apps/api python -m researchchain.backup seal",
+    "db:unseal": "uv run --project apps/api python -m researchchain.backup unseal",
     "access:login": "uv run --project apps/api python -m researchchain.access login",
     "access:status": "uv run --project apps/api python -m researchchain.access status",
     "access:revoke": "uv run --project apps/api python -m researchchain.access revoke"
