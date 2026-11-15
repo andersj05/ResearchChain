@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
@@ -100,7 +101,10 @@ export function Workbench() {
           );
         }
         const view = parameters.get("view");
-        if (view && ["workflow", "runs", "revisions", "evidence", "evaluations"].includes(view))
+        if (
+          view &&
+          ["workflow", "runs", "revisions", "evidence", "evaluations", "reports"].includes(view)
+        )
           setTab(view);
       } catch (cause) {
         if (active) {
@@ -371,6 +375,7 @@ export function Workbench() {
             <TabsTab value="workflow">Workflow</TabsTab>
             <TabsTab value="evidence">Evidence</TabsTab>
             <TabsTab value="runs">Runs</TabsTab>
+            <TabsTab value="reports">Reports</TabsTab>
             <TabsTab value="evaluations">Evaluations</TabsTab>
             <TabsTab value="revisions">Revisions</TabsTab>
           </TabsList>
@@ -545,6 +550,9 @@ export function Workbench() {
         </TabsPanel>
         <TabsPanel className="evidence-view" value="evidence">
           <EvidenceDesk />
+        </TabsPanel>
+        <TabsPanel className="reports-view" value="reports">
+          <ReportDesk />
         </TabsPanel>
         <TabsPanel className="evaluations-view" value="evaluations">
           <EvaluationDesk />

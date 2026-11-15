@@ -368,6 +368,144 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/style-guides": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Styles */
+    get: operations["list_style_guides"];
+    put?: never;
+    /** Create Style */
+    post: operations["create_style_guide"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/style-guides/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Style */
+    get: operations["get_style_guide"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reports": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Reports */
+    get: operations["list_reports"];
+    put?: never;
+    /** Create Report */
+    post: operations["create_report"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reports/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Save Report */
+    post: operations["save_report_revision"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reports/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Report */
+    get: operations["get_report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reports/{key}/history": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["report_history"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reports/{key}/feedback": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Feedback */
+    post: operations["report_feedback"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/reports/{key}/export": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Export */
+    get: operations["export_report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/providers/chatgpt": {
     parameters: {
       query?: never;
@@ -1912,6 +2050,298 @@ export interface components {
        */
       attempt_id: string;
     };
+    /** ReportAnchor */
+    ReportAnchor: {
+      /** Start */
+      start: number;
+      /** End */
+      end: number;
+      /** Quote */
+      quote: string;
+    };
+    /** ReportCreate */
+    ReportCreate: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Title */
+      title: string;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Attempt Id
+       * Format: uuid
+       */
+      attempt_id: string;
+      /**
+       * Style Guide Id
+       * Format: uuid
+       */
+      style_guide_id: string;
+    };
+    /** ReportEdit */
+    ReportEdit: {
+      /**
+       * Section Id
+       * Format: uuid
+       */
+      section_id: string;
+      /**
+       * Change
+       * @enum {string}
+       */
+      change: "added" | "removed" | "edited" | "moved";
+      /** Before Hash */
+      before_hash: string | null;
+      /** After Hash */
+      after_hash: string | null;
+    };
+    /** ReportFeedback */
+    ReportFeedback: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Report Hash */
+      report_hash: string;
+      /** Section Id */
+      section_id?: string | null;
+      /** Section Hash */
+      section_hash?: string | null;
+      anchor?: components["schemas"]["ReportAnchor"] | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "comment" | "preference" | "decision";
+      /** Value */
+      value?: ("accept" | "reject" | "prefer_current" | "prefer_previous" | "tie") | null;
+      /** Reason */
+      reason: string;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
+      /** Compared Revision Id */
+      compared_revision_id: string | null;
+      /** Compared Hash */
+      compared_hash: string | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Actor
+       * @default human
+       * @constant
+       */
+      actor: "human";
+      /**
+       * Training Consent
+       * @default false
+       * @constant
+       */
+      training_consent: false;
+    };
+    /** ReportFeedbackCreate */
+    ReportFeedbackCreate: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Report Hash */
+      report_hash: string;
+      /** Section Id */
+      section_id?: string | null;
+      /** Section Hash */
+      section_hash?: string | null;
+      anchor?: components["schemas"]["ReportAnchor"] | null;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "comment" | "preference" | "decision";
+      /** Value */
+      value?: ("accept" | "reject" | "prefer_current" | "prefer_previous" | "tie") | null;
+      /** Reason */
+      reason: string;
+    };
+    /** ReportProvenance */
+    ReportProvenance: {
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /** Brief */
+      brief: string;
+      /** Workflow Hash */
+      workflow_hash: string;
+      manifest: components["schemas"]["ResearchManifest"];
+      attempt: components["schemas"]["ModelAttempt"];
+      /**
+       * Renderer
+       * @default report-seed-1
+       * @constant
+       */
+      renderer: "report-seed-1";
+    };
+    /** ReportRevision */
+    ReportRevision: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Series Id
+       * Format: uuid
+       */
+      series_id: string;
+      /** Version */
+      version: number;
+      /** Replaces Id */
+      replaces_id: string | null;
+      /** Title */
+      title: string;
+      /**
+       * Style Guide Id
+       * Format: uuid
+       */
+      style_guide_id: string;
+      /** Sections */
+      sections: components["schemas"]["ReportSection"][];
+      /** Sources */
+      sources: components["schemas"]["EvidenceRecord"][];
+      provenance: components["schemas"]["ReportProvenance"];
+      /** Content Hash */
+      content_hash: string;
+      /** Section Hashes */
+      section_hashes: {
+        [key: string]: string;
+      };
+      /** Edits */
+      edits: components["schemas"]["ReportEdit"][];
+      /**
+       * Author
+       * @enum {string}
+       */
+      author: "research_seed" | "human";
+      /** Change Note */
+      change_note: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** ReportSave */
+    ReportSave: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Base Revision Id
+       * Format: uuid
+       */
+      base_revision_id: string;
+      /** Title */
+      title: string;
+      /**
+       * Style Guide Id
+       * Format: uuid
+       */
+      style_guide_id: string;
+      /** Evidence Ids */
+      evidence_ids: string[];
+      /** Sections */
+      sections: components["schemas"]["ReportSection"][];
+      /** Change Note */
+      change_note: string;
+    };
+    /** ReportSection */
+    ReportSection: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Heading */
+      heading: string;
+      /** Body */
+      body: string;
+      /**
+       * Kind
+       * @default interpretation
+       * @enum {string}
+       */
+      kind: "fact" | "interpretation" | "scenario";
+      /** Citations */
+      citations?: components["schemas"]["ResearchCitation"][];
+      /** Chart Ids */
+      chart_ids?: string[];
+    };
+    /** ReportSummary */
+    ReportSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Series Id
+       * Format: uuid
+       */
+      series_id: string;
+      /** Version */
+      version: number;
+      /** Title */
+      title: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Author
+       * @enum {string}
+       */
+      author: "research_seed" | "human";
+      /** Change Note */
+      change_note: string;
+    };
+    /** ReportView */
+    ReportView: {
+      revision: components["schemas"]["ReportRevision"];
+      /**
+       * Current Revision Id
+       * Format: uuid
+       */
+      current_revision_id: string;
+      style_guide: components["schemas"]["StyleGuide"];
+      /** Source Bases */
+      source_bases: {
+        [key: string]: string;
+      };
+      /** Feedback */
+      feedback: components["schemas"]["ReportFeedback"][];
+      /**
+       * Review Status
+       * @enum {string}
+       */
+      review_status: "unreviewed" | "accepted" | "rejected";
+    };
     /** ResearchCitation */
     ResearchCitation: {
       /**
@@ -2328,6 +2758,86 @@ export interface components {
        * @default
        */
       excerpt: string;
+    };
+    /** StyleExample */
+    StyleExample: {
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "structure" | "voice";
+      /** Principle */
+      principle: string;
+      /** Example */
+      example: string;
+    };
+    /** StyleGuide */
+    StyleGuide: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Replaces Id */
+      replaces_id?: string | null;
+      /** Title */
+      title: string;
+      /** Analytical Structure */
+      analytical_structure: string;
+      /** Voice */
+      voice: string;
+      /** Source Discipline */
+      source_discipline: string;
+      /** Scenarios */
+      scenarios: string;
+      /** Examples */
+      examples: components["schemas"]["StyleExample"][];
+      /** Change Note */
+      change_note: string;
+      /**
+       * Series Id
+       * Format: uuid
+       */
+      series_id: string;
+      /** Version */
+      version: number;
+      /** Content Hash */
+      content_hash: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Use Scope
+       * @default editorial_development
+       * @constant
+       */
+      use_scope: "editorial_development";
+    };
+    /** StyleGuideCreate */
+    StyleGuideCreate: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Replaces Id */
+      replaces_id?: string | null;
+      /** Title */
+      title: string;
+      /** Analytical Structure */
+      analytical_structure: string;
+      /** Voice */
+      voice: string;
+      /** Source Discipline */
+      source_discipline: string;
+      /** Scenarios */
+      scenarios: string;
+      /** Examples */
+      examples: components["schemas"]["StyleExample"][];
+      /** Change Note */
+      change_note: string;
     };
     /** SubgraphConfig */
     SubgraphConfig: {
@@ -3331,6 +3841,304 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["EvaluationArchive"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_style_guides: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StyleGuide"][];
+        };
+      };
+    };
+  };
+  create_style_guide: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["StyleGuideCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StyleGuide"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_style_guide: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["StyleGuide"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_reports: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportSummary"][];
+        };
+      };
+    };
+  };
+  create_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReportCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportRevision"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  save_report_revision: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReportSave"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportRevision"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  report_history: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  report_feedback: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ReportFeedbackCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportFeedback"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/zip": string;
         };
       };
       /** @description Validation Error */
