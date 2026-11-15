@@ -7,7 +7,7 @@ from psycopg import Connection, sql
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 
-from researchchain.artifacts import EvidenceError, put_artifact
+from researchchain.artifacts import EvidenceError, put_artifact, read_content
 from researchchain.database import Database
 from researchchain.evaluation_checks import check_inputs, digest, input_text
 from researchchain.evaluation_models import (
@@ -142,6 +142,11 @@ class EvaluationDatasets:
                 for row in conn.execute("SELECT document FROM evaluation_datasets")
                 for case in EvaluationDataset.model_validate(row["document"]).cases
             ]
+            reference_hashes = {
+                ref.id: ref.content_hash
+                for row in conn.execute("SELECT document FROM evaluation_references")
+                if (ref := EvaluationReference.model_validate(row["document"]))
+            }
             snapshots: dict[UUID, str | None] = {}
             for case in [*prior_cases, *request.cases]:
                 for evidence_id in case.evidence_ids:
@@ -162,7 +167,11 @@ class EvaluationDatasets:
                     } & {snapshots[key] for key in other.evidence_ids if snapshots[key]}
                     if overlaps(case, other) or (
                         case.partition != other.partition
-                        and (shared_bytes or set(case.reference_ids) & set(other.reference_ids))
+                        and (
+                            shared_bytes
+                            or {reference_hashes[key] for key in case.reference_ids}
+                            & {reference_hashes[key] for key in other.reference_ids}
+                        )
                     ):
                         raise EvidenceError(
                             "Development and holdout cases must use separate "
@@ -230,6 +239,11 @@ class EvaluationDatasets:
                 brief=case.brief,
                 as_of_date=case.as_of_date,
                 evidence=evidence,
+                text_content={
+                    str(item.id): read_content(conn, item.artifact.id).decode("utf-8-sig")
+                    for item in evidence
+                    if item.artifact and item.artifact.media_type.startswith("text/")
+                },
                 checks=checks,
                 input_hash="0" * 64,
             )

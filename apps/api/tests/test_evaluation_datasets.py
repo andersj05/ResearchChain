@@ -122,6 +122,10 @@ def test_reference_is_separate_from_generation_packet(database: Database) -> Non
     assert str(baseline.id) not in packet.model_dump_json()
     assert "reference_ids" not in packet.model_dump()
     assert packet.evidence[0].content_hash == source.content_hash
+    assert (
+        packet.text_content[str(source.id)]
+        == "Synthetic primary source unrelated to the reference conclusion."
+    )
     assert len(packet.input_hash) == 64
 
 

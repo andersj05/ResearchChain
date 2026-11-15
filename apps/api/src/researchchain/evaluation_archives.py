@@ -13,15 +13,27 @@ from researchchain.evaluation_models import (
     EvaluationArchive,
     EvaluationBundle,
     EvaluationDataset,
+    EvaluationDatasetCreate,
     EvaluationJudge,
 )
-from researchchain.evaluation_reviews import check_hashes, read_comparison, validate_edits
+from researchchain.evaluation_reviews import (
+    check_hashes,
+    qualified,
+    read_comparison,
+    validate_edits,
+)
 from researchchain.revisions import ConflictError
 
 
 def validate_bundle(bundle: EvaluationBundle) -> None:
     if digest(bundle.model_dump(mode="json", exclude={"content_hash"})) != bundle.content_hash:
         raise EvidenceError("Comparison export checksum does not match its contents.")
+    declared_dataset = bundle.dataset.model_dump(
+        mode="json",
+        include=set(EvaluationDatasetCreate.model_fields) - {"id"},
+    )
+    if digest(declared_dataset) != bundle.dataset.content_hash:
+        raise EvidenceError("Dataset revision checksum does not match its contents.")
     view = bundle.comparison
     case = case_in(bundle.dataset, view.case_id)
     if view.dataset_id != bundle.dataset.id or (view.track, view.partition) != (
@@ -29,10 +41,22 @@ def validate_bundle(bundle: EvaluationBundle) -> None:
         case.partition,
     ):
         raise EvidenceError("Exported comparison does not match its dataset case.")
+    if (view.brief, view.period_start, view.as_of_date, view.synthetic) != (
+        case.brief,
+        case.period_start,
+        case.as_of_date,
+        case.synthetic,
+    ):
+        raise EvidenceError("Exported comparison context does not match its case.")
     if not view.feedback or not view.reveal:
         raise EvidenceError("Only reviewed and revealed comparisons can be imported.")
     check_hashes(view, view.feedback.left_hash, view.feedback.right_hash)
     validate_edits(view, view.feedback)
+    if (view.feedback.left_qualified, view.feedback.right_qualified) != (
+        qualified(view.feedback.left_gates, view.left),
+        qualified(view.feedback.right_gates, view.right),
+    ):
+        raise EvidenceError("Exported qualification does not match the saved gates.")
     if view.feedback.created_at < view.created_at:
         raise EvidenceError("Exported feedback predates its comparison.")
     for side, candidate in ((view.left, view.reveal.left), (view.right, view.reveal.right)):

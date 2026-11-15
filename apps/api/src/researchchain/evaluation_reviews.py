@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 
 from researchchain.artifacts import EvidenceError, read_content
 from researchchain.database import Database
-from researchchain.evaluation_checks import check_inputs, input_text
+from researchchain.evaluation_checks import check_inputs, digest, input_text
 from researchchain.evaluation_datasets import case_in, read_record
 from researchchain.evaluation_models import (
     EvaluationCandidate,
@@ -121,16 +121,6 @@ class EvaluationReviews:
                 if existing["request_hash"] != request_hash(request):
                     raise ConflictError("Comparison ID already belongs to another pair.")
                 return read_comparison(conn, request.id)
-            pair_key = ":".join(sorted(str(key) for key in request.candidate_ids))
-            conn.execute(
-                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"pair:{pair_key}",)
-            )
-            if conn.execute(
-                "SELECT 1 FROM evaluation_comparisons WHERE pair_key = %s", (pair_key,)
-            ).fetchone():
-                raise ConflictError(
-                    "This candidate pair already has a comparison. Open it from the list."
-                )
             candidates = [
                 read_record(conn, "evaluation_candidates", key, EvaluationCandidate)
                 for key in request.candidate_ids
@@ -140,6 +130,18 @@ class EvaluationReviews:
                 raise EvidenceError("Compare candidates from the same case and dataset revision.")
             if a.content_hash == b.content_hash:
                 raise EvidenceError("The candidates contain identical text.")
+            pair_key = digest(
+                [str(a.dataset_id), a.case_id, sorted([a.content_hash, b.content_hash])]
+            )
+            conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))", (f"pair:{pair_key}",)
+            )
+            if conn.execute(
+                "SELECT 1 FROM evaluation_comparisons WHERE pair_key = %s", (pair_key,)
+            ).fetchone():
+                raise ConflictError(
+                    "This candidate pair already has a comparison. Open it from the list."
+                )
             case = case_in(
                 read_record(conn, "evaluation_datasets", a.dataset_id, EvaluationDataset), a.case_id
             )
@@ -178,6 +180,9 @@ class EvaluationReviews:
                 track=case.track,
                 partition=case.partition,
                 brief=case.brief,
+                period_start=case.period_start,
+                as_of_date=case.as_of_date,
+                synthetic=case.synthetic,
                 evidence=[sources[key] for key in sorted(sources)],
                 left=sides[0],
                 right=sides[1],

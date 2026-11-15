@@ -13,7 +13,7 @@ from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
 from researchchain.evaluation_archives import EvaluationArchives
 from researchchain.evaluation_candidates import EvaluationCandidates
-from researchchain.evaluation_checks import digest, text_digest
+from researchchain.evaluation_checks import digest
 from researchchain.evaluation_models import (
     EvaluationBundle,
     EvaluationCandidateCreate,
@@ -341,10 +341,30 @@ def test_export_import_roundtrip_is_unverified_and_never_creates_labels(
     assert client.post("/api/evaluations/archives", json=bundle).status_code == 422
 
 
-def test_candidate_identity_retries_cannot_mutate_content(database: Database) -> None:
-    view, left, _ = pair(database)
-    assert left.content_hash == text_digest(left.text)
-    exported_store = EvaluationArchives(database)
-    with pytest.raises(ConflictError):
-        exported_store.export(view.id)
-    assert EvaluationBundle.model_fields["version"].default == "evaluation-comparison-1"
+def test_duplicate_text_pair_cannot_manufacture_a_second_review(database: Database) -> None:
+    from researchchain.evaluation_datasets import EvaluationDatasets
+
+    view, a, b = pair(database)
+    record = EvaluationDatasets(database).get(view.dataset_id)
+    duplicate_a = candidate(database, record, a.text)
+    duplicate_b = candidate(database, record, b.text)
+    with pytest.raises(ConflictError, match="already has"):
+        EvaluationReviews(database).create(
+            EvaluationComparisonCreate(
+                id=uuid4(),
+                candidate_ids=[duplicate_a.id, duplicate_b.id],
+            )
+        )
+
+
+def test_archive_rejects_internally_inconsistent_qualification(database: Database) -> None:
+    view, _, _ = pair(database)
+    EvaluationReviews(database).feedback(view.id, feedback(view))
+    store = EvaluationArchives(database)
+    exported = store.export(view.id).model_dump(mode="json")
+    exported["comparison"]["feedback"]["right_qualified"] = True
+    exported["content_hash"] = digest(
+        {key: value for key, value in exported.items() if key != "content_hash"}
+    )
+    with pytest.raises(EvidenceError, match="qualification"):
+        store.import_bundle(EvaluationBundle.model_validate(exported))

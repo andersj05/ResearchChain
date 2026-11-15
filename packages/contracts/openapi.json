@@ -2353,6 +2353,35 @@
             "type": "string",
             "title": "Brief"
           },
+          "period_start": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Start"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          },
+          "synthetic": {
+            "type": "boolean",
+            "title": "Synthetic",
+            "default": false
+          },
           "evidence": {
             "items": {
               "$ref": "#/components/schemas/EvidenceRecord"
@@ -2875,6 +2904,19 @@
             },
             "type": "array",
             "title": "Evidence"
+          },
+          "text_content": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Text Content"
+          },
+          "delivery": {
+            "type": "string",
+            "const": "text_and_content_addresses",
+            "title": "Delivery",
+            "default": "text_and_content_addresses"
           },
           "checks": {
             "$ref": "#/components/schemas/EvaluationChecks"

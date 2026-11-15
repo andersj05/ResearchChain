@@ -913,6 +913,15 @@ export interface components {
       partition: "development" | "holdout";
       /** Brief */
       brief: string;
+      /** Period Start */
+      period_start?: string | null;
+      /** As Of Date */
+      as_of_date?: string | null;
+      /**
+       * Synthetic
+       * @default false
+       */
+      synthetic: boolean;
       /** Evidence */
       evidence: components["schemas"]["EvidenceRecord"][];
       left: components["schemas"]["EvaluationSide"];
@@ -1172,6 +1181,16 @@ export interface components {
       as_of_date: string | null;
       /** Evidence */
       evidence: components["schemas"]["EvidenceRecord"][];
+      /** Text Content */
+      text_content?: {
+        [key: string]: string;
+      };
+      /**
+       * Delivery
+       * @default text_and_content_addresses
+       * @constant
+       */
+      delivery: "text_and_content_addresses";
       checks: components["schemas"]["EvaluationChecks"];
       /** Input Hash */
       input_hash: string;

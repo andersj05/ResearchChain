@@ -136,7 +136,13 @@ class EvaluationJudges:
             cases = len({case for _, _, case in rows})
             accuracy = (
                 sum(
-                    max(judge.probabilities, key=lambda key: judge.probabilities[key])
+                    max(
+                        judge.probabilities,
+                        key=lambda key: (
+                            judge.probabilities[key],
+                            -("left", "right", "tie").index(key),
+                        ),
+                    )
                     == feedback.preference
                     for judge, feedback, _ in rows
                 )

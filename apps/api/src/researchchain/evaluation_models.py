@@ -5,13 +5,13 @@ from math import isclose
 from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import AwareDatetime, Field, HttpUrl, model_validator
+from pydantic import AwareDatetime, Field, HttpUrl, StringConstraints, model_validator
 
 from researchchain.evidence_models import EvidenceRecord
 from researchchain.research_models import Address, ResearchModel
 
-Text = Annotated[str, Field(min_length=1, max_length=6000)]
-Short = Annotated[str, Field(min_length=1, max_length=240)]
+Text = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=6000)]
+Short = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=240)]
 Hash = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 Track = Literal["frozen_writing", "full_research"]
 Partition = Literal["development", "holdout"]
@@ -118,6 +118,8 @@ class EvaluationInputs(ResearchModel):
     brief: str
     as_of_date: date | None
     evidence: list[EvidenceRecord]
+    text_content: dict[str, str] = Field(default_factory=dict)
+    delivery: Literal["text_and_content_addresses"] = "text_and_content_addresses"
     checks: EvaluationChecks
     input_hash: Hash
 
@@ -265,6 +267,9 @@ class EvaluationComparison(ResearchModel):
     track: Track
     partition: Partition
     brief: str
+    period_start: date | None = None
+    as_of_date: date | None = None
+    synthetic: bool = False
     evidence: list[EvidenceRecord]
     left: EvaluationSide
     right: EvaluationSide
