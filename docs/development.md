@@ -15,7 +15,10 @@ pnpm dev
 ```
 
 Open `http://127.0.0.1:3000`. The API is on port 8000, with interactive documentation
-at `http://127.0.0.1:8000/docs`. Both services bind to loopback. `Ctrl+C` stops both.
+at `http://127.0.0.1:3000/api/docs` after sign-in. Both services bind to loopback.
+In another terminal, run `pnpm access:login` for first enrollment or recovery, then
+set an owner password in the header. See [owner access](owner-access.md).
+`Ctrl+C` stops the web app, API and worker.
 Commands work in PowerShell and on Linux/macOS. Docker Desktop (or Docker Engine
 with Compose) must be running for the local Postgres database. No model API key
 or hosted service is needed. Postgres listens only on `127.0.0.1:5433` and uses a
@@ -36,7 +39,8 @@ the database before upgrades; volumes and checkpoints are not backups. Use the
 
 ## Optional ChatGPT plan connection
 
-Use `pnpm provider:login` to connect an eligible ChatGPT plan, then
+Use **Run workflow â†’ ChatGPT plan usage â†’ Connect ChatGPT** in a research
+workflow, or `pnpm provider:login`, to connect an eligible ChatGPT plan, then
 `pnpm provider:models` and `pnpm provider:verify --model <slug>` to verify a small
 response. See [the connection guide](chatgpt-plan.md) for account management,
 protected credential storage, usage controls, and current limits. This setup supports the [live research template](hypothesis-research.md). The deterministic
@@ -51,20 +55,24 @@ git switch -c feat/your-feature
 pnpm dev
 ```
 
-| Command                              | Purpose                                                    |
-| ------------------------------------ | ---------------------------------------------------------- |
-| `pnpm dev:web` / `pnpm dev:api`      | Run a single service                                       |
-| `pnpm db:up` / `pnpm db:down`        | Start/stop local Postgres; preserve its named volume       |
-| `pnpm db:backup` / `pnpm db:restore` | Create a private snapshot / verify a new recovery database |
-| `pnpm db:migrate`                    | Apply application and LangGraph database migrations        |
-| `pnpm test`                          | Backend validation and real checkpoint/resume tests        |
-| `pnpm typecheck`                     | TypeScript and strict Python type checks                   |
-| `pnpm lint`                          | ESLint and Ruff checks                                     |
-| `pnpm format`                        | Format supported source and docs                           |
-| `pnpm contracts:generate`            | Regenerate OpenAPI and TypeScript API types                |
-| `pnpm contracts:check`               | Regenerate and detect tracked contract drift               |
-| `pnpm check`                         | Formatting, lint, types, backend tests, production build   |
-| `pnpm test:e2e`                      | Browser tests in a temporary Postgres schema               |
+| Command                                              | Purpose                                                         |
+| ---------------------------------------------------- | --------------------------------------------------------------- |
+| `pnpm dev:web` / `pnpm dev:api`                      | Run a single service                                            |
+| `pnpm db:up` / `pnpm db:down`                        | Start/stop local Postgres; preserve its named volume            |
+| `pnpm db:backup` / `pnpm db:restore`                 | Create a private snapshot / verify a new recovery database      |
+| `pnpm db:keygen` / `pnpm db:seal` / `pnpm db:unseal` | Prepare portable encrypted recovery copies                      |
+| `pnpm access:login` / `pnpm access:revoke`           | Open a private owner link / revoke browser sessions             |
+| `pnpm monitor check` / `pnpm monitor --help`         | Read current operational conditions / configure explicit alerts |
+| `pnpm usage status` / `pnpm usage --help`            | Read/change the shared request allowance and pause control      |
+| `pnpm db:migrate`                                    | Apply application and LangGraph database migrations             |
+| `pnpm test`                                          | Backend validation and real checkpoint/resume tests             |
+| `pnpm typecheck`                                     | TypeScript and strict Python type checks                        |
+| `pnpm lint`                                          | ESLint and Ruff checks                                          |
+| `pnpm format`                                        | Format supported source and docs                                |
+| `pnpm contracts:generate`                            | Regenerate OpenAPI and TypeScript API types                     |
+| `pnpm contracts:check`                               | Regenerate and detect tracked contract drift                    |
+| `pnpm check`                                         | Formatting, lint, types, backend tests, production build        |
+| `pnpm test:e2e`                                      | Browser tests in a temporary Postgres schema                    |
 
 Install the test browser once with
 `pnpm --filter @researchchain/web exec playwright install chromium`.
@@ -75,7 +83,15 @@ checks. Backup tests require matching PostgreSQL clients or the local container
 and create/drop only their own randomly named `test_restore_*` databases. CI
 selects its Postgres service container explicitly. Browser tests own their API/web processes and fail if ports 8000/3000 are
 already occupied. Stop `pnpm dev` first. Run browser tests from the repository root
-so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema.
+so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema
+and temporary synthetic owner credentials. API fixtures authenticate normally;
+there is no test bypass. The access project runs after feature tests because
+password/revocation cases intentionally invalidate its synthetic sessions.
+Focus it with `pnpm test:e2e --project=access --no-deps --workers=1`.
+The worker project follows access tests and uses temporary database slot locks to
+exercise queued UI behavior without affecting other tests. Focus it with
+`pnpm test:e2e --project=workers --no-deps --workers=1`. The runner starts a separate
+synthetic-provider worker and stops it before dropping the test schema.
 Focus a browser test with `pnpm test:e2e --grep "narrow screen"`. Screenshots and
 failure traces stay under ignored `apps/web/test-results/`; CI uploads them for
 seven days. Backend tests also create and remove isolated `test_*` schemas.
@@ -121,10 +137,12 @@ Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decis
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
 
-If the process stops during execution, open the run and select **Recover run**.
-Recovery continues the recorded command from the last durable progress and stops
-at the next unanswered human review. Reading a run never executes it. Paused runs
-can be approved normally after restart; they do not require a recovery action.
+Run actions return HTTP 202 receipts and a separate worker executes accepted
+commands. The UI follows queued/running progress across refresh. Worker takeover
+continues confirmed work after a hard process failure; uncertain model requests
+are never resent. Handled errors and restored jobs require **Recover run** after
+review. Reading a run never executes it. Paused human reviews remain paused.
+See [worker operation and limits](workers.md).
 
 The UI shows the latest 20 runs and 50 revisions. The API accepts bounded `limit`
 parameters and direct UUID lookups; there is no automatic data deletion. A run
@@ -134,7 +152,8 @@ silently interpreting old checkpoints through changed code.
 To manually verify restart: run the sample until it pauses, restart `pnpm dev:api`,
 refresh the run's URL, and approve. Editing/saving a newer workflow before the
 restart must not change that run. `apps/api/tests/test_restart.py` automates this
-with hard process kills. This is not yet a complete research/report system.
+with hard process kills; test_worker_process.py also keeps independent worker
+ownership across API restarts.
 
 ## Tooling notes
 
@@ -151,13 +170,19 @@ with hard process kills. This is not yet a complete research/report system.
 
 ## Production prerequisites
 
-Before remote hosting, implement authentication/authorization, job isolation,
-request limits, database backups/retention, and artifact permissions.
-Then configure provider credentials, spend budgets, tool access, and tracing with
-explicit data-retention choices. The local service is not a production deployment.
+Owner access, bounded local workers and verified backups are implemented.
+Before remote hosting, complete operational secret management, retention,
+off-machine recovery, redacted monitoring and workload-based hosting configuration.
+Preserve explicit provider consent and the documented in-flight spend limitations.
+The local service is not a production deployment.
 
 Use a direct Postgres connection for this runtime: session advisory locks and the
 checkpointer deliberately share a physical connection. Transaction-mode poolers
-are incompatible with that locking contract. Long-running jobs, external side
-effects, automatic recovery workers, and connection pooling need a separate design;
-see [ADR 0002](decisions/0002-durable-runs.md).
+are incompatible with that locking contract. Worker ownership and recovery follow
+[ADR 0011](decisions/0011-durable-workers.md). New external tools require their own
+effect journal before automatic recovery can safely include them.
+
+Retention browser tests run after other suites so synthetic cleanup cannot remove
+their active fixtures. Focus with
+`pnpm test:e2e --project=retention --no-deps --workers=1`. All deletion uses the
+runner's disposable e2e_ workspace; never select the private database for tests.

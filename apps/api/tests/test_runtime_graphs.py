@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi.testclient import TestClient
 from graph_fixtures import chain, nested, node, split
+from run_fixtures import run_request
 from test_durability import decision, start
 from test_restart import api_process
 
@@ -38,7 +39,7 @@ def test_node_budget_is_global_across_parallel_branches_and_recovery(client: Tes
     assert result["stop_reason"] == "Node execution limit reached."
     assert result["usage"]["node_executions"] == 2
     assert all(event["path"] != "root/finish" for event in result["events"])
-    assert client.post(f"/api/runs/{result['id']}/recover").json() == result
+    assert run_request(client, f"/api/runs/{result['id']}/recover").json() == result
 
 
 def test_loop_exhaustion_is_a_durable_terminal_outcome(client: TestClient) -> None:
@@ -46,7 +47,7 @@ def test_loop_exhaustion_is_a_durable_terminal_outcome(client: TestClient) -> No
     document["nodes"][0]["config"]["until"]["value"] = 100
     result = start(client, document)
     assert result["status"] == "limited" and "exhausted 3" in result["stop_reason"]
-    assert client.post(f"/api/runs/{result['id']}/recover").json() == result
+    assert run_request(client, f"/api/runs/{result['id']}/recover").json() == result
 
 
 def test_cancellation_is_idempotent_and_cannot_resume(client: TestClient) -> None:
@@ -57,8 +58,8 @@ def test_cancellation_is_idempotent_and_cannot_resume(client: TestClient) -> Non
     assert client.post(f"{path}/cancel").json() == first.json()
     cancelled = client.get(path).json()
     assert cancelled["status"] == "cancelled" and not cancelled["reviews"]
-    assert client.post(f"{path}/resume", json=decision(paused)).status_code == 409
-    assert client.post(f"{path}/recover").json() == cancelled
+    assert run_request(client, f"{path}/resume", json=decision(paused)).status_code == 409
+    assert run_request(client, f"{path}/recover").json() == cancelled
 
 
 def test_cancel_does_not_rewrite_a_completed_result(client: TestClient) -> None:
@@ -148,7 +149,7 @@ def test_time_budget_does_not_reset_after_review_or_store_restart(
         conn.execute(
             "UPDATE run_controls SET active_seconds = 120 WHERE run_id = %s", (paused["id"],)
         )
-    result = client.post(f"/api/runs/{paused['id']}/resume", json=decision(paused)).json()
+    result = run_request(client, f"/api/runs/{paused['id']}/resume", json=decision(paused)).json()
     assert result["status"] == "limited" and "time limit" in result["stop_reason"]
     assert RunStore(database).recover(UUID(paused["id"])).status == "limited"
 
@@ -159,7 +160,8 @@ def test_parallel_reviews_are_individually_addressed(client: TestClient) -> None
     paused = start(client, document)
     assert len(paused["reviews"]) == 2
     second = paused["reviews"][1]
-    response = client.post(
+    response = run_request(
+        client,
         f"/api/runs/{paused['id']}/resume",
         json={
             "checkpoint_id": paused["checkpoint_id"],
@@ -171,7 +173,9 @@ def test_parallel_reviews_are_individually_addressed(client: TestClient) -> None
     remaining = response.json()
     assert len(remaining["reviews"]) == 1
     assert remaining["review"]["interrupt_id"] == paused["reviews"][0]["interrupt_id"]
-    completed = client.post(f"/api/runs/{paused['id']}/resume", json=decision(remaining)).json()
+    completed = run_request(
+        client, f"/api/runs/{paused['id']}/resume", json=decision(remaining)
+    ).json()
     assert completed["status"] == "completed"
 
 
@@ -179,7 +183,8 @@ def test_nested_review_survives_hard_restart_with_pinned_definition(database: Da
     document = nested("loop", review=True)
     with api_process(database) as first:
         revision = first.post("/api/revisions", json=document).json()
-        paused = first.post(
+        paused = run_request(
+            first,
             "/api/runs",
             json={"id": str(uuid4()), "revision_id": revision["id"], "brief": "Nested restart"},
         ).json()
@@ -193,8 +198,11 @@ def test_nested_review_survives_hard_restart_with_pinned_definition(database: Da
             assert previous["review"]["path"] == f"root/nested/iteration-{iteration}/inside"
             assert previous["review"]["question"] != "A changed question"
             request = decision(previous)
-            next_run = second.post(f"/api/runs/{paused['id']}/resume", json=request).json()
-            assert second.post(f"/api/runs/{paused['id']}/resume", json=request).json() == next_run
+            next_run = run_request(second, f"/api/runs/{paused['id']}/resume", json=request).json()
+            assert (
+                run_request(second, f"/api/runs/{paused['id']}/resume", json=request).json()
+                == next_run
+            )
             previous = next_run
         assert previous["status"] == "completed"
         # One claim per logical invocation, including reviews replayed on approval.
@@ -218,7 +226,7 @@ def test_registry_and_openapi_keep_typed_workflow_contracts(client: TestClient) 
     }
     assert {"name": "text", "type": "text"} in registry["note"]["outputs"]
     assert "max_iterations" in registry["loop"]["config_schema"]["properties"]
-    schemas = client.get("/openapi.json").json()["components"]["schemas"]
+    schemas = client.get("/api/openapi.json").json()["components"]["schemas"]
     assert "nodes" in schemas["Workflow"]["properties"]
     assert "Workflow-Output" not in schemas
 

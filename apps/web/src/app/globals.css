@@ -2583,3 +2583,400 @@ footer p {
     width: 100%;
   }
 }
+
+/* Owner access stays outside the private workbench until the API admits a session. */
+[hidden] {
+  display: none !important;
+}
+.access-page {
+  min-height: 100dvh;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 64px;
+}
+.access-brand {
+  font-weight: 650;
+  letter-spacing: -0.5px;
+  font-size: 18px;
+}
+.access-brand span {
+  margin-left: 16px;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 13px;
+  letter-spacing: 0;
+}
+.access-card {
+  width: min(100%, 460px);
+  margin: 0 auto;
+  padding: 32px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  display: grid;
+  gap: 18px;
+}
+.access-form {
+  display: grid;
+  gap: 10px;
+}
+.access-form label {
+  font-weight: 500;
+}
+.access-form input {
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+}
+.access-form .button {
+  justify-self: start;
+}
+.access-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+.access-recovery {
+  border-top: 1px solid var(--line);
+  padding-top: 16px;
+}
+.access-recovery p {
+  margin: 12px 0;
+}
+.access-recovery code {
+  display: block;
+  padding: 10px;
+  background: var(--soft);
+  overflow-wrap: anywhere;
+}
+.access-menu {
+  position: relative;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+.access-menu > summary {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+}
+.access-menu-panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 12px);
+  z-index: 100;
+  width: min(380px, calc(100vw - 32px));
+  max-height: calc(100dvh - 90px);
+  overflow: auto;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  padding: 22px;
+  box-shadow: 0 8px 24px #00000014;
+  display: grid;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .access-page {
+    padding: 20px 16px;
+    gap: 36px;
+  }
+  .access-brand span {
+    display: block;
+    margin: 4px 0 0;
+  }
+  .access-card {
+    padding: 24px 20px;
+  }
+  .topbar .local-badge {
+    display: none;
+  }
+  .access-menu {
+    margin-left: auto;
+  }
+}
+
+/* Owner workspace status uses explicit refresh to preserve session idle expiry. */
+.operations-view {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.operations-desk {
+  max-width: 1264px;
+  margin: auto;
+  padding: 32px;
+}
+.operations-desk .view-heading {
+  gap: 24px;
+  margin-bottom: 20px;
+}
+.operations-observed {
+  color: var(--muted);
+  font-size: 12px;
+  margin-bottom: 20px;
+}
+.operations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px;
+}
+.operations-card {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  padding: 24px;
+}
+.operations-card h2,
+.operations-attention h2 {
+  font-size: 16px;
+  letter-spacing: -0.02em;
+}
+.operations-card dl {
+  margin: 20px 0;
+}
+.operations-card dl > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.operations-card dt {
+  color: var(--muted);
+}
+.operations-card dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.operations-card p {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.operations-window {
+  margin-top: 4px;
+}
+.operations-attention,
+.operations-error {
+  padding: 20px 24px;
+  margin-bottom: 20px;
+  border: 1px solid var(--line);
+  background: var(--amber-soft);
+}
+.operations-attention ul {
+  padding-left: 18px;
+  margin: 12px 0;
+}
+.operations-attention li + li {
+  margin-top: 8px;
+}
+.operations-error {
+  background: var(--red-soft);
+  color: var(--red);
+}
+@media (max-width: 700px) {
+  .operations-desk {
+    padding: 24px 20px;
+  }
+  .operations-desk .view-heading {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .operations-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .operations-card,
+  .operations-attention,
+  .operations-error {
+    padding: 20px;
+  }
+}
+
+/* Cleanup is a reviewed, explicit action; saved state contains request IDs only. */
+.retention-panel {
+  margin-top: 24px;
+}
+.retention-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 16px;
+}
+.retention-panel p {
+  margin: 10px 0;
+}
+.retention-controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-top: 24px;
+}
+.retention-controls label,
+.retention-confirm {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+}
+.retention-controls select {
+  min-width: 140px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.retention-review,
+.retention-history,
+.retention-receipt {
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--line);
+}
+.retention-panel h3 {
+  font-size: 14px;
+}
+.retention-panel .retention-total {
+  font-size: 14px;
+  color: var(--text);
+}
+.retention-panel .operations-error {
+  color: var(--red);
+}
+.retention-runs {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+}
+.retention-runs li {
+  display: grid;
+  gap: 5px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.retention-runs span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.retention-panel code {
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.retention-panel details {
+  margin: 16px 0;
+  font-size: 12px;
+}
+.retention-originals {
+  max-height: 200px;
+  overflow: auto;
+}
+.retention-originals li,
+.retention-history li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
+.retention-confirm {
+  max-width: 320px;
+  margin: 20px 0 12px;
+}
+.retention-confirm input {
+  padding: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.retention-protected {
+  margin-top: 24px;
+}
+.retention-protected ul,
+.retention-history ul {
+  padding-left: 20px;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.retention-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 20px;
+}
+.retention-panel .retention-notice {
+  padding: 12px;
+  background: var(--amber-soft);
+}
+@media (max-width: 700px) {
+  .retention-heading {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .retention-controls {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .retention-panel .button {
+    white-space: normal;
+  }
+}
+
+.chatgpt-signin {
+  border-top: 1px solid var(--line);
+  margin: 16px 0;
+  padding-top: 12px;
+}
+.signin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.request-allowance {
+  margin-top: 24px;
+}
+.allowance-heading,
+.allowance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.allowance-heading h2 {
+  margin: 0;
+}
+.allowance-form {
+  display: grid;
+  gap: 18px;
+  margin: 22px 0;
+}
+.allowance-maximum {
+  display: grid;
+  gap: 8px;
+  max-width: 240px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.allowance-pause {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.allowance-pause input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.allowance-actions {
+  justify-content: flex-start;
+}
+.request-allowance .allowance-notice {
+  font-weight: 600;
+}
+@media (max-width: 600px) {
+  .allowance-heading {
+    align-items: stretch;
+  }
+  .allowance-heading .button,
+  .allowance-actions .button {
+    width: 100%;
+  }
+}

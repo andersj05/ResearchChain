@@ -18,8 +18,8 @@ The parent directory must exist and the destination must be new. Inside the
 checkout, use an ignored .local/, data/ or artifacts/ destination. An explicit
 path outside the checkout also works. Windows directories receive an owner-only,
 inheritable ACL; Unix directories use mode 700 and files use 600. Archives contain
-private research in plaintext; use appropriate encrypted storage when copying
-them elsewhere. No upload, schedule or automatic deletion is configured.
+private research in plaintext. Use the [portable encrypted-backup workflow](encrypted-backups.md)
+before copying them elsewhere. No upload, schedule or automatic deletion is configured.
 
 DATABASE_URL and DATABASE_SCHEMA select the source; credentials belong in the
 environment or ignored .env, never command arguments. The URL must explicitly
@@ -73,10 +73,19 @@ hostile archives or an isolation guarantee on a shared cluster.
 Restore runs in one transaction. Verification checks every table's row
 fingerprints, schema definitions including immutable triggers, migrations,
 sequence floors, and the actual SHA-256 of every original file. Ownership and
-grants are intentionally not copied. After verification, ownership passes to the
-administrator and the temporary role is removed. The JSON receipt includes the
-backup ID, target/schema, archive hash, verification time, table/row/original
-totals and zero provider calls. Save it privately with the backup.
+grants are intentionally not copied. After fingerprint verification, unfinished
+queued/running commands are put on an explicit recovery hold in the restored
+database. This changes only mutable worker ownership/status metadata; pinned
+inputs, checkpoints, command receipts and recorded effects remain intact.
+Ownership then passes to the administrator and the temporary role is removed.
+The JSON receipt includes the backup ID, target/schema, archive hash, verification
+time, table/row/original totals, held-command count and zero provider calls.
+Save it privately with the backup.
+
+Starting a worker against the restored database does not resume held commands.
+Before explicit recovery, reconcile the source's later activity and provider
+records: an archive cannot tell whether a queued request ran after its snapshot.
+Uncertain recorded requests remain subject to the no-resend rule.
 
 Failure leaves the newly created target quarantined with connections disabled
 and its temporary role unable to log in. Existing databases are never dropped.
@@ -135,3 +144,13 @@ References: PostgreSQL's
 [pg_dump snapshot semantics](https://www.postgresql.org/docs/18/app-pgdump.html),
 [pg_restore execution rules](https://www.postgresql.org/docs/18/app-pgrestore.html)
 and [ownership reassignment](https://www.postgresql.org/docs/18/sql-reassign-owned.html).
+
+## Owner access after restore
+
+Research archives exclude owner password/session state, provider credentials
+and [monitor profiles/outboxes](monitoring.md). Recreate monitor configuration
+separately on a recovery machine; do not replay an old alert outbox implicitly. A different database/schema is a separate owner workspace. After
+switching the app deliberately to the verified target, enroll it with
+`pnpm access:login`; never copy stale session-state files over live credentials.
+See [owner recovery](owner-access.md). This does not reconnect or authorize
+provider usage automatically.

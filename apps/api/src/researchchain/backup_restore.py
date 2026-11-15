@@ -139,6 +139,16 @@ def restore_verified(
                 restricted.check_ready(conn)
                 actual = inventory(conn, manifest.schema_name)
                 compare_inventory(manifest.inventory, actual)
+            phase = "worker recovery hold"
+            with restricted.connection() as conn, conn.transaction():
+                # Fingerprints above prove the archived snapshot first. A restored
+                # queue must not replay work the source performed after that snapshot.
+                held = conn.execute(
+                    "UPDATE run_jobs j SET state = 'interrupted', owner_id = NULL, "
+                    "last_error = 'Restored command requires review before explicit recovery.' "
+                    "FROM run_commands c WHERE c.id = j.command_id AND c.response IS NULL "
+                    "AND j.state IN ('queued', 'running')"
+                ).rowcount
             phase = "ownership finalization"
             restored_admin = Database(make_conninfo(admin.url, dbname=target), manifest.schema_name)
             with restored_admin.connection() as conn:
@@ -160,6 +170,7 @@ def restore_verified(
                 rows=sum(t.rows for t in actual.tables.values()),
                 original_count=actual.artifact_count,
                 original_bytes=actual.artifact_bytes,
+                held_commands=held,
             )
         except BaseException:
             if created_role and not verified:

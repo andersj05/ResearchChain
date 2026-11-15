@@ -7,7 +7,8 @@ import {
   type ResearchSettings,
   type Workflow,
 } from "@/lib/workflow";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { ChatGPTSignIn } from "@/components/chatgpt-signin";
 import { Button } from "@ui-sdk/react/button";
 
 export function ResearchSettingsEditor({
@@ -86,6 +87,10 @@ export function ResearchConnection({
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   const [refresh, setRefresh] = useState(0);
+  const refreshConnection = useCallback(() => {
+    setLoading(true);
+    setRefresh((value) => value + 1);
+  }, []);
   useEffect(() => {
     let active = true;
     api<ProviderStatus>("providers/chatgpt", undefined, 30000)
@@ -121,8 +126,13 @@ export function ResearchConnection({
           ? "Checking connection…"
           : account
             ? `Connected as ${account.label}`
-            : "Connect your ChatGPT account with pnpm provider:login."}
+            : "Connect your ChatGPT account to choose a research model."}
       </p>
+      <ChatGPTSignIn
+        connected={Boolean(status?.accounts?.some((item) => item.active && item.signed_in))}
+        disabled={disabled}
+        onConnectionChange={refreshConnection}
+      />
       <label>
         Research model
         <select
@@ -156,14 +166,7 @@ export function ResearchConnection({
           {error}
         </p>
       )}
-      <Button
-        className="button small"
-        disabled={disabled || loading}
-        onClick={() => {
-          setLoading(true);
-          setRefresh((value) => value + 1);
-        }}
-      >
+      <Button className="button small" disabled={disabled || loading} onClick={refreshConnection}>
         Refresh connection
       </Button>
     </fieldset>

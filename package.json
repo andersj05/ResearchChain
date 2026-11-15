@@ -10,7 +10,9 @@
     "db:down": "docker compose down",
     "db:migrate": "uv run --project apps/api python -m researchchain.database",
     "bootstrap": "pnpm install --frozen-lockfile && uv sync --project apps/api --locked",
-    "dev": "concurrently -k -n web,api \"pnpm dev:web\" \"pnpm dev:api\"",
+    "dev": "concurrently -k -n web,api,worker \"pnpm dev:web\" \"pnpm dev:api\" \"pnpm worker\"",
+    "operations": "uv run --project apps/api python -m researchchain.operations",
+    "worker": "uv run --project apps/api python -m researchchain.worker",
     "dev:web": "pnpm --filter @researchchain/web dev",
     "dev:api": "uv run --project apps/api uvicorn researchchain.main:app --host 127.0.0.1 --port 8000 --reload",
     "build": "pnpm --filter @researchchain/web build",
@@ -31,7 +33,15 @@
     "provider:models": "uv run --project apps/api python -m researchchain.provider models",
     "provider:verify": "uv run --project apps/api python -m researchchain.provider verify",
     "db:backup": "uv run --project apps/api python -m researchchain.backup create",
-    "db:restore": "uv run --project apps/api python -m researchchain.backup restore"
+    "db:restore": "uv run --project apps/api python -m researchchain.backup restore",
+    "db:keygen": "uv run --project apps/api python -m researchchain.backup keygen",
+    "db:seal": "uv run --project apps/api python -m researchchain.backup seal",
+    "db:unseal": "uv run --project apps/api python -m researchchain.backup unseal",
+    "access:login": "uv run --project apps/api python -m researchchain.access login",
+    "access:status": "uv run --project apps/api python -m researchchain.access status",
+    "access:revoke": "uv run --project apps/api python -m researchchain.access revoke",
+    "monitor": "uv run --project apps/api python -m researchchain.monitor",
+    "usage": "uv run --project apps/api python -m researchchain.usage"
   },
   "devDependencies": {
     "concurrently": "10.0.7",

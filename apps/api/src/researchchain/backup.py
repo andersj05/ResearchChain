@@ -1,6 +1,7 @@
 """Consistent logical backup and an explicit, separate-database restore CLI."""
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -14,7 +15,7 @@ from researchchain.backup_files import ARCHIVE, file_digest, private_directory, 
 from researchchain.backup_inventory import inventory
 from researchchain.backup_models import BackupError, BackupManifest
 from researchchain.backup_tools import ROOT, TIMEOUT, PostgreSQLTools
-from researchchain.database import MIGRATION_LOCK, Database, migrations
+from researchchain.database import Database, acquire_migration_lock, migrations
 
 
 def code_version() -> tuple[str | None, bool]:
@@ -56,7 +57,7 @@ def create_backup(database: Database, directory: Path) -> BackupManifest:
     with database.connection() as conn:
         # Acquire the migration lock BEFORE opening the MVCC snapshot. A waiting
         # backup must see the migration that finishes before this lock is granted.
-        conn.execute("SELECT pg_advisory_lock_shared(%s)", (MIGRATION_LOCK,))
+        acquire_migration_lock(conn, shared=True)
         with conn.transaction():
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             conn.execute("SELECT set_config('statement_timeout',%s,true)", (str(TIMEOUT * 1000),))
@@ -118,17 +119,63 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Confirm the archive came from a trusted server; archives contain executable SQL",
     )
+    keys = commands.add_parser("keygen", help="Create a passphrase-protected age recovery identity")
+    keys.add_argument(
+        "--output", type=Path, required=True, help="New private recovery-key directory"
+    )
+    seal = commands.add_parser(
+        "seal", help="Encrypt a complete backup to a public recovery recipient"
+    )
+    seal.add_argument("--input", type=Path, required=True)
+    seal.add_argument("--output", type=Path, required=True, help="New encrypted-package directory")
+    seal.add_argument("--recipient", type=Path, required=True, help="Public recipient.txt file")
+    unseal = commands.add_parser(
+        "unseal", help="Authenticate and unpack a backup into a NEW directory"
+    )
+    unseal.add_argument("--input", type=Path, required=True, help="Encrypted backup.tar.age file")
+    unseal.add_argument("--output", type=Path, required=True)
+    unseal.add_argument(
+        "--identity", type=Path, required=True, help="Passphrase-protected identity.age"
+    )
     args = parser.parse_args(argv)
     try:
-        database = Database.from_env()
         if args.command == "create":
-            manifest = create_backup(database, args.output)
+            manifest = create_backup(Database.from_env(), args.output)
             print(manifest.model_dump_json(indent=2))
-        else:
+        elif args.command == "restore":
             from researchchain.backup_restore import restore_backup
 
-            receipt = restore_backup(database, args.input, args.database, trusted=args.trust_source)
+            receipt = restore_backup(
+                Database.from_env(), args.input, args.database, trusted=args.trust_source
+            )
             print(receipt.model_dump_json(indent=2))
+        elif args.command == "keygen":
+            from researchchain.backup_crypto import create_recovery_key
+            from researchchain.backup_prompt import recovery_passphrase
+
+            public = create_recovery_key(args.output, recovery_passphrase(confirm=True))
+            print(json.dumps({"format": "researchchain-recovery-key-1", "recipient": public}))
+        elif args.command == "seal":
+            from researchchain.backup_bundle import seal_backup
+
+            print(json.dumps(seal_backup(args.input, args.output, args.recipient), indent=2))
+        else:
+            from researchchain.backup_bundle import unseal_backup
+            from researchchain.backup_prompt import recovery_passphrase
+
+            manifest = unseal_backup(args.input, args.output, args.identity, recovery_passphrase())
+            print(
+                json.dumps(
+                    {
+                        "status": "authenticated_and_unpacked",
+                        "backup_id": str(manifest.id),
+                        "archive_sha256": manifest.archive_sha256,
+                        "database_restored": False,
+                        "provider_calls": 0,
+                    },
+                    indent=2,
+                )
+            )
         return 0
     except BackupError as error:
         print(f"Backup operation failed: {error}", file=sys.stderr)

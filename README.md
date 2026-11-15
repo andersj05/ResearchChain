@@ -20,9 +20,17 @@ with source and chart references, pinned style guides, editorial feedback and
 offline review exports.
 
 Setup and commands: [development guide](docs/development.md).
+The [owner access guide](docs/owner-access.md) covers private workbench sign-in,
+password setup, session recovery and the separate ChatGPT provider connection.
+The [worker guide](docs/workers.md) covers durable command admission, queued progress,
+workspace limits, cancellation and recovery after a process restart.
+The [Operations view](docs/operations.md) shows connected workers, queue problems,
+storage and recorded usage without submitting new research.
 Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
 [PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).
 See the [CLI workflow and repository configuration](docs/github.md).
+[Run cleanup](docs/retention.md) previews terminal runs, protects referenced research
+and requires explicit confirmation before deleting execution history and unused originals.
 
 ## How we work
 

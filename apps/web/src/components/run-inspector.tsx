@@ -9,6 +9,7 @@ import { RotateCw, Check, X } from "lucide-react";
 
 export function RunStatus({ status }: { status: RunSummary["status"] }) {
   const label = {
+    queued: "Queued",
     paused: "Needs review",
     running: "Running",
     completed: "Completed",
@@ -74,6 +75,7 @@ export function RunInspector({
             <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
             <div className="actions run-actions">
               {(run.status === "paused" ||
+                run.status === "queued" ||
                 run.status === "interrupted" ||
                 run.status === "running") && (
                 <Button className="button" onClick={onCancel}>
@@ -86,6 +88,15 @@ export function RunInspector({
               </Button>
             </div>
           </div>
+          {run.status === "queued" && (
+            <div className="review-box" role="status">
+              <h3>Waiting to start</h3>
+              <p>
+                Your run is saved and will start when capacity is available. You can leave this page
+                and return later.
+              </p>
+            </div>
+          )}
           {run.stop_reason && (
             <p className="review-box" role="status">
               {run.stop_reason}

@@ -90,6 +90,7 @@ class RunSummary(StrictModel):
     revision_number: int
     workflow_name: str
     status: Literal[
+        "queued",
         "paused",
         "completed",
         "rejected",
@@ -118,6 +119,9 @@ class CancelResult(StrictModel):
 
 
 class RunSnapshot(RunSummary):
+    execution_pending: bool = Field(
+        default=False, description="An accepted command is still queued or held by a worker."
+    )
     workflow: Workflow
     brief: str
     artifacts: list[ArtifactRef]
@@ -141,5 +145,3 @@ class ValidationResult(StrictModel):
 
 class Health(StrictModel):
     status: Literal["ok"] = "ok"
-    mode: Literal["local-development"] = "local-development"
-    database: Literal["ready"] = "ready"

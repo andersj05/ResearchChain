@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import research from "../../../examples/hypothesis-research.json";
 import { addTemplate } from "../src/lib/workflow-editing";
@@ -27,13 +27,19 @@ for (const width of [1440, 390]) {
     page,
     request,
   }, testInfo) => {
+    // Accepted work shares two durable worker slots with other browser cases.
+    // Bound execution waits separately from immediate interface assertions.
+    testInfo.setTimeout(60000);
+    const executionWait = { timeout: 30000 };
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 1000 });
     await prepare(page, request);
     await page.screenshot({ path: testInfo.outputPath("research-setup.png"), fullPage: true });
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible(
+      executionWait,
+    );
     await expect(page.getByRole("region", { name: "Research results" })).toContainText(
       "A temporary measurement effect.",
     );
@@ -42,9 +48,10 @@ for (const width of [1440, 390]) {
       .getByRole("textbox", { name: "Reviewer feedback", exact: true })
       .fill("Seek independent observations before concluding.");
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run running", exact: true })).toBeVisible();
+    // Wait for the next durable checkpoint, not a transient running frame
+    // or the previous review still visible while its command is queued.
+    await expect(page.locator('[aria-label="Review final_review"]')).toBeVisible(executionWait);
     await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
-    await expect(page.locator('[aria-label="Review final_review"]')).toBeVisible();
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(snapshot.model_attempts).toHaveLength(3);
     expect(snapshot.usage?.input_tokens).toBe(75);
@@ -60,9 +67,13 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Download research manifest", exact: true }).click();
     expect((await download).suggestedFilename()).toBe(`research-${runId}.json`);
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible(
+      executionWait,
+    );
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible(
+      executionWait,
+    );
     expect(errors).toEqual([]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -70,7 +81,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("cancel a live response while the start request is pending", async ({ page, request }) => {
+test("cancel an active research response in the separate worker", async ({ page, request }) => {
   await prepare(page, request);
   await page
     .getByRole("textbox", { name: "Research brief", exact: true })
@@ -81,6 +92,10 @@ test("cancel a live response while the start request is pending", async ({ page,
   await page.getByRole("button", { name: "Cancel run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
   await expect(page.getByText("Saved response (unvalidated)", { exact: true })).toBeVisible();
+  const runId = new URL(page.url()).searchParams.get("run");
+  await expect
+    .poll(async () => (await (await request.get(`/api/runs/${runId}`)).json()).execution_pending)
+    .toBe(false);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
 });

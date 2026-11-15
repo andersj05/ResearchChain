@@ -2,6 +2,7 @@
 
 import html
 import secrets
+import threading
 import time
 import webbrowser
 from collections.abc import Callable
@@ -18,6 +19,16 @@ background:#171717;color:white;border:0;padding:14px 20px;font:inherit;cursor:po
 a{color:#333}small{display:block;color:#555;margin-top:32px}form{margin:28px 0}"""
 
 
+class LoginCancelled(ConnectionError):
+    def __init__(self) -> None:
+        super().__init__("ChatGPT sign-in cancelled.")
+
+
+class LoginExpired(ConnectionError):
+    def __init__(self) -> None:
+        super().__init__("ChatGPT sign-in timed out. Start again when ready.")
+
+
 def browser_login(
     auth: ChatGPTAuth,
     account_id: str | None = None,
@@ -26,7 +37,11 @@ def browser_login(
     consent: bool = False,
     open_browser: Callable[[str], object] = webbrowser.open,
     announce: Callable[[str], object] = print,
+    ready: Callable[[str, float], None] | None = None,
+    exchanging: Callable[[], bool] | None = None,
+    stop: threading.Event | None = None,
 ) -> Account:
+    cancelled = stop or threading.Event()
     result: Account | None = None
     failure: ConnectionError | None = None
     finished = False
@@ -73,7 +88,10 @@ def browser_login(
                     "Set-Cookie", "rc_signin=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0"
                 )
             self.end_headers()
-            self.wfile.write(document)
+            try:
+                self.wfile.write(document)
+            except OSError:
+                pass  # Closing a tab must not undo an already validated connection.
 
         def local_request(self) -> bool:
             return self.headers.get("Host") == f"127.0.0.1:{server.server_port}"
@@ -89,7 +107,15 @@ def browser_login(
             except Exception:
                 return False
 
+        def available(self) -> bool:
+            if cancelled.is_set() or time.monotonic() >= pending.expires_at:
+                self.respond("Sign-in ended", "<p>Start a new sign-in from ResearchChain.</p>", 410)
+                return False
+            return True
+
         def do_POST(self) -> None:
+            if not self.available():
+                return
             if (
                 not self.local_request()
                 or self.path != f"/continue/{entry}"
@@ -111,6 +137,8 @@ def browser_login(
             nonlocal result, failure, finished
             if not self.local_request():
                 self.respond("Invalid local address", "<p>Restart sign-in.</p>", 400)
+                return
+            if not self.available():
                 return
             parsed = urlsplit(self.path)
             if parsed.path == f"/start/{entry}" and not parsed.query:
@@ -138,8 +166,13 @@ def browser_login(
                     raise ConnectionError(
                         "The callback contained repeated parameters. Start again."
                     )
+                if cancelled.is_set() or (exchanging is not None and not exchanging()):
+                    raise LoginCancelled()
                 result = auth.complete(pending, {key: value[0] for key, value in values.items()})
-                permitted = bool(result.tokens and PLAN_SCOPE in result.tokens.scopes)
+                finished = True
+                permitted = bool(
+                    result.tokens and {PLAN_SCOPE, "resource.invoke"} <= result.tokens.scopes
+                )
                 if permitted:
                     first = not result.welcomed
                     self.respond(
@@ -149,15 +182,18 @@ def browser_login(
                         '<p><a href="https://chatgpt.com/settings/usage">Manage usage</a></p>'
                         '<p><a class="button" href="http://127.0.0.1:3000">Got it</a></p>',
                     )
-                    with auth.store.locked():
-                        saved = auth.store.read()
-                        saved.accounts[result.client_id].welcomed = True
-                        auth.store.write(saved)
+                    try:
+                        with auth.store.locked():
+                            saved = auth.store.read()
+                            saved.accounts[result.client_id].welcomed = True
+                            auth.store.write(saved)
+                    except (ConnectionError, OSError):
+                        pass  # Welcome display metadata cannot invalidate saved credentials.
                 else:
                     self.respond(
                         "Signed in; plan use is disabled",
                         "<p>Enable ChatGPT plan usage before running a model. "
-                        "Run sign-in again with --consent to request permission.</p>",
+                        "Start sign-in again from ResearchChain to request permission.</p>",
                     )
                 finished = True
             except (ConnectionError, ValueError) as error:
@@ -178,11 +214,15 @@ def browser_login(
         announce(
             f"Continue with ChatGPT: {url}"
         )  # Local entry link; contains no OAuth credentials.
+        if ready is not None:
+            ready(url, pending.expires_at)
         open_browser(url)
-        while not finished and time.monotonic() < pending.expires_at:
+        while not finished and not cancelled.is_set() and time.monotonic() < pending.expires_at:
             server.handle_request()
     if failure:
         raise failure
     if result is None:
-        raise ConnectionError("ChatGPT sign-in timed out. Start again when ready.")
+        if cancelled.is_set():
+            raise LoginCancelled()
+        raise LoginExpired()
     return result

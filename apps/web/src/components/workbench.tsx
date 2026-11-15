@@ -3,10 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { useOwner } from "@/components/access-context";
+import { AccessControls } from "@/components/access-controls";
+import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
+import { OperationsDesk } from "@/components/operations-desk";
 import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
+import { readPendingRun, retainPendingRun, forgetPendingRun } from "@/lib/run-requests";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
@@ -18,7 +23,8 @@ import {
   type ValidationIssue,
   initialWorkflow,
   researchWorkflow,
-  executionTimeout,
+  admissionTimeout,
+  type CommandReceipt,
   type RunRequest,
   type RunSnapshot,
   type RunSummary,
@@ -28,9 +34,16 @@ import {
   type ValidationResult,
 } from "@/lib/workflow";
 
-const storageKey = "researchchain.workflow.v0.1";
+const legacyKey = "researchchain.workflow.v0.1";
 
 export function Workbench() {
+  const { owner, active: accessActive } = useOwner();
+  const storagePrefix = ownerStoragePrefix(owner);
+  const storageKey = storagePrefix + ".workflow.v0.1";
+  const pendingKey = storagePrefix + ".run.pending";
+  const [legacyAvailable, setLegacyAvailable] = useState(() =>
+    legacyDraftAvailable(legacyKey, storagePrefix),
+  );
   const {
     workflow,
     change: recordChange,
@@ -62,6 +75,8 @@ export function Workbench() {
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const pendingStart = useRef<RunRequest | null>(null);
+  const runReadEpoch = useRef(0);
+  const selectedRunId = useRef<string | null>(null);
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
 
@@ -70,6 +85,13 @@ export function Workbench() {
     async function load() {
       try {
         const parameters = new URL(window.location.href).searchParams;
+        const pending = readPendingRun(pendingKey);
+        if (pending) {
+          pendingStart.current = pending;
+          setBrief(pending.brief);
+          setEvidenceIds(pending.evidence_ids ?? []);
+          setProviderAccount(pending.provider_account_id ?? null);
+        }
         const [savedRevisions, recentRuns] = await Promise.all([
           api<RevisionSummary[]>("revisions"),
           api<RunSummary[]>("runs"),
@@ -88,9 +110,12 @@ export function Workbench() {
         }
         const runId = parameters.get("run");
         if (runId) {
+          selectedRunId.current = runId;
           const restored = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
           if (!active) return;
           setRun(restored);
+          forgetPendingRun(pendingKey, restored.id);
+          if (pendingStart.current?.id === restored.id) pendingStart.current = null;
           setTab("runs");
           setMessage("Saved run restored.");
         } else {
@@ -103,7 +128,15 @@ export function Workbench() {
         const view = parameters.get("view");
         if (
           view &&
-          ["workflow", "runs", "revisions", "evidence", "evaluations", "reports"].includes(view)
+          [
+            "workflow",
+            "runs",
+            "revisions",
+            "evidence",
+            "evaluations",
+            "reports",
+            "operations",
+          ].includes(view)
         )
           setTab(view);
       } catch (cause) {
@@ -119,19 +152,41 @@ export function Workbench() {
     return () => {
       active = false;
     };
-  }, [initialize]);
+  }, [initialize, pendingKey]);
 
-  const pollId = executingId ?? (run?.status === "running" ? run.id : null);
+  const pollId =
+    executingId ??
+    (run?.execution_pending || run?.status === "running" || run?.status === "queued"
+      ? run.id
+      : null);
   useEffect(() => {
-    if (!pollId) return;
+    if (!pollId || !accessActive) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
+      const epoch = runReadEpoch.current;
       try {
         const snapshot = await api<RunSnapshot>(`runs/${pollId}`);
-        if (active) setRun(snapshot);
+        if (active && epoch === runReadEpoch.current && selectedRunId.current === pollId) {
+          setRun(snapshot);
+          setRuns((previous) =>
+            previous.map((item) =>
+              item.id === snapshot.id ? { ...item, status: snapshot.status } : item,
+            ),
+          );
+          if (
+            !snapshot.execution_pending &&
+            snapshot.status !== "queued" &&
+            snapshot.status !== "running"
+          )
+            setMessage(`Run ${snapshot.status}. Progress saved.`);
+        }
       } catch (cause) {
-        if (active && !(cause instanceof ApiError && cause.status === 404)) {
+        if (
+          active &&
+          epoch === runReadEpoch.current &&
+          !(cause instanceof ApiError && cause.status === 404)
+        ) {
           setError("Progress could not be refreshed. The run may still be executing.");
         }
       } finally {
@@ -143,7 +198,7 @@ export function Workbench() {
       active = false;
       clearTimeout(timer);
     };
-  }, [pollId]);
+  }, [pollId, accessActive]);
 
   function change(next: Workflow, group?: string) {
     recordChange(next, group);
@@ -180,6 +235,7 @@ export function Workbench() {
   }
 
   function rememberRun(id: string) {
+    selectedRunId.current = id;
     const url = new URL(window.location.href);
     url.searchParams.set("run", id);
     url.searchParams.set("view", "runs");
@@ -201,11 +257,17 @@ export function Workbench() {
   }
 
   async function openRun(id: string) {
+    selectedRunId.current = id;
+    const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
-    setRun(result);
-    setSetupOpen(false);
-    setTab("runs");
-    rememberRun(id);
+    if (epoch === runReadEpoch.current && selectedRunId.current === id) {
+      setRun(result);
+      setSetupOpen(false);
+      setTab("runs");
+      rememberRun(id);
+      forgetPendingRun(pendingKey, id);
+      if (pendingStart.current?.id === id) pendingStart.current = null;
+    }
     return result;
   }
 
@@ -253,14 +315,17 @@ export function Workbench() {
       };
     }
     const request = pendingStart.current;
+    retainPendingRun(pendingKey, request);
+    runReadEpoch.current += 1;
     rememberRun(request.id);
     setRun(null);
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
-    setMessage("Starting run. Waiting for saved progress…");
+    setMessage("Saving run request…");
     try {
-      await api<RunSnapshot>("runs", request, executionTimeout);
+      await api<CommandReceipt>("runs", request, admissionTimeout);
+      forgetPendingRun(pendingKey, request.id);
       const result = await openRun(request.id);
       pendingStart.current = null;
       setMessage(`Run ${result.status}. Progress saved.`);
@@ -278,9 +343,10 @@ export function Workbench() {
 
   async function resumeRun(decision: "approve" | "reject", interruptId?: string, feedback = "") {
     if (!run?.review || !run.checkpoint_id) return;
+    runReadEpoch.current += 1;
     setExecutingId(run.id);
     try {
-      await api<RunSnapshot>(
+      await api<CommandReceipt>(
         `runs/${run.id}/resume`,
         {
           decision,
@@ -288,7 +354,7 @@ export function Workbench() {
           interrupt_id: interruptId ?? run.review.interrupt_id,
           feedback,
         },
-        executionTimeout,
+        admissionTimeout,
       );
       setMessage("Review decision saved.");
     } finally {
@@ -368,6 +434,7 @@ export function Workbench() {
         </span>
         <span className="breadcrumb-title">{workflow.name || "Untitled workflow"}</span>
         <span className="local-badge">Local workspace</span>
+        <AccessControls key={accessActive ? "active" : "locked"} />
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">
@@ -378,6 +445,7 @@ export function Workbench() {
             <TabsTab value="reports">Reports</TabsTab>
             <TabsTab value="evaluations">Evaluations</TabsTab>
             <TabsTab value="revisions">Revisions</TabsTab>
+            <TabsTab value="operations">Operations</TabsTab>
           </TabsList>
           <div className="actions workspace-actions">
             {tab === "workflow" && (
@@ -519,6 +587,31 @@ export function Workbench() {
                   >
                     Load saved draft
                   </Button>
+                  {legacyAvailable && (
+                    <Button
+                      className="button"
+                      disabled={!loaded || busy}
+                      onClick={() =>
+                        action(async () => {
+                          const raw = importLegacyDraft(legacyKey, storagePrefix);
+                          const validated = await api<ValidationResult>(
+                            "workflows/validate",
+                            JSON.parse(raw),
+                          );
+                          localStorage.setItem(storageKey, JSON.stringify(validated.workflow));
+                          change(validated.workflow);
+                          setDocumentEpoch((value) => value + 1);
+                          setSelected(validated.workflow.start_node);
+                          setLegacyAvailable(false);
+                          setMessage(
+                            "Older browser draft imported for this owner. The original was kept.",
+                          );
+                        })
+                      }
+                    >
+                      Import my draft saved before sign-in
+                    </Button>
+                  )}
                   <input
                     ref={importInput}
                     type="file"
@@ -556,6 +649,9 @@ export function Workbench() {
         </TabsPanel>
         <TabsPanel className="evaluations-view" value="evaluations">
           <EvaluationDesk />
+        </TabsPanel>
+        <TabsPanel className="operations-view" value="operations">
+          <OperationsDesk onOpenRuns={() => switchTab("runs")} />
         </TabsPanel>
         <TabsPanel className="runs-view" value="runs">
           <h1 className="sr-only">Runs</h1>
@@ -614,6 +710,7 @@ export function Workbench() {
               }
               onCancel={async () => {
                 if (!run) return;
+                runReadEpoch.current += 1;
                 try {
                   await api(`runs/${run.id}/cancel`, {});
                   const result = await openRun(run.id);
@@ -635,9 +732,10 @@ export function Workbench() {
               onRecover={() =>
                 action(async () => {
                   if (run) {
+                    runReadEpoch.current += 1;
                     setExecutingId(run.id);
                     try {
-                      await api(`runs/${run.id}/recover`, {}, executionTimeout);
+                      await api<CommandReceipt>(`runs/${run.id}/recover`, {}, admissionTimeout);
                     } finally {
                       setExecutingId(null);
                     }

@@ -6,6 +6,13 @@ import { EvidencePicker } from "@/components/evidence-picker";
 import { ReportSectionSources, ReportSource } from "@/components/report-sources";
 import { ReportReview } from "@/components/report-review";
 import { StyleGuideContent } from "@/components/style-guide-editor";
+import { useOwner } from "@/components/access-context";
+import {
+  apiFetch,
+  importLegacyDraft,
+  legacyDraftAvailable,
+  ownerStoragePrefix,
+} from "@/lib/access";
 import { api, ApiError } from "@/lib/workflow";
 import { stableRequestId } from "@/lib/evaluations";
 import {
@@ -34,9 +41,15 @@ export function ReportEditor({
   onOpen: (id: string) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
+  const { owner } = useOwner();
+  const storagePrefix = ownerStoragePrefix(owner);
   const record = view.revision;
   const [original] = useState(() => reportDraft(record));
-  const storageKey = `researchchain.report.draft.${record.id}`;
+  const legacyKey = `researchchain.report.draft.${record.id}`;
+  const storageKey = `${storagePrefix}.report.draft.${record.id}`;
+  const [legacyAvailable, setLegacyAvailable] = useState(() =>
+    legacyDraftAvailable(legacyKey, storagePrefix),
+  );
   const [recovery] = useState(() => {
     let raw: string | null = null;
     try {
@@ -196,7 +209,7 @@ export function ReportEditor({
             disabled={busy || dirty}
             onClick={() =>
               action(async () => {
-                const response = await fetch(`/api/reports/${record.id}/export`, {
+                const response = await apiFetch(`/api/reports/${record.id}/export`, {
                   cache: "no-store",
                   signal: AbortSignal.timeout(60000),
                 });
@@ -219,6 +232,29 @@ export function ReportEditor({
         {dirty ? "Unsaved edits" : `Saved revision ${record.version}`}
         {recovered && dirty ? " · Recovered from this browser" : ""}
       </p>
+      {legacyAvailable && (
+        <div className="report-banner source-notice">
+          <p>An older draft for this revision was saved before owner sign-in.</p>
+          <Button
+            className="button"
+            disabled={busy || dirty || !!invalidRecovery}
+            onClick={() =>
+              action(async () => {
+                const raw = importLegacyDraft(legacyKey, storagePrefix);
+                const saved = parseRecovery(raw, record.id);
+                localStorage.setItem(storageKey, raw);
+                retry.current = saved.pending;
+                setPendingBody(saved.pending?.body ?? null);
+                setDraft(saved.draft);
+                setRecovered(true);
+                setLegacyAvailable(false);
+              })
+            }
+          >
+            Import my older report draft
+          </Button>
+        </div>
+      )}
       {error && (
         <p className="error report-banner" role="alert">
           {error}

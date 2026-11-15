@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 import legacy from "../../../examples/research-workflow.json";
 import example from "../../../examples/advanced-workflow.json";
 

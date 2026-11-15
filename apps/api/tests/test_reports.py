@@ -375,8 +375,8 @@ def test_report_api_and_safe_offline_export(client: TestClient, database: Databa
     exported = client.get(f"/api/reports/{saved_id}/export")
     assert exported.status_code == 200
     assert exported.headers["content-type"] == "application/zip"
-    assert exported.headers["cache-control"] == "no-store"
-    schema = client.get("/openapi.json").json()
+    assert set(exported.headers["cache-control"].split(", ")) == {"no-store", "private"}
+    schema = client.get("/api/openapi.json").json()
     content = schema["paths"]["/api/reports/{key}/export"]["get"]["responses"]["200"]["content"]
     assert set(content) == {"application/zip"}
     assert content["application/zip"]["schema"]["format"] == "binary"

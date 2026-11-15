@@ -4,6 +4,143 @@
  */
 
 export interface paths {
+  "/api/access/status": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["owner_access_status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/exchange": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Exchange */
+    post: operations["exchange_owner_link"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/login": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Login */
+    post: operations["owner_password_login"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/password": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Password */
+    post: operations["change_owner_password"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/logout": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout */
+    post: operations["owner_logout"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/access/logout-all": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Logout All */
+    post: operations["owner_logout_all"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/providers/chatgpt/sign-in": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["chatgpt_signin_status"];
+    put?: never;
+    /** Start */
+    post: operations["start_chatgpt_signin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/providers/chatgpt/sign-in/{attempt}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel */
+    post: operations["cancel_chatgpt_signin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/artifacts": {
     parameters: {
       query?: never;
@@ -506,6 +643,125 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/retention/previews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Preview */
+    post: operations["create_retention_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/retention/previews/{key}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get */
+    get: operations["get_retention_preview"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/retention/previews/{key}/apply": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Apply */
+    post: operations["apply_retention_preview"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/retention/receipts": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** History */
+    get: operations["list_retention_receipts"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/usage": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["status_api_usage_get"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/usage/policy": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Configure */
+    post: operations["configure_api_usage_policy_post"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/operations": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Operations Status */
+    get: operations["operations_status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/providers/chatgpt": {
     parameters: {
       query?: never;
@@ -699,6 +955,14 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** AccessStatus */
+    AccessStatus: {
+      /** Authenticated */
+      authenticated: boolean;
+      /** Password Enabled */
+      password_enabled: boolean;
+      session?: components["schemas"]["OwnerSession"] | null;
+    };
     /** ArtifactInfo */
     ArtifactInfo: {
       /** Id */
@@ -816,6 +1080,29 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+    };
+    /** CommandReceipt */
+    CommandReceipt: {
+      /**
+       * Command Id
+       * Format: uuid
+       */
+      command_id: string;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "start" | "resume";
+      /**
+       * Accepted At
+       * Format: date-time
+       */
+      accepted_at: string;
     };
     /** ContentPreview */
     ContentPreview: {
@@ -1817,18 +2104,6 @@ export interface components {
        * @constant
        */
       status: "ok";
-      /**
-       * Mode
-       * @default local-development
-       * @constant
-       */
-      mode: "local-development";
-      /**
-       * Database
-       * @default ready
-       * @constant
-       */
-      database: "ready";
     };
     /** Hypothesis */
     Hypothesis: {
@@ -1875,6 +2150,14 @@ export interface components {
       /** Generation Input */
       generation_input: string;
     };
+    /** LinkExchange */
+    LinkExchange: {
+      /**
+       * Code
+       * Format: password
+       */
+      code: string;
+    };
     /** LoopConfig */
     LoopConfig: {
       /**
@@ -1889,6 +2172,8 @@ export interface components {
     };
     /** ModelAttempt */
     ModelAttempt: {
+      /** Admission Policy Revision */
+      admission_policy_revision?: number | null;
       /**
        * Id
        * Format: uuid
@@ -1961,6 +2246,69 @@ export interface components {
         [key: string]: unknown;
       };
     };
+    /** OperationsSnapshot */
+    OperationsSnapshot: {
+      /**
+       * Observed At
+       * Format: date-time
+       */
+      observed_at: string;
+      /**
+       * Window Started At
+       * Format: date-time
+       */
+      window_started_at: string;
+      workers: components["schemas"]["WorkerOperations"];
+      queue: components["schemas"]["QueueOperations"];
+      storage: components["schemas"]["StorageOperations"];
+      usage: components["schemas"]["UsageOperations"];
+    };
+    /** OwnerSession */
+    OwnerSession: {
+      /**
+       * Owner Id
+       * Format: uuid
+       */
+      owner_id: string;
+      /** Owner Name */
+      owner_name: string;
+      /** Workspace Id */
+      workspace_id: string;
+      /** Csrf Token */
+      csrf_token: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Idle Expires At
+       * Format: date-time
+       */
+      idle_expires_at: string;
+      /** Password Enabled */
+      password_enabled: boolean;
+      /** Recent Authentication */
+      recent_authentication: boolean;
+    };
+    /** PasswordChange */
+    PasswordChange: {
+      /**
+       * Password
+       * Format: password
+       */
+      password: string;
+      /** Current Password */
+      current_password?: string | null;
+    };
+    /** PasswordLogin */
+    PasswordLogin: {
+      /**
+       * Password
+       * Format: password
+       */
+      password: string;
+    };
     /** PortSpec */
     PortSpec: {
       /** Name */
@@ -2031,6 +2379,21 @@ export interface components {
        * @constant
        */
       usage_url: "https://chatgpt.com/settings/usage";
+    };
+    /** QueueOperations */
+    QueueOperations: {
+      /** Queued */
+      queued: number;
+      /** Executing */
+      executing: number;
+      /** Awaiting Takeover */
+      awaiting_takeover: number;
+      /** Interrupted */
+      interrupted: number;
+      /** Finished 24H */
+      finished_24h: number;
+      /** Oldest Pending Seconds */
+      oldest_pending_seconds?: number | null;
     };
     /** RecordedEvaluationOutput */
     RecordedEvaluationOutput: {
@@ -2533,6 +2896,128 @@ export interface components {
        */
       feedback: string;
     };
+    /** RetentionConfirm */
+    RetentionConfirm: {
+      /** Digest */
+      digest: string;
+      /**
+       * Confirmation
+       * @constant
+       */
+      confirmation: "DELETE";
+    };
+    /** RetentionOriginal */
+    RetentionOriginal: {
+      /** Artifact Id */
+      artifact_id: string;
+      /** Byte Size */
+      byte_size: number;
+      /** Fingerprint */
+      fingerprint: string;
+    };
+    /** RetentionPreview */
+    RetentionPreview: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Expires At
+       * Format: date-time
+       */
+      expires_at: string;
+      /**
+       * Cutoff
+       * Format: date-time
+       */
+      cutoff: string;
+      request: components["schemas"]["RetentionRequest"];
+      /** Runs */
+      runs: components["schemas"]["RetentionRun"][];
+      /** Originals */
+      originals: components["schemas"]["RetentionOriginal"][];
+      /** Retained Originals */
+      retained_originals: number;
+      /** Original Bytes */
+      original_bytes: number;
+      /** Protected Runs */
+      protected_runs: {
+        [key: string]: number;
+      };
+      /** More Eligible */
+      more_eligible: number;
+      /** Digest */
+      digest: string;
+    };
+    /** RetentionReceipt */
+    RetentionReceipt: {
+      /**
+       * Preview Id
+       * Format: uuid
+       */
+      preview_id: string;
+      /**
+       * Applied At
+       * Format: date-time
+       */
+      applied_at: string;
+      /** Run Ids */
+      run_ids: string[];
+      /** Original Ids */
+      original_ids: string[];
+      /** Deleted Rows */
+      deleted_rows: {
+        [key: string]: number;
+      };
+      /** Original Bytes */
+      original_bytes: number;
+    };
+    /** RetentionRequest */
+    RetentionRequest: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Older Than Days
+       * @default 30
+       */
+      older_than_days: number;
+      /**
+       * Max Runs
+       * @default 5
+       */
+      max_runs: number;
+    };
+    /** RetentionRun */
+    RetentionRun: {
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Status */
+      status: string;
+      /** Fingerprint */
+      fingerprint: string;
+    };
+    /** RetentionView */
+    RetentionView: {
+      preview: components["schemas"]["RetentionPreview"];
+      receipt?: components["schemas"]["RetentionReceipt"] | null;
+    };
     /** ReviewPrompt */
     ReviewPrompt: {
       /** Interrupt Id */
@@ -2633,6 +3118,7 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "queued"
         | "paused"
         | "completed"
         | "rejected"
@@ -2646,6 +3132,12 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /**
+       * Execution Pending
+       * @description An accepted command is still queued or held by a worker.
+       * @default false
+       */
+      execution_pending: boolean;
       workflow: components["schemas"]["Workflow"];
       /** Brief */
       brief: string;
@@ -2690,6 +3182,7 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "queued"
         | "paused"
         | "completed"
         | "rejected"
@@ -2742,6 +3235,51 @@ export interface components {
        */
       usage_complete: boolean;
     };
+    /** SignInStatus */
+    SignInStatus: {
+      /**
+       * Available
+       * @default true
+       */
+      available: boolean;
+      /** Id */
+      id?: string | null;
+      /**
+       * State
+       * @default idle
+       * @enum {string}
+       */
+      state:
+        | "idle"
+        | "starting"
+        | "waiting"
+        | "completing"
+        | "cancelling"
+        | "connected"
+        | "plan_disabled"
+        | "cancelled"
+        | "expired"
+        | "failed"
+        | "unavailable";
+      /** Url */
+      url?: string | null;
+      /** Expires At */
+      expires_at?: string | null;
+      /**
+       * Message
+       * @default Start sign-in when you are ready.
+       */
+      message: string;
+    };
+    /** SignOutResult */
+    SignOutResult: {
+      /**
+       * Signed Out
+       * @default true
+       * @constant
+       */
+      signed_out: true;
+    };
     /** SourceLocation */
     SourceLocation: {
       /** Page Start */
@@ -2758,6 +3296,23 @@ export interface components {
        * @default
        */
       excerpt: string;
+    };
+    /** StorageOperations */
+    StorageOperations: {
+      /** Runs */
+      runs: number;
+      /** Evidence Records */
+      evidence_records: number;
+      /** Report Revisions */
+      report_revisions: number;
+      /** Evaluation Datasets */
+      evaluation_datasets: number;
+      /** Originals */
+      originals: number;
+      /** Original Bytes */
+      original_bytes: number;
+      /** Schema Bytes */
+      schema_bytes: number;
     };
     /** StyleExample */
     StyleExample: {
@@ -2870,6 +3425,67 @@ export interface components {
       /** Version */
       version: number;
     };
+    /** UsageOperations */
+    UsageOperations: {
+      /** Attempts Started 24H */
+      attempts_started_24h: number;
+      /** Reported Input Tokens 24H */
+      reported_input_tokens_24h: number;
+      /** Reported Output Tokens 24H */
+      reported_output_tokens_24h: number;
+      /** Incomplete Usage 24H */
+      incomplete_usage_24h: number;
+      /** Uncertain Attempts */
+      uncertain_attempts: number;
+    };
+    /** UsagePolicy */
+    UsagePolicy: {
+      /** Revision */
+      revision: number;
+      /** Max Requests 24H */
+      max_requests_24h: number;
+      /** Paused */
+      paused: boolean;
+      /**
+       * Changed By
+       * @enum {string}
+       */
+      changed_by: "initial" | "owner" | "operator";
+      /**
+       * Changed At
+       * Format: date-time
+       */
+      changed_at: string;
+    };
+    /** UsagePolicyUpdate */
+    UsagePolicyUpdate: {
+      /** Expected Revision */
+      expected_revision: number;
+      /** Max Requests 24H */
+      max_requests_24h: number;
+      /** Paused */
+      paused: boolean;
+    };
+    /** UsageSnapshot */
+    UsageSnapshot: {
+      /**
+       * Observed At
+       * Format: date-time
+       */
+      observed_at: string;
+      /**
+       * Window Started At
+       * Format: date-time
+       */
+      window_started_at: string;
+      policy: components["schemas"]["UsagePolicy"];
+      /** Admitted Requests 24H */
+      admitted_requests_24h: number;
+      /** Remaining Requests */
+      remaining_requests: number;
+      /** Next Slot At */
+      next_slot_at?: string | null;
+    };
     /** ValidationError */
     ValidationError: {
       /** Location */
@@ -2906,6 +3522,17 @@ export interface components {
       node_id?: string | null;
       /** Port */
       port?: string | null;
+    };
+    /** WorkerOperations */
+    WorkerOperations: {
+      /** Connected Consumers */
+      connected_consumers: number;
+      /** Max Parallel */
+      max_parallel: number;
+      /** Max Pending */
+      max_pending: number;
+      /** Reserved Slots */
+      reserved_slots: number;
     };
     /** Workflow */
     Workflow: {
@@ -3007,6 +3634,236 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+  owner_access_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+    };
+  };
+  exchange_owner_link: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["LinkExchange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  owner_password_login: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordLogin"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  change_owner_password: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["PasswordChange"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AccessStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  owner_logout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignOutResult"];
+        };
+      };
+    };
+  };
+  owner_logout_all: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignOutResult"];
+        };
+      };
+    };
+  };
+  chatgpt_signin_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStatus"];
+        };
+      };
+    };
+  };
+  start_chatgpt_signin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStatus"];
+        };
+      };
+    };
+  };
+  cancel_chatgpt_signin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        attempt: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   upload_artifact: {
     parameters: {
       query: {
@@ -4152,6 +5009,198 @@ export interface operations {
       };
     };
   };
+  create_retention_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetentionRequest"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionPreview"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_retention_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionView"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  apply_retention_preview: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        key: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["RetentionConfirm"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_retention_receipts: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RetentionReceipt"][];
+        };
+      };
+    };
+  };
+  status_api_usage_get: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageSnapshot"];
+        };
+      };
+    };
+  };
+  configure_api_usage_policy_post: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["UsagePolicyUpdate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["UsageSnapshot"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  operations_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OperationsSnapshot"];
+        };
+      };
+    };
+  };
   chatgpt_status: {
     parameters: {
       query?: never;
@@ -4385,12 +5434,12 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      201: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */
@@ -4451,12 +5500,12 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */
@@ -4482,12 +5531,12 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */

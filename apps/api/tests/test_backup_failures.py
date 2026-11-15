@@ -158,7 +158,8 @@ def test_backup_waits_for_migration_before_taking_snapshot(
             while time.monotonic() < deadline:
                 waiting = control.execute(
                     "SELECT 1 FROM pg_stat_activity WHERE datname=current_database() "
-                    "AND query LIKE 'SELECT pg_advisory_lock_shared%' AND wait_event='advisory'"
+                    "AND query LIKE 'SELECT pg_try_advisory_lock_shared%' "
+                    "AND state='idle' AND backend_xmin IS NULL"
                 ).fetchone()
                 if waiting:
                     break
@@ -168,6 +169,11 @@ def test_backup_waits_for_migration_before_taking_snapshot(
                 time.sleep(0.05)
             else:
                 pytest.fail("Backup never reached the migration lock.")
+            # An index migration may wait for old snapshots. A lock waiter must
+            # not retain a snapshot that makes this owner wait for the waiter.
+            control.execute(
+                "CREATE INDEX CONCURRENTLY backup_migration_probe ON artifact_blobs ((lower(name)))"
+            )
             put_artifact(control, b"committed before migration unlock", "during-migration.txt")
         finally:
             control.execute("SELECT pg_advisory_unlock(%s)", (MIGRATION_LOCK,))

@@ -2,9 +2,261 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ResearchChain API",
+    "description": "Private owner workspace. Sign in through /api/access; mutations require the session's X-ResearchChain-CSRF header and the configured browser Origin.",
     "version": "0.3.0"
   },
   "paths": {
+    "/api/access/status": {
+      "get": {
+        "tags": ["Owner access"],
+        "summary": "Status",
+        "operationId": "owner_access_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/exchange": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Exchange",
+        "operationId": "exchange_owner_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LinkExchange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/login": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Login",
+        "operationId": "owner_password_login",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordLogin"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/password": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Password",
+        "operationId": "change_owner_password",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PasswordChange"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/logout": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Logout",
+        "operationId": "owner_logout",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignOutResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/access/logout-all": {
+      "post": {
+        "tags": ["Owner access"],
+        "summary": "Logout All",
+        "operationId": "owner_logout_all",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignOutResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers/chatgpt/sign-in": {
+      "get": {
+        "tags": ["ChatGPT connection"],
+        "summary": "Status",
+        "operationId": "chatgpt_signin_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["ChatGPT connection"],
+        "summary": "Start",
+        "operationId": "start_chatgpt_signin",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers/chatgpt/sign-in/{attempt}/cancel": {
+      "post": {
+        "tags": ["ChatGPT connection"],
+        "summary": "Cancel",
+        "operationId": "cancel_chatgpt_signin",
+        "parameters": [
+          {
+            "name": "attempt",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Attempt"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artifacts": {
       "post": {
         "summary": "Upload Artifact",
@@ -1487,6 +1739,232 @@
         }
       }
     },
+    "/api/retention/previews": {
+      "post": {
+        "summary": "Preview",
+        "operationId": "create_retention_preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/retention/previews/{key}": {
+      "get": {
+        "summary": "Get",
+        "operationId": "get_retention_preview",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/retention/previews/{key}/apply": {
+      "post": {
+        "summary": "Apply",
+        "operationId": "apply_retention_preview",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/retention/receipts": {
+      "get": {
+        "summary": "History",
+        "operationId": "list_retention_receipts",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RetentionReceipt"
+                  },
+                  "type": "array",
+                  "title": "Response List Retention Receipts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usage": {
+      "get": {
+        "tags": ["request-allowance"],
+        "summary": "Status",
+        "operationId": "status_api_usage_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/usage/policy": {
+      "post": {
+        "tags": ["request-allowance"],
+        "summary": "Configure",
+        "operationId": "configure_api_usage_policy_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsagePolicyUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UsageSnapshot"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/operations": {
+      "get": {
+        "summary": "Operations Status",
+        "operationId": "operations_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationsSnapshot"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/providers/chatgpt": {
       "get": {
         "summary": "Chatgpt Status",
@@ -1720,12 +2198,12 @@
           }
         },
         "responses": {
-          "201": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunSnapshot"
+                  "$ref": "#/components/schemas/CommandReceipt"
                 }
               }
             }
@@ -1854,12 +2332,12 @@
           }
         },
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunSnapshot"
+                  "$ref": "#/components/schemas/CommandReceipt"
                 }
               }
             }
@@ -1894,12 +2372,12 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunSnapshot"
+                  "$ref": "#/components/schemas/CommandReceipt"
                 }
               }
             }
@@ -1960,6 +2438,32 @@
   },
   "components": {
     "schemas": {
+      "AccessStatus": {
+        "properties": {
+          "authenticated": {
+            "type": "boolean",
+            "title": "Authenticated"
+          },
+          "password_enabled": {
+            "type": "boolean",
+            "title": "Password Enabled"
+          },
+          "session": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnerSession"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["authenticated", "password_enabled"],
+        "title": "AccessStatus"
+      },
       "ArtifactInfo": {
         "properties": {
           "id": {
@@ -2215,6 +2719,34 @@
         "type": "object",
         "required": ["id", "text", "created_at"],
         "title": "ClaimRecord"
+      },
+      "CommandReceipt": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Command Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["start", "resume"],
+            "title": "Kind"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Accepted At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["command_id", "run_id", "kind", "accepted_at"],
+        "title": "CommandReceipt"
       },
       "ContentPreview": {
         "properties": {
@@ -4476,18 +5008,6 @@
             "const": "ok",
             "title": "Status",
             "default": "ok"
-          },
-          "mode": {
-            "type": "string",
-            "const": "local-development",
-            "title": "Mode",
-            "default": "local-development"
-          },
-          "database": {
-            "type": "string",
-            "const": "ready",
-            "title": "Database",
-            "default": "ready"
           }
         },
         "additionalProperties": false,
@@ -4622,6 +5142,22 @@
         ],
         "title": "ImportedEvaluationOutput"
       },
+      "LinkExchange": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 43,
+            "format": "password",
+            "title": "Code",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["code"],
+        "title": "LinkExchange"
+      },
       "LoopConfig": {
         "properties": {
           "type": {
@@ -4657,6 +5193,18 @@
       },
       "ModelAttempt": {
         "properties": {
+          "admission_policy_revision": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Admission Policy Revision"
+          },
           "id": {
             "type": "string",
             "format": "uuid",
@@ -4856,6 +5404,135 @@
         "required": ["kind", "label", "inputs", "outputs"],
         "title": "NodeTypeSpec"
       },
+      "OperationsSnapshot": {
+        "properties": {
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "window_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Started At"
+          },
+          "workers": {
+            "$ref": "#/components/schemas/WorkerOperations"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/QueueOperations"
+          },
+          "storage": {
+            "$ref": "#/components/schemas/StorageOperations"
+          },
+          "usage": {
+            "$ref": "#/components/schemas/UsageOperations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["observed_at", "window_started_at", "workers", "queue", "storage", "usage"],
+        "title": "OperationsSnapshot"
+      },
+      "OwnerSession": {
+        "properties": {
+          "owner_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Owner Id"
+          },
+          "owner_name": {
+            "type": "string",
+            "title": "Owner Name"
+          },
+          "workspace_id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Workspace Id"
+          },
+          "csrf_token": {
+            "type": "string",
+            "title": "Csrf Token"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "idle_expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Idle Expires At"
+          },
+          "password_enabled": {
+            "type": "boolean",
+            "title": "Password Enabled"
+          },
+          "recent_authentication": {
+            "type": "boolean",
+            "title": "Recent Authentication"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "owner_id",
+          "owner_name",
+          "workspace_id",
+          "csrf_token",
+          "expires_at",
+          "idle_expires_at",
+          "password_enabled",
+          "recent_authentication"
+        ],
+        "title": "OwnerSession"
+      },
+      "PasswordChange": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 15,
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          },
+          "current_password": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128,
+                "format": "password",
+                "writeOnly": true
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Password"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["password"],
+        "title": "PasswordChange"
+      },
+      "PasswordLogin": {
+        "properties": {
+          "password": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 1,
+            "format": "password",
+            "title": "Password",
+            "writeOnly": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["password"],
+        "title": "PasswordLogin"
+      },
       "PortSpec": {
         "properties": {
           "name": {
@@ -5019,6 +5696,51 @@
         "type": "object",
         "required": ["accounts"],
         "title": "ProviderStatus"
+      },
+      "QueueOperations": {
+        "properties": {
+          "queued": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Queued"
+          },
+          "executing": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Executing"
+          },
+          "awaiting_takeover": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Awaiting Takeover"
+          },
+          "interrupted": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Interrupted"
+          },
+          "finished_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Finished 24H"
+          },
+          "oldest_pending_seconds": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Oldest Pending Seconds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["queued", "executing", "awaiting_takeover", "interrupted", "finished_24h"],
+        "title": "QueueOperations"
       },
       "RecordedEvaluationOutput": {
         "properties": {
@@ -6032,6 +6754,255 @@
         "required": ["checkpoint_id", "interrupt_id", "decision"],
         "title": "ResumeRequest"
       },
+      "RetentionConfirm": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Digest"
+          },
+          "confirmation": {
+            "type": "string",
+            "const": "DELETE",
+            "title": "Confirmation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["digest", "confirmation"],
+        "title": "RetentionConfirm"
+      },
+      "RetentionOriginal": {
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "title": "Artifact Id"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Byte Size"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["artifact_id", "byte_size", "fingerprint"],
+        "title": "RetentionOriginal"
+      },
+      "RetentionPreview": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "cutoff": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RetentionRequest"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RetentionRun"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "originals": {
+            "items": {
+              "$ref": "#/components/schemas/RetentionOriginal"
+            },
+            "type": "array",
+            "title": "Originals"
+          },
+          "retained_originals": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Retained Originals"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Bytes"
+          },
+          "protected_runs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Protected Runs"
+          },
+          "more_eligible": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "More Eligible"
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "expires_at",
+          "cutoff",
+          "request",
+          "runs",
+          "originals",
+          "retained_originals",
+          "original_bytes",
+          "protected_runs",
+          "more_eligible",
+          "digest"
+        ],
+        "title": "RetentionPreview"
+      },
+      "RetentionReceipt": {
+        "properties": {
+          "preview_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Preview Id"
+          },
+          "applied_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Applied At"
+          },
+          "run_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Run Ids"
+          },
+          "original_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Original Ids"
+          },
+          "deleted_rows": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Deleted Rows"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Bytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "preview_id",
+          "applied_at",
+          "run_ids",
+          "original_ids",
+          "deleted_rows",
+          "original_bytes"
+        ],
+        "title": "RetentionReceipt"
+      },
+      "RetentionRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "older_than_days": {
+            "type": "integer",
+            "maximum": 3650.0,
+            "minimum": 0.0,
+            "title": "Older Than Days",
+            "default": 30
+          },
+          "max_runs": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Runs",
+            "default": 5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id"],
+        "title": "RetentionRequest"
+      },
+      "RetentionRun": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["run_id", "created_at", "status", "fingerprint"],
+        "title": "RetentionRun"
+      },
+      "RetentionView": {
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/RetentionPreview"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetentionReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["preview"],
+        "title": "RetentionView"
+      },
       "ReviewPrompt": {
         "properties": {
           "interrupt_id": {
@@ -6236,6 +7207,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "queued",
               "paused",
               "completed",
               "rejected",
@@ -6251,6 +7223,12 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "execution_pending": {
+            "type": "boolean",
+            "title": "Execution Pending",
+            "description": "An accepted command is still queued or held by a worker.",
+            "default": false
           },
           "workflow": {
             "$ref": "#/components/schemas/Workflow"
@@ -6386,6 +7364,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "queued",
               "paused",
               "completed",
               "rejected",
@@ -6457,6 +7436,89 @@
         "type": "object",
         "title": "RunUsage"
       },
+      "SignInStatus": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": true
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "starting",
+              "waiting",
+              "completing",
+              "cancelling",
+              "connected",
+              "plan_disabled",
+              "cancelled",
+              "expired",
+              "failed",
+              "unavailable"
+            ],
+            "title": "State",
+            "default": "idle"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Start sign-in when you are ready."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SignInStatus"
+      },
+      "SignOutResult": {
+        "properties": {
+          "signed_out": {
+            "type": "boolean",
+            "const": true,
+            "title": "Signed Out",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SignOutResult"
+      },
       "SourceLocation": {
         "properties": {
           "page_start": {
@@ -6501,6 +7563,57 @@
         "additionalProperties": false,
         "type": "object",
         "title": "SourceLocation"
+      },
+      "StorageOperations": {
+        "properties": {
+          "runs": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Runs"
+          },
+          "evidence_records": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Evidence Records"
+          },
+          "report_revisions": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Report Revisions"
+          },
+          "evaluation_datasets": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Evaluation Datasets"
+          },
+          "originals": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Originals"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Bytes"
+          },
+          "schema_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Schema Bytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "runs",
+          "evidence_records",
+          "report_revisions",
+          "evaluation_datasets",
+          "originals",
+          "original_bytes",
+          "schema_bytes"
+        ],
+        "title": "StorageOperations"
       },
       "StyleExample": {
         "properties": {
@@ -6796,6 +7909,152 @@
         "required": ["id", "version"],
         "title": "SubgraphRef"
       },
+      "UsageOperations": {
+        "properties": {
+          "attempts_started_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Attempts Started 24H"
+          },
+          "reported_input_tokens_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reported Input Tokens 24H"
+          },
+          "reported_output_tokens_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reported Output Tokens 24H"
+          },
+          "incomplete_usage_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Incomplete Usage 24H"
+          },
+          "uncertain_attempts": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Uncertain Attempts"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "attempts_started_24h",
+          "reported_input_tokens_24h",
+          "reported_output_tokens_24h",
+          "incomplete_usage_24h",
+          "uncertain_attempts"
+        ],
+        "title": "UsageOperations"
+      },
+      "UsagePolicy": {
+        "properties": {
+          "revision": {
+            "type": "integer",
+            "maximum": 9.223372036854776e18,
+            "minimum": 1.0,
+            "title": "Revision"
+          },
+          "max_requests_24h": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Max Requests 24H"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          },
+          "changed_by": {
+            "type": "string",
+            "enum": ["initial", "owner", "operator"],
+            "title": "Changed By"
+          },
+          "changed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Changed At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["revision", "max_requests_24h", "paused", "changed_by", "changed_at"],
+        "title": "UsagePolicy"
+      },
+      "UsagePolicyUpdate": {
+        "properties": {
+          "expected_revision": {
+            "type": "integer",
+            "maximum": 9.223372036854776e18,
+            "minimum": 1.0,
+            "title": "Expected Revision"
+          },
+          "max_requests_24h": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Max Requests 24H"
+          },
+          "paused": {
+            "type": "boolean",
+            "title": "Paused"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["expected_revision", "max_requests_24h", "paused"],
+        "title": "UsagePolicyUpdate"
+      },
+      "UsageSnapshot": {
+        "properties": {
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "window_started_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Window Started At"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/UsagePolicy"
+          },
+          "admitted_requests_24h": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Admitted Requests 24H"
+          },
+          "remaining_requests": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Remaining Requests"
+          },
+          "next_slot_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Slot At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "observed_at",
+          "window_started_at",
+          "policy",
+          "admitted_requests_24h",
+          "remaining_requests"
+        ],
+        "title": "UsageSnapshot"
+      },
       "ValidationError": {
         "properties": {
           "loc": {
@@ -6887,6 +8146,36 @@
         "type": "object",
         "required": ["source"],
         "title": "ValueSource"
+      },
+      "WorkerOperations": {
+        "properties": {
+          "connected_consumers": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Connected Consumers"
+          },
+          "max_parallel": {
+            "type": "integer",
+            "maximum": 8.0,
+            "minimum": 1.0,
+            "title": "Max Parallel"
+          },
+          "max_pending": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Max Pending"
+          },
+          "reserved_slots": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Reserved Slots"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["connected_consumers", "max_parallel", "max_pending", "reserved_slots"],
+        "title": "WorkerOperations"
       },
       "Workflow": {
         "properties": {

@@ -1,4 +1,4 @@
-import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
+import { expect, test, type Page, type APIRequestContext } from "./fixtures";
 
 async function source(request: APIRequestContext, tag: string) {
   const result = await request.post("/api/evidence", {

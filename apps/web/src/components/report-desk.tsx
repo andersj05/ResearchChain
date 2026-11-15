@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ReportCreateForm } from "@/components/report-create";
 import { ReportEditor } from "@/components/report-editor";
@@ -18,8 +18,10 @@ export function ReportDesk() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [epoch, setEpoch] = useState(0);
+  const styleWrites = useRef(0);
   useEffect(() => {
     let active = true;
+    const styleVersion = styleWrites.current;
     async function load() {
       try {
         const [items, guides] = await Promise.all([
@@ -30,7 +32,8 @@ export function ReportDesk() {
         const saved = id ? await api<ReportView>(`reports/${encodeURIComponent(id)}`) : null;
         if (active) {
           setReports(items);
-          setStyles(guides);
+          // A list read started before a save must not remove the saved guide.
+          if (styleVersion === styleWrites.current) setStyles(guides);
           if (saved) setView(saved);
           setError("");
         }
@@ -121,6 +124,7 @@ export function ReportDesk() {
           previous={styleEdit ?? undefined}
           onCancel={() => setStyleEdit(undefined)}
           onSave={(guide) => {
+            styleWrites.current += 1;
             setStyles((items) => [guide, ...items.filter((s) => s.id !== guide.id)]);
             setStyleEdit(undefined);
             setPage("styles");

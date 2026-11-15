@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Page } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import type { EvidenceRecord } from "../src/lib/evidence";
 
