@@ -1,9 +1,52 @@
 # Current state
 
-Updated 2026-11-15. Owner access [PR #28](https://github.com/andersj05/ResearchChain/pull/28)
-merged into dev as `e7ee33e`. The next slice is prepared on `feat/durable-workers`.
+Updated 2026-11-15. Durable workers are implemented in
+[PR #29](https://github.com/andersj05/ResearchChain/pull/29) on feat/durable-workers.
 The owner authorized frequent commits and merging completed steps after CI.
 Do not promote to main or deploy publicly.
+
+## Durable workers
+
+Start, resume and recover now return HTTP 202 command receipts. A separate local
+worker follows durable jobs using workspace-wide slot locks and the existing
+physical run/checkpoint connection. Defaults are two parallel commands and 100
+pending commands. API restarts do not stop independent workers, and duplicate
+requests return the same receipt without waiting for model execution.
+
+New commands recover abandoned ownership from confirmed progress, with at most
+three automatic ownership losses before explicit recovery. Uncertain model effects
+are never resent. Old unfinished commands are not automatically enqueued, paused
+human reviews remain paused, and restored pending jobs are held for explicit review.
+The browser preserves an unconfirmed start's request ID through refresh and follows
+queued work. execution_pending keeps polling terminal runs until their worker has
+saved final progress, including a cancelled partial model response.
+
+Migration/backup lock waiters now poll outside transactions, avoiding a real
+deadlock with concurrent checkpoint indexes. The regression covers concurrent
+fresh migrations and a backup waiting while an index migration completes.
+
+CI [43700300306](https://github.com/andersj05/ResearchChain/actions/runs/43700300306)
+passed on 0e92425: pnpm check with 300 backend tests, formatting, lint, strict
+Python/TypeScript checks and the production build; all 67 production browser tests
+passed. The local 67-case development browser suite also passed with four workers
+and retries disabled. Desktop and phone queued-run screenshots were inspected.
+The final local full check and production run are recorded in ignored
+.local/workers-final-check-v2.log and .local/workers-production-browser.log.
+
+A compatible clean e7ee33e checkout created a private schema-7 backup and restored
+it into a separate database. Migration 0008 preserved every existing table
+fingerprint, all 12 originals and 129,817 original bytes. The restored queue was
+empty and a worker performed no inference. The four-section report remained
+unreviewed with no feedback; its research run remained paused. The source stayed
+on schema 7 during this rehearsal. The backup location, compatible code and
+verified target are in ignored .local/worker-upgrade-rehearsal.json.
+
+Before changing or assuming the live service state, inspect the private aggregate
+receipts .local/workers-live-upgrade.json and .local/workers-live-check.json when
+present. The prepared upgrade verifies the retained backup checksum and exact
+source inventory before migrating. API, browser and worker must use matching code.
+See [workers](../workers.md), [ADR 0011](../decisions/0011-durable-workers.md) and
+[plan 0010](../plans/0010-durable-workers.md).
 
 ## Owner access
 
@@ -27,31 +70,20 @@ does not replay rejected mutations. A controlled regression also verifies that a
 late style-list refresh cannot remove a newly saved guide. Stale-review coverage
 now holds a captured old request instead of depending on UI timing.
 
-Final `pnpm check` passed on `aba1c02` with 273 backend tests (352.44 seconds),
-formatting, lint, strict types and the production build. All 63 production browser
-tests passed with four workers and retries disabled (2.3 minutes). PR CI
-`43692130107` passed on that head; post-merge dev CI `43692774005` passed on
-`e7ee33e`. Tests use temporary research schemas and synthetic owner stores.
-
-A live check after merge returned health 200 and anonymous private-read 401.
-An ephemeral owner session verified the active Pro connection with plan usage
-enabled, eight available models and no provider error. The existing report still
-has four sections, three sources, unreviewed status and zero feedback. Its run
-remains paused with the same three model attempts. The audit session was signed
-out; no model call or review decision was made. Aggregate results are in ignored
-`.local/owner-access-live-check.json`. The loopback dev service is running again.
-A fresh private owner link opened in the default browser and was consumed:
-one active owner session, zero pending links, password not yet set. The owner can
-choose it from Set owner password in the header; use `pnpm access:login` again
-if recent authentication expires. Stop the owned dev service before the next
-browser suite.
+Owner access [PR #28](https://github.com/andersj05/ResearchChain/pull/28)
+merged as e7ee33e with passing PR and dev CI, 273 backend tests and 63 production
+browser tests. Its live check verified protected reads and the existing Pro
+connection without inference or review decisions. Those historical aggregates
+are in ignored .local/owner-access-live-check.json; use the newer worker receipts
+for current service state. A fresh local owner link is available through
+pnpm access:login when the owner needs to reconnect.
 
 On Windows, Python's default text encoding here is CP1252. Always read source as
 UTF-8 and write UTF-8 with explicit LF newlines; otherwise Unicode anchors and
 labels can be damaged, or local Prettier checks can fail on CRLF despite a clean
 normalized Git diff. The introduced encoding changes were repaired and verified.
 
-Issue #9 remains open for durable hosted workers, retention, off-machine recovery,
+Issue #9 remains open for retention, redacted operations, off-machine recovery,
 secret operations and measured hosting decisions. Issues #6 and #7 still require
 actual owner review/labels and their documented provider/evaluation work.
 
@@ -152,29 +184,28 @@ and 4,135 output tokens and remains paused for final human review.
 review and strict spend follow-up: thresholds gate later calls and cannot cap an
 in-flight response. Provider-side credit settings are not attested by the app.
 
-The owner chose ChatGPT Pro included usage with no paid API fallback. The saved
-account still reports plan usage enabled. A previous sign-in restart timed out
-without removing the working connection. Do not restart it again unless newly
-requested or required by a real authentication failure.
+The owner chose ChatGPT Pro included usage with no paid API fallback. Expired
+sign-in restarts leave the saved connection intact. Recheck its current state with
+provider:status or the protected provider-status endpoint; no inference is needed.
+Restart sign-in only when newly requested or required by an authentication failure.
 
 Runtime PR #20, editor PR #21, evidence PR #22 and connection PR #23 are merged;
 issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.lock.
 
 ## Next work
 
-Implement [plan 0010](../plans/0010-durable-workers.md) on `feat/durable-workers`.
-The current start/resume/recover HTTP handlers still drive execution synchronously.
-Separate durable command admission from bounded worker execution, preserving
-pinned inputs, exact review checks, cancellation and uncertain-request protection.
-One owner per configured workspace remains the implemented access scope.
+Confirm PR #29's merge and dev CI, then verify the live upgrade and local service
+against the private receipts above. Continue
+[operational controls #9](https://github.com/andersj05/ResearchChain/issues/9)
+with redacted worker/queue health and explicit retention controls. Plan deletion
+around pinned evidence, reports, evaluations and checkpoints; do not infer consent
+to delete private data. Off-machine/PITR recovery, secret operations, strict usage
+limits and workload-based hosting choices remain separate work.
 
-[Operational controls #9](https://github.com/andersj05/ResearchChain/issues/9)
-remains open for durable worker ownership, execution/request limits, secrets,
-redacted observability, retention, off-machine/PITR recovery and workload-based
-hosting configuration. Backup and owner-access completion are recorded in the issue. Keep #6/#7
-human review work open; do not invent feedback, labels or new research calls.
+Keep #6/#7 human review work open; do not invent feedback, labels or new research
+calls. One owner per configured workspace remains the implemented access scope.
 
-The repository is `C:\Users\jense\Desktop\ResearchChain`; the old Documents/ChatGPT
-folder is empty. Browser tests use isolated `e2e_` schemas and a synthetic provider.
-GitHub work uses `gh` outside the Windows sandbox. Do not commit credentials,
+The repository is C:\Users\jense\Desktop\ResearchChain; the old Documents/ChatGPT
+folder is empty. Browser tests use isolated e2e_ schemas and a synthetic provider.
+GitHub work uses gh outside the Windows sandbox. Do not commit credentials,
 private sources, exports or browser state.
