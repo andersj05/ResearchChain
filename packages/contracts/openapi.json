@@ -180,6 +180,83 @@
         }
       }
     },
+    "/api/providers/chatgpt/sign-in": {
+      "get": {
+        "tags": ["ChatGPT connection"],
+        "summary": "Status",
+        "operationId": "chatgpt_signin_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStatus"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": ["ChatGPT connection"],
+        "summary": "Start",
+        "operationId": "start_chatgpt_signin",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStatus"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers/chatgpt/sign-in/{attempt}/cancel": {
+      "post": {
+        "tags": ["ChatGPT connection"],
+        "summary": "Cancel",
+        "operationId": "cancel_chatgpt_signin",
+        "parameters": [
+          {
+            "name": "attempt",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Attempt"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SignInStatus"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/artifacts": {
       "post": {
         "summary": "Upload Artifact",
@@ -7288,6 +7365,76 @@
         "additionalProperties": false,
         "type": "object",
         "title": "RunUsage"
+      },
+      "SignInStatus": {
+        "properties": {
+          "available": {
+            "type": "boolean",
+            "title": "Available",
+            "default": true
+          },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "starting",
+              "waiting",
+              "completing",
+              "cancelling",
+              "connected",
+              "plan_disabled",
+              "cancelled",
+              "expired",
+              "failed",
+              "unavailable"
+            ],
+            "title": "State",
+            "default": "idle"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          },
+          "expires_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expires At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": "Start sign-in when you are ready."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SignInStatus"
       },
       "SignOutResult": {
         "properties": {

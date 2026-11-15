@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import sys
+import webbrowser
 
 import httpx
 
@@ -42,13 +43,12 @@ def main() -> int:
                         )
                     account_id = selected[0].client_id
             if args.command == "login":
-                options = {"open_browser": lambda url: None} if args.no_browser else {}
                 account = browser_login(
                     auth,
                     None if args.new else account_id,
                     new=args.new,
                     consent=args.consent,
-                    **options,
+                    open_browser=(lambda url: None) if args.no_browser else webbrowser.open,
                 )
                 print(f"{account.label}: signed in.")
                 if not account.tokens or PLAN_SCOPE not in account.tokens.scopes:

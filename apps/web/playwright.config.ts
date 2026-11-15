@@ -21,7 +21,7 @@ export default defineConfig({
     },
     {
       name: "chromium",
-      testIgnore: /(access|workers|retention)\.spec\.ts/,
+      testIgnore: /(access|workers|retention|signin)\.spec\.ts/,
       use: { ...devices["Desktop Chrome"] },
     },
     {
@@ -31,9 +31,16 @@ export default defineConfig({
       use: { ...devices["Desktop Chrome"] },
     },
     {
+      name: "signin",
+      testMatch: /signin\.spec\.ts/,
+      dependencies: ["chromium"],
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
       name: "access",
       testMatch: /access\.spec\.ts/,
-      dependencies: ["chromium"],
+      dependencies: ["signin"],
       use: { ...devices["Desktop Chrome"] },
     },
   ],

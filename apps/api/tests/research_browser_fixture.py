@@ -2,8 +2,10 @@
 
 import asyncio
 import os
+from pathlib import Path
 from typing import Any
 
+from test_provider_signin import BrowserHarness
 from test_research_runtime import FakeProvider
 
 from researchchain.main import create_app
@@ -23,7 +25,9 @@ class BrowserProvider(FakeProvider):
         return await super().complete(manifest, prepared, on_delta)
 
 
-app = create_app(provider=BrowserProvider())
+# The real loopback flow uses fake OAuth and a disposable credential store.
+signin = BrowserHarness(Path(os.environ["RESEARCHCHAIN_ACCESS_DIRECTORY"]) / "chatgpt-test")
+app = create_app(provider=BrowserProvider(), signin=signin.service)
 
 
 if __name__ == "__main__":
