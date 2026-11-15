@@ -182,6 +182,56 @@ export function NodeConfiguration({
   const textOptions = sources(graph, node.id).filter((source) => source.type === "text");
   return (
     <>
+      {config?.type === "research" && (
+        <>
+          <label>
+            Research stage
+            <select
+              value={config.stage ?? "hypothesize"}
+              onChange={(event) =>
+                onEdit({ config: { ...config, stage: event.target.value as typeof config.stage } })
+              }
+            >
+              <option value="hypothesize">Form hypotheses</option>
+              <option value="challenge">Challenge evidence</option>
+              <option value="revise">Revise conclusions</option>
+            </select>
+          </label>
+          {(["context", "feedback"] as const).map((port) => (
+            <label key={port}>
+              {port === "context" ? "Prior research result" : "Reviewer feedback"}
+              <select
+                value={sourceKey(node.inputs?.[port])}
+                onChange={(event) =>
+                  onGraph(
+                    bindInput(
+                      graph,
+                      node.id,
+                      port,
+                      textOptions.find((item) => item.value === event.target.value)?.source,
+                    ),
+                  )
+                }
+              >
+                <option value="">None</option>
+                {node.inputs?.[port] &&
+                  !textOptions.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
+                    <option value={sourceKey(node.inputs[port])}>Missing source</option>
+                  )}
+                {textOptions.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <p className="field-hint">
+            Challenge and revise need a prior research result. Connect a human review’s feedback to
+            include it in this step.
+          </p>
+        </>
+      )}
       {node.kind === "note" && (
         <label>
           Text input

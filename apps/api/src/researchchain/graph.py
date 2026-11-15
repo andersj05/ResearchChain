@@ -15,7 +15,9 @@ class Position(StrictModel):
     y: float = Field(ge=-10000, le=10000, allow_inf_nan=False)
 
 
-NodeKind = Literal["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"]
+NodeKind = Literal[
+    "note", "review", "finish", "route", "fork", "join", "loop", "subgraph", "research"
+]
 PortType = Literal["control", "text", "number"]
 
 
@@ -79,8 +81,34 @@ class LoopConfig(StrictModel):
     until: Predicate | None = None
 
 
+ResearchStage = Literal["hypothesize", "challenge", "revise"]
+
+
+class ResearchConfig(StrictModel):
+    type: Literal["research"] = "research"
+    stage: ResearchStage = "hypothesize"
+    prompt_version: Literal["research-1"] = "research-1"
+
+
+class ResearchLimits(StrictModel):
+    max_model_calls: int = Field(default=3, ge=0, le=100)
+    max_tool_calls: int = Field(default=3, ge=0, le=100)
+    max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
+    max_output_characters: int = Field(default=24000, ge=1000, le=100000)
+    max_response_seconds: float = Field(default=90, gt=0, le=120, allow_inf_nan=False)
+    max_total_tokens: int = Field(default=24000, ge=1, le=1000000)
+
+
+class ResearchSettings(StrictModel):
+    provider: Literal["chatgpt_plan"] = "chatgpt_plan"
+    model: str = Field(default="gpt-6.1-sol", pattern=r"^[a-zA-Z0-9._:-]{1,120}$")
+    billing: Literal["included_plan"] = "included_plan"
+    limits: ResearchLimits = Field(default_factory=ResearchLimits)
+
+
 NodeConfig = Annotated[
-    RouteConfig | ForkConfig | SubgraphConfig | LoopConfig, Field(discriminator="type")
+    RouteConfig | ForkConfig | SubgraphConfig | LoopConfig | ResearchConfig,
+    Field(discriminator="type"),
 ]
 
 
@@ -121,10 +149,14 @@ class SubgraphDefinition(GraphDefinition):
 
 OUTPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
-    "review": {"decision": "text"},
+    "review": {"decision": "text", "feedback": "text"},
+    "research": {"text": "text"},
     "loop": {"iterations": "number"},
 }
-INPUT_PORTS: dict[str, dict[str, PortType]] = {"note": {"text": "text"}}
+INPUT_PORTS: dict[str, dict[str, PortType]] = {
+    "note": {"text": "text"},
+    "research": {"context": "text", "feedback": "text"},
+}
 
 
 def control_ports(node: WorkflowNode) -> list[str]:
@@ -187,7 +219,7 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
         if legacy:
             if node.kind not in ("note", "review", "finish") or node.config or node.inputs:
                 raise ValueError("Version 0.1 only supports note, review, and finish nodes.")
-        elif node.kind in ("route", "fork", "loop", "subgraph"):
+        elif node.kind in ("route", "fork", "loop", "subgraph", "research"):
             if node.config is None or node.config.type != node.kind:
                 raise ValueError(
                     f"Node {node.id} requires its registered {node.kind} configuration."
@@ -284,13 +316,30 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
 
 
 class Workflow(GraphDefinition):
-    schema_version: Literal["0.1", "0.2"] = "0.1"
+    schema_version: Literal["0.1", "0.2", "0.3"] = "0.1"
     subgraphs: list[SubgraphDefinition] = Field(default_factory=list, max_length=32)
     budgets: ExecutionBudgets = Field(default_factory=ExecutionBudgets)
+    research: ResearchSettings | None = None
 
     @model_validator(mode="after")
     def validate_topology(self) -> Self:
         legacy = self.schema_version == "0.1"
+        all_graphs: list[GraphDefinition] = [self, *self.subgraphs]
+        has_research = any(node.kind == "research" for graph in all_graphs for node in graph.nodes)
+        if self.schema_version != "0.3":
+            if has_research or self.research:
+                raise ValueError("Research nodes and settings require schema version 0.3.")
+            for graph in all_graphs:
+                for node in graph.nodes:
+                    sources = list(node.inputs.values())
+                    if isinstance(node.config, RouteConfig):
+                        sources.append(node.config.condition.left)
+                    if isinstance(node.config, LoopConfig) and node.config.until:
+                        sources.append(node.config.until.left)
+                    if any(source.port == "feedback" for source in sources):
+                        raise ValueError("Reviewer feedback requires schema version 0.3.")
+        if has_research and self.research is None:
+            raise ValueError("Research nodes require provider, model, and execution settings.")
         if legacy and (self.subgraphs or self.budgets != ExecutionBudgets()):
             raise ValueError("Subgraphs and configurable budgets require schema version 0.2.")
         validate_graph(self, legacy=legacy)
@@ -342,6 +391,8 @@ class Workflow(GraphDefinition):
     def canonical_document(self) -> dict[str, Any]:
         """Keep legacy content hashes stable; API responses include normalized defaults."""
         document = self.model_dump(mode="json")
+        if self.schema_version != "0.3":
+            document.pop("research", None)
         if self.schema_version == "0.1":
             document.pop("subgraphs", None)
             document.pop("budgets", None)

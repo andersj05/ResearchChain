@@ -3,6 +3,7 @@
 import { Button } from "@ui-sdk/react/button";
 import { useEffect, useRef, useState } from "react";
 import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { ResearchSettingsEditor } from "@/components/research-settings";
 import { nodeKinds } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import {
@@ -79,7 +80,7 @@ export function WorkflowEditor({
   function changeGraph(next: Graph, group?: string, upgrade = false) {
     const updated = updateGraph(workflow, scope, next);
     onChange(
-      upgrade ? { ...updated, schema_version: "0.2" } : updated,
+      upgrade && updated.schema_version === "0.1" ? { ...updated, schema_version: "0.2" } : updated,
       group ? `${scopeKey(scope)}/${selectedId}/${group}` : undefined,
     );
   }
@@ -181,29 +182,37 @@ export function WorkflowEditor({
             <span className="count">{graph.nodes.length}</span>
           </div>
           <div className="node-library">
-            {(["note", "review", "route", "fork", "loop", "subgraph"] satisfies TemplateKind[]).map(
-              (kind) => (
-                <Button
-                  key={kind}
-                  className="library-button"
-                  disabled={
-                    disabled ||
-                    graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) > 128 ||
-                    ((kind === "subgraph" || kind === "loop") &&
-                      (workflow.subgraphs?.length ?? 0) >= 32)
-                  }
-                  onClick={() => {
-                    const added = addTemplate(workflow, scope, kind, selectedId);
-                    onChange(added.workflow);
-                    addedStep.current = added.selected;
-                    selectNode(added.selected);
-                  }}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  <span>Add {nodeKinds[kind].label.toLowerCase()}</span>
-                </Button>
-              ),
-            )}
+            {(
+              [
+                "note",
+                "research",
+                "review",
+                "route",
+                "fork",
+                "loop",
+                "subgraph",
+              ] satisfies TemplateKind[]
+            ).map((kind) => (
+              <Button
+                key={kind}
+                className="library-button"
+                disabled={
+                  disabled ||
+                  graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) > 128 ||
+                  ((kind === "subgraph" || kind === "loop") &&
+                    (workflow.subgraphs?.length ?? 0) >= 32)
+                }
+                onClick={() => {
+                  const added = addTemplate(workflow, scope, kind, selectedId);
+                  onChange(added.workflow);
+                  addedStep.current = added.selected;
+                  selectNode(added.selected);
+                }}
+              >
+                <Plus size={14} aria-hidden="true" />
+                <span>Add {nodeKinds[kind].label.toLowerCase()}</span>
+              </Button>
+            ))}
           </div>
           <p className="field-hint">
             {node
@@ -290,7 +299,7 @@ export function WorkflowEditor({
                     onChange(
                       {
                         ...workflow,
-                        schema_version: "0.2",
+                        schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
                         budgets: {
                           ...(workflow.budgets ?? defaults),
                           [key]: event.target.valueAsNumber || min,
@@ -307,6 +316,7 @@ export function WorkflowEditor({
               completed human review pause is excluded.
             </p>
           </details>
+          <ResearchSettingsEditor workflow={workflow} onChange={onChange} />
           {!!workflow.subgraphs?.length && (
             <details className="workflow-settings">
               <summary>Definitions ({workflow.subgraphs.length})</summary>

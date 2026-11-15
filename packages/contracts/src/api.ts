@@ -125,6 +125,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/providers/chatgpt": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Chatgpt Status */
+    get: operations["chatgpt_status"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/health": {
     parameters: {
       query?: never;
@@ -340,7 +357,7 @@ export interface components {
        * Status
        * @enum {string}
        */
-      status: "cancelled" | "completed" | "rejected" | "limited";
+      status: "cancelled" | "completed" | "rejected" | "limited" | "failed";
     };
     /** ClaimCreate */
     ClaimCreate: {
@@ -656,6 +673,35 @@ export interface components {
       untrusted: true;
       preview?: components["schemas"]["ContentPreview"];
     };
+    /** EvidenceRequest */
+    EvidenceRequest: {
+      /** Question */
+      question: string;
+      /** Source Needed */
+      source_needed: string;
+      /** Why */
+      why: string;
+    };
+    /** EvidenceSnapshot */
+    EvidenceSnapshot: {
+      /**
+       * Evidence Id
+       * Format: uuid
+       */
+      evidence_id: string;
+      /** Original */
+      original: string | null;
+      /** Representation */
+      representation: string;
+      /** Availability */
+      availability: string;
+      /** Publisher */
+      publisher: string;
+      /** Source Url */
+      source_url: string | null;
+      /** As Of Date */
+      as_of_date: string | null;
+    };
     /** ExecutionBudgets */
     ExecutionBudgets: {
       /**
@@ -712,6 +758,24 @@ export interface components {
        */
       database: "ready";
     };
+    /** Hypothesis */
+    Hypothesis: {
+      /** Id */
+      id: string;
+      /** Statement */
+      statement: string;
+      /** Alternatives */
+      alternatives: string[];
+      /** Falsifiers */
+      falsifiers: string[];
+      /**
+       * Assessment
+       * @enum {string}
+       */
+      assessment: "untested" | "supported" | "contradicted" | "mixed";
+      /** Citations */
+      citations: components["schemas"]["ResearchCitation"][];
+    };
     /** LoopConfig */
     LoopConfig: {
       /**
@@ -724,13 +788,69 @@ export interface components {
       max_iterations: number;
       until?: components["schemas"]["Predicate"] | null;
     };
+    /** ModelAttempt */
+    ModelAttempt: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Path */
+      path: string;
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: "hypothesize" | "challenge" | "revise";
+      /** Model */
+      model: string;
+      /** Returned Model */
+      returned_model?: string | null;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        "preparing" | "requesting" | "completed" | "failed" | "unknown" | "cancelled" | "limited";
+      /** Input Artifact Id */
+      input_artifact_id?: string | null;
+      /** Response Artifact Id */
+      response_artifact_id?: string | null;
+      /**
+       * Input Bytes
+       * @default 0
+       */
+      input_bytes: number;
+      /**
+       * Output Characters
+       * @default 0
+       */
+      output_characters: number;
+      /** Input Tokens */
+      input_tokens?: number | null;
+      /** Output Tokens */
+      output_tokens?: number | null;
+      /** Response Id */
+      response_id?: string | null;
+      /** Reason */
+      reason?: string | null;
+      result?: components["schemas"]["ResearchResult"] | null;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Finished At */
+      finished_at?: string | null;
+    };
     /** NodeTypeSpec */
     NodeTypeSpec: {
       /**
        * Kind
        * @enum {string}
        */
-      kind: "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph";
+      kind:
+        "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph" | "research";
       /** Label */
       label: string;
       /** Inputs */
@@ -770,6 +890,223 @@ export interface components {
       /** Value */
       value: string | number;
     };
+    /** ProviderAccount */
+    ProviderAccount: {
+      /** Id */
+      id: string;
+      /** Label */
+      label: string;
+      /** Email */
+      email?: string | null;
+      /** Signed In */
+      signed_in: boolean;
+      /** Plan Enabled */
+      plan_enabled: boolean;
+      /** Active */
+      active: boolean;
+    };
+    /** ProviderModel */
+    ProviderModel: {
+      /** Slug */
+      slug: string;
+      /** Display Name */
+      display_name: string;
+    };
+    /** ProviderStatus */
+    ProviderStatus: {
+      /**
+       * Provider
+       * @default chatgpt_plan
+       * @constant
+       */
+      provider: "chatgpt_plan";
+      /** Accounts */
+      accounts: components["schemas"]["ProviderAccount"][];
+      /** Models */
+      models?: components["schemas"]["ProviderModel"][];
+      /** Error */
+      error?: string | null;
+      /**
+       * Usage Url
+       * @default https://chatgpt.com/settings/usage
+       * @constant
+       */
+      usage_url: "https://chatgpt.com/settings/usage";
+    };
+    /** ResearchCitation */
+    ResearchCitation: {
+      /**
+       * Evidence Id
+       * Format: uuid
+       */
+      evidence_id: string;
+      /**
+       * Relation
+       * @enum {string}
+       */
+      relation: "supports" | "contradicts" | "context";
+      /**
+       * Basis
+       * @enum {string}
+       */
+      basis:
+        | "source_text"
+        | "numeric_source"
+        | "image_interpretation"
+        | "document_interpretation"
+        | "ocr_interpretation"
+        | "estimate"
+        | "metadata_only";
+      /** Locator */
+      locator: string;
+      /** Quote */
+      quote: string;
+      /** Rationale */
+      rationale: string;
+    };
+    /** ResearchConfig */
+    ResearchConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "research";
+      /**
+       * Stage
+       * @default hypothesize
+       * @enum {string}
+       */
+      stage: "hypothesize" | "challenge" | "revise";
+      /**
+       * Prompt Version
+       * @default research-1
+       * @constant
+       */
+      prompt_version: "research-1";
+    };
+    /** ResearchLimits */
+    ResearchLimits: {
+      /**
+       * Max Model Calls
+       * @default 3
+       */
+      max_model_calls: number;
+      /**
+       * Max Tool Calls
+       * @default 3
+       */
+      max_tool_calls: number;
+      /**
+       * Max Input Bytes
+       * @default 512000
+       */
+      max_input_bytes: number;
+      /**
+       * Max Output Characters
+       * @default 24000
+       */
+      max_output_characters: number;
+      /**
+       * Max Response Seconds
+       * @default 90
+       */
+      max_response_seconds: number;
+      /**
+       * Max Total Tokens
+       * @default 24000
+       */
+      max_total_tokens: number;
+    };
+    /** ResearchManifest */
+    ResearchManifest: {
+      /**
+       * Version
+       * @default research-manifest-1
+       * @constant
+       */
+      version: "research-manifest-1";
+      settings: components["schemas"]["ResearchSettings"];
+      /** Account Id */
+      account_id: string;
+      /** Account Label */
+      account_label: string;
+      /**
+       * Workflow Revision Id
+       * Format: uuid
+       */
+      workflow_revision_id: string;
+      /**
+       * Compiler Version
+       * @default research-0.3.0
+       * @constant
+       */
+      compiler_version: "research-0.3.0";
+      /** Prompt Versions */
+      prompt_versions: {
+        [key: string]: string;
+      };
+      /** Prompt Hashes */
+      prompt_hashes: {
+        [key: string]: string;
+      };
+      /** Tool Config */
+      tool_config: {
+        [key: string]: unknown;
+      };
+      /** Evidence */
+      evidence: components["schemas"]["EvidenceSnapshot"][];
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** ResearchResult */
+    ResearchResult: {
+      /**
+       * Schema Version
+       * @constant
+       */
+      schema_version: "research-result-1";
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: "hypothesize" | "challenge" | "revise";
+      /** Hypotheses */
+      hypotheses: components["schemas"]["Hypothesis"][];
+      /** Unresolved Questions */
+      unresolved_questions: string[];
+      /** Evidence Requests */
+      evidence_requests: components["schemas"]["EvidenceRequest"][];
+      /** Conclusion */
+      conclusion: string;
+      /** Revision Summary */
+      revision_summary: string;
+      /** Limitations */
+      limitations: string[];
+    };
+    /** ResearchSettings */
+    ResearchSettings: {
+      /**
+       * Provider
+       * @default chatgpt_plan
+       * @constant
+       */
+      provider: "chatgpt_plan";
+      /**
+       * Model
+       * @default gpt-6.1-sol
+       */
+      model: string;
+      /**
+       * Billing
+       * @default included_plan
+       * @constant
+       */
+      billing: "included_plan";
+      limits?: components["schemas"]["ResearchLimits"];
+    };
     /** ResumeRequest */
     ResumeRequest: {
       /** Checkpoint Id */
@@ -781,6 +1118,11 @@ export interface components {
        * @enum {string}
        */
       decision: "approve" | "reject";
+      /**
+       * Feedback
+       * @default
+       */
+      feedback: string;
     };
     /** ReviewPrompt */
     ReviewPrompt: {
@@ -835,7 +1177,8 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph";
+      kind:
+        "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph" | "research";
       /** Detail */
       detail: string;
     };
@@ -857,6 +1200,8 @@ export interface components {
       artifacts?: components["schemas"]["ArtifactRef"][];
       /** Evidence Ids */
       evidence_ids?: string[];
+      /** Provider Account Id */
+      provider_account_id?: string | null;
     };
     /** RunSnapshot */
     RunSnapshot: {
@@ -879,7 +1224,14 @@ export interface components {
        * @enum {string}
        */
       status:
-        "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited" | "running";
+        | "paused"
+        | "completed"
+        | "rejected"
+        | "interrupted"
+        | "cancelled"
+        | "limited"
+        | "running"
+        | "failed";
       /**
        * Created At
        * Format: date-time
@@ -904,6 +1256,9 @@ export interface components {
       /** Stop Reason */
       stop_reason?: string | null;
       usage?: components["schemas"]["RunUsage"];
+      research_manifest?: components["schemas"]["ResearchManifest"] | null;
+      /** Model Attempts */
+      model_attempts?: components["schemas"]["ModelAttempt"][];
     };
     /** RunSummary */
     RunSummary: {
@@ -926,7 +1281,14 @@ export interface components {
        * @enum {string}
        */
       status:
-        "paused" | "completed" | "rejected" | "interrupted" | "cancelled" | "limited" | "running";
+        | "paused"
+        | "completed"
+        | "rejected"
+        | "interrupted"
+        | "cancelled"
+        | "limited"
+        | "running"
+        | "failed";
       /**
        * Created At
        * Format: date-time
@@ -945,6 +1307,31 @@ export interface components {
        * @default 0
        */
       active_seconds: number;
+      /**
+       * Model Calls
+       * @default 0
+       */
+      model_calls: number;
+      /**
+       * Tool Calls
+       * @default 0
+       */
+      tool_calls: number;
+      /**
+       * Input Tokens
+       * @default 0
+       */
+      input_tokens: number;
+      /**
+       * Output Tokens
+       * @default 0
+       */
+      output_tokens: number;
+      /**
+       * Usage Complete
+       * @default true
+       */
+      usage_complete: boolean;
     };
     /** SourceLocation */
     SourceLocation: {
@@ -1046,10 +1433,11 @@ export interface components {
        * @default 0.1
        * @enum {string}
        */
-      schema_version: "0.1" | "0.2";
+      schema_version: "0.1" | "0.2" | "0.3";
       /** Subgraphs */
       subgraphs?: components["schemas"]["SubgraphDefinition"][];
       budgets?: components["schemas"]["ExecutionBudgets"];
+      research?: components["schemas"]["ResearchSettings"] | null;
     };
     /** WorkflowEdge */
     WorkflowEdge: {
@@ -1076,7 +1464,8 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph";
+      kind:
+        "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph" | "research";
       /** Label */
       label: string;
       /**
@@ -1092,6 +1481,7 @@ export interface components {
             | components["schemas"]["ForkConfig"]
             | components["schemas"]["SubgraphConfig"]
             | components["schemas"]["LoopConfig"]
+            | components["schemas"]["ResearchConfig"]
           )
         | null;
       /** Inputs */
@@ -1416,6 +1806,26 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  chatgpt_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ProviderStatus"];
         };
       };
     };

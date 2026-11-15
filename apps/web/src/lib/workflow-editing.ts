@@ -1,3 +1,4 @@
+import { researchDefaults } from "./workflow";
 import type {
   Graph,
   SubgraphRef,
@@ -9,7 +10,7 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
-export type TemplateKind = "note" | "review" | "route" | "fork" | "loop" | "subgraph";
+export type TemplateKind = "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research";
 export type Port = {
   key: string;
   node: string;
@@ -36,10 +37,17 @@ export function updateGraph(workflow: Workflow, scope: GraphScope, graph: Graph)
     nodes: graph.nodes,
     edges: graph.edges,
   };
-  if (!scope) return { ...workflow, ...patch };
+  const usesFeedback = graph.nodes.some((node) => {
+    const sources = Object.values(node.inputs ?? {});
+    if (node.config?.type === "route") sources.push(node.config.condition.left);
+    if (node.config?.type === "loop" && node.config.until) sources.push(node.config.until.left);
+    return sources.some((source) => source.port === "feedback");
+  });
+  const version = usesFeedback ? "0.3" : workflow.schema_version;
+  if (!scope) return { ...workflow, ...patch, schema_version: version };
   return {
     ...workflow,
-    schema_version: "0.2",
+    schema_version: version === "0.3" ? "0.3" : "0.2",
     subgraphs: workflow.subgraphs?.map((item) =>
       item.id === scope.id && item.version === scope.version ? { ...item, ...patch } : item,
     ),
@@ -76,8 +84,13 @@ export function portsFor(node: WorkflowNode): Port[] {
     port("input", "in", "control"),
     ...(node.kind === "note" ? [port("input", "text", "text")] : []),
     ...controlOutputs(node).map((name) => port("output", name, "control")),
-    ...(node.kind === "note" ? [port("output", "text", "text")] : []),
-    ...(node.kind === "review" ? [port("output", "decision", "text")] : []),
+    ...(node.kind === "note" || node.kind === "research" ? [port("output", "text", "text")] : []),
+    ...(node.kind === "research"
+      ? [port("input", "context", "text"), port("input", "feedback", "text")]
+      : []),
+    ...(node.kind === "review"
+      ? [port("output", "decision", "text"), port("output", "feedback", "text")]
+      : []),
     ...(node.kind === "loop" ? [port("output", "iterations", "number")] : []),
   ];
 }
@@ -242,6 +255,22 @@ export function addTemplate(
     workflow.schema_version === "0.1" && graph.nodes.length >= 32
       ? { ...workflow, schema_version: "0.2" as const }
       : workflow;
+  if (kind === "research") {
+    const step = {
+      ...makeNode(id, kind, "Form hypotheses"),
+      config: {
+        type: "research" as const,
+        stage: "hypothesize" as const,
+        prompt_version: "research-1" as const,
+      },
+    };
+    next = {
+      ...next,
+      schema_version: "0.3",
+      research: next.research ?? structuredClone(researchDefaults),
+    };
+    return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
+  }
   if (kind === "note" || kind === "review") {
     return {
       workflow: updateGraph(
@@ -256,7 +285,7 @@ export function addTemplate(
       selected: id,
     };
   }
-  next = { ...next, schema_version: "0.2" };
+  next = { ...next, schema_version: next.schema_version === "0.3" ? "0.3" : "0.2" };
   if (kind === "route" || kind === "fork") {
     const join = makeNode(makeId("join"), "join", "Join branches", x + 660, y);
     const names = kind === "route" ? ["true", "false"] : ["first", "second"];

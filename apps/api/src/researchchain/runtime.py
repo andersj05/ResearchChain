@@ -18,6 +18,7 @@ from researchchain.compiler import (
     STRUCTURED_COMPILER_VERSION,
     ExecutionStopped,
     Guard,
+    ResearchStep,
     compile_structured,
 )
 from researchchain.controls import ExecutionControl, control_state, set_terminal
@@ -35,9 +36,26 @@ from researchchain.models import (
     Workflow,
     WorkflowNode,
 )
+from researchchain.research import (
+    RESEARCH_COMPILER_VERSION,
+    ChatGPTResearchProvider,
+    ResearchExecutor,
+    ResearchProvider,
+    make_manifest,
+    read_attempts,
+    read_manifest,
+)
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
+
+
+def compiler_version(workflow: Workflow) -> str:
+    return {
+        "0.1": COMPILER_VERSION,
+        "0.2": STRUCTURED_COMPILER_VERSION,
+        "0.3": RESEARCH_COMPILER_VERSION,
+    }[workflow.schema_version]
 
 
 class ResearchState(TypedDict):
@@ -72,11 +90,14 @@ def _route_review(state: ResearchState) -> str:
 
 
 def compile_workflow(
-    workflow: Workflow, checkpointer: BaseCheckpointSaver[Any], guard: Guard | None = None
+    workflow: Workflow,
+    checkpointer: BaseCheckpointSaver[Any],
+    guard: Guard | None = None,
+    research: ResearchStep | None = None,
 ) -> Any:
     """Compile validated registered nodes; never evaluate code from a workflow."""
-    if workflow.schema_version == "0.2":
-        return compile_structured(workflow, checkpointer, guard)
+    if workflow.schema_version != "0.1":
+        return compile_structured(workflow, checkpointer, guard, research)
     builder = StateGraph(ResearchState)
     successors = {edge.source: edge.target for edge in workflow.edges}
     for node in workflow.nodes:
@@ -107,8 +128,9 @@ def _guarded_legacy(execute: Any, node_id: str, guard: Guard) -> Any:
 
 
 class RunStore:
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, provider: ResearchProvider | None = None) -> None:
         self.database = database
+        self.provider = provider or ChatGPTResearchProvider()
 
     @staticmethod
     def _config(run_id: UUID) -> dict[str, Any]:
@@ -127,7 +149,11 @@ class RunStore:
         row = conn.execute("SELECT * FROM runs WHERE id = %s", (run_id,)).fetchone()
         if row is None:
             raise NotFoundError("Run not found.")
-        if row["compiler_version"] not in (COMPILER_VERSION, STRUCTURED_COMPILER_VERSION):
+        if row["compiler_version"] not in (
+            COMPILER_VERSION,
+            STRUCTURED_COMPILER_VERSION,
+            RESEARCH_COMPILER_VERSION,
+        ):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row
 
@@ -144,19 +170,21 @@ class RunStore:
         guard: Guard | None = None,
         *,
         saver: PostgresSaver | None = None,
+        research: ResearchStep | None = None,
     ) -> Any:
         revision = read_revision(conn, manifest["revision_id"])
-        expected = (
-            COMPILER_VERSION
-            if revision.workflow.schema_version == "0.1"
-            else STRUCTURED_COMPILER_VERSION
-        )
+        expected = compiler_version(revision.workflow)
         if manifest["compiler_version"] != expected:
             raise ConflictError("This run requires a compatible compiler version before recovery.")
-        return compile_workflow(revision.workflow, saver or PostgresSaver(conn), guard)
+        return compile_workflow(revision.workflow, saver or PostgresSaver(conn), guard, research)
 
     def _snapshot(
-        self, conn: Connection[DictRow], manifest: DictRow, *, interrupted: bool = False
+        self,
+        conn: Connection[DictRow],
+        manifest: DictRow,
+        *,
+        interrupted: bool = False,
+        running: bool = False,
     ) -> RunSnapshot:
         revision = read_revision(conn, manifest["revision_id"])
         state = self._graph(conn, manifest).get_state(self._config(manifest["id"]))
@@ -169,10 +197,14 @@ class RunStore:
         elif pending:
             status = "paused"
         control = control_state(conn, manifest["id"])
+        if running:
+            status = "running"
+            pending = []
         if control["terminal_status"]:
             status = control["terminal_status"]
             pending = []
         reviews = [ReviewPrompt(interrupt_id=item.id, **item.value) for item in pending]
+        attempts = read_attempts(conn, manifest["id"])
         return RunSnapshot(
             id=manifest["id"],
             revision_id=revision.id,
@@ -187,14 +219,25 @@ class RunStore:
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             status=status,
             events=list(state.values.get("records", {}).values())
-            if revision.workflow.schema_version == "0.2"
+            if revision.workflow.schema_version != "0.1"
             else state.values.get("events", []),
             review=reviews[0] if reviews else None,
             reviews=reviews,
             stop_reason=control["reason"],
             usage=RunUsage(
-                node_executions=control["node_executions"], active_seconds=control["active_seconds"]
+                node_executions=control["node_executions"],
+                active_seconds=control["active_seconds"],
+                model_calls=len(attempts),
+                tool_calls=len(attempts),
+                input_tokens=sum(item.input_tokens or 0 for item in attempts),
+                output_tokens=sum(item.output_tokens or 0 for item in attempts),
+                usage_complete=all(
+                    item.input_tokens is not None and item.output_tokens is not None
+                    for item in attempts
+                ),
             ),
+            research_manifest=read_manifest(conn, manifest["id"]),
+            model_attempts=attempts,
         )
 
     def _complete_command(
@@ -216,9 +259,17 @@ class RunStore:
         workflow = read_revision(conn, manifest["revision_id"]).workflow
         saver = PostgresSaver(conn)
         execution = ExecutionControl(conn, manifest["id"], workflow.budgets, saver.lock)
-        graph = self._graph(conn, manifest, execution.guard, saver=saver)
+        research_manifest = read_manifest(conn, manifest["id"])
+        researcher = (
+            ResearchExecutor(
+                conn, manifest["id"], manifest["brief"], research_manifest, execution, self.provider
+            )
+            if research_manifest
+            else None
+        )
+        graph = self._graph(conn, manifest, execution.guard, saver=saver, research=researcher)
         config = self._config(manifest["id"])
-        if workflow.schema_version == "0.2":
+        if workflow.schema_version != "0.1":
             config.update(recursion_limit=4096, max_concurrency=workflow.budgets.max_concurrency)
         state = graph.get_state(config)
         pending = [item for task in state.tasks for item in task.interrupts]
@@ -234,7 +285,7 @@ class RunStore:
                     "artifact_ids": [item["id"] for item in manifest["artifacts"]],
                     "rejected": False,
                 }
-                if workflow.schema_version == "0.2":
+                if workflow.schema_version != "0.1":
                     initial.update(records={}, outputs={})
                 else:
                     initial["events"] = []
@@ -243,7 +294,15 @@ class RunStore:
                 item.id == command["interrupt_id"] for item in pending
             ):
                 graph.invoke(
-                    Command(resume={command["interrupt_id"]: command["decision"]}),
+                    Command(
+                        resume={
+                            command["interrupt_id"]: (
+                                {"decision": command["decision"], "feedback": command["feedback"]}
+                                if workflow.schema_version == "0.3"
+                                else command["decision"]
+                            )
+                        }
+                    ),
                     config,
                     durability="sync",
                 )
@@ -284,6 +343,11 @@ class RunStore:
                 or self._evidence_ids(conn, request.id) != request.evidence_ids
             ):
                 raise ConflictError("This run ID already belongs to different inputs.")
+            existing_research = read_manifest(conn, request.id) if existing else None
+            if existing and request.provider_account_id != (
+                existing_research.account_id if existing_research else None
+            ):
+                raise ConflictError("This run ID already belongs to a different provider account.")
             artifacts = [item.model_dump() for item in request.artifacts]
             if existing is None:
                 if len({item.id for item in request.artifacts}) != len(request.artifacts):
@@ -303,21 +367,38 @@ class RunStore:
             if len(artifacts) > 100:
                 raise EvidenceError("A run supports at most 100 unique originals.")
             if existing is None:
+                workflow = read_revision(conn, request.revision_id).workflow
+                research_manifest = None
+                if workflow.research:
+                    if not request.provider_account_id:
+                        raise EvidenceError(
+                            "Select the connected provider account for this research run."
+                        )
+                    account = self.provider.pin_account(
+                        request.provider_account_id, workflow.research.model
+                    )
+                    research_manifest = make_manifest(
+                        conn, workflow, request.revision_id, request.evidence_ids, account
+                    )
+                elif request.provider_account_id:
+                    raise EvidenceError("Provider selection is only valid for a research workflow.")
                 with conn.transaction():
-                    workflow = read_revision(conn, request.revision_id).workflow
                     conn.execute(
                         "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
                         "VALUES (%s, %s, %s, %s, %s)",
                         (
                             request.id,
                             request.revision_id,
-                            COMPILER_VERSION
-                            if workflow.schema_version == "0.1"
-                            else STRUCTURED_COMPILER_VERSION,
+                            compiler_version(workflow),
                             request.brief,
                             Jsonb(artifacts),
                         ),
                     )
+                    if research_manifest:
+                        conn.execute(
+                            "INSERT INTO run_research_manifests (run_id, manifest) VALUES (%s, %s)",
+                            (request.id, Jsonb(research_manifest.model_dump(mode="json"))),
+                        )
                     for ordinal, evidence_id in enumerate(request.evidence_ids):
                         conn.execute(
                             "INSERT INTO run_evidence (run_id, evidence_id, ordinal) "
@@ -339,11 +420,22 @@ class RunStore:
             return self._drive(conn, manifest, command)
 
     def get(self, run_id: UUID) -> RunSnapshot:
-        with self._locked(run_id) as conn:
+        with self.database.connection() as conn:
+            # Readers never wait for a model call. A live writer owns the run's
+            # advisory lock; checkpoint reads and the attempt journal use MVCC.
+            lock = conn.execute(
+                "SELECT pg_try_advisory_lock(hashtextextended(%s, 0)) AS acquired",
+                (f"run:{run_id}",),
+            ).fetchone()
+            assert lock is not None
+            unfinished = self._unfinished(conn, run_id) is not None
             return self._snapshot(
                 conn,
                 self._manifest(conn, run_id),
-                interrupted=self._unfinished(conn, run_id) is not None,
+                interrupted=unfinished,
+                # Other readers briefly own this lock too. Only an unfinished
+                # command indicates that a worker may still be executing.
+                running=unfinished and not lock["acquired"],
             )
 
     def list(self, limit: int = 20) -> list[RunSummary]:
@@ -382,9 +474,15 @@ class RunStore:
                 if (
                     existing["decision"] != request.decision
                     or existing["checkpoint_id"] != request.checkpoint_id
+                    or existing["feedback"] != request.feedback
                 ):
                     raise ConflictError("This review already has a different recorded decision.")
                 return self._drive(conn, manifest, existing)
+            if (
+                request.feedback
+                and read_revision(conn, manifest["revision_id"]).workflow.schema_version != "0.3"
+            ):
+                raise ConflictError("Reviewer feedback requires workflow version 0.3.")
             if self._unfinished(conn, run_id) is not None:
                 raise ConflictError("Recover this run's interrupted request before reviewing it.")
             snapshot = self._snapshot(conn, manifest)
@@ -398,9 +496,16 @@ class RunStore:
                 )
             command = conn.execute(
                 "INSERT INTO run_commands "
-                "(id, run_id, kind, checkpoint_id, interrupt_id, decision) "
-                "VALUES (%s, %s, 'resume', %s, %s, %s) RETURNING *",
-                (uuid4(), run_id, request.checkpoint_id, request.interrupt_id, request.decision),
+                "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "
+                "VALUES (%s, %s, 'resume', %s, %s, %s, %s) RETURNING *",
+                (
+                    uuid4(),
+                    run_id,
+                    request.checkpoint_id,
+                    request.interrupt_id,
+                    request.decision,
+                    request.feedback,
+                ),
             ).fetchone()
             assert command is not None
             return self._drive(conn, manifest, command)

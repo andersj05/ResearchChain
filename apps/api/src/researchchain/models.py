@@ -24,6 +24,7 @@ from researchchain.graph import (
 from researchchain.graph import (
     WorkflowNode as WorkflowNode,
 )
+from researchchain.research_models import ModelAttempt, ResearchManifest
 
 
 class RevisionSummary(StrictModel):
@@ -52,6 +53,7 @@ class RunRequest(StrictModel):
     brief: str = Field(min_length=1, max_length=10000)
     artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
     evidence_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    provider_account_id: str | None = Field(default=None, pattern=r"^oaiapp_[a-zA-Z0-9_-]{1,180}$")
 
     @model_validator(mode="after")
     def unique_evidence(self) -> Self:
@@ -64,6 +66,7 @@ class ResumeRequest(StrictModel):
     checkpoint_id: str = Field(min_length=1, max_length=100)
     interrupt_id: str = Field(min_length=1, max_length=100)
     decision: Literal["approve", "reject"]
+    feedback: str = Field(default="", max_length=6000, pattern=r"^[^\x00]*$")
 
 
 class RunEvent(StrictModel):
@@ -87,7 +90,14 @@ class RunSummary(StrictModel):
     revision_number: int
     workflow_name: str
     status: Literal[
-        "paused", "completed", "rejected", "interrupted", "cancelled", "limited", "running"
+        "paused",
+        "completed",
+        "rejected",
+        "interrupted",
+        "cancelled",
+        "limited",
+        "running",
+        "failed",
     ]
     created_at: datetime
 
@@ -95,11 +105,16 @@ class RunSummary(StrictModel):
 class RunUsage(StrictModel):
     node_executions: int = 0
     active_seconds: float = 0
+    model_calls: int = 0
+    tool_calls: int = 0
+    input_tokens: int = 0
+    output_tokens: int = 0
+    usage_complete: bool = True
 
 
 class CancelResult(StrictModel):
     id: UUID
-    status: Literal["cancelled", "completed", "rejected", "limited"]
+    status: Literal["cancelled", "completed", "rejected", "limited", "failed"]
 
 
 class RunSnapshot(RunSummary):
@@ -114,6 +129,8 @@ class RunSnapshot(RunSummary):
     reviews: list[ReviewPrompt] = Field(default_factory=list)
     stop_reason: str | None = None
     usage: RunUsage = Field(default_factory=RunUsage)
+    research_manifest: ResearchManifest | None = None
+    model_attempts: list[ModelAttempt] = Field(default_factory=list)
 
 
 class ValidationResult(StrictModel):

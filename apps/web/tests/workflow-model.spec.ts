@@ -165,3 +165,22 @@ test("unused versions can be pruned while retaining referenced nested definition
   const valid = await request.post("/api/workflows/validate", { data: pruned });
   expect(valid.status(), await valid.text()).toBe(200);
 });
+
+test("reviewer feedback upgrades a draft and keeps old revisions unchanged", async ({
+  request,
+}) => {
+  const original = structuredClone(initialWorkflow);
+  const draft = addTemplate(original, null, "note", "review").workflow;
+  const updated = updateGraph(draft, null, {
+    ...draft,
+    nodes: draft.nodes.map((node) =>
+      node.id === draft.edges.find((edge) => edge.source === "review")?.target
+        ? { ...node, inputs: { text: { source: "output", node_id: "review", port: "feedback" } } }
+        : node,
+    ),
+  });
+  expect(updated.schema_version).toBe("0.3");
+  expect(original.schema_version).toBe("0.1");
+  const response = await request.post("/api/workflows/validate", { data: updated });
+  expect(response.status(), await response.text()).toBe(200);
+});

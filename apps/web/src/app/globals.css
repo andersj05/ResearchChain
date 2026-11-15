@@ -1958,3 +1958,77 @@ footer p {
     margin-top: 18px;
   }
 }
+
+/* Research results keep source quotations and reviewer decisions visibly separate. */
+.research-connection {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+}
+.research-connection legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+.research-results {
+  margin: 24px auto;
+  min-width: 0;
+}
+.research-results .section-heading {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.research-attempt {
+  border-top: 1px solid var(--line);
+  padding: 18px 0;
+}
+.research-attempt summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.research-attempt p,
+.research-attempt li {
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+.research-attempt ul {
+  padding-left: 20px;
+}
+.research-attempt h4 {
+  margin: 22px 0 8px;
+}
+.research-attempt h5 {
+  font-size: 13px;
+  margin: 16px 0 4px;
+}
+.research-conclusion {
+  font-size: 16px;
+  font-weight: 500;
+}
+.hypothesis {
+  border: 1px solid var(--line);
+  margin: 20px 0;
+  padding: 0 18px 14px;
+}
+.research-citations blockquote {
+  border-left: 2px solid var(--line);
+  margin: 10px 0;
+  padding-left: 12px;
+  color: var(--muted);
+}
+.research-results pre {
+  max-height: 320px;
+  overflow: auto;
+  font-size: 11px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.status-failed {
+  color: var(--red);
+}
+.kind-research {
+  color: #635bc2;
+  background: #f0edff;
+}
+.review-box textarea {
+  margin: 8px 0 14px;
+}

@@ -43,6 +43,7 @@ class StructuredState(TypedDict):
 
 
 Guard = Callable[[str, bool], None]
+ResearchStep = Callable[[WorkflowNode, str, str, str], str]
 
 
 def read_value(source: ValueSource, state: StructuredState, prefix: str, iteration: int) -> Any:
@@ -76,7 +77,12 @@ def evaluate(predicate: Predicate, state: StructuredState, prefix: str, iteratio
 
 
 def node_function(
-    node: WorkflowNode, path: str, prefix: str, iteration: int, guard: Guard
+    node: WorkflowNode,
+    path: str,
+    prefix: str,
+    iteration: int,
+    guard: Guard,
+    research: ResearchStep | None = None,
 ) -> Callable[[StructuredState], dict[str, Any]]:
     def execute(state: StructuredState) -> dict[str, Any]:
         if state.get("rejected"):
@@ -92,9 +98,27 @@ def node_function(
                     "question": node.instructions or "Continue this workflow?",
                 }
             )
+            if isinstance(decision, dict):
+                outputs["feedback"] = decision.get("feedback", "")
+                decision = decision["decision"]
             rejected = decision == "reject"
             outputs["decision"] = decision
             detail = "Rejected by reviewer" if rejected else "Approved by reviewer"
+        elif node.kind == "research":
+            if research is None:
+                raise ExecutionStopped("A research executor is required for this run.", "failed")
+            context = (
+                str(read_value(node.inputs["context"], state, prefix, iteration))
+                if "context" in node.inputs
+                else ""
+            )
+            feedback = (
+                str(read_value(node.inputs["feedback"], state, prefix, iteration))
+                if "feedback" in node.inputs
+                else ""
+            )
+            outputs["text"] = research(node, path, context, feedback)
+            detail = "Validated research result saved for review."
         elif node.kind == "note":
             detail = (
                 str(read_value(node.inputs["text"], state, prefix, iteration))
@@ -135,9 +159,12 @@ def node_function(
 
 
 class StructuredCompiler:
-    def __init__(self, workflow: Workflow, guard: Guard) -> None:
+    def __init__(
+        self, workflow: Workflow, guard: Guard, research: ResearchStep | None = None
+    ) -> None:
         self.workflow = workflow
         self.guard = guard
+        self.research = research
         self.builder = StateGraph(StructuredState)
         self.definitions = {(item.id, item.version): item for item in workflow.subgraphs}
 
@@ -199,7 +226,10 @@ class StructuredCompiler:
         for node in graph.nodes:
             path = entries[node.id]
             self.builder.add_node(
-                path, RunnableLambda(node_function(node, path, prefix, iteration, self.guard))
+                path,
+                RunnableLambda(
+                    node_function(node, path, prefix, iteration, self.guard, self.research)
+                ),
             )
             if node.kind == "finish":
                 finish = path
@@ -292,6 +322,11 @@ class StructuredCompiler:
 
 
 def compile_structured(
-    workflow: Workflow, checkpointer: BaseCheckpointSaver[Any], guard: Guard | None = None
+    workflow: Workflow,
+    checkpointer: BaseCheckpointSaver[Any],
+    guard: Guard | None = None,
+    research: ResearchStep | None = None,
 ) -> Any:
-    return StructuredCompiler(workflow, guard or (lambda path, count: None)).compile(checkpointer)
+    return StructuredCompiler(workflow, guard or (lambda path, count: None), research).compile(
+        checkpointer
+    )

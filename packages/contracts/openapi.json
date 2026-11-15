@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {
     "title": "ResearchChain API",
-    "version": "0.2.0"
+    "version": "0.3.0"
   },
   "paths": {
     "/api/artifacts": {
@@ -406,6 +406,24 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/providers/chatgpt": {
+      "get": {
+        "summary": "Chatgpt Status",
+        "operationId": "chatgpt_status",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProviderStatus"
                 }
               }
             }
@@ -939,7 +957,7 @@
           },
           "status": {
             "type": "string",
-            "enum": ["cancelled", "completed", "rejected", "limited"],
+            "enum": ["cancelled", "completed", "rejected", "limited", "failed"],
             "title": "Status"
           }
         },
@@ -1660,6 +1678,99 @@
         "required": ["id", "title", "kind", "created_at", "capture_method"],
         "title": "EvidenceRecord"
       },
+      "EvidenceRequest": {
+        "properties": {
+          "question": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "source_needed": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Source Needed"
+          },
+          "why": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Why"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["question", "source_needed", "why"],
+        "title": "EvidenceRequest"
+      },
+      "EvidenceSnapshot": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Evidence Id"
+          },
+          "original": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Original"
+          },
+          "representation": {
+            "type": "string",
+            "title": "Representation"
+          },
+          "availability": {
+            "type": "string",
+            "title": "Availability"
+          },
+          "publisher": {
+            "type": "string",
+            "title": "Publisher"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "as_of_date": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "As Of Date"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "evidence_id",
+          "original",
+          "representation",
+          "availability",
+          "publisher",
+          "source_url",
+          "as_of_date"
+        ],
+        "title": "EvidenceSnapshot"
+      },
       "ExecutionBudgets": {
         "properties": {
           "max_node_executions": {
@@ -1753,6 +1864,60 @@
         "type": "object",
         "title": "Health"
       },
+      "Hypothesis": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^H[1-9][0-9]{0,2}$",
+            "title": "Id"
+          },
+          "statement": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Statement"
+          },
+          "alternatives": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Alternatives"
+          },
+          "falsifiers": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Falsifiers"
+          },
+          "assessment": {
+            "type": "string",
+            "enum": ["untested", "supported", "contradicted", "mixed"],
+            "title": "Assessment"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCitation"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Citations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "statement", "alternatives", "falsifiers", "assessment", "citations"],
+        "title": "Hypothesis"
+      },
       "LoopConfig": {
         "properties": {
           "type": {
@@ -1786,11 +1951,176 @@
         "required": ["ref", "max_iterations"],
         "title": "LoopConfig"
       },
+      "ModelAttempt": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["hypothesize", "challenge", "revise"],
+            "title": "Stage"
+          },
+          "model": {
+            "type": "string",
+            "title": "Model"
+          },
+          "returned_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Returned Model"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "preparing",
+              "requesting",
+              "completed",
+              "failed",
+              "unknown",
+              "cancelled",
+              "limited"
+            ],
+            "title": "Status"
+          },
+          "input_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Artifact Id"
+          },
+          "response_artifact_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^sha256:[a-f0-9]{64}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Artifact Id"
+          },
+          "input_bytes": {
+            "type": "integer",
+            "title": "Input Bytes",
+            "default": 0
+          },
+          "output_characters": {
+            "type": "integer",
+            "title": "Output Characters",
+            "default": 0
+          },
+          "input_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Input Tokens"
+          },
+          "output_tokens": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Output Tokens"
+          },
+          "response_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Response Id"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "result": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchResult"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "path", "stage", "model", "status", "created_at"],
+        "title": "ModelAttempt"
+      },
       "NodeTypeSpec": {
         "properties": {
           "kind": {
             "type": "string",
-            "enum": ["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"],
+            "enum": [
+              "note",
+              "review",
+              "finish",
+              "route",
+              "fork",
+              "join",
+              "loop",
+              "subgraph",
+              "research"
+            ],
             "title": "Kind"
           },
           "label": {
@@ -1886,6 +2216,410 @@
         "required": ["left", "operator", "value"],
         "title": "Predicate"
       },
+      "ProviderAccount": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "signed_in": {
+            "type": "boolean",
+            "title": "Signed In"
+          },
+          "plan_enabled": {
+            "type": "boolean",
+            "title": "Plan Enabled"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "label", "signed_in", "plan_enabled", "active"],
+        "title": "ProviderAccount"
+      },
+      "ProviderModel": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "display_name": {
+            "type": "string",
+            "title": "Display Name"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["slug", "display_name"],
+        "title": "ProviderModel"
+      },
+      "ProviderStatus": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "chatgpt_plan",
+            "title": "Provider",
+            "default": "chatgpt_plan"
+          },
+          "accounts": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderAccount"
+            },
+            "type": "array",
+            "title": "Accounts"
+          },
+          "models": {
+            "items": {
+              "$ref": "#/components/schemas/ProviderModel"
+            },
+            "type": "array",
+            "title": "Models"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "usage_url": {
+            "type": "string",
+            "const": "https://chatgpt.com/settings/usage",
+            "title": "Usage Url",
+            "default": "https://chatgpt.com/settings/usage"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["accounts"],
+        "title": "ProviderStatus"
+      },
+      "ResearchCitation": {
+        "properties": {
+          "evidence_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Evidence Id"
+          },
+          "relation": {
+            "type": "string",
+            "enum": ["supports", "contradicts", "context"],
+            "title": "Relation"
+          },
+          "basis": {
+            "type": "string",
+            "enum": [
+              "source_text",
+              "numeric_source",
+              "image_interpretation",
+              "document_interpretation",
+              "ocr_interpretation",
+              "estimate",
+              "metadata_only"
+            ],
+            "title": "Basis"
+          },
+          "locator": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Locator"
+          },
+          "quote": {
+            "type": "string",
+            "maxLength": 2000,
+            "title": "Quote"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Rationale"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["evidence_id", "relation", "basis", "locator", "quote", "rationale"],
+        "title": "ResearchCitation"
+      },
+      "ResearchConfig": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "research",
+            "title": "Type",
+            "default": "research"
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["hypothesize", "challenge", "revise"],
+            "title": "Stage",
+            "default": "hypothesize"
+          },
+          "prompt_version": {
+            "type": "string",
+            "const": "research-1",
+            "title": "Prompt Version",
+            "default": "research-1"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResearchConfig"
+      },
+      "ResearchLimits": {
+        "properties": {
+          "max_model_calls": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Max Model Calls",
+            "default": 3
+          },
+          "max_tool_calls": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Max Tool Calls",
+            "default": 3
+          },
+          "max_input_bytes": {
+            "type": "integer",
+            "maximum": 8000000.0,
+            "minimum": 1000.0,
+            "title": "Max Input Bytes",
+            "default": 512000
+          },
+          "max_output_characters": {
+            "type": "integer",
+            "maximum": 100000.0,
+            "minimum": 1000.0,
+            "title": "Max Output Characters",
+            "default": 24000
+          },
+          "max_response_seconds": {
+            "type": "number",
+            "maximum": 120.0,
+            "exclusiveMinimum": 0.0,
+            "title": "Max Response Seconds",
+            "default": 90
+          },
+          "max_total_tokens": {
+            "type": "integer",
+            "maximum": 1000000.0,
+            "minimum": 1.0,
+            "title": "Max Total Tokens",
+            "default": 24000
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResearchLimits"
+      },
+      "ResearchManifest": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "research-manifest-1",
+            "title": "Version",
+            "default": "research-manifest-1"
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ResearchSettings"
+          },
+          "account_id": {
+            "type": "string",
+            "title": "Account Id"
+          },
+          "account_label": {
+            "type": "string",
+            "title": "Account Label"
+          },
+          "workflow_revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Workflow Revision Id"
+          },
+          "compiler_version": {
+            "type": "string",
+            "const": "research-0.3.0",
+            "title": "Compiler Version",
+            "default": "research-0.3.0"
+          },
+          "prompt_versions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Prompt Versions"
+          },
+          "prompt_hashes": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Prompt Hashes"
+          },
+          "tool_config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tool Config"
+          },
+          "evidence": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceSnapshot"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "settings",
+          "account_id",
+          "account_label",
+          "workflow_revision_id",
+          "prompt_versions",
+          "prompt_hashes",
+          "tool_config",
+          "evidence",
+          "created_at"
+        ],
+        "title": "ResearchManifest"
+      },
+      "ResearchResult": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "research-result-1",
+            "title": "Schema Version"
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["hypothesize", "challenge", "revise"],
+            "title": "Stage"
+          },
+          "hypotheses": {
+            "items": {
+              "$ref": "#/components/schemas/Hypothesis"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Hypotheses"
+          },
+          "unresolved_questions": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Unresolved Questions"
+          },
+          "evidence_requests": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRequest"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Evidence Requests"
+          },
+          "conclusion": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Conclusion"
+          },
+          "revision_summary": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Revision Summary"
+          },
+          "limitations": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "stage",
+          "hypotheses",
+          "unresolved_questions",
+          "evidence_requests",
+          "conclusion",
+          "revision_summary",
+          "limitations"
+        ],
+        "title": "ResearchResult"
+      },
+      "ResearchSettings": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "const": "chatgpt_plan",
+            "title": "Provider",
+            "default": "chatgpt_plan"
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
+            "title": "Model",
+            "default": "gpt-6.1-sol"
+          },
+          "billing": {
+            "type": "string",
+            "const": "included_plan",
+            "title": "Billing",
+            "default": "included_plan"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/ResearchLimits"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResearchSettings"
+      },
       "ResumeRequest": {
         "properties": {
           "checkpoint_id": {
@@ -1904,6 +2638,13 @@
             "type": "string",
             "enum": ["approve", "reject"],
             "title": "Decision"
+          },
+          "feedback": {
+            "type": "string",
+            "maxLength": 6000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Feedback",
+            "default": ""
           }
         },
         "additionalProperties": false,
@@ -2016,7 +2757,17 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"],
+            "enum": [
+              "note",
+              "review",
+              "finish",
+              "route",
+              "fork",
+              "join",
+              "loop",
+              "subgraph",
+              "research"
+            ],
             "title": "Kind"
           },
           "detail": {
@@ -2063,6 +2814,18 @@
             "type": "array",
             "maxItems": 100,
             "title": "Evidence Ids"
+          },
+          "provider_account_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^oaiapp_[a-zA-Z0-9_-]{1,180}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Provider Account Id"
           }
         },
         "additionalProperties": false,
@@ -2099,7 +2862,8 @@
               "interrupted",
               "cancelled",
               "limited",
-              "running"
+              "running",
+              "failed"
             ],
             "title": "Status"
           },
@@ -2182,6 +2946,23 @@
           },
           "usage": {
             "$ref": "#/components/schemas/RunUsage"
+          },
+          "research_manifest": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchManifest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "model_attempts": {
+            "items": {
+              "$ref": "#/components/schemas/ModelAttempt"
+            },
+            "type": "array",
+            "title": "Model Attempts"
           }
         },
         "additionalProperties": false,
@@ -2231,7 +3012,8 @@
               "interrupted",
               "cancelled",
               "limited",
-              "running"
+              "running",
+              "failed"
             ],
             "title": "Status"
           },
@@ -2264,6 +3046,31 @@
             "type": "number",
             "title": "Active Seconds",
             "default": 0
+          },
+          "model_calls": {
+            "type": "integer",
+            "title": "Model Calls",
+            "default": 0
+          },
+          "tool_calls": {
+            "type": "integer",
+            "title": "Tool Calls",
+            "default": 0
+          },
+          "input_tokens": {
+            "type": "integer",
+            "title": "Input Tokens",
+            "default": 0
+          },
+          "output_tokens": {
+            "type": "integer",
+            "title": "Output Tokens",
+            "default": 0
+          },
+          "usage_complete": {
+            "type": "boolean",
+            "title": "Usage Complete",
+            "default": true
           }
         },
         "additionalProperties": false,
@@ -2520,7 +3327,7 @@
           },
           "schema_version": {
             "type": "string",
-            "enum": ["0.1", "0.2"],
+            "enum": ["0.1", "0.2", "0.3"],
             "title": "Schema Version",
             "default": "0.1"
           },
@@ -2534,6 +3341,16 @@
           },
           "budgets": {
             "$ref": "#/components/schemas/ExecutionBudgets"
+          },
+          "research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchSettings"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -2576,7 +3393,17 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["note", "review", "finish", "route", "fork", "join", "loop", "subgraph"],
+            "enum": [
+              "note",
+              "review",
+              "finish",
+              "route",
+              "fork",
+              "join",
+              "loop",
+              "subgraph",
+              "research"
+            ],
             "title": "Kind"
           },
           "label": {
@@ -2609,6 +3436,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/LoopConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/ResearchConfig"
                   }
                 ],
                 "discriminator": {
@@ -2616,6 +3446,7 @@
                   "mapping": {
                     "fork": "#/components/schemas/ForkConfig",
                     "loop": "#/components/schemas/LoopConfig",
+                    "research": "#/components/schemas/ResearchConfig",
                     "route": "#/components/schemas/RouteConfig",
                     "subgraph": "#/components/schemas/SubgraphConfig"
                   }

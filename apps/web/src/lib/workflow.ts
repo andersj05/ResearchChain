@@ -1,4 +1,5 @@
 import type { components } from "@researchchain/contracts";
+import researchExample from "../../../../examples/hypothesis-research.json";
 import example from "../../../../examples/research-workflow.json";
 
 export type Workflow = components["schemas"]["Workflow"];
@@ -19,25 +20,35 @@ export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
 
 export const initialWorkflow = example as Workflow;
+export const researchWorkflow = researchExample as Workflow;
+export type ResearchSettings = components["schemas"]["ResearchSettings"];
+export type ResearchLimits = components["schemas"]["ResearchLimits"];
+export type ProviderStatus = components["schemas"]["ProviderStatus"];
+export const researchDefaults = {
+  ...researchWorkflow.research!,
+  limits: researchExample.research.limits,
+};
+export const executionTimeout = 3_660_000;
 
 export type ValidationIssue = { path: string; message: string };
 export class ApiError extends Error {
   constructor(
     message: string,
     readonly issues: ValidationIssue[] = [],
+    readonly status?: number,
   ) {
     super(message);
     this.name = "ApiError";
   }
 }
 
-export async function api<T>(path: string, body?: unknown): Promise<T> {
+export async function api<T>(path: string, body?: unknown, timeout = 15000): Promise<T> {
   const response = await fetch(`/api/${path}`, {
     method: body === undefined ? "GET" : "POST",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(timeout),
   });
   if (!response.ok) {
     const payload = await response.json().catch(() => null);
@@ -53,7 +64,7 @@ export async function api<T>(path: string, body?: unknown): Promise<T> {
           message: item.msg,
         }))
       : [];
-    throw new ApiError(message, issues);
+    throw new ApiError(message, issues, response.status);
   }
   return response.json() as Promise<T>;
 }
