@@ -11,6 +11,7 @@ from researchchain.graph import (
     LoopConfig,
     NodeKind,
     PortType,
+    ResearchConfig,
     RouteConfig,
     StrictModel,
     SubgraphConfig,
@@ -36,6 +37,7 @@ def node_types() -> list[NodeTypeSpec]:
         "fork": ForkConfig,
         "loop": LoopConfig,
         "subgraph": SubgraphConfig,
+        "research": ResearchConfig,
     }
     labels: dict[NodeKind, str] = {
         "note": "Research note",
@@ -46,6 +48,7 @@ def node_types() -> list[NodeTypeSpec]:
         "join": "Join",
         "loop": "Bounded loop",
         "subgraph": "Subgraph",
+        "research": "Hypothesis research",
     }
     result = []
     for kind, label in labels.items():

@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -29,6 +30,7 @@ class Completion:
     text: str
     response_id: str
     usage: dict[str, Any]
+    returned_model: str | None = None
 
 
 class ChatGPTPlan:
@@ -64,14 +66,37 @@ class ChatGPTPlan:
         timeout_seconds: float = 45,
         output_chars: int = 2000,
         transport: httpx.AsyncBaseTransport | None = None,
+        instructions: str | None = None,
+        input_items: list[dict[str, Any]] | None = None,
+        output_schema: dict[str, Any] | None = None,
+        on_delta: Callable[[str], None] | None = None,
     ) -> Completion:
         if not 0 < timeout_seconds <= 120 or not 0 < output_chars <= 200000:
             raise ValueError("A bounded time and output allowance are required.")
         # Refresh is serialized and has its own network timeout. Never silently use
         # a different account after model selection or a pinned research manifest.
-        account, token = self.auth.access()
+        account, token = await asyncio.to_thread(self.auth.access)
         if account != account_id:
             raise ConnectionError("The active ChatGPT account changed. Select its model again.")
+        body: dict[str, Any] = {
+            "model": model,
+            "input": input_items
+            if input_items is not None
+            else [{"role": "user", "content": prompt}],
+            "store": False,
+            "stream": True,
+        }
+        if instructions is not None:
+            body["instructions"] = instructions
+        if output_schema is not None:
+            body["text"] = {
+                "format": {
+                    "type": "json_schema",
+                    "name": "research_result",
+                    "strict": True,
+                    "schema": output_schema,
+                }
+            }
         text = ""
         size = 0
         pending = b""
@@ -89,12 +114,7 @@ class ChatGPTPlan:
                     "POST",
                     f"{RESOURCE}/responses",
                     headers={"Authorization": f"Bearer {token}"},
-                    json={
-                        "model": model,
-                        "input": [{"role": "user", "content": prompt}],
-                        "store": False,
-                        "stream": True,
-                    },
+                    json=body,
                 ) as response:
                     if response.status_code != 200:
                         # Error bodies may contain arbitrary provider diagnostics;
@@ -149,6 +169,8 @@ class ChatGPTPlan:
                                 if not isinstance(delta, str):
                                     raise ConnectionError("OpenAI returned an invalid text delta.")
                                 text += delta
+                                if on_delta:
+                                    on_delta(text[:output_chars])
                                 if len(text) > output_chars:
                                     raise ConnectionError(
                                         "Response exceeded the connection check's output limit."
@@ -196,7 +218,15 @@ class ChatGPTPlan:
                                     raise ConnectionError(
                                         "The completed response had invalid usage."
                                     )
-                                return Completion(model, text, response_id, usage)
+                                return Completion(
+                                    model,
+                                    text,
+                                    response_id,
+                                    usage,
+                                    result.get("model")
+                                    if isinstance(result.get("model"), str)
+                                    else None,
+                                )
                         if len(pending) > 256 * 1024:
                             raise ConnectionError("OpenAI returned an oversized stream event.")
         except (httpx.HTTPError, TimeoutError):
