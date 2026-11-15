@@ -114,7 +114,7 @@ class AlertEvent(StrictModel):
     monitor_id: UUID
     created_at: AwareDatetime
     observed_at: AwareDatetime
-    kind: Literal["problem", "recovered"]
+    kind: Literal["problem", "recovered", "test"]
     active: list[Condition] = Field(max_length=len(Condition))
 
     @model_validator(mode="after")
@@ -147,6 +147,6 @@ class MonitorState(StrictModel):
         if set(self.streaks) != set(Condition):
             raise ValueError("Monitor state needs every condition.")
         for event in (self.pending, self.last_event):
-            if event is not None and event.monitor_id != self.monitor_id:
+            if event is not None and (event.monitor_id != self.monitor_id or event.kind == "test"):
                 raise ValueError("Alert identity does not match its monitor.")
         return self
