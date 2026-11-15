@@ -1,10 +1,37 @@
 # Current state
 
-Updated 2026-11-15. Report editing merged into dev through
-[PR #26](https://github.com/andersj05/ResearchChain/pull/26), merge `c9bc2d0`,
-with seven feature-branch commits. Issue #8 is closed. Active branch:
-`feat/backup-restore`. The owner authorized frequent commits and merging completed
-steps into dev after CI. Do not promote to main or deploy publicly.
+Updated 2026-11-15. Active branch: `feat/backup-restore`, based on report
+editor dev merge `c9bc2d0`. The owner authorized frequent commits and merging
+completed steps into dev after CI. Do not promote to main or deploy publicly.
+
+## Backup and recovery
+
+The local backup/restore slice of [issue #9](https://github.com/andersj05/ResearchChain/issues/9)
+is implemented and locally verified; CI and merge are pending. It creates private
+PostgreSQL custom archives with a manifest sharing the same exported snapshot.
+The migration lock is acquired before that snapshot. Restore requires a trusted
+archive and a new database, uses a temporary restricted owner, verifies migration,
+schema, table and original-byte hashes, then transfers ownership. Failed targets
+are quarantined; no source replacement, automatic app switch or provider call occurs.
+
+`pnpm check` passed with 240 backend tests, formatting, lint, strict Python and
+TypeScript checks, and the production build. The 23 new tests cover binary originals,
+reports/feedback/style/evaluations, paused resume, uncertain model requests,
+concurrent writes, migration locking, public-schema restore, partial-upgrade
+recovery, corruption/target guards, private permissions and redacted errors.
+CI now selects its Postgres service container for matching client tools.
+
+A private owner rehearsal from clean commit `1342cef` verified 27 tables, 86 rows
+and 12 originals (129,817 bytes) in a separate database, with zero provider calls.
+The live database was not switched. Ignored `.local/backup-rehearsal.json` records
+the private destination and receipt; the archive directory contains the complete
+manifest and restore receipt. The source app is currently stopped for verification.
+See [the operator guide](../backups.md) and [ADR 0009](../decisions/0009-verified-backups.md).
+
+This is a local logical backup, not PITR or a full-cluster backup. Provider
+credentials, roles/grants, external schemas and server settings are excluded.
+Archives contain executable SQL and must be trusted. Retention/off-machine copies
+and hosted recovery objectives remain operational work.
 
 ## Report editing
 
@@ -75,8 +102,8 @@ issues #3–#5 are closed. Keep ExecutionControl.lock shared with PostgresSaver.
 
 ## Next work
 
-Implement [plan 0008](../plans/0008-operational-preparation.md), starting with a
-tested backup/restore workflow on `feat/backup-restore`. Then continue
+Finish CI and merge for the backup/restore slice of
+[plan 0008](../plans/0008-operational-preparation.md). Then continue
 [operational controls #9](https://github.com/andersj05/ResearchChain/issues/9):
 authentication/authorization, execution and request limits, secrets, redacted
 observability, retention, and concrete deployment configuration. The issue requires
