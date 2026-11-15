@@ -106,6 +106,41 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/providers/chatgpt/sign-in": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Status */
+    get: operations["chatgpt_signin_status"];
+    put?: never;
+    /** Start */
+    post: operations["start_chatgpt_signin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/providers/chatgpt/sign-in/{attempt}/cancel": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Cancel */
+    post: operations["cancel_chatgpt_signin"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/artifacts": {
     parameters: {
       query?: never;
@@ -3164,6 +3199,42 @@ export interface components {
        */
       usage_complete: boolean;
     };
+    /** SignInStatus */
+    SignInStatus: {
+      /**
+       * Available
+       * @default true
+       */
+      available: boolean;
+      /** Id */
+      id?: string | null;
+      /**
+       * State
+       * @default idle
+       * @enum {string}
+       */
+      state:
+        | "idle"
+        | "starting"
+        | "waiting"
+        | "completing"
+        | "cancelling"
+        | "connected"
+        | "plan_disabled"
+        | "cancelled"
+        | "expired"
+        | "failed"
+        | "unavailable";
+      /** Url */
+      url?: string | null;
+      /** Expires At */
+      expires_at?: string | null;
+      /**
+       * Message
+       * @default Start sign-in when you are ready.
+       */
+      message: string;
+    };
     /** SignOutResult */
     SignOutResult: {
       /**
@@ -3634,6 +3705,77 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["SignOutResult"];
+        };
+      };
+    };
+  };
+  chatgpt_signin_status: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStatus"];
+        };
+      };
+    };
+  };
+  start_chatgpt_signin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStatus"];
+        };
+      };
+    };
+  };
+  cancel_chatgpt_signin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        attempt: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["SignInStatus"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

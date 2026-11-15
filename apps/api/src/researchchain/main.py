@@ -1,6 +1,8 @@
+import asyncio
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Annotated
+from urllib.parse import urlsplit
 from uuid import UUID
 
 import psycopg
@@ -33,6 +35,8 @@ from researchchain.models import (
 )
 from researchchain.operations import OperationsStore
 from researchchain.operations_models import OperationsSnapshot
+from researchchain.provider_signin import SignInService
+from researchchain.provider_signin_api import signin_router
 from researchchain.providers.credentials import ConnectionError as ProviderConnectionError
 from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.report_api import report_router
@@ -48,6 +52,7 @@ def create_app(
     database: Database | None = None,
     provider: ResearchProvider | None = None,
     access: AccessService | None = None,
+    signin: SignInService | None = None,
 ) -> FastAPI:
     database = database or Database.from_env()
     config = AccessConfig.from_env(database)
@@ -55,10 +60,20 @@ def create_app(
     if access.config.workspace_id != config.workspace_id:
         raise ValueError("Owner access must be bound to this database workspace.")
 
+    local_origin = urlsplit(config.origin).hostname in {"127.0.0.1", "localhost", "::1"}
+    signin = (
+        (signin or SignInService(enabled=provider is None))
+        if local_origin
+        else SignInService(enabled=False)
+    )
+
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         database.ready()
-        yield
+        try:
+            yield
+        finally:
+            await asyncio.to_thread(signin.close)
 
     app = FastAPI(
         title="ResearchChain API",
@@ -73,6 +88,7 @@ def create_app(
     app.state.access = access
     app.add_middleware(AccessMiddleware, access=access)
     app.include_router(access_router(access))
+    app.include_router(signin_router(signin))
 
     @app.exception_handler(AccessError)
     async def access_error(request: Request, error: AccessError) -> JSONResponse:
