@@ -2785,6 +2785,7 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "queued"
         | "paused"
         | "completed"
         | "rejected"
@@ -2842,6 +2843,7 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "queued"
         | "paused"
         | "completed"
         | "rejected"

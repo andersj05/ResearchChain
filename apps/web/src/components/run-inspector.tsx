@@ -9,6 +9,7 @@ import { RotateCw, Check, X } from "lucide-react";
 
 export function RunStatus({ status }: { status: RunSummary["status"] }) {
   const label = {
+    queued: "Waiting for worker",
     paused: "Needs review",
     running: "Running",
     completed: "Completed",

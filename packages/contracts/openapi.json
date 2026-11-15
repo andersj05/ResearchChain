@@ -6540,6 +6540,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "queued",
               "paused",
               "completed",
               "rejected",
@@ -6690,6 +6691,7 @@
           "status": {
             "type": "string",
             "enum": [
+              "queued",
               "paused",
               "completed",
               "rejected",

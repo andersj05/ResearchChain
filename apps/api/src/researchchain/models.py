@@ -90,6 +90,7 @@ class RunSummary(StrictModel):
     revision_number: int
     workflow_name: str
     status: Literal[
+        "queued",
         "paused",
         "completed",
         "rejected",

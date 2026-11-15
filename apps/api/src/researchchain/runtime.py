@@ -185,6 +185,8 @@ class RunStore:
         *,
         interrupted: bool = False,
         running: bool = False,
+        queued: bool = False,
+        worker_error: str | None = None,
     ) -> RunSnapshot:
         revision = read_revision(conn, manifest["revision_id"])
         state = self._graph(conn, manifest).get_state(self._config(manifest["id"]))
@@ -197,8 +199,8 @@ class RunStore:
         elif pending:
             status = "paused"
         control = control_state(conn, manifest["id"])
-        if running:
-            status = "running"
+        if queued or running:
+            status = "queued" if queued else "running"
             pending = []
         if control["terminal_status"]:
             status = control["terminal_status"]
@@ -223,7 +225,7 @@ class RunStore:
             else state.values.get("events", []),
             review=reviews[0] if reviews else None,
             reviews=reviews,
-            stop_reason=control["reason"],
+            stop_reason=control["reason"] or worker_error,
             usage=RunUsage(
                 node_executions=control["node_executions"],
                 active_seconds=control["active_seconds"],
@@ -431,7 +433,16 @@ class RunStore:
                 (f"run:{run_id}",),
             ).fetchone()
             assert lock is not None
-            unfinished = self._unfinished(conn, run_id) is not None
+            command = self._unfinished(conn, run_id)
+            job = (
+                conn.execute(
+                    "SELECT state, last_error FROM run_jobs WHERE command_id = %s",
+                    (command["id"],),
+                ).fetchone()
+                if command
+                else None
+            )
+            unfinished = command is not None
             return self._snapshot(
                 conn,
                 self._manifest(conn, run_id),
@@ -439,6 +450,8 @@ class RunStore:
                 # Other readers briefly own this lock too. Only an unfinished
                 # command indicates that a worker may still be executing.
                 running=unfinished and not lock["acquired"],
+                queued=bool(unfinished and job and job["state"] == "queued"),
+                worker_error=job["last_error"] if job else None,
             )
 
     def list(self, limit: int = 20) -> list[RunSummary]:
@@ -449,7 +462,8 @@ class RunStore:
                 "SELECT r.id, r.revision_id, w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
-                "THEN command.response->>'status' WHEN EXISTS ("
+                "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
+                "WHEN EXISTS ("
                 "SELECT 1 FROM pg_locks l WHERE l.locktype = 'advisory' AND l.granted "
                 "AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database()) "
                 "AND l.objsubid = 1 "
@@ -459,8 +473,9 @@ class RunStore:
                 ") THEN 'running' ELSE 'interrupted' END) AS status "
                 "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
                 "JOIN run_controls c ON c.run_id = r.id "
-                "LEFT JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
-                "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
+                "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
+                "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
+                "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
                 "ORDER BY r.created_at DESC, r.id DESC LIMIT %s",
                 (limit,),
             )
