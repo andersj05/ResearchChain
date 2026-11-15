@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
   // Rewrites buffer request bodies too; preserve the API's full 20 MiB originals.
   experimental: {
     proxyClientMaxBodySize: 20 * 1024 * 1024,
-    // Execution is bounded by the run's active-time budget; progress uses separate reads.
-    proxyTimeout: 3_660_000,
+    // Commands return durable receipts; model execution runs outside HTTP requests.
+    proxyTimeout: 30000,
   },
   async headers() {
     return [

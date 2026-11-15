@@ -1,3 +1,4 @@
+import { runRequest } from "./run-fixture";
 import { expect, test } from "./fixtures";
 import type { WorkflowRevision } from "../src/lib/workflow";
 import example from "../../../examples/research-workflow.json";
@@ -115,7 +116,7 @@ test("a lost start response reopens the accepted run", async ({ page }) => {
   await page.route("**/api/runs", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     const response = await route.fetch();
-    runId = (await response.json()).id;
+    runId = (await response.json()).run_id;
     await route.abort("failed");
   });
   await page.getByRole("button", { name: "Run workflow" }).click();
@@ -153,7 +154,7 @@ test("stale review controls refresh without approving a later review", async ({
     const captured = await submitted.promise;
     expect(captured.checkpoint_id).toBe(first.checkpoint_id);
     expect(captured.interrupt_id).toBe(first.review.interrupt_id);
-    const advanced = await request.post(`/api/runs/${id}/resume`, {
+    const advanced = await runRequest(request, `/api/runs/${id}/resume`, {
       data: {
         checkpoint_id: first.checkpoint_id,
         interrupt_id: first.review.interrupt_id,
@@ -230,7 +231,7 @@ test("a recoverable run exposes an explicit recovery action", async ({ page }) =
   await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(0);
   await page.unroute(`**/api/runs/${id}`);
   const recovered = page.waitForResponse(
-    (response) => response.url().endsWith(`/runs/${id}/recover`) && response.status() === 200,
+    (response) => response.url().endsWith(`/runs/${id}/recover`) && response.status() === 202,
   );
   await page.getByRole("button", { name: "Recover run" }).click();
   await recovered;

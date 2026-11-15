@@ -10,6 +10,7 @@ import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
+import { readPendingRun, retainPendingRun, forgetPendingRun } from "@/lib/run-requests";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
@@ -21,7 +22,8 @@ import {
   type ValidationIssue,
   initialWorkflow,
   researchWorkflow,
-  executionTimeout,
+  admissionTimeout,
+  type CommandReceipt,
   type RunRequest,
   type RunSnapshot,
   type RunSummary,
@@ -37,6 +39,7 @@ export function Workbench() {
   const { owner, active: accessActive } = useOwner();
   const storagePrefix = ownerStoragePrefix(owner);
   const storageKey = storagePrefix + ".workflow.v0.1";
+  const pendingKey = storagePrefix + ".run.pending";
   const [legacyAvailable, setLegacyAvailable] = useState(() =>
     legacyDraftAvailable(legacyKey, storagePrefix),
   );
@@ -71,6 +74,8 @@ export function Workbench() {
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const pendingStart = useRef<RunRequest | null>(null);
+  const runReadEpoch = useRef(0);
+  const selectedRunId = useRef<string | null>(null);
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
 
@@ -79,6 +84,13 @@ export function Workbench() {
     async function load() {
       try {
         const parameters = new URL(window.location.href).searchParams;
+        const pending = readPendingRun(pendingKey);
+        if (pending) {
+          pendingStart.current = pending;
+          setBrief(pending.brief);
+          setEvidenceIds(pending.evidence_ids ?? []);
+          setProviderAccount(pending.provider_account_id ?? null);
+        }
         const [savedRevisions, recentRuns] = await Promise.all([
           api<RevisionSummary[]>("revisions"),
           api<RunSummary[]>("runs"),
@@ -97,9 +109,12 @@ export function Workbench() {
         }
         const runId = parameters.get("run");
         if (runId) {
+          selectedRunId.current = runId;
           const restored = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
           if (!active) return;
           setRun(restored);
+          forgetPendingRun(pendingKey, restored.id);
+          if (pendingStart.current?.id === restored.id) pendingStart.current = null;
           setTab("runs");
           setMessage("Saved run restored.");
         } else {
@@ -128,19 +143,34 @@ export function Workbench() {
     return () => {
       active = false;
     };
-  }, [initialize]);
+  }, [initialize, pendingKey]);
 
-  const pollId = executingId ?? (run?.status === "running" ? run.id : null);
+  const pollId =
+    executingId ?? (run?.status === "running" || run?.status === "queued" ? run.id : null);
   useEffect(() => {
     if (!pollId || !accessActive) return;
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
     async function poll() {
+      const epoch = runReadEpoch.current;
       try {
         const snapshot = await api<RunSnapshot>(`runs/${pollId}`);
-        if (active) setRun(snapshot);
+        if (active && epoch === runReadEpoch.current && selectedRunId.current === pollId) {
+          setRun(snapshot);
+          setRuns((previous) =>
+            previous.map((item) =>
+              item.id === snapshot.id ? { ...item, status: snapshot.status } : item,
+            ),
+          );
+          if (snapshot.status !== "queued" && snapshot.status !== "running")
+            setMessage(`Run ${snapshot.status}. Progress saved.`);
+        }
       } catch (cause) {
-        if (active && !(cause instanceof ApiError && cause.status === 404)) {
+        if (
+          active &&
+          epoch === runReadEpoch.current &&
+          !(cause instanceof ApiError && cause.status === 404)
+        ) {
           setError("Progress could not be refreshed. The run may still be executing.");
         }
       } finally {
@@ -189,6 +219,7 @@ export function Workbench() {
   }
 
   function rememberRun(id: string) {
+    selectedRunId.current = id;
     const url = new URL(window.location.href);
     url.searchParams.set("run", id);
     url.searchParams.set("view", "runs");
@@ -210,11 +241,17 @@ export function Workbench() {
   }
 
   async function openRun(id: string) {
+    selectedRunId.current = id;
+    const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
-    setRun(result);
-    setSetupOpen(false);
-    setTab("runs");
-    rememberRun(id);
+    if (epoch === runReadEpoch.current && selectedRunId.current === id) {
+      setRun(result);
+      setSetupOpen(false);
+      setTab("runs");
+      rememberRun(id);
+      forgetPendingRun(pendingKey, id);
+      if (pendingStart.current?.id === id) pendingStart.current = null;
+    }
     return result;
   }
 
@@ -262,14 +299,17 @@ export function Workbench() {
       };
     }
     const request = pendingStart.current;
+    retainPendingRun(pendingKey, request);
+    runReadEpoch.current += 1;
     rememberRun(request.id);
     setRun(null);
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
-    setMessage("Starting run. Waiting for saved progress…");
+    setMessage("Saving run request…");
     try {
-      await api<RunSnapshot>("runs", request, executionTimeout);
+      await api<CommandReceipt>("runs", request, admissionTimeout);
+      forgetPendingRun(pendingKey, request.id);
       const result = await openRun(request.id);
       pendingStart.current = null;
       setMessage(`Run ${result.status}. Progress saved.`);
@@ -287,9 +327,10 @@ export function Workbench() {
 
   async function resumeRun(decision: "approve" | "reject", interruptId?: string, feedback = "") {
     if (!run?.review || !run.checkpoint_id) return;
+    runReadEpoch.current += 1;
     setExecutingId(run.id);
     try {
-      await api<RunSnapshot>(
+      await api<CommandReceipt>(
         `runs/${run.id}/resume`,
         {
           decision,
@@ -297,7 +338,7 @@ export function Workbench() {
           interrupt_id: interruptId ?? run.review.interrupt_id,
           feedback,
         },
-        executionTimeout,
+        admissionTimeout,
       );
       setMessage("Review decision saved.");
     } finally {
@@ -649,6 +690,7 @@ export function Workbench() {
               }
               onCancel={async () => {
                 if (!run) return;
+                runReadEpoch.current += 1;
                 try {
                   await api(`runs/${run.id}/cancel`, {});
                   const result = await openRun(run.id);
@@ -670,9 +712,10 @@ export function Workbench() {
               onRecover={() =>
                 action(async () => {
                   if (run) {
+                    runReadEpoch.current += 1;
                     setExecutingId(run.id);
                     try {
-                      await api(`runs/${run.id}/recover`, {}, executionTimeout);
+                      await api<CommandReceipt>(`runs/${run.id}/recover`, {}, admissionTimeout);
                     } finally {
                       setExecutingId(null);
                     }

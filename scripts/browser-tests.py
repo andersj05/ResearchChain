@@ -36,24 +36,44 @@ try:
         )
         access.set_password(issued.token.get_secret_value(), password)
         access.revoke(all_sessions=True)
-        result = subprocess.run(
-            [
-                "pnpm.cmd" if os.name == "nt" else "pnpm",
-                "--filter",
-                "@researchchain/web",
-                "test:e2e",
-                *sys.argv[1:],
-            ],
-            env={
-                **os.environ,
-                "DATABASE_URL": database.url,
-                "DATABASE_SCHEMA": database.schema,
-                "RESEARCHCHAIN_ACCESS_DIRECTORY": directory,
-                "RESEARCHCHAIN_PUBLIC_ORIGIN": access.config.origin,
-                "RESEARCHCHAIN_TEST_OWNER_PASSWORD": password,
-            },
-            check=False,
+        environment = {
+            **os.environ,
+            "DATABASE_URL": database.url,
+            "DATABASE_SCHEMA": database.schema,
+            "RESEARCHCHAIN_ACCESS_DIRECTORY": directory,
+            "RESEARCHCHAIN_PUBLIC_ORIGIN": access.config.origin,
+            "RESEARCHCHAIN_TEST_OWNER_PASSWORD": password,
+        }
+        worker = subprocess.Popen(
+            [sys.executable, "apps/api/tests/research_browser_fixture.py"],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
         )
+        try:
+            result = subprocess.run(
+                [
+                    "pnpm.cmd" if os.name == "nt" else "pnpm",
+                    "--filter",
+                    "@researchchain/web",
+                    "test:e2e",
+                    *sys.argv[1:],
+                ],
+                env=environment,
+                check=False,
+            )
+            if worker.poll() is not None:
+                raise RuntimeError("Synthetic browser worker exited unexpectedly.")
+        finally:
+            worker.terminate()
+            try:
+                worker.wait(timeout=10)
+            except subprocess.TimeoutExpired:
+                worker.kill()
+                worker.wait(timeout=10)
+
 finally:
     assert database.schema.startswith("e2e_") and len(database.schema) == 36
     with database.connection() as conn:

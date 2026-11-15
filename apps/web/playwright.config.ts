@@ -12,7 +12,17 @@ export default defineConfig({
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { baseURL: "http://127.0.0.1:3000", trace: "retain-on-failure" },
   projects: [
-    { name: "chromium", testIgnore: /access\.spec\.ts/, use: { ...devices["Desktop Chrome"] } },
+    {
+      name: "chromium",
+      testIgnore: /(access|workers)\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "workers",
+      testMatch: /workers\.spec\.ts/,
+      dependencies: ["access"],
+      use: { ...devices["Desktop Chrome"] },
+    },
     {
       name: "access",
       testMatch: /access\.spec\.ts/,

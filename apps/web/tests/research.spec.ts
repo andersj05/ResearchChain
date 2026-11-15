@@ -70,7 +70,7 @@ for (const width of [1440, 390]) {
   });
 }
 
-test("cancel a live response while the start request is pending", async ({ page, request }) => {
+test("cancel an active research response in the separate worker", async ({ page, request }) => {
   await prepare(page, request);
   await page
     .getByRole("textbox", { name: "Research brief", exact: true })

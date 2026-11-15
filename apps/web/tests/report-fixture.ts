@@ -1,3 +1,4 @@
+import { runRequest } from "./run-fixture";
 import { expect, type APIRequestContext } from "@playwright/test";
 import research from "../../../examples/hypothesis-research.json";
 import type { ReportRevision, StyleGuide } from "../src/lib/reports";
@@ -43,7 +44,7 @@ export async function prepare(request: APIRequestContext, tag: string) {
   const workflowResponse = await request.post("/api/revisions", { data: document });
   expect(workflowResponse.status()).toBe(201);
   const revision = await workflowResponse.json();
-  const runResponse = await request.post("/api/runs", {
+  const runResponse = await runRequest(request, "/api/runs", {
     data: {
       id: crypto.randomUUID(),
       revision_id: revision.id,
@@ -53,7 +54,7 @@ export async function prepare(request: APIRequestContext, tag: string) {
     },
     timeout: 45000,
   });
-  expect(runResponse.status()).toBe(201);
+  expect(runResponse.status()).toBe(200);
   return { source, chart, run: await runResponse.json() };
 }
 export function styleBody(tag: string) {
