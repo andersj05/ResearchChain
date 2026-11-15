@@ -18,8 +18,8 @@ The parent directory must exist and the destination must be new. Inside the
 checkout, use an ignored .local/, data/ or artifacts/ destination. An explicit
 path outside the checkout also works. Windows directories receive an owner-only,
 inheritable ACL; Unix directories use mode 700 and files use 600. Archives contain
-private research in plaintext; use appropriate encrypted storage when copying
-them elsewhere. No upload, schedule or automatic deletion is configured.
+private research in plaintext. Use the [portable encrypted-backup workflow](encrypted-backups.md)
+before copying them elsewhere. No upload, schedule or automatic deletion is configured.
 
 DATABASE_URL and DATABASE_SCHEMA select the source; credentials belong in the
 environment or ignored .env, never command arguments. The URL must explicitly

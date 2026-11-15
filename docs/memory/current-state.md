@@ -5,8 +5,8 @@ steps into dev after passing checks. No main promotion or public deployment.
 
 The actual repository is C:\Users\jense\Desktop\ResearchChain. The empty
 Documents/ChatGPT folder is not the checkout. Use explicit working directories.
-The current feature checkout is C:\Users\jense\Desktop\ResearchChain-signin,
-branch feat/in-app-chatgpt-signin.
+The current feature checkout is C:\Users\jense\Desktop\ResearchChain-encrypted,
+branch feat/encrypted-backups.
 
 ## ChatGPT sign-in
 
@@ -31,13 +31,40 @@ A valid identity without plan scopes is reported as disabled. Pending listeners
 close on shutdown. The flow is local and single-process; remote origins disable it.
 Use one CLI or in-app attempt at a time. No database migration was added.
 
-Focused synthetic provider/API checks passed, as did the five new production
-browser scenarios (desktop/mobile, lost response, refresh, cancellation, denial,
-and expiry/status recovery). Complete checks and final screenshots are under
-validation; verify the exact PR head before integration. The final delivery receipt
-belongs in main .local/signin-delivery.json. Feature logs live in .local/signin-check.log,
-.local/signin-browser-check.log and .local/signin-browser-retry.log.
-See [the connection guide](../chatgpt-plan.md) and [plan 0013](../plans/0013-in-app-chatgpt-signin.md).
+PR #32 merged into dev as 258e736e1bebe353d8e11055e5af77ffcf19c238.
+Local checks, exact-head CI 43717211834 and dev CI 43718324056 passed:
+352 backend and 82 browser tests. The live schema-9 verification preserved all
+33 table fingerprints and 12 originals (129,817 bytes), with two workers and
+an idle queue. No inference was made. Main .local/signin-delivery.json holds the
+delivery evidence; the latest sign-in attempt is recorded separately.
+See [the connection guide](../chatgpt-plan.md).
+
+## Portable encrypted backups
+
+The next issue-9 slice implements db:keygen, db:seal and db:unseal using pinned
+pyrage 1.4.0 and standard age encryption. An encrypted portable X25519 identity
+uses a hidden, confirmed passphrase; later backup encryption needs only its public
+recipient. Both the manifest and PostgreSQL dump are encrypted.
+
+Recovery authenticates the complete stream before parsing exactly two ordinary
+tar members. It verifies sizes and the dump hash, then leaves the existing
+trusted-source, new-database restore as a separate explicit step. Exclusive file
+creation and ownership-tracked cleanup preserve unrelated files. Hard termination
+can leave private staging; no secure erase or automatic source deletion is claimed.
+
+All 24 focused synthetic checks passed, including a real PostgreSQL backup,
+encrypted round-trip, restore to a new database, original-byte verification,
+wrong keys, tampering, malicious archives, write failure, collisions and interrupt
+cleanup. Full-check and exact-head CI evidence belong in the feature PR and main
+.local/encryption-delivery.json when delivered. No schema/API migration or model
+call is part of this change. See [the recovery guide](../encrypted-backups.md),
+[ADR 0014](../decisions/0014-portable-encrypted-backups.md) and
+[plan 0014](../plans/0014-encrypted-backups.md).
+
+The owner has not selected an off-machine destination. Do not create a real owner
+recovery key, upload private research, or claim off-machine recovery is complete
+until key handling, the destination and a successful copied-backup recovery are
+concrete. Test keys and test research are disposable.
 
 ## Established operations and runtime
 
