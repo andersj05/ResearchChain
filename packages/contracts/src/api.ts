@@ -319,7 +319,7 @@ export interface components {
     };
     /**
      * ArtifactRef
-     * @description Content address only. Upload/availability verification belongs to ingestion.
+     * @description Stable manifest wire shape, also retained by runs created before ingestion.
      */
     ArtifactRef: {
       /** Id */
@@ -855,6 +855,8 @@ export interface components {
       brief: string;
       /** Artifacts */
       artifacts?: components["schemas"]["ArtifactRef"][];
+      /** Evidence Ids */
+      evidence_ids?: string[];
     };
     /** RunSnapshot */
     RunSnapshot: {
@@ -888,6 +890,8 @@ export interface components {
       brief: string;
       /** Artifacts */
       artifacts: components["schemas"]["ArtifactRef"][];
+      /** Evidence Ids */
+      evidence_ids?: string[];
       /** Compiler Version */
       compiler_version: string;
       /** Checkpoint Id */

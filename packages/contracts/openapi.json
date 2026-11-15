@@ -928,7 +928,7 @@
         "type": "object",
         "required": ["id", "media_type", "name"],
         "title": "ArtifactRef",
-        "description": "Content address only. Upload/availability verification belongs to ingestion."
+        "description": "Stable manifest wire shape, also retained by runs created before ingestion."
       },
       "CancelResult": {
         "properties": {
@@ -2054,6 +2054,15 @@
             "type": "array",
             "maxItems": 100,
             "title": "Artifacts"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Evidence Ids"
           }
         },
         "additionalProperties": false,
@@ -2112,6 +2121,14 @@
             },
             "type": "array",
             "title": "Artifacts"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Evidence Ids"
           },
           "compiler_version": {
             "type": "string",

@@ -1,10 +1,10 @@
 """Authoritative, versioned API models. Generate browser types from OpenAPI."""
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from researchchain.graph import (
     NodeKind,
@@ -39,7 +39,7 @@ class WorkflowRevision(RevisionSummary):
 
 
 class ArtifactRef(StrictModel):
-    """Content address only. Upload/availability verification belongs to ingestion."""
+    """Stable manifest wire shape, also retained by runs created before ingestion."""
 
     id: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     media_type: str = Field(min_length=1, max_length=120)
@@ -51,6 +51,13 @@ class RunRequest(StrictModel):
     revision_id: UUID
     brief: str = Field(min_length=1, max_length=10000)
     artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
+    evidence_ids: list[UUID] = Field(default_factory=list, max_length=100)
+
+    @model_validator(mode="after")
+    def unique_evidence(self) -> Self:
+        if len(set(self.evidence_ids)) != len(self.evidence_ids):
+            raise ValueError("Select each evidence record only once.")
+        return self
 
 
 class ResumeRequest(StrictModel):
@@ -99,6 +106,7 @@ class RunSnapshot(RunSummary):
     workflow: Workflow
     brief: str
     artifacts: list[ArtifactRef]
+    evidence_ids: list[UUID] = Field(default_factory=list)
     compiler_version: str
     checkpoint_id: str | None
     events: list[RunEvent]
