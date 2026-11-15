@@ -1,7 +1,8 @@
 # Current state
 
-Updated 2026-11-14. The live research implementation is on `feat/bounded-research`,
-starting from the ChatGPT-plan connection merge `dcf5ffa` ([PR #23](https://github.com/andersj05/ResearchChain/pull/23)).
+Updated 2026-11-14. The live research implementation is merged into dev through
+[PR #24](https://github.com/andersj05/ResearchChain/pull/24), merge `74f991d`,
+with seven feature commits and passing PR CI. Active branch: `feat/research-evals`.
 The owner authorized frequent commits and merging completed steps into dev after CI.
 
 ## Implemented research step
@@ -44,12 +45,12 @@ real browser consent and a completed model response; no API key or credit purcha
 production build. All 47 browser tests passed against production with four workers
 and retries disabled; generated-contract drift checks also passed. The concurrent
 progress-reader race found during testing is fixed and covered. Desktop/mobile
-research screens were inspected. Migration 0005 is applied locally. PR CI still
-must pass before merge.
+research screens were inspected. Migration 0005 is applied locally. PR CI passed on `6d6300c`. The automatic dev build on merge `74f991d` is in progress.
 
 ## Next work and limits
 
-Finish verification and merge the research step into dev. Keep
+Implement the evaluation dataset and blind-comparison slice described in
+[plan 0006](../plans/0006-evaluations.md). Keep
 [issue #6](https://github.com/andersj05/ResearchChain/issues/6) open for the owner's
 pilot review and follow-up on strict spend enforcement: provider-side credit
 settings are not exposed or attested by this app, and reported-token limits can be
