@@ -15,7 +15,10 @@ pnpm dev
 ```
 
 Open `http://127.0.0.1:3000`. The API is on port 8000, with interactive documentation
-at `http://127.0.0.1:8000/docs`. Both services bind to loopback. `Ctrl+C` stops both.
+at `http://127.0.0.1:3000/api/docs` after sign-in. Both services bind to loopback.
+In another terminal, run `pnpm access:login` for first enrollment or recovery, then
+set an owner password in the header. See [owner access](owner-access.md).
+`Ctrl+C` stops both services.
 Commands work in PowerShell and on Linux/macOS. Docker Desktop (or Docker Engine
 with Compose) must be running for the local Postgres database. No model API key
 or hosted service is needed. Postgres listens only on `127.0.0.1:5433` and uses a
@@ -51,20 +54,21 @@ git switch -c feat/your-feature
 pnpm dev
 ```
 
-| Command                              | Purpose                                                    |
-| ------------------------------------ | ---------------------------------------------------------- |
-| `pnpm dev:web` / `pnpm dev:api`      | Run a single service                                       |
-| `pnpm db:up` / `pnpm db:down`        | Start/stop local Postgres; preserve its named volume       |
-| `pnpm db:backup` / `pnpm db:restore` | Create a private snapshot / verify a new recovery database |
-| `pnpm db:migrate`                    | Apply application and LangGraph database migrations        |
-| `pnpm test`                          | Backend validation and real checkpoint/resume tests        |
-| `pnpm typecheck`                     | TypeScript and strict Python type checks                   |
-| `pnpm lint`                          | ESLint and Ruff checks                                     |
-| `pnpm format`                        | Format supported source and docs                           |
-| `pnpm contracts:generate`            | Regenerate OpenAPI and TypeScript API types                |
-| `pnpm contracts:check`               | Regenerate and detect tracked contract drift               |
-| `pnpm check`                         | Formatting, lint, types, backend tests, production build   |
-| `pnpm test:e2e`                      | Browser tests in a temporary Postgres schema               |
+| Command                                    | Purpose                                                    |
+| ------------------------------------------ | ---------------------------------------------------------- |
+| `pnpm dev:web` / `pnpm dev:api`            | Run a single service                                       |
+| `pnpm db:up` / `pnpm db:down`              | Start/stop local Postgres; preserve its named volume       |
+| `pnpm db:backup` / `pnpm db:restore`       | Create a private snapshot / verify a new recovery database |
+| `pnpm access:login` / `pnpm access:revoke` | Open a private owner link / revoke browser sessions        |
+| `pnpm db:migrate`                          | Apply application and LangGraph database migrations        |
+| `pnpm test`                                | Backend validation and real checkpoint/resume tests        |
+| `pnpm typecheck`                           | TypeScript and strict Python type checks                   |
+| `pnpm lint`                                | ESLint and Ruff checks                                     |
+| `pnpm format`                              | Format supported source and docs                           |
+| `pnpm contracts:generate`                  | Regenerate OpenAPI and TypeScript API types                |
+| `pnpm contracts:check`                     | Regenerate and detect tracked contract drift               |
+| `pnpm check`                               | Formatting, lint, types, backend tests, production build   |
+| `pnpm test:e2e`                            | Browser tests in a temporary Postgres schema               |
 
 Install the test browser once with
 `pnpm --filter @researchchain/web exec playwright install chromium`.
@@ -75,7 +79,11 @@ checks. Backup tests require matching PostgreSQL clients or the local container
 and create/drop only their own randomly named `test_restore_*` databases. CI
 selects its Postgres service container explicitly. Browser tests own their API/web processes and fail if ports 8000/3000 are
 already occupied. Stop `pnpm dev` first. Run browser tests from the repository root
-so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema.
+so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema
+and temporary synthetic owner credentials. API fixtures authenticate normally;
+there is no test bypass. The access project runs after feature tests because
+password/revocation cases intentionally invalidate its synthetic sessions.
+Focus it with `pnpm test:e2e --project=access --no-deps --workers=1`.
 Focus a browser test with `pnpm test:e2e --grep "narrow screen"`. Screenshots and
 failure traces stay under ignored `apps/web/test-results/`; CI uploads them for
 seven days. Backend tests also create and remove isolated `test_*` schemas.

@@ -135,3 +135,12 @@ References: PostgreSQL's
 [pg_dump snapshot semantics](https://www.postgresql.org/docs/18/app-pgdump.html),
 [pg_restore execution rules](https://www.postgresql.org/docs/18/app-pgrestore.html)
 and [ownership reassignment](https://www.postgresql.org/docs/18/sql-reassign-owned.html).
+
+## Owner access after restore
+
+Research archives exclude owner password/session state as well as provider
+credentials. A different database/schema is a separate owner workspace. After
+switching the app deliberately to the verified target, enroll it with
+`pnpm access:login`; never copy stale session-state files over live credentials.
+See [owner recovery](owner-access.md). This does not reconnect or authorize
+provider usage automatically.
