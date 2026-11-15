@@ -38,8 +38,8 @@ the database before upgrades; volumes and checkpoints are not backups.
 Use `pnpm provider:login` to connect an eligible ChatGPT plan, then
 `pnpm provider:models` and `pnpm provider:verify --model <slug>` to verify a small
 response. See [the connection guide](chatgpt-plan.md) for account management,
-protected credential storage, usage controls, and current limits. This setup does
-not yet add live research nodes to the deterministic workflow runtime.
+protected credential storage, usage controls, and current limits. This setup supports the [live research template](hypothesis-research.md). The deterministic
+example remains available without a provider connection.
 
 ## Iteration
 
