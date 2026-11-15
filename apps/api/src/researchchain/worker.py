@@ -158,7 +158,7 @@ class RunWorker:
                 stop.wait(poll_seconds)
 
 
-def main(argv: list[str] | None = None) -> int:
+def main(argv: list[str] | None = None, *, runs: RunStore | None = None) -> int:
     parser = argparse.ArgumentParser(description="ResearchChain durable worker")
     parser.add_argument("command", choices=["run", "status", "configure"], nargs="?", default="run")
     parser.add_argument("--once", action="store_true", help="Process at most one available command")
@@ -166,9 +166,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--max-pending", type=int, default=100)
     args = parser.parse_args(argv)
     try:
-        database = Database.from_env()
+        database = runs.database if runs else Database.from_env()
         database.ready()
-        runs = RunStore(database)
+        runs = runs or RunStore(database)
         if args.command == "configure":
             RunQueue(runs).configure(
                 QueueLimits(max_parallel=args.max_parallel, max_pending=args.max_pending)

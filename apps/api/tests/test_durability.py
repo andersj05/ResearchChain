@@ -7,6 +7,7 @@ from access_fixtures import owner_client
 from fastapi.testclient import TestClient
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import IntegrityError
+from run_fixtures import run_request
 
 from researchchain.database import Database
 from researchchain.main import create_app
@@ -24,8 +25,8 @@ def start(client: TestClient, workflow: dict[str, Any], **extra: Any) -> dict[st
         "brief": "Test a hypothesis",
         **extra,
     }
-    response = client.post("/api/runs", json=request)
-    assert response.status_code == 201, response.text
+    response = run_request(client, "/api/runs", json=request)
+    assert response.status_code == 200, response.text
     return response.json()  # type: ignore[no-any-return]
 
 
@@ -47,7 +48,7 @@ def test_pinned_revision_repeat_resume_and_conflict(
     newer = client.post("/api/revisions", json=workflow).json()
     assert newer["id"] != paused["revision_id"]
     path = f"/api/runs/{paused['id']}/resume"
-    resumed = client.post(path, json=decision(paused))
+    resumed = run_request(client, path, json=decision(paused))
     assert resumed.status_code == 200, resumed.text
     result = resumed.json()
     assert result["status"] == "completed"
@@ -58,15 +59,17 @@ def test_pinned_revision_repeat_resume_and_conflict(
         "review",
         "finish",
     ]
-    assert client.post(path, json=decision(paused)).json() == result
-    assert client.post(path, json=decision(paused, "reject")).status_code == 409
+    assert run_request(client, path, json=decision(paused)).json() == result
+    assert run_request(client, path, json=decision(paused, "reject")).status_code == 409
     assert client.get(f"/api/runs/{paused['id']}").json() == result
 
 
 def test_rejection_and_run_isolation(client: TestClient, workflow: dict[str, Any]) -> None:
     first = start(client, workflow)
     second = start(client, workflow, brief="Independent run")
-    rejected = client.post(f"/api/runs/{first['id']}/resume", json=decision(first, "reject")).json()
+    rejected = run_request(
+        client, f"/api/runs/{first['id']}/resume", json=decision(first, "reject")
+    ).json()
     assert rejected["status"] == "rejected"
     assert "finish" not in [event["node_id"] for event in rejected["events"]]
     assert client.get(f"/api/runs/{second['id']}").json()["status"] == "paused"
@@ -81,7 +84,9 @@ def test_concurrent_workers_cannot_approve_the_next_review(
     assert first["review"]["node_id"] == "challenge"
     with owner_client(create_app(database)) as other, ThreadPoolExecutor(max_workers=2) as executor:
         futures = [
-            executor.submit(worker.post, f"/api/runs/{first['id']}/resume", json=decision(first))
+            executor.submit(
+                run_request, worker, f"/api/runs/{first['id']}/resume", json=decision(first)
+            )
             for worker in (client, other)
         ]
         results = [future.result() for future in futures]
@@ -90,11 +95,14 @@ def test_concurrent_workers_cannot_approve_the_next_review(
     second = results[0].json()
     assert second["status"] == "paused" and second["review"]["node_id"] == "review"
     assert len(second["events"]) == 2
-    assert client.post(f"/api/runs/{first['id']}/resume", json=decision(first)).json() == second
+    assert (
+        run_request(client, f"/api/runs/{first['id']}/resume", json=decision(first)).json()
+        == second
+    )
     assert client.get(f"/api/runs/{first['id']}").json() == second
     stale = {**decision(second), "checkpoint_id": first["checkpoint_id"]}
-    assert client.post(f"/api/runs/{first['id']}/resume", json=stale).status_code == 409
-    finished = client.post(f"/api/runs/{first['id']}/resume", json=decision(second))
+    assert run_request(client, f"/api/runs/{first['id']}/resume", json=stale).status_code == 409
+    finished = run_request(client, f"/api/runs/{first['id']}/resume", json=decision(second))
     assert finished.json()["status"] == "completed"
 
 
@@ -106,8 +114,10 @@ def test_start_retry_and_revision_deduplication(
     assert start(client, workflow, id=run_id) == first
     assert len(client.get("/api/revisions").json()) == 1
     assert len(client.get("/api/runs").json()) == 1
-    response = client.post(
-        "/api/runs", json={"id": run_id, "revision_id": first["revision_id"], "brief": "Changed"}
+    response = run_request(
+        client,
+        "/api/runs",
+        json={"id": run_id, "revision_id": first["revision_id"], "brief": "Changed"},
     )
     assert response.status_code == 409
 

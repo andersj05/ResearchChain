@@ -109,3 +109,27 @@ def test_workspace_concurrency_limit_applies_across_processes(
     assert queue.runs.get(request.id).status == "paused"
     work_in_new_process(database)
     assert queue.runs.get(other.id).status == "paused"
+
+
+def test_api_process_restarts_preserve_queued_and_worker_owned_commands(
+    database: Database, workflow: dict, tmp_path: Path
+) -> None:
+    from test_restart import api_process
+
+    queue, request = setup_queue(database, workflow)
+    with api_process(database, workers=False) as first:
+        accepted = first.post("/api/runs", json=request.model_dump(mode="json"))
+        assert accepted.status_code == 202
+        receipt = accepted.json()
+    # An independent worker acquires the command after the first API has died.
+    with stalled_worker(database, tmp_path, "after_claim"):
+        for _ in range(2):
+            with api_process(database, workers=False) as restarted:
+                assert restarted.get(f"/api/runs/{request.id}").json()["status"] == "running"
+                assert (
+                    restarted.post("/api/runs", json=request.model_dump(mode="json")).json()
+                    == receipt
+                )
+        assert not RunWorker(queue.runs).run_once()
+    work_in_new_process(database)
+    assert queue.runs.get(request.id).status == "paused"

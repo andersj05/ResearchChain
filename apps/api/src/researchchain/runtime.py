@@ -450,7 +450,13 @@ class RunStore:
                 # Other readers briefly own this lock too. Only an unfinished
                 # command indicates that a worker may still be executing.
                 running=unfinished and not lock["acquired"],
-                queued=bool(unfinished and job and job["state"] == "queued"),
+                queued=bool(
+                    unfinished
+                    and job
+                    and (
+                        job["state"] == "queued" or (job["state"] == "running" and lock["acquired"])
+                    )
+                ),
                 worker_error=job["last_error"] if job else None,
             )
 
@@ -470,7 +476,8 @@ class RunStore:
                 "AND l.classid::bigint = ((hashtextextended('run:' || r.id::text, 0) >> 32) "
                 "& 4294967295) "
                 "AND l.objid::bigint = (hashtextextended('run:' || r.id::text, 0) & 4294967295)"
-                ") THEN 'running' ELSE 'interrupted' END) AS status "
+                ") THEN 'running' WHEN command.state = 'running' THEN 'queued' "
+                "ELSE 'interrupted' END) AS status "
                 "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
                 "JOIN run_controls c ON c.run_id = r.id "
                 "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "

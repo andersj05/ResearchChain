@@ -927,6 +927,29 @@ export interface components {
        */
       created_at: string;
     };
+    /** CommandReceipt */
+    CommandReceipt: {
+      /**
+       * Command Id
+       * Format: uuid
+       */
+      command_id: string;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "start" | "resume";
+      /**
+       * Accepted At
+       * Format: date-time
+       */
+      accepted_at: string;
+    };
     /** ContentPreview */
     ContentPreview: {
       /**
@@ -4707,12 +4730,12 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      201: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */
@@ -4773,12 +4796,12 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */
@@ -4804,12 +4827,12 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */

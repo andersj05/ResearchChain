@@ -8,6 +8,7 @@ from uuid import uuid4
 import pytest
 from access_fixtures import owner_client
 from graph_fixtures import split
+from run_fixtures import run_request
 from test_research_contracts import research_document, result_document
 
 from researchchain.artifacts import read_content
@@ -263,7 +264,7 @@ def test_provider_api_and_account_required_before_start(database: Database) -> N
         assert "token" not in result.text
         body = request.model_dump(mode="json")
         body.pop("provider_account_id")
-        result = client.post("/api/runs", json=body)
+        result = run_request(client, "/api/runs", json=body)
         assert result.status_code == 422 and not provider.calls
         assert store.list() == []
 

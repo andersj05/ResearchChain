@@ -1895,12 +1895,12 @@
           }
         },
         "responses": {
-          "201": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunSnapshot"
+                  "$ref": "#/components/schemas/CommandReceipt"
                 }
               }
             }
@@ -2029,12 +2029,12 @@
           }
         },
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunSnapshot"
+                  "$ref": "#/components/schemas/CommandReceipt"
                 }
               }
             }
@@ -2069,12 +2069,12 @@
           }
         ],
         "responses": {
-          "200": {
+          "202": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/RunSnapshot"
+                  "$ref": "#/components/schemas/CommandReceipt"
                 }
               }
             }
@@ -2416,6 +2416,34 @@
         "type": "object",
         "required": ["id", "text", "created_at"],
         "title": "ClaimRecord"
+      },
+      "CommandReceipt": {
+        "properties": {
+          "command_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Command Id"
+          },
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "kind": {
+            "type": "string",
+            "enum": ["start", "resume"],
+            "title": "Kind"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Accepted At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["command_id", "run_id", "kind", "accepted_at"],
+        "title": "CommandReceipt"
       },
       "ContentPreview": {
         "properties": {

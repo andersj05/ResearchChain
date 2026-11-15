@@ -12,6 +12,7 @@ from dataclasses import replace
 from uuid import uuid4
 
 import httpx
+from run_fixtures import run_request
 
 from researchchain.access_api import CSRF_HEADER
 from researchchain.access_config import AccessConfig
@@ -20,7 +21,7 @@ from researchchain.database import Database
 
 
 @contextmanager
-def api_process(database: Database) -> Iterator[httpx.Client]:
+def api_process(database: Database, *, workers: bool = True) -> Iterator[httpx.Client]:
     with socket.socket() as sock:
         sock.bind(("127.0.0.1", 0))
         port = sock.getsockname()[1]
@@ -49,6 +50,17 @@ def api_process(database: Database) -> Iterator[httpx.Client]:
         stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
+    worker = (
+        subprocess.Popen(
+            [sys.executable, "-m", "researchchain.worker"],
+            env=environment,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        if workers
+        else None
+    )
     try:
         with httpx.Client(base_url=origin, timeout=5, headers={"Origin": origin}) as client:
             deadline = time.monotonic() + 20
@@ -70,6 +82,10 @@ def api_process(database: Database) -> Iterator[httpx.Client]:
             client.headers[CSRF_HEADER] = response.json()["session"]["csrf_token"]
             yield client
     finally:
+        if worker:
+            if worker.poll() is None:
+                worker.kill()
+            worker.wait(timeout=10)
         if process.poll() is None:
             process.kill()  # Deliberately skip graceful shutdown and all Python cleanup.
         process.wait(timeout=10)
@@ -80,7 +96,8 @@ def api_process(database: Database) -> Iterator[httpx.Client]:
 def test_paused_run_survives_hard_process_restart(database: Database, workflow: dict) -> None:
     with api_process(database) as first:
         revision = first.post("/api/revisions", json=workflow).json()
-        paused = first.post(
+        paused = run_request(
+            first,
             "/api/runs",
             json={
                 "id": str(uuid4()),
@@ -98,7 +115,8 @@ def test_paused_run_survives_hard_process_restart(database: Database, workflow: 
         assert restored.status_code == 200
         assert restored.json() == paused
         assert second.get("/api/runs").json()[0]["id"] == paused["id"]
-        response = second.post(
+        response = run_request(
+            second,
             f"/api/runs/{paused['id']}/resume",
             json={
                 "checkpoint_id": paused["checkpoint_id"],
@@ -125,7 +143,8 @@ def test_conflicting_decisions_across_two_api_processes(database: Database, work
     workflow["nodes"][1]["kind"] = "review"
     with api_process(database) as first, api_process(database) as second:
         revision = first.post("/api/revisions", json=workflow).json()
-        paused = first.post(
+        paused = run_request(
+            first,
             "/api/runs",
             json={
                 "id": str(uuid4()),
@@ -136,7 +155,8 @@ def test_conflicting_decisions_across_two_api_processes(database: Database, work
         with ThreadPoolExecutor(max_workers=2) as executor:
             futures = [
                 executor.submit(
-                    client.post,
+                    run_request,
+                    client,
                     f"/api/runs/{paused['id']}/resume",
                     json={
                         "checkpoint_id": paused["checkpoint_id"],

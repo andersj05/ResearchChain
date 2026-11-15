@@ -5,6 +5,7 @@ from contextlib import contextmanager
 from uuid import UUID
 
 from psycopg import Connection
+from psycopg.errors import LockNotAvailable
 from psycopg.rows import DictRow
 
 from researchchain.database import Database
@@ -42,13 +43,14 @@ class RunQueue:
     @contextmanager
     def _admission(self) -> Iterator[Connection[DictRow]]:
         with self.database.connection() as conn, conn.transaction():
-            row = conn.execute(
-                "SELECT pg_try_advisory_xact_lock(hashtextextended(%s, 0)) AS acquired",
-                (f"admission:{self.database.schema}",),
-            ).fetchone()
-            assert row
-            if not row["acquired"]:
-                raise DispatchError("Command admission is busy. Retry the same request.")
+            conn.execute("SET LOCAL lock_timeout = '1000ms'")
+            try:
+                conn.execute(
+                    "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                    (f"admission:{self.database.schema}",),
+                )
+            except LockNotAvailable:
+                raise DispatchError("Command admission is busy. Retry the same request.") from None
             yield conn
 
     @staticmethod
