@@ -26,8 +26,8 @@ pnpm worker configure --max-parallel 2 --max-pending 100
 Status prints workspace limits and persisted job counts. Once processes at most
 one available command. Configure changes durable workspace limits; first drain
 pending commands and stop workers. The defaults are two simultaneous commands
-and 100 pending commands, including active ones. Supported ranges are 1â€“8 parallel
-and 1â€“1,000 pending commands. These limits apply across worker processes sharing
+and 100 pending commands, including active ones. Supported ranges are 1 to 8 parallel
+and 1 to 1,000 pending commands. These limits apply across worker processes sharing
 the database/schema. Workflow node concurrency is a separate, already pinned limit.
 
 Graceful shutdown finishes active commands before exit. Hard termination is
@@ -60,7 +60,9 @@ command acknowledgement was lost. Other future external tools need their own
 effect journal before they can safely participate in automatic recovery.
 
 Cancel run works while queued or executing. Cancellation signals the existing
-durable execution control; it cannot undo a remote effect already sent. Signing
+durable execution control; it cannot undo a remote effect already sent. Run reads
+also expose execution_pending so the browser keeps following a cancelled run
+until its worker has saved the final partial response and progress. Signing
 out revokes browser access while accepted work continues. Existing token thresholds
 gate later calls and do not guarantee a strict cap on an in-flight response.
 

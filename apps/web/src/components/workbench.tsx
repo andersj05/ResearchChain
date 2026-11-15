@@ -146,7 +146,10 @@ export function Workbench() {
   }, [initialize, pendingKey]);
 
   const pollId =
-    executingId ?? (run?.status === "running" || run?.status === "queued" ? run.id : null);
+    executingId ??
+    (run?.execution_pending || run?.status === "running" || run?.status === "queued"
+      ? run.id
+      : null);
   useEffect(() => {
     if (!pollId || !accessActive) return;
     let active = true;
@@ -162,7 +165,11 @@ export function Workbench() {
               item.id === snapshot.id ? { ...item, status: snapshot.status } : item,
             ),
           );
-          if (snapshot.status !== "queued" && snapshot.status !== "running")
+          if (
+            !snapshot.execution_pending &&
+            snapshot.status !== "queued" &&
+            snapshot.status !== "running"
+          )
             setMessage(`Run ${snapshot.status}. Progress saved.`);
         }
       } catch (cause) {

@@ -6585,6 +6585,12 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "execution_pending": {
+            "type": "boolean",
+            "title": "Execution Pending",
+            "description": "An accepted command is still queued or held by a worker.",
+            "default": false
+          },
           "workflow": {
             "$ref": "#/components/schemas/Workflow"
           },

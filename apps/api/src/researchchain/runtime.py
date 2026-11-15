@@ -220,6 +220,7 @@ class RunStore:
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             status=status,
+            execution_pending=running or queued,
             events=list(state.values.get("records", {}).values())
             if revision.workflow.schema_version != "0.1"
             else state.values.get("events", []),

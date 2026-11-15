@@ -81,6 +81,10 @@ test("cancel an active research response in the separate worker", async ({ page,
   await page.getByRole("button", { name: "Cancel run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
   await expect(page.getByText("Saved response (unvalidated)", { exact: true })).toBeVisible();
+  const runId = new URL(page.url()).searchParams.get("run");
+  await expect
+    .poll(async () => (await (await request.get(`/api/runs/${runId}`)).json()).execution_pending)
+    .toBe(false);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
 });

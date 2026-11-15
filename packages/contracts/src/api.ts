@@ -2822,6 +2822,12 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /**
+       * Execution Pending
+       * @description An accepted command is still queued or held by a worker.
+       * @default false
+       */
+      execution_pending: boolean;
       workflow: components["schemas"]["Workflow"];
       /** Brief */
       brief: string;
