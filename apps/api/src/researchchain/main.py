@@ -38,6 +38,8 @@ from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.report_api import report_router
 from researchchain.research import ResearchProvider
 from researchchain.research_models import ProviderStatus
+from researchchain.retention_api import retention_router
+from researchchain.retention_models import RetentionError
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
 from researchchain.runtime import RunStore
 
@@ -86,6 +88,7 @@ def create_app(
     app.include_router(evidence_router(database))
     app.include_router(evaluation_router(database))
     app.include_router(report_router(database))
+    app.include_router(retention_router(database))
     runs = RunStore(database, provider)
     queue = RunQueue(runs)
     app.state.runs = runs
@@ -93,6 +96,14 @@ def create_app(
 
     @app.exception_handler(DispatchError)
     async def dispatch_error(request: Request, error: DispatchError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"detail": str(error)},
+            headers={"Retry-After": "1"} if error.status == 429 else None,
+        )
+
+    @app.exception_handler(RetentionError)
+    async def retention_error(request: Request, error: RetentionError) -> JSONResponse:
         return JSONResponse(
             status_code=error.status,
             content={"detail": str(error)},
@@ -125,6 +136,11 @@ def create_app(
 
     @app.exception_handler(psycopg.Error)
     async def database_error(request: Request, error: psycopg.Error) -> JSONResponse:
+        if error.sqlstate in {"RC001", "RC002"}:
+            return JSONResponse(
+                status_code=410,
+                content={"detail": "Referenced research was deleted. Refresh before continuing."},
+            )
         # Never expose connection strings, server details, or query parameters.
         return JSONResponse(
             status_code=503,

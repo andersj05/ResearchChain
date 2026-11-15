@@ -1662,6 +1662,156 @@
         }
       }
     },
+    "/api/retention/previews": {
+      "post": {
+        "summary": "Preview",
+        "operationId": "create_retention_preview",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionPreview"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/retention/previews/{key}": {
+      "get": {
+        "summary": "Get",
+        "operationId": "get_retention_preview",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionView"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/retention/previews/{key}/apply": {
+      "post": {
+        "summary": "Apply",
+        "operationId": "apply_retention_preview",
+        "parameters": [
+          {
+            "name": "key",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Key"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetentionConfirm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RetentionReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/retention/receipts": {
+      "get": {
+        "summary": "History",
+        "operationId": "list_retention_receipts",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/RetentionReceipt"
+                  },
+                  "type": "array",
+                  "title": "Response List Retention Receipts"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/operations": {
       "get": {
         "summary": "Operations Status",
@@ -6456,6 +6606,255 @@
         "type": "object",
         "required": ["checkpoint_id", "interrupt_id", "decision"],
         "title": "ResumeRequest"
+      },
+      "RetentionConfirm": {
+        "properties": {
+          "digest": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Digest"
+          },
+          "confirmation": {
+            "type": "string",
+            "const": "DELETE",
+            "title": "Confirmation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["digest", "confirmation"],
+        "title": "RetentionConfirm"
+      },
+      "RetentionOriginal": {
+        "properties": {
+          "artifact_id": {
+            "type": "string",
+            "title": "Artifact Id"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Byte Size"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["artifact_id", "byte_size", "fingerprint"],
+        "title": "RetentionOriginal"
+      },
+      "RetentionPreview": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "cutoff": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Cutoff"
+          },
+          "request": {
+            "$ref": "#/components/schemas/RetentionRequest"
+          },
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RetentionRun"
+            },
+            "type": "array",
+            "title": "Runs"
+          },
+          "originals": {
+            "items": {
+              "$ref": "#/components/schemas/RetentionOriginal"
+            },
+            "type": "array",
+            "title": "Originals"
+          },
+          "retained_originals": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Retained Originals"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Bytes"
+          },
+          "protected_runs": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Protected Runs"
+          },
+          "more_eligible": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "More Eligible"
+          },
+          "digest": {
+            "type": "string",
+            "title": "Digest"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "created_at",
+          "expires_at",
+          "cutoff",
+          "request",
+          "runs",
+          "originals",
+          "retained_originals",
+          "original_bytes",
+          "protected_runs",
+          "more_eligible",
+          "digest"
+        ],
+        "title": "RetentionPreview"
+      },
+      "RetentionReceipt": {
+        "properties": {
+          "preview_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Preview Id"
+          },
+          "applied_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Applied At"
+          },
+          "run_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Run Ids"
+          },
+          "original_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Original Ids"
+          },
+          "deleted_rows": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Deleted Rows"
+          },
+          "original_bytes": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Original Bytes"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "preview_id",
+          "applied_at",
+          "run_ids",
+          "original_ids",
+          "deleted_rows",
+          "original_bytes"
+        ],
+        "title": "RetentionReceipt"
+      },
+      "RetentionRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "older_than_days": {
+            "type": "integer",
+            "maximum": 3650.0,
+            "minimum": 0.0,
+            "title": "Older Than Days",
+            "default": 30
+          },
+          "max_runs": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Runs",
+            "default": 5
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id"],
+        "title": "RetentionRequest"
+      },
+      "RetentionRun": {
+        "properties": {
+          "run_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Run Id"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "fingerprint": {
+            "type": "string",
+            "title": "Fingerprint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["run_id", "created_at", "status", "fingerprint"],
+        "title": "RetentionRun"
+      },
+      "RetentionView": {
+        "properties": {
+          "preview": {
+            "$ref": "#/components/schemas/RetentionPreview"
+          },
+          "receipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RetentionReceipt"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["preview"],
+        "title": "RetentionView"
       },
       "ReviewPrompt": {
         "properties": {
