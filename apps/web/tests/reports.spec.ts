@@ -262,3 +262,46 @@ test("a stale report edit retains its local text and reveals the latest revision
   );
   expect((await (await request.get(`/api/reports/${record.id}/history`)).json()).length).toBe(2);
 });
+
+test("a delayed guide refresh cannot hide a newly saved style", async ({ page }) => {
+  await page.goto("/?view=reports");
+  await expect(page.getByRole("heading", { name: "Recent reports", exact: true })).toBeVisible();
+  const captured = Promise.withResolvers<void>();
+  const release = Promise.withResolvers<void>();
+  let held = false;
+  await page.route("**/api/style-guides", async (route) => {
+    if (route.request().method() !== "GET" || held) return route.continue();
+    held = true;
+    const response = await route.fetch();
+    expect(response.status()).toBe(200);
+    captured.resolve();
+    await release.promise;
+    await route.fulfill({ response });
+  });
+  const title = `Delayed guide ${crypto.randomUUID()}`;
+  try {
+    await page.getByRole("button", { name: "Style guides", exact: true }).click();
+    await captured.promise;
+    await page.getByRole("button", { name: "New style guide", exact: true }).click();
+    await page.getByRole("textbox", { name: "Guide title", exact: true }).fill(title);
+    await page.getByRole("button", { name: "Save style revision", exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: `Revise ${title} v1`, exact: true }),
+    ).toBeVisible();
+    const completed = page.waitForResponse(
+      (response) =>
+        response.url().endsWith("/api/style-guides") && response.request().method() === "GET",
+    );
+    release.resolve();
+    await completed;
+    await page.getByRole("button", { name: "New report", exact: true }).click();
+    await expect(
+      page
+        .getByRole("combobox", { name: "Pinned style guide", exact: true })
+        .locator("option")
+        .filter({ hasText: title }),
+    ).toHaveCount(1);
+  } finally {
+    release.resolve();
+  }
+});

@@ -138,15 +138,34 @@ test("stale review controls refresh without approving a later review", async ({
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   const id = new URL(page.url()).searchParams.get("run");
+  const approve = page.getByRole("button", { name: "Approve and continue" });
+  await expect(approve).toBeEnabled();
   const first = await (await request.get(`/api/runs/${id}`)).json();
-  await request.post(`/api/runs/${id}/resume`, {
-    data: {
-      checkpoint_id: first.checkpoint_id,
-      interrupt_id: first.review.interrupt_id,
-      decision: "approve",
-    },
+  const submitted = Promise.withResolvers<{ checkpoint_id: string; interrupt_id: string }>();
+  const release = Promise.withResolvers<void>();
+  await page.route(`**/api/runs/${id}/resume`, async (route) => {
+    submitted.resolve(route.request().postDataJSON());
+    await release.promise;
+    await route.continue();
   });
-  await page.getByRole("button", { name: "Approve and continue" }).click();
+  const click = approve.click();
+  try {
+    const captured = await submitted.promise;
+    expect(captured.checkpoint_id).toBe(first.checkpoint_id);
+    expect(captured.interrupt_id).toBe(first.review.interrupt_id);
+    const advanced = await request.post(`/api/runs/${id}/resume`, {
+      data: {
+        checkpoint_id: first.checkpoint_id,
+        interrupt_id: first.review.interrupt_id,
+        decision: "approve",
+      },
+    });
+    expect(advanced.status()).toBe(200);
+  } finally {
+    release.resolve();
+  }
+  await click;
+  await expect(approve).toBeEnabled();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   await expect(page.locator(".review-box h3")).toHaveText(workflow.nodes[2]!.instructions);
   const current = await (await request.get(`/api/runs/${id}`)).json();
