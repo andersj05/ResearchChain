@@ -5,6 +5,7 @@ import psycopg
 import pytest
 from fastapi.testclient import TestClient
 from psycopg.types.json import Jsonb
+from run_fixtures import run_request
 
 from researchchain.database import Database
 
@@ -39,8 +40,8 @@ def test_runs_pin_evidence_and_keep_unavailable_sources_explicit(
         "brief": "Synthetic test",
         "evidence_ids": [first["id"], missing["id"]],
     }
-    response = client.post("/api/runs", json=request)
-    assert response.status_code == 201, response.text
+    response = run_request(client, "/api/runs", json=request)
+    assert response.status_code == 200, response.text
     run = response.json()
     assert run["evidence_ids"] == request["evidence_ids"]
     assert len(run["artifacts"]) == 1 and run["artifacts"][0]["id"] == first["content_hash"]
@@ -56,9 +57,12 @@ def test_runs_pin_evidence_and_keep_unavailable_sources_explicit(
         },
     ).json()
     assert client.get(f"/api/runs/{run['id']}").json()["evidence_ids"] == request["evidence_ids"]
-    assert client.post("/api/runs", json=request).json() == run
+    assert run_request(client, "/api/runs", json=request).json() == run
     assert (
-        client.post("/api/runs", json={**request, "evidence_ids": [newer["id"]]}).status_code == 409
+        run_request(
+            client, "/api/runs", json={**request, "evidence_ids": [newer["id"]]}
+        ).status_code
+        == 409
     )
     with database.connection() as conn:
         with pytest.raises(psycopg.IntegrityError, match="immutable"):
@@ -71,18 +75,29 @@ def test_new_runs_reject_unknown_or_mismatched_inputs(
     revision = client.post("/api/revisions", json=workflow).json()
     request = {"id": str(uuid4()), "revision_id": revision["id"], "brief": "Synthetic test"}
     artifact = {"id": "sha256:" + "a" * 64, "media_type": "text/plain", "name": "Absent"}
-    assert client.post("/api/runs", json={**request, "artifacts": [artifact]}).status_code == 404
-    unknown = str(uuid4())
-    assert client.post("/api/runs", json={**request, "evidence_ids": [unknown]}).status_code == 404
     assert (
-        client.post("/api/runs", json={**request, "evidence_ids": [unknown, unknown]}).status_code
+        run_request(client, "/api/runs", json={**request, "artifacts": [artifact]}).status_code
+        == 404
+    )
+    unknown = str(uuid4())
+    assert (
+        run_request(client, "/api/runs", json={**request, "evidence_ids": [unknown]}).status_code
+        == 404
+    )
+    assert (
+        run_request(
+            client, "/api/runs", json={**request, "evidence_ids": [unknown, unknown]}
+        ).status_code
         == 422
     )
     uploaded = client.post(
         "/api/artifacts?name=synthetic.txt&rights=owned", content=b"Synthetic"
     ).json()
     artifact["id"] = uploaded["id"]
-    assert client.post("/api/runs", json={**request, "artifacts": [artifact]}).status_code == 422
+    assert (
+        run_request(client, "/api/runs", json={**request, "artifacts": [artifact]}).status_code
+        == 422
+    )
     assert client.get(f"/api/runs/{request['id']}").status_code == 404
 
 
@@ -109,14 +124,16 @@ def test_accepted_legacy_run_and_receipt_survive_availability_validation(
             "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
             (uuid4(), request["id"]),
         )
-    response = client.post("/api/runs", json=request)
-    assert response.status_code == 201, response.text
-    run = response.json()
+    accepted = client.post("/api/runs", json=request)
+    assert accepted.status_code == 202
+    assert client.get(f"/api/runs/{request['id']}").json()["status"] == "interrupted"
+    run = run_request(client, f"/api/runs/{request['id']}/recover").json()
+    assert run["status"] == "paused"
     assert run["artifacts"] == [artifact] and run["evidence_ids"] == []
     with database.connection() as conn:
         conn.execute(
             "UPDATE run_commands SET response = response - 'evidence_ids' WHERE run_id = %s",
             (request["id"],),
         )
-    assert client.post("/api/runs", json=request).json() == run
+    assert client.post("/api/runs", json=request).json() == accepted.json()
     assert client.get(f"/api/runs/{run['id']}").json()["artifacts"] == [artifact]

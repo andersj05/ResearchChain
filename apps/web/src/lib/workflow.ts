@@ -16,6 +16,7 @@ export type ExecutionBudgets = components["schemas"]["ExecutionBudgets"];
 export type RunSnapshot = components["schemas"]["RunSnapshot"];
 export type RunSummary = components["schemas"]["RunSummary"];
 export type RunRequest = components["schemas"]["RunRequest"];
+export type CommandReceipt = components["schemas"]["CommandReceipt"];
 export type RevisionSummary = components["schemas"]["RevisionSummary"];
 export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
@@ -29,7 +30,7 @@ export const researchDefaults = {
   ...researchWorkflow.research!,
   limits: researchExample.research.limits,
 };
-export const executionTimeout = 3_660_000;
+export const admissionTimeout = 30000;
 
 export type ValidationIssue = { path: string; message: string };
 export class ApiError extends Error {
@@ -58,7 +59,7 @@ export async function api<T>(path: string, body?: unknown, timeout = 15000): Pro
       ? detail.map((item: { msg: string }) => item.msg).join(" ")
       : typeof detail === "string"
         ? detail
-        : "The local API is unavailable. Start both services with pnpm dev.";
+        : "The local API is unavailable. Start the local services with pnpm dev.";
     const issues: ValidationIssue[] = Array.isArray(detail)
       ? detail.map((item: { loc?: (string | number)[]; msg: string }) => ({
           path: (item.loc ?? []).filter((part) => part !== "body").join("."),

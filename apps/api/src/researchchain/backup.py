@@ -14,7 +14,7 @@ from researchchain.backup_files import ARCHIVE, file_digest, private_directory, 
 from researchchain.backup_inventory import inventory
 from researchchain.backup_models import BackupError, BackupManifest
 from researchchain.backup_tools import ROOT, TIMEOUT, PostgreSQLTools
-from researchchain.database import MIGRATION_LOCK, Database, migrations
+from researchchain.database import Database, acquire_migration_lock, migrations
 
 
 def code_version() -> tuple[str | None, bool]:
@@ -56,7 +56,7 @@ def create_backup(database: Database, directory: Path) -> BackupManifest:
     with database.connection() as conn:
         # Acquire the migration lock BEFORE opening the MVCC snapshot. A waiting
         # backup must see the migration that finishes before this lock is granted.
-        conn.execute("SELECT pg_advisory_lock_shared(%s)", (MIGRATION_LOCK,))
+        acquire_migration_lock(conn, shared=True)
         with conn.transaction():
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY")
             conn.execute("SELECT set_config('statement_timeout',%s,true)", (str(TIMEOUT * 1000),))

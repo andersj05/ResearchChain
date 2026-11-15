@@ -927,6 +927,29 @@ export interface components {
        */
       created_at: string;
     };
+    /** CommandReceipt */
+    CommandReceipt: {
+      /**
+       * Command Id
+       * Format: uuid
+       */
+      command_id: string;
+      /**
+       * Run Id
+       * Format: uuid
+       */
+      run_id: string;
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: "start" | "resume";
+      /**
+       * Accepted At
+       * Format: date-time
+       */
+      accepted_at: string;
+    };
     /** ContentPreview */
     ContentPreview: {
       /**
@@ -2785,6 +2808,7 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "queued"
         | "paused"
         | "completed"
         | "rejected"
@@ -2798,6 +2822,12 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /**
+       * Execution Pending
+       * @description An accepted command is still queued or held by a worker.
+       * @default false
+       */
+      execution_pending: boolean;
       workflow: components["schemas"]["Workflow"];
       /** Brief */
       brief: string;
@@ -2842,6 +2872,7 @@ export interface components {
        * @enum {string}
        */
       status:
+        | "queued"
         | "paused"
         | "completed"
         | "rejected"
@@ -4705,12 +4736,12 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      201: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */
@@ -4771,12 +4802,12 @@ export interface operations {
     };
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */
@@ -4802,12 +4833,12 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description Successful Response */
-      200: {
+      202: {
         headers: {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSnapshot"];
+          "application/json": components["schemas"]["CommandReceipt"];
         };
       };
       /** @description Validation Error */

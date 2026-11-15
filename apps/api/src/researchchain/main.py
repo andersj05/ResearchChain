@@ -15,6 +15,8 @@ from researchchain.access_models import AccessError
 from researchchain.access_service import AccessService
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
+from researchchain.dispatch import RunQueue
+from researchchain.dispatch_models import CommandReceipt, DispatchError
 from researchchain.evaluation_api import evaluation_router
 from researchchain.evidence_api import evidence_router
 from researchchain.models import (
@@ -83,7 +85,17 @@ def create_app(
     app.include_router(evaluation_router(database))
     app.include_router(report_router(database))
     runs = RunStore(database, provider)
+    queue = RunQueue(runs)
+    app.state.runs = runs
     revisions = RevisionStore(database)
+
+    @app.exception_handler(DispatchError)
+    async def dispatch_error(request: Request, error: DispatchError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"detail": str(error)},
+            headers={"Retry-After": "1"} if error.status == 429 else None,
+        )
 
     @app.exception_handler(NotFoundError)
     async def not_found(request: Request, error: NotFoundError) -> JSONResponse:
@@ -154,9 +166,9 @@ def create_app(
     def get_revision(revision_id: UUID) -> WorkflowRevision:
         return revisions.get(revision_id)
 
-    @app.post("/api/runs", response_model=RunSnapshot, status_code=201, operation_id="start_run")
-    def start_run(request: RunRequest) -> RunSnapshot:
-        return runs.start(request)
+    @app.post("/api/runs", response_model=CommandReceipt, status_code=202, operation_id="start_run")
+    def start_run(request: RunRequest) -> CommandReceipt:
+        return queue.start(request)
 
     @app.get("/api/runs", response_model=list[RunSummary], operation_id="list_runs")
     def list_runs(limit: Annotated[int, Query(ge=1, le=50)] = 20) -> list[RunSummary]:
@@ -166,13 +178,23 @@ def create_app(
     def get_run(run_id: UUID) -> RunSnapshot:
         return runs.get(run_id)
 
-    @app.post("/api/runs/{run_id}/resume", response_model=RunSnapshot, operation_id="resume_run")
-    def resume_run(run_id: UUID, request: ResumeRequest) -> RunSnapshot:
-        return runs.resume(run_id, request)
+    @app.post(
+        "/api/runs/{run_id}/resume",
+        response_model=CommandReceipt,
+        status_code=202,
+        operation_id="resume_run",
+    )
+    def resume_run(run_id: UUID, request: ResumeRequest) -> CommandReceipt:
+        return queue.resume(run_id, request)
 
-    @app.post("/api/runs/{run_id}/recover", response_model=RunSnapshot, operation_id="recover_run")
-    def recover_run(run_id: UUID) -> RunSnapshot:
-        return runs.recover(run_id)
+    @app.post(
+        "/api/runs/{run_id}/recover",
+        response_model=CommandReceipt,
+        status_code=202,
+        operation_id="recover_run",
+    )
+    def recover_run(run_id: UUID) -> CommandReceipt:
+        return queue.recover(run_id)
 
     @app.post("/api/runs/{run_id}/cancel", response_model=CancelResult, operation_id="cancel_run")
     def cancel_run(run_id: UUID) -> CancelResult:

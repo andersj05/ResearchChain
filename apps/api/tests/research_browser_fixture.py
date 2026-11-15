@@ -24,3 +24,11 @@ class BrowserProvider(FakeProvider):
 
 
 app = create_app(provider=BrowserProvider())
+
+
+if __name__ == "__main__":
+    from researchchain.database import Database
+    from researchchain.runtime import RunStore
+    from researchchain.worker import main
+
+    raise SystemExit(main(runs=RunStore(Database.from_env(), BrowserProvider())))

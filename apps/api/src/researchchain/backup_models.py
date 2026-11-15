@@ -63,4 +63,5 @@ class RestoreReceipt(StrictModel):
     rows: int = Field(ge=0)
     original_count: int = Field(ge=0)
     original_bytes: int = Field(ge=0)
+    held_commands: int = Field(default=0, ge=0)
     provider_calls: Literal[0] = 0

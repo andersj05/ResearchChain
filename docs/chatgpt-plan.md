@@ -68,12 +68,12 @@ and exact registration checks protect the exchange. A lock serializes credential
 updates and rotating refresh tokens across processes. Atomic writes replace the
 whole record. Callback query strings and authorization URLs are never logged.
 
-This step supplies local account setup and connectivity checks. The workflow
-runtime remains deterministic until the bounded research nodes in
-[issue #6](https://github.com/andersj05/ResearchChain/issues/6) are implemented.
-Workflow-level cancellation, iteration/tool budgets, reproducible research
-manifests, independent evidence challenge, and the human baseline are still
-required. The CLI connection is not application authentication or remote hosting.
+The connection CLI supplies local account setup and connectivity checks.
+[Research workflows](hypothesis-research.md) use the selected account through
+[durable workers](workers.md), with pinned inputs, budgets, cancellation and human
+review checkpoints. The human baseline and strict in-flight spend controls remain
+part of [issue #6](https://github.com/andersj05/ResearchChain/issues/6).
+Workbench [owner access](owner-access.md) is a separate sign-in.
 
 Current implementation follows OpenAI's
 [local-app sign-in guide](https://developers.openai.com/siwc/token-sharing-open-source/sign-in),

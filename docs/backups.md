@@ -73,10 +73,19 @@ hostile archives or an isolation guarantee on a shared cluster.
 Restore runs in one transaction. Verification checks every table's row
 fingerprints, schema definitions including immutable triggers, migrations,
 sequence floors, and the actual SHA-256 of every original file. Ownership and
-grants are intentionally not copied. After verification, ownership passes to the
-administrator and the temporary role is removed. The JSON receipt includes the
-backup ID, target/schema, archive hash, verification time, table/row/original
-totals and zero provider calls. Save it privately with the backup.
+grants are intentionally not copied. After fingerprint verification, unfinished
+queued/running commands are put on an explicit recovery hold in the restored
+database. This changes only mutable worker ownership/status metadata; pinned
+inputs, checkpoints, command receipts and recorded effects remain intact.
+Ownership then passes to the administrator and the temporary role is removed.
+The JSON receipt includes the backup ID, target/schema, archive hash, verification
+time, table/row/original totals, held-command count and zero provider calls.
+Save it privately with the backup.
+
+Starting a worker against the restored database does not resume held commands.
+Before explicit recovery, reconcile the source's later activity and provider
+records: an archive cannot tell whether a queued request ran after its snapshot.
+Uncertain recorded requests remain subject to the no-resend rule.
 
 Failure leaves the newly created target quarantined with connections disabled
 and its temporary role unable to log in. Existing databases are never dropped.
