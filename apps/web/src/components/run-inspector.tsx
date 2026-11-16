@@ -44,6 +44,7 @@ export function RunInspector({
   onRefresh,
   onCancel,
   onOpenRevision,
+  onIterate,
 }: {
   run: RunSnapshot | null;
   busy: boolean;
@@ -56,6 +57,7 @@ export function RunInspector({
   onRefresh: () => Promise<void>;
   onCancel: () => Promise<void>;
   onOpenRevision: () => Promise<void>;
+  onIterate: () => Promise<void>;
 }) {
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   return (
@@ -74,6 +76,9 @@ export function RunInspector({
             <span>Revision {run.revision_number}</span>
             <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
             <div className="actions run-actions">
+              <Button className="button" disabled={busy} onClick={onIterate}>
+                Iterate from this run
+              </Button>
               {(run.status === "paused" ||
                 run.status === "queued" ||
                 run.status === "interrupted" ||

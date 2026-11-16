@@ -6,7 +6,7 @@ import type { Graph, SubgraphDefinition, WorkflowNode } from "@/lib/workflow";
 import { connectionsFor, portsFor, referenceOf, type Port } from "@/lib/workflow-editing";
 import { workflowCanvas, type CanvasPort } from "./primitive";
 import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
-import { nodeKinds } from "@/components/node-kind";
+import { nodePresentation } from "@/components/node-kind";
 
 const parts = createParts(workflowCanvas, {
   root: "div",
@@ -233,7 +233,7 @@ const CanvasNode = memo(
           aria-pressed={selected}
         >
           <span className="node-topline">
-            <span className={`node-kind kind-${node.kind}`}>{nodeKinds[node.kind].label}</span>
+            <span className={`node-kind kind-${node.kind}`}>{nodePresentation(node).label}</span>
             {start && <span className="start-label">Start</span>}
           </span>
           <strong>{node.label}</strong>
@@ -283,7 +283,7 @@ const CanvasNode = memo(
                     <li key={child.id}>
                       <parts.Open value={`${node.id}/${child.id}`} node={node.id} child={child.id}>
                         {child.label}
-                        <small>{nodeKinds[child.kind].shortLabel}</small>
+                        <small>{nodePresentation(child).shortLabel}</small>
                       </parts.Open>
                     </li>
                   ))}

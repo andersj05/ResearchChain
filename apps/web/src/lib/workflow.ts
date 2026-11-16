@@ -21,7 +21,22 @@ export type RevisionSummary = components["schemas"]["RevisionSummary"];
 export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
 
-export const initialWorkflow = example as Workflow;
+export const exampleWorkflow = example as Workflow;
+export const initialWorkflow: Workflow = {
+  schema_version: "0.2",
+  name: "Untitled workflow",
+  start_node: "finish",
+  nodes: [
+    {
+      id: "finish",
+      kind: "finish",
+      label: "Finish",
+      instructions: "",
+      position: { x: 360, y: 160 },
+    },
+  ],
+  edges: [],
+};
 export const researchWorkflow = researchExample as Workflow;
 export type ResearchSettings = components["schemas"]["ResearchSettings"];
 export type ResearchLimits = components["schemas"]["ResearchLimits"];

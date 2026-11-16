@@ -1,15 +1,45 @@
 # Current state
 
-Updated 2026-11-15. The owner authorized frequent commits and merging completed
+Updated 2026-11-16. The owner authorized frequent commits and merging completed
 steps into dev after passing checks. No main promotion or public deployment.
+
+## First implementation pass: owner-built agents
+
+Confirmed with the owner on 2026-11-16. Deliver the local environment in which the
+owner designs, runs, inspects and iterates on their own agent. The owner determines
+the research strategy, prompts, sources, checkpoints and quality judgments.
+Agent-generated research templates and pilots are optional examples, not the product
+specification or acceptance gates. Do not require pilot labels, a calibrated judge,
+a finished agent, public hosting or publication to complete this environment pass.
+
+Acceptance: the owner can start a blank workflow, configure model instructions and
+human reviews, wire inputs, choose evidence/model/limits, save versions, run and inspect
+outputs, incorporate feedback, and start a revised experiment without editing code.
+Verify with synthetic providers; do not consume the owner's plan or submit human
+judgments to demonstrate readiness. After delivery, the owner will build a simple
+agent and supply usability feedback. Preserve that as the next step.
 
 ## Checkout and verified delivery
 
 The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty
 Documents/ChatGPT directory is not the checkout. Use explicit working directories.
-The evaluation protocol checkout is C:/Users/jense/Desktop/ResearchChain-evaluation,
-branch feat/evaluation-study. Check GitHub and the private delivery receipts
-for current integration state; do not infer it from an old service handle.
+The owner environment handoff is [PR #38](https://github.com/andersj05/ResearchChain/pull/38). PR #37's
+optional evaluation protocol was merged into dev before this pass. Its pilot
+judgments remain unsubmitted and are not blockers. See [the builder guide](../agent-builder.md)
+for the scope, audit and owner walkthrough. Focused verification passed 29 backend tests and desktop/mobile authoring flows.
+The latter builds a custom agent, passes actual test feedback through a checkpoint,
+then restores inputs and starts a distinct revision without changing the first run.
+Custom steps retain the original research prompt hashes for legacy recovery.
+Full quality and browser gates are required before merge; PR #38 records final results.
+The restore/upgrade rehearsal preserved all 34 prior data-table fingerprints and
+30 originals (612,016 bytes). Private receipts are .local/builder-before-upgrade,
+.local/builder-restore.log and .local/builder-upgrade-rehearsal.json.
+No real model requests or human evaluation labels were submitted for this audit.
+
+After integration the next step is the owner's simple-agent usability review, not
+an assistant-generated agent or a request to label either old pilot. Use the builder
+guide's capability boundaries when interpreting that feedback. Public hosting,
+external tool integrations and research-quality studies are separate follow-ups.
 
 [PR #35](https://github.com/andersj05/ResearchChain/pull/35) delivered the workspace
 request allowance into dev as 4bbf68018d6342b58b96cdf95d3577ca2db69e59.
@@ -43,7 +73,7 @@ three known historical research attempts. Current usage must be read again.
   and explicit incident checks/delivery. No real external receiver or off-machine
   destination has been configured.
 
-## Sign-in and owner review
+## Existing sign-in and optional pilot examples
 
 The requested ChatGPT sign-in is complete. Saved plan usage and eight models were
 verified without inference; see main .local/signin-restart-receipt.json.
@@ -103,7 +133,7 @@ Retain physical writer locks and cleanup reference checks; never purge private d
 as a test. Browser tests use disposable e2e_ schemas and synthetic credentials.
 Restore any displaced live services after testing.
 
-## Remaining criteria
+## Later agent-quality and hosting criteria (not environment blockers)
 
 - [#6](https://github.com/andersj05/ResearchChain/issues/6): actual owner assessment
   of the paused pilot/development comparison and provider-side spend controls.

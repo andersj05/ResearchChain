@@ -81,13 +81,20 @@ class LoopConfig(StrictModel):
     until: Predicate | None = None
 
 
-ResearchStage = Literal["hypothesize", "challenge", "revise"]
+ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
 
 
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
-    prompt_version: Literal["research-1"] = "research-1"
+    prompt_version: Literal["research-1", "custom-1"] = "research-1"
+
+    @model_validator(mode="after")
+    def matching_prompt(self) -> Self:
+        expected = "custom-1" if self.stage == "custom" else "research-1"
+        if self.prompt_version != expected:
+            raise ValueError("The stage must use its matching prompt version.")
+        return self
 
 
 class ResearchLimits(StrictModel):

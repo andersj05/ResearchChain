@@ -11,7 +11,11 @@ import {
   removeStep,
   updateGraph,
 } from "../src/lib/workflow-editing";
-import { initialWorkflow, type Workflow, type NodeTypeSpec } from "../src/lib/workflow";
+import {
+  exampleWorkflow as initialWorkflow,
+  type Workflow,
+  type NodeTypeSpec,
+} from "../src/lib/workflow";
 
 for (const kind of ["route", "fork", "loop", "subgraph"] as const) {
   test(`${kind} template and removal preserve the compiler contract`, async ({ request }) => {

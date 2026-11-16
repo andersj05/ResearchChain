@@ -185,13 +185,20 @@ export function NodeConfiguration({
       {config?.type === "research" && (
         <>
           <label>
-            Research stage
+            Step behavior
             <select
               value={config.stage ?? "hypothesize"}
               onChange={(event) =>
-                onEdit({ config: { ...config, stage: event.target.value as typeof config.stage } })
+                onEdit({
+                  config: {
+                    ...config,
+                    stage: event.target.value as typeof config.stage,
+                    prompt_version: event.target.value === "custom" ? "custom-1" : "research-1",
+                  },
+                })
               }
             >
+              <option value="custom">Custom instructions</option>
               <option value="hypothesize">Form hypotheses</option>
               <option value="challenge">Challenge evidence</option>
               <option value="revise">Revise conclusions</option>
@@ -199,7 +206,7 @@ export function NodeConfiguration({
           </label>
           {(["context", "feedback"] as const).map((port) => (
             <label key={port}>
-              {port === "context" ? "Prior research result" : "Reviewer feedback"}
+              {port === "context" ? "Context input" : "Reviewer feedback"}
               <select
                 value={sourceKey(node.inputs?.[port])}
                 onChange={(event) =>
@@ -227,8 +234,10 @@ export function NodeConfiguration({
             </label>
           ))}
           <p className="field-hint">
-            Challenge and revise need a prior research result. Connect a human review’s feedback to
-            include it in this step.
+            {config.stage === "custom"
+              ? "Your instructions define this task. The answer appears in the result's conclusion; hypotheses are optional. "
+              : "Challenge and revise need a prior research result. "}
+            Connect a human review&apos;s feedback to include it in this step.
           </p>
         </>
       )}

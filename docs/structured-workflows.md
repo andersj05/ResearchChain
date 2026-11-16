@@ -94,3 +94,13 @@ edits, and supports their run history, individual reviews, cancellation, and lim
 results. Chain-only structural controls are disabled for these documents.
 Full port wiring, nested editing, configuration forms, grouped history, and JSON
 import are the next stage in issue #4; API authoring is available now.
+
+## Owner-defined model prompts
+
+A research-kind node with stage `custom` and prompt version `custom-1` follows the
+owner's instructions instead of a predefined hypothesis stage. It uses the same
+context/feedback ports, evidence snapshot, execution journal and limits. Its result
+retains the structured envelope but may have no hypotheses; the main answer is in
+conclusion. Legacy stages require hypotheses and keep their original request schema
+and prompt hashes. Migration 0011 extends attempt-stage storage without changing
+existing records. The editor exposes this as **Add model prompt**.

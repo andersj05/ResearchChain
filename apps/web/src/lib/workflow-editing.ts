@@ -10,7 +10,8 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
-export type TemplateKind = "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research";
+export type TemplateKind =
+  "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research" | "model";
 export type Port = {
   key: string;
   node: string;
@@ -229,14 +230,31 @@ function insertFragment<G extends Graph>(
 
 export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, selected: string): G {
   const anchor = insertionAnchor(graph, selected);
+  const nextId =
+    anchor?.kind === "finish"
+      ? anchor.id
+      : graph.edges.find((item) => item.source === anchor?.id)?.target;
+  const finish = graph.nodes.find((node) => node.id === nextId && node.kind === "finish");
   const positioned = {
     ...step,
-    position: {
-      x: anchor?.position.x ?? 60,
-      y: Math.min(9700, Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 180),
-    },
+    position: finish
+      ? { ...finish.position }
+      : {
+          x: anchor?.position.x ?? 60,
+          y: Math.min(9700, Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 260),
+        },
   };
-  return insertFragment(graph, [positioned], [], step.id, step.id, selected);
+  const layout = finish
+    ? {
+        ...graph,
+        nodes: graph.nodes.map((node) =>
+          node.id === finish.id
+            ? { ...node, position: { ...node.position, y: Math.min(10000, node.position.y + 260) } }
+            : node,
+        ),
+      }
+    : graph;
+  return insertFragment(layout, [positioned], [], step.id, step.id, selected);
 }
 
 export function addTemplate(
@@ -255,13 +273,13 @@ export function addTemplate(
     workflow.schema_version === "0.1" && graph.nodes.length >= 32
       ? { ...workflow, schema_version: "0.2" as const }
       : workflow;
-  if (kind === "research") {
+  if (kind === "research" || kind === "model") {
     const step = {
-      ...makeNode(id, kind, "Form hypotheses"),
+      ...makeNode(id, "research", kind === "model" ? "Model prompt" : "Form hypotheses"),
       config: {
         type: "research" as const,
-        stage: "hypothesize" as const,
-        prompt_version: "research-1" as const,
+        stage: kind === "model" ? ("custom" as const) : ("hypothesize" as const),
+        prompt_version: kind === "model" ? ("custom-1" as const) : ("research-1" as const),
       },
     };
     next = {

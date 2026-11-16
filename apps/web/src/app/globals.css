@@ -2980,3 +2980,19 @@ footer p {
     width: 100%;
   }
 }
+
+.builder-guide {
+  margin: 0 16px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border, #ddd);
+  font-size: 13px;
+}
+.builder-guide summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.builder-guide p,
+.builder-guide li {
+  max-width: 100ch;
+  line-height: 1.6;
+}

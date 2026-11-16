@@ -101,6 +101,12 @@ Regenerate contracts after changing them, review the generated diff, and commit
 it. The backend validates semantics; generated TypeScript alone does not validate
 untrusted JSON. The compiler only executes registered node kinds.
 
+## Owner authoring handoff
+
+See [Build and iterate on your agent](agent-builder.md) for the first experiment,
+the environment audit, available controls and current boundaries. First-pass
+acceptance concerns owner control, not pilot quality or production hosting.
+
 ## Workbench behavior
 
 The full-height desktop workbench uses a step library and outline on the left,
@@ -124,7 +130,7 @@ Edit a step in the inspector; use its Next step field to connect or disconnect i
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
 Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loading
 a saved draft validates it through the local API before rendering it. Undo keeps
-the last 50 edits for this page session.
+the last 80 edits for this page session.
 
 Save a revision to Postgres; identical validated documents share a revision. Run
 automatically saves and pins the current revision plus the brief. Revisions are

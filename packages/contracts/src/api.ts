@@ -2185,7 +2185,7 @@ export interface components {
        * Stage
        * @enum {string}
        */
-      stage: "hypothesize" | "challenge" | "revise";
+      stage: "hypothesize" | "challenge" | "revise" | "custom";
       /** Model */
       model: string;
       /** Returned Model */
@@ -2748,13 +2748,13 @@ export interface components {
        * @default hypothesize
        * @enum {string}
        */
-      stage: "hypothesize" | "challenge" | "revise";
+      stage: "hypothesize" | "challenge" | "revise" | "custom";
       /**
        * Prompt Version
        * @default research-1
-       * @constant
+       * @enum {string}
        */
-      prompt_version: "research-1";
+      prompt_version: "research-1" | "custom-1";
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -2844,7 +2844,7 @@ export interface components {
        * Stage
        * @enum {string}
        */
-      stage: "hypothesize" | "challenge" | "revise";
+      stage: "hypothesize" | "challenge" | "revise" | "custom";
       /** Hypotheses */
       hypotheses: components["schemas"]["Hypothesis"][];
       /** Unresolved Questions */

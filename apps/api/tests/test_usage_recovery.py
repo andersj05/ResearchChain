@@ -61,10 +61,10 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
 ):
     legacy = Database(database.url, "test_" + uuid4().hex)
     migrations = database_module.migrations()
-    assert migrations[-1][0] == "0010_request_allowance.sql"
+    assert migrations[9][0] == "0010_request_allowance.sql"
     try:
         with monkeypatch.context() as patch:
-            patch.setattr(database_module, "migrations", lambda: migrations[:-1])
+            patch.setattr(database_module, "migrations", lambda: migrations[:9])
             legacy.migrate()
             revision = RevisionStore(legacy).save(Workflow.model_validate(workflow))
             run_id = uuid4()
@@ -84,8 +84,12 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             before = inventory(conn, legacy.schema)
         if rollback:
-            name, checksum, statement = migrations[-1]
-            broken = [*migrations[:-1], (name, checksum, statement + "\nSELECT 1 / 0;")]
+            name, checksum, statement = migrations[9]
+            broken = [
+                *migrations[:9],
+                (name, checksum, statement + "\nSELECT 1 / 0;"),
+                *migrations[10:],
+            ]
             with monkeypatch.context() as patch:
                 patch.setattr(database_module, "migrations", lambda: broken)
                 with pytest.raises(psycopg.errors.DivisionByZero):
@@ -103,7 +107,7 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
         for name, fingerprint in before.tables.items():
             if name != "schema_migrations":
                 assert after.tables[name] == fingerprint
-        assert after.tables["schema_migrations"].rows == 10
+        assert after.tables["schema_migrations"].rows == len(migrations)
         assert len(imported) == 2
         assert all(
             row == {"source": "imported_research", "policy_revision": None} for row in imported

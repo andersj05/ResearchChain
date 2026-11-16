@@ -79,7 +79,7 @@ class EvidenceRequest(ResearchModel):
 class ResearchResult(ResearchModel):
     schema_version: Literal["research-result-1"]
     stage: ResearchStage
-    hypotheses: list[Hypothesis] = Field(min_length=1, max_length=8)
+    hypotheses: list[Hypothesis] = Field(max_length=8)
     unresolved_questions: list[Sentence] = Field(max_length=20)
     evidence_requests: list[EvidenceRequest] = Field(max_length=12)
     conclusion: str = Field(min_length=1, max_length=6000)
@@ -88,6 +88,8 @@ class ResearchResult(ResearchModel):
 
     @model_validator(mode="after")
     def unique_hypotheses(self) -> Self:
+        if self.stage != "custom" and not self.hypotheses:
+            raise ValueError("Research stages require at least one hypothesis.")
         if len({item.id for item in self.hypotheses}) != len(self.hypotheses):
             raise ValueError("Hypothesis IDs must be distinct.")
         return self
