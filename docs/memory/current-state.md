@@ -28,6 +28,13 @@ data views. See [the delivery plan](../plans/0017-owner-workspace-feedback.md).
 This extends the environment work; the owner still designs the agent and supplies
 quality judgments. Each cohesive change needs its own PR merged into dev.
 
+Canvas dragging and the alignment grid are merged in PR #39 (6949918).
+CI 43957865925 passed 448 backend and 93 browser tests. Settings PR #40 and
+adjustable panels PR #41 remain in progress; check their live merge/gate state.
+The live workspace allowance is now 1,000 per rolling 24 hours, policy revision 2,
+changed on explicit owner authorization without inference. Private receipt:
+.local/owner-1000-request-allowance.log. Initial policies for other workspaces remain 100.
+
 ## Checkout and verified delivery
 
 The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty

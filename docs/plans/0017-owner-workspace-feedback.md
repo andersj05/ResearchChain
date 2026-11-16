@@ -26,7 +26,17 @@ run the required checks and merge after they pass. Do not promote to main.
 9. Delivery: update guides/current state, verify retained data and the running app;
    leave the owner ready to build a simple agent and provide the next feedback.
 
-All items remain pending until linked to a merged PR and verified outcome. Existing
+Delivery status as of 2026-11-16:
+
+- Canvas repair merged in [PR #39](https://github.com/andersj05/ResearchChain/pull/39).
+  CI passed 448 backend and 93 browser tests, including the original mid-drag regression.
+- Settings [PR #40](https://github.com/andersj05/ResearchChain/pull/40) and adjustable
+  sidebars [PR #41](https://github.com/andersj05/ResearchChain/pull/41) are under CI review.
+- The live request allowance was changed to 1,000/rolling 24 hours, policy revision 2,
+  at the owner's explicit request. No requests were submitted. Model visibility is pending.
+- Agent identity/switching, shell/navigation, custom code and data views remain pending.
+
+Items are complete only after a merged PR and verified outcome. Existing
 PR #38 delivered the first builder baseline; it does not complete this feedback.
 
 ## Interface research and decisions
