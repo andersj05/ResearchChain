@@ -162,6 +162,7 @@ export function WorkflowCanvas({
         })}
       </parts.World>
       <div className="canvas-toolbar">
+        <span className="canvas-grid-label">Snap 10 px</span>
         <parts.ZoomOut className="button icon-button" aria-label="Zoom out">
           <Minus size={16} aria-hidden="true" />
         </parts.ZoomOut>

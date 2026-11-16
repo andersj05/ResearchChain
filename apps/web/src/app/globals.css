@@ -491,6 +491,7 @@ textarea {
   flex: 1;
   min-height: 280px;
   background-color: var(--paper);
+  background-image: radial-gradient(circle, #d4d4d4 0.65px, transparent 0.9px);
 }
 .canvas-world {
   position: absolute;
@@ -2995,4 +2996,12 @@ footer p {
 .builder-guide li {
   max-width: 100ch;
   line-height: 1.6;
+}
+
+.canvas-grid-label {
+  align-self: center;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--muted);
+  background: var(--paper);
 }
