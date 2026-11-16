@@ -86,6 +86,7 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   const title = `Pinned source ${randomUUID().slice(0, 8)}`;
   await addText(page, title, "Synthetic immutable original.");
   const first = await saveSource(page);
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("checkbox", { name: `${title} Captured`, exact: true }).check();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
@@ -228,6 +229,7 @@ test("run setup retains selected evidence outside the first library page", async
           : { items: [], total: 51, next_offset: 50 },
     });
   });
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Load more sources", exact: true }).click();
   await page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }).check();
