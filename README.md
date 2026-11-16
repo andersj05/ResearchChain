@@ -17,7 +17,7 @@ survive API restarts and stay pinned to their original workflow. New workspaces 
 [research template](docs/hypothesis-research.md) uses the connected ChatGPT plan to
 form, challenge, and revise hypotheses against captured evidence, with human review.
 
-The [evidence desk](docs/evidence-desk.md) captures permitted originals, tracks
+The [Sources view](docs/evidence-desk.md) captures permitted originals, tracks
 source provenance and claim relationships, and pins evidence versions to runs.
 The [evaluation desk](docs/evaluations.md) freezes cases and compares saved outputs
 with blind human judgments, edited spans and separate judge calibration.
@@ -30,7 +30,7 @@ The [owner access guide](docs/owner-access.md) covers private workbench sign-in,
 password setup, session recovery and the separate ChatGPT provider connection.
 The [worker guide](docs/workers.md) covers durable command admission, queued progress,
 workspace limits, cancellation and recovery after a process restart.
-The [Operations view](docs/operations.md) shows connected workers, queue problems,
+The [Status view](docs/operations.md) shows connected workers, queue problems,
 storage and recorded usage without submitting new research.
 Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
 [PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).

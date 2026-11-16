@@ -26,19 +26,31 @@ run the required checks and merge after they pass. Do not promote to main.
 9. Delivery: update guides/current state, verify retained data and the running app;
    leave the owner ready to build a simple agent and provide the next feedback.
 
-Delivery status as of 2026-11-16:
+Implementation and verification as of 2026-11-16:
 
-- Canvas repair merged in [PR #39](https://github.com/andersj05/ResearchChain/pull/39).
-  CI passed 448 backend and 93 browser tests, including the original mid-drag regression.
-- Settings [PR #40](https://github.com/andersj05/ResearchChain/pull/40) and adjustable
-  sidebars [PR #41](https://github.com/andersj05/ResearchChain/pull/41) are merged after full CI.
-- The live request allowance was changed to 1,000/rolling 24 hours, policy revision 2,
-  at the owner's explicit request. No requests were submitted. Model visibility is pending.
-- Agent identity/switching is implemented and awaiting full CI and upgrade verification.
-  Shell/navigation, custom code and data views remain pending.
+| Change                                       | Delivery record                                              |
+| -------------------------------------------- | ------------------------------------------------------------ |
+| Canvas movement and grid                     | [PR #39](https://github.com/andersj05/ResearchChain/pull/39) |
+| Compact owner Settings                       | [PR #40](https://github.com/andersj05/ResearchChain/pull/40) |
+| Adjustable builder panels                    | [PR #41](https://github.com/andersj05/ResearchChain/pull/41) |
+| Model visibility                             | [PR #42](https://github.com/andersj05/ResearchChain/pull/42) |
+| Named agents and independent histories       | [PR #43](https://github.com/andersj05/ResearchChain/pull/43) |
+| Owner-authored code                          | [PR #44](https://github.com/andersj05/ResearchChain/pull/44) |
+| Compact navigation and shell                 | [PR #45](https://github.com/andersj05/ResearchChain/pull/45) |
+| Source/run/report browsing and final handoff | [PR #46](https://github.com/andersj05/ResearchChain/pull/46) |
 
-Items are complete only after a merged PR and verified outcome. Existing
-PR #38 delivered the first builder baseline; it does not complete this feedback.
+The PRs hold final merge/check status; completed work targets dev only. The live
+allowance is 1,000 per rolling 24 hours, policy revision 2, as explicitly authorized.
+The schema-12 upgrade preserved all 34 prior data-table fingerprints, 30 originals
+(612,016 bytes), and both legacy runs after a separate backup/restore rehearsal.
+Read-only runtime checks verified two workers, an idle queue, eight available models
+and the existing ChatGPT connection. No inference or owner judgments were submitted.
+
+Combined CI passed 470 backend and 103 browser tests. Windows pnpm check also passed
+all 470 backend tests and the production build. Focused desktop/mobile collection
+checks passed after the final mobile list adjustment; screenshots were reviewed.
+See [current state](../memory/current-state.md) for the runtime receipts and handoff.
+The next step is the owner's simple-agent usability review.
 
 ## Interface research and decisions
 
@@ -79,8 +91,8 @@ Focused verification: five backend tests cover retry identity, conflicting/concu
 saves, intentional reverts, exact run ownership and protected endpoints. Three new
 browser cases cover desktop/mobile switching, refresh recovery, cross-agent run
 iteration with Undo, and stale-tab conflict recovery; twelve existing builder and
-canvas authoring checks also passed with synthetic providers. Full CI and the
-schema-12 backup/upgrade rehearsal remain required before live delivery.
+canvas authoring checks also passed with synthetic providers. Full combined CI and
+the schema-12 backup/upgrade rehearsal passed; the live upgrade preserved legacy data.
 
 ## Custom code implementation
 
@@ -94,5 +106,5 @@ versions remain unchanged; workflows containing code pin code-0.1.0.
 Seventeen backend cases passed, including errors/resource exhaustion, durable
 failed runs and review resume without repeating a confirmed transform. Nine graph
 contract/registry cases and two desktop/mobile authoring/inspection/error cases
-passed. Full integrated CI remains required before merge. This supplies custom
-logic primitives; the owner still writes and judges their agent.
+passed, followed by the complete combined CI gate. This supplies custom logic
+primitives; the owner still writes and judges their agent.

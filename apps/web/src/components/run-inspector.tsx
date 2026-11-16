@@ -7,18 +7,20 @@ import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { RotateCw, Check, X } from "lucide-react";
 
+export const runStatusLabels = {
+  queued: "Queued",
+  paused: "Needs review",
+  running: "Running",
+  completed: "Completed",
+  rejected: "Rejected",
+  interrupted: "Needs recovery",
+  cancelled: "Cancelled",
+  limited: "Limit reached",
+  failed: "Needs attention",
+};
+
 export function RunStatus({ status }: { status: RunSummary["status"] }) {
-  const label = {
-    queued: "Queued",
-    paused: "Needs review",
-    running: "Running",
-    completed: "Completed",
-    rejected: "Rejected",
-    interrupted: "Needs recovery",
-    cancelled: "Cancelled",
-    limited: "Limit reached",
-    failed: "Needs attention",
-  }[status];
+  const label = runStatusLabels[status];
   return (
     <span className={`run-status status-${status}`}>
       <i aria-hidden="true" />
