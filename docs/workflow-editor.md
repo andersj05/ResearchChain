@@ -72,3 +72,13 @@ Reproduce after `pnpm build` by setting `CI=1` for the command and running
 `pnpm test:e2e workflow-performance.spec.ts --workers=1`. CI also runs the test as
 part of its full browser suite and uploads metrics/screenshots with the results.
 Timing values are observations, not machine-dependent pass/fail thresholds.
+
+## Adjustable panels
+
+Drag the dividers beside Steps and Details to make room for your work. Focus a
+divider and use Left/Right; Shift moves farther, Home/End reaches its bounds,
+and Enter collapses or restores the adjacent sidebar. The Steps/Details buttons
+also toggle the panels. The canvas keeps at least 320 pixels of working width.
+Widths are remembered in this browser for the signed-in owner/workspace, separately
+from workflow edits and revisions. Below 850 pixels the canvas comes first and
+panels flow below it; returning to desktop restores the desktop layout.

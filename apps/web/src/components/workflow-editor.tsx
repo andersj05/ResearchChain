@@ -3,6 +3,7 @@
 import { Button } from "@ui-sdk/react/button";
 import { useEffect, useRef, useState } from "react";
 import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { WorkspacePanels } from "@/components/workspace-panels";
 import { ResearchSettingsEditor } from "@/components/research-settings";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
@@ -172,376 +173,388 @@ export function WorkflowEditor({
           {notice}
         </p>
       )}
-      <div
-        className={`editor-grid ${libraryOpen ? "" : "library-closed"} ${inspectorOpen ? "" : "inspector-closed"}`}
-        onBlurCapture={() => onSeal?.()}
-      >
-        <fieldset id="step-library" className="library" disabled={disabled} hidden={!libraryOpen}>
-          <div className="panel-heading">
-            <h2>Steps</h2>
-            <span className="count">{graph.nodes.length}</span>
-          </div>
-          <div className="node-library">
-            {(
-              [
-                "model",
-                "note",
-                "research",
-                "review",
-                "route",
-                "fork",
-                "loop",
-                "subgraph",
-              ] satisfies TemplateKind[]
-            ).map((kind) => (
-              <Button
-                key={kind}
-                className="library-button"
-                disabled={
-                  disabled ||
-                  graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) > 128 ||
-                  ((kind === "subgraph" || kind === "loop") &&
-                    (workflow.subgraphs?.length ?? 0) >= 32)
-                }
-                onClick={() => {
-                  const added = addTemplate(workflow, scope, kind, selectedId);
-                  onChange(added.workflow);
-                  addedStep.current = added.selected;
-                  selectNode(added.selected);
-                }}
-              >
-                <Plus size={14} aria-hidden="true" />
-                <span>
-                  Add {kind === "model" ? "model prompt" : nodeKinds[kind].label.toLowerCase()}
-                </span>
-              </Button>
-            ))}
-          </div>
-          <p className="field-hint">
-            {node
-              ? split
-                ? `Insert after the join for “${node.label}”.`
-                : `Insert ${node.kind === "finish" ? "before" : "after"} “${node.label}”.`
-              : "Insert before Finish."}
-          </p>
-          <div className="outline-heading">
-            <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
-            <span className="muted">{graph.edges.length} control connections</span>
-          </div>
-          <ol className="node-outline">
-            {graph.nodes.map((item) => (
-              <li key={item.id}>
+      <WorkspacePanels
+        libraryOpen={libraryOpen}
+        inspectorOpen={inspectorOpen}
+        onLibraryOpen={setLibraryOpen}
+        onInspectorOpen={setInspectorOpen}
+        onSeal={onSeal}
+        library={
+          <fieldset id="step-library" className="library" disabled={disabled} hidden={!libraryOpen}>
+            <div className="panel-heading">
+              <h2>Steps</h2>
+              <span className="count">{graph.nodes.length}</span>
+            </div>
+            <div className="node-library">
+              {(
+                [
+                  "model",
+                  "note",
+                  "research",
+                  "review",
+                  "route",
+                  "fork",
+                  "loop",
+                  "subgraph",
+                ] satisfies TemplateKind[]
+              ).map((kind) => (
                 <Button
-                  className="outline-row"
-                  aria-pressed={selectedId === item.id}
+                  key={kind}
+                  className="library-button"
+                  disabled={
+                    disabled ||
+                    graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) > 128 ||
+                    ((kind === "subgraph" || kind === "loop") &&
+                      (workflow.subgraphs?.length ?? 0) >= 32)
+                  }
                   onClick={() => {
-                    selectNode(item.id);
-                    document
-                      .getElementById(`workflow-node-${item.id}`)
-                      ?.focus({ preventScroll: true });
+                    const added = addTemplate(workflow, scope, kind, selectedId);
+                    onChange(added.workflow);
+                    addedStep.current = added.selected;
+                    selectNode(added.selected);
                   }}
                 >
-                  <span className="outline-label">{item.label}</span>
-                  <span className={`outline-kind kind-${item.kind}`}>
-                    {nodePresentation(item).shortLabel}
+                  <Plus size={14} aria-hidden="true" />
+                  <span>
+                    Add {kind === "model" ? "model prompt" : nodeKinds[kind].label.toLowerCase()}
                   </span>
-                  {graph.start_node === item.id && <small>Start</small>}
                 </Button>
-              </li>
-            ))}
-          </ol>
-          <details className="workflow-settings">
-            <summary>{scope ? "Subgraph settings" : "Workflow settings"}</summary>
-            <label>
-              {scope ? "Subgraph name" : "Workflow name"}
-              <input
-                value={graph.name}
-                maxLength={120}
-                onChange={(event) =>
-                  changeGraph({ ...graph, name: event.target.value }, "graph-name")
-                }
-              />
-            </label>
-            <label>
-              First step
-              <select
-                value={graph.start_node}
-                onChange={(event) => changeGraph({ ...graph, start_node: event.target.value })}
-              >
-                {graph.nodes.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              ))}
+            </div>
             <p className="field-hint">
-              {scope
-                ? "Changes apply to every reference to this version in the draft. Saved revisions stay pinned."
-                : "Save validates the complete workflow, including every nested definition."}
+              {node
+                ? split
+                  ? `Insert after the join for “${node.label}”.`
+                  : `Insert ${node.kind === "finish" ? "before" : "after"} “${node.label}”.`
+                : "Insert before Finish."}
             </p>
-          </details>
-          <details className="workflow-settings">
-            <summary>Execution limits</summary>
-            {(
-              [
-                ["max_node_executions", "Maximum step executions", 1, 10000],
-                ["max_active_seconds", "Maximum active seconds", 0.1, 3600],
-                ["max_concurrency", "Maximum parallel steps", 1, 16],
-              ] as const
-            ).map(([key, label, min, max]) => (
-              <label key={key}>
-                {label}
-                <input
-                  type="number"
-                  min={min}
-                  max={max}
-                  step={key === "max_active_seconds" ? "any" : 1}
-                  value={(workflow.budgets ?? defaults)[key]}
-                  onChange={(event) =>
-                    onChange(
-                      {
-                        ...workflow,
-                        schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
-                        budgets: {
-                          ...(workflow.budgets ?? defaults),
-                          [key]: event.target.valueAsNumber || min,
-                        },
-                      },
-                      `budget/${key}`,
-                    )
-                  }
-                />
-              </label>
-            ))}
-            <p className="field-hint">
-              Shared across the entire run, including subgraphs and loops. Time spent waiting for a
-              completed human review pause is excluded.
-            </p>
-          </details>
-          <ResearchSettingsEditor workflow={workflow} onChange={onChange} />
-          {!!workflow.subgraphs?.length && (
+            <div className="outline-heading">
+              <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
+              <span className="muted">{graph.edges.length} control connections</span>
+            </div>
+            <ol className="node-outline">
+              {graph.nodes.map((item) => (
+                <li key={item.id}>
+                  <Button
+                    className="outline-row"
+                    aria-pressed={selectedId === item.id}
+                    onClick={() => {
+                      selectNode(item.id);
+                      document
+                        .getElementById(`workflow-node-${item.id}`)
+                        ?.focus({ preventScroll: true });
+                    }}
+                  >
+                    <span className="outline-label">{item.label}</span>
+                    <span className={`outline-kind kind-${item.kind}`}>
+                      {nodePresentation(item).shortLabel}
+                    </span>
+                    {graph.start_node === item.id && <small>Start</small>}
+                  </Button>
+                </li>
+              ))}
+            </ol>
             <details className="workflow-settings">
-              <summary>Definitions ({workflow.subgraphs.length})</summary>
-              <p className="field-hint">
-                {unusedDefinitions} unused versions in this draft. Removing them leaves saved
-                revisions and their runs unchanged.
-              </p>
-              <Button
-                className="button small config-actions"
-                disabled={disabled || !unusedDefinitions}
-                onClick={() => onChange(pruned)}
-              >
-                Remove unused definitions
-              </Button>
-            </details>
-          )}
-        </fieldset>
-        <div className="canvas-panel" inert={disabled}>
-          <div className="canvas-heading">
-            <Button
-              className="button ghost"
-              aria-label="Toggle steps"
-              aria-expanded={libraryOpen}
-              aria-controls="step-library"
-              onClick={() => setLibraryOpen(!libraryOpen)}
-            >
-              <PanelLeft size={16} aria-hidden="true" />
-              Steps
-            </Button>
-            <Button
-              className="button ghost"
-              aria-label="Toggle details"
-              aria-expanded={inspectorOpen}
-              aria-controls="node-inspector"
-              onClick={() => setInspectorOpen(!inspectorOpen)}
-            >
-              <PanelRight size={16} aria-hidden="true" />
-              Details
-            </Button>
-          </div>
-          <WorkflowCanvas
-            key={scopeKey(scope)}
-            workflow={graph}
-            definitions={workflow.subgraphs}
-            selected={selectedId}
-            onSelect={selectNode}
-            onOpen={openSubgraph}
-            onConnect={(from, to) =>
-              changeGraph(connectPorts(graph, from, to), undefined, from.type !== "control")
-            }
-            onMove={(positions, details) =>
-              changeGraph(
-                {
-                  ...graph,
-                  nodes: graph.nodes.map((item) => {
-                    const position = positions[item.id] ?? item.position;
-                    return position.x === item.position.x && position.y === item.position.y
-                      ? item
-                      : { ...item, position };
-                  }),
-                },
-                details.reason === "move-key" ? "nudge" : undefined,
-              )
-            }
-          />
-          <p id="canvas-help" className="canvas-help">
-            Drag a card to move · Alt + arrows to nudge · Drag ports to connect · Enter on a port,
-            arrows, Enter to connect · Escape cancels · Scroll to pan · Ctrl/⌘ + scroll to zoom
-          </p>
-        </div>
-        <fieldset
-          id="node-inspector"
-          className="inspector"
-          aria-label="Node inspector"
-          disabled={disabled}
-          hidden={!inspectorOpen}
-        >
-          <div className="panel-heading">
-            <h2>Step details</h2>
-          </div>
-          {node ? (
-            <>
+              <summary>{scope ? "Subgraph settings" : "Workflow settings"}</summary>
               <label>
-                Step name
+                {scope ? "Subgraph name" : "Workflow name"}
                 <input
-                  ref={labelInput}
-                  value={node.label}
-                  maxLength={100}
-                  onChange={(event) => editNode({ label: event.target.value }, "label")}
+                  value={graph.name}
+                  maxLength={120}
+                  onChange={(event) =>
+                    changeGraph({ ...graph, name: event.target.value }, "graph-name")
+                  }
                 />
               </label>
               <label>
-                Step type
+                First step
                 <select
-                  disabled={node.kind !== "note" && node.kind !== "review"}
-                  value={node.kind}
-                  onChange={(event) =>
-                    editNode({
-                      kind: event.target.value as WorkflowNode["kind"],
-                      inputs: {},
-                      config: null,
-                    })
-                  }
+                  value={graph.start_node}
+                  onChange={(event) => changeGraph({ ...graph, start_node: event.target.value })}
                 >
-                  {Object.entries(nodeKinds)
-                    .filter(([kind]) => kind === node.kind || kind === "note" || kind === "review")
-                    .map(([kind, details]) => (
-                      <option key={kind} value={kind}>
-                        {kind === node.kind ? nodePresentation(node).label : details.label}
-                      </option>
-                    ))}
+                  {graph.nodes.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
                 </select>
               </label>
-              <label>
-                Instructions
-                <textarea
-                  rows={4}
-                  maxLength={6000}
-                  value={node.instructions}
-                  onChange={(event) =>
-                    editNode({ instructions: event.target.value }, "instructions")
-                  }
-                />
-              </label>
-              {node.kind === "note" && (
+              <p className="field-hint">
+                {scope
+                  ? "Changes apply to every reference to this version in the draft. Saved revisions stay pinned."
+                  : "Save validates the complete workflow, including every nested definition."}
+              </p>
+            </details>
+            <details className="workflow-settings">
+              <summary>Execution limits</summary>
+              {(
+                [
+                  ["max_node_executions", "Maximum step executions", 1, 10000],
+                  ["max_active_seconds", "Maximum active seconds", 0.1, 3600],
+                  ["max_concurrency", "Maximum parallel steps", 1, 16],
+                ] as const
+              ).map(([key, label, min, max]) => (
+                <label key={key}>
+                  {label}
+                  <input
+                    type="number"
+                    min={min}
+                    max={max}
+                    step={key === "max_active_seconds" ? "any" : 1}
+                    value={(workflow.budgets ?? defaults)[key]}
+                    onChange={(event) =>
+                      onChange(
+                        {
+                          ...workflow,
+                          schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
+                          budgets: {
+                            ...(workflow.budgets ?? defaults),
+                            [key]: event.target.valueAsNumber || min,
+                          },
+                        },
+                        `budget/${key}`,
+                      )
+                    }
+                  />
+                </label>
+              ))}
+              <p className="field-hint">
+                Shared across the entire run, including subgraphs and loops. Time spent waiting for
+                a completed human review pause is excluded.
+              </p>
+            </details>
+            <ResearchSettingsEditor workflow={workflow} onChange={onChange} />
+            {!!workflow.subgraphs?.length && (
+              <details className="workflow-settings">
+                <summary>Definitions ({workflow.subgraphs.length})</summary>
                 <p className="field-hint">
-                  Notes copy text; they do not call a model. Use Add model prompt for AI
-                  instructions.
+                  {unusedDefinitions} unused versions in this draft. Removing them leaves saved
+                  revisions and their runs unchanged.
                 </p>
-              )}
-              <NodeConfiguration
-                workflow={workflow}
-                graph={graph}
-                node={node}
-                scope={scope}
-                onGraph={(next, group) => changeGraph(next, group, true)}
-                onWorkflow={onChange}
-                onEdit={editNode}
-                onOpen={openSubgraph}
-              />
-              <fieldset className="config-fields">
-                <legend>Control connections</legend>
-                {controlOutputs(node).map((port) => (
-                  <label key={port}>
-                    {port === "next" ? "Next step" : `Next step (${port})`}
-                    <select
-                      value={
-                        graph.edges.find(
-                          (edge) =>
-                            edge.source === node.id && (edge.source_port ?? "next") === port,
-                        )?.target ?? ""
-                      }
-                      onChange={(event) =>
-                        changeGraph({
-                          ...graph,
-                          edges: [
-                            ...graph.edges.filter(
-                              (edge) =>
-                                edge.source !== node.id || (edge.source_port ?? "next") !== port,
-                            ),
-                            ...(event.target.value
-                              ? [
-                                  {
-                                    source: node.id,
-                                    target: event.target.value,
-                                    source_port: port,
-                                    target_port: "in",
-                                  },
-                                ]
-                              : []),
-                          ],
-                        })
-                      }
-                    >
-                      <option value="">No connection</option>
-                      {graph.nodes
-                        .filter((item) => item.id !== node.id)
-                        .map((item) => (
-                          <option key={item.id} value={item.id}>
-                            {item.label}
-                          </option>
-                        ))}
-                    </select>
-                  </label>
-                ))}
-                <p className="field-hint">
-                  {node.kind === "finish"
-                    ? "Finish ends this graph."
-                    : "Draw from an existing output to reconnect it. Each control output must lead to a step."}
-                </p>
-              </fieldset>
-              <details className="node-advanced">
-                <summary>Step identifier</summary>
-                <code>{node.id}</code>
+                <Button
+                  className="button small config-actions"
+                  disabled={disabled || !unusedDefinitions}
+                  onClick={() => onChange(pruned)}
+                >
+                  Remove unused definitions
+                </Button>
               </details>
+            )}
+          </fieldset>
+        }
+        canvas={
+          <div className="canvas-panel" inert={disabled}>
+            <div className="canvas-heading">
               <Button
-                className="button danger"
-                disabled={disabled || node.kind === "finish" || !!ownedJoin}
-                onClick={() => {
-                  const next = removeStep(graph, node.id);
-                  const successor = graph.edges.find((edge) => edge.source === node.id)?.target;
-                  changeGraph(next);
-                  selectNode(
-                    next.nodes.some((item) => item.id === successor) ? successor! : next.start_node,
-                  );
-                }}
+                className="button ghost"
+                aria-label="Toggle steps"
+                aria-expanded={libraryOpen}
+                aria-controls="step-library"
+                onClick={() => setLibraryOpen(!libraryOpen)}
               >
-                <Trash2 size={14} aria-hidden="true" />
-                {split ? "Remove split and branches" : "Remove step"}
+                <PanelLeft size={16} aria-hidden="true" />
+                Steps
               </Button>
-              {ownedJoin && (
-                <p className="field-hint">
-                  This join belongs to a split. Remove the split to remove its branches and join
-                  together.
-                </p>
-              )}
-            </>
-          ) : (
-            <p className="muted">Select a step to edit its instructions and connections.</p>
-          )}
-        </fieldset>
-      </div>
+              <Button
+                className="button ghost"
+                aria-label="Toggle details"
+                aria-expanded={inspectorOpen}
+                aria-controls="node-inspector"
+                onClick={() => setInspectorOpen(!inspectorOpen)}
+              >
+                <PanelRight size={16} aria-hidden="true" />
+                Details
+              </Button>
+            </div>
+            <WorkflowCanvas
+              key={scopeKey(scope)}
+              workflow={graph}
+              definitions={workflow.subgraphs}
+              selected={selectedId}
+              onSelect={selectNode}
+              onOpen={openSubgraph}
+              onConnect={(from, to) =>
+                changeGraph(connectPorts(graph, from, to), undefined, from.type !== "control")
+              }
+              onMove={(positions, details) =>
+                changeGraph(
+                  {
+                    ...graph,
+                    nodes: graph.nodes.map((item) => {
+                      const position = positions[item.id] ?? item.position;
+                      return position.x === item.position.x && position.y === item.position.y
+                        ? item
+                        : { ...item, position };
+                    }),
+                  },
+                  details.reason === "move-key" ? "nudge" : undefined,
+                )
+              }
+            />
+            <p id="canvas-help" className="canvas-help">
+              Drag a card to move · Alt + arrows to nudge · Drag ports to connect · Enter on a port,
+              arrows, Enter to connect · Escape cancels · Scroll to pan · Ctrl/⌘ + scroll to zoom
+            </p>
+          </div>
+        }
+        inspector={
+          <fieldset
+            id="node-inspector"
+            className="inspector"
+            aria-label="Node inspector"
+            disabled={disabled}
+            hidden={!inspectorOpen}
+          >
+            <div className="panel-heading">
+              <h2>Step details</h2>
+            </div>
+            {node ? (
+              <>
+                <label>
+                  Step name
+                  <input
+                    ref={labelInput}
+                    value={node.label}
+                    maxLength={100}
+                    onChange={(event) => editNode({ label: event.target.value }, "label")}
+                  />
+                </label>
+                <label>
+                  Step type
+                  <select
+                    disabled={node.kind !== "note" && node.kind !== "review"}
+                    value={node.kind}
+                    onChange={(event) =>
+                      editNode({
+                        kind: event.target.value as WorkflowNode["kind"],
+                        inputs: {},
+                        config: null,
+                      })
+                    }
+                  >
+                    {Object.entries(nodeKinds)
+                      .filter(
+                        ([kind]) => kind === node.kind || kind === "note" || kind === "review",
+                      )
+                      .map(([kind, details]) => (
+                        <option key={kind} value={kind}>
+                          {kind === node.kind ? nodePresentation(node).label : details.label}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <label>
+                  Instructions
+                  <textarea
+                    rows={4}
+                    maxLength={6000}
+                    value={node.instructions}
+                    onChange={(event) =>
+                      editNode({ instructions: event.target.value }, "instructions")
+                    }
+                  />
+                </label>
+                {node.kind === "note" && (
+                  <p className="field-hint">
+                    Notes copy text; they do not call a model. Use Add model prompt for AI
+                    instructions.
+                  </p>
+                )}
+                <NodeConfiguration
+                  workflow={workflow}
+                  graph={graph}
+                  node={node}
+                  scope={scope}
+                  onGraph={(next, group) => changeGraph(next, group, true)}
+                  onWorkflow={onChange}
+                  onEdit={editNode}
+                  onOpen={openSubgraph}
+                />
+                <fieldset className="config-fields">
+                  <legend>Control connections</legend>
+                  {controlOutputs(node).map((port) => (
+                    <label key={port}>
+                      {port === "next" ? "Next step" : `Next step (${port})`}
+                      <select
+                        value={
+                          graph.edges.find(
+                            (edge) =>
+                              edge.source === node.id && (edge.source_port ?? "next") === port,
+                          )?.target ?? ""
+                        }
+                        onChange={(event) =>
+                          changeGraph({
+                            ...graph,
+                            edges: [
+                              ...graph.edges.filter(
+                                (edge) =>
+                                  edge.source !== node.id || (edge.source_port ?? "next") !== port,
+                              ),
+                              ...(event.target.value
+                                ? [
+                                    {
+                                      source: node.id,
+                                      target: event.target.value,
+                                      source_port: port,
+                                      target_port: "in",
+                                    },
+                                  ]
+                                : []),
+                            ],
+                          })
+                        }
+                      >
+                        <option value="">No connection</option>
+                        {graph.nodes
+                          .filter((item) => item.id !== node.id)
+                          .map((item) => (
+                            <option key={item.id} value={item.id}>
+                              {item.label}
+                            </option>
+                          ))}
+                      </select>
+                    </label>
+                  ))}
+                  <p className="field-hint">
+                    {node.kind === "finish"
+                      ? "Finish ends this graph."
+                      : "Draw from an existing output to reconnect it. Each control output must lead to a step."}
+                  </p>
+                </fieldset>
+                <details className="node-advanced">
+                  <summary>Step identifier</summary>
+                  <code>{node.id}</code>
+                </details>
+                <Button
+                  className="button danger"
+                  disabled={disabled || node.kind === "finish" || !!ownedJoin}
+                  onClick={() => {
+                    const next = removeStep(graph, node.id);
+                    const successor = graph.edges.find((edge) => edge.source === node.id)?.target;
+                    changeGraph(next);
+                    selectNode(
+                      next.nodes.some((item) => item.id === successor)
+                        ? successor!
+                        : next.start_node,
+                    );
+                  }}
+                >
+                  <Trash2 size={14} aria-hidden="true" />
+                  {split ? "Remove split and branches" : "Remove step"}
+                </Button>
+                {ownedJoin && (
+                  <p className="field-hint">
+                    This join belongs to a split. Remove the split to remove its branches and join
+                    together.
+                  </p>
+                )}
+              </>
+            ) : (
+              <p className="muted">Select a step to edit its instructions and connections.</p>
+            )}
+          </fieldset>
+        }
+      />
     </>
   );
 }
