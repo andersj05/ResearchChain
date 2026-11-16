@@ -80,6 +80,7 @@ test("refresh after an unconfirmed start retains the same request identity", asy
   });
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect.poll(() => firstId).toBeTruthy();
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await expect(page.getByRole("button", { name: "Run workflow", exact: true })).toBeEnabled();
   const key = ownerSession.prefix + ".run.pending";
   expect(await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key)!).id, key)).toBe(
