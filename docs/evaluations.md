@@ -110,5 +110,6 @@ own the generated API contract. Tests use synthetic sources and an injected prov
 in isolated schemas. The workbench supports reference registration, versioned cases,
 recorded/imported candidates, blind judgments, judges, calibration and archives.
 Real held-out topic collection, independent human labeling and calibrated judge
-assessment still require an actual evaluation study. No fine-tuning or score-only
+assessment follow the [evaluation study protocol](evaluation-study.md). Prepared
+cases and unreviewed outputs are not quality results. No fine-tuning or score-only
 optimization is implemented.
