@@ -112,8 +112,17 @@ export function Workbench() {
         if (!active) return;
         setAgents(agentList);
         const runId = parameters.get("run");
-        const restored = runId ? await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`) : null;
-        let agentId = parameters.get("agent") ?? restored?.agent_id ?? null;
+        const restored = runId
+          ? await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`).catch((cause) => {
+              // An unconfirmed admission may not exist yet. Restore its pinned
+              // workflow and inputs so retry keeps the exact request identity.
+              if (cause instanceof ApiError && cause.status === 404 && pending?.id === runId)
+                return null;
+              throw cause;
+            })
+          : null;
+        const unconfirmed = pending?.id === runId ? pending : null;
+        let agentId = parameters.get("agent") ?? restored?.agent_id ?? unconfirmed?.agent_id ?? null;
         if (!agentId && !parameters.has("revision") && !runId) {
           try {
             agentId = localStorage.getItem(storagePrefix + ".active-agent");
@@ -130,6 +139,7 @@ export function Workbench() {
         const revisionId =
           parameters.get("revision") ??
           restored?.revision_id ??
+          unconfirmed?.revision_id ??
           detail?.revision.id ??
           savedRevisions[0]?.id;
         if (detail && revisionId && !versions?.some((item) => item.revision.id === revisionId))
@@ -170,7 +180,9 @@ export function Workbench() {
           setMessage("Saved run restored.");
         } else
           setMessage(
-            draft
+            unconfirmed
+              ? "Unconfirmed run restored. Start again with the same inputs to retry this request."
+              : draft
               ? "Agent draft restored from this browser."
               : latest
                 ? `Loaded revision ${latest.number}.`
@@ -521,7 +533,9 @@ export function Workbench() {
   }
 
   async function startRun() {
-    const pinned = await saveRevision();
+    const pinned = saved && pendingStart.current?.revision_id === revision?.id &&
+      (pendingStart.current.agent_id ?? null) === (activeAgent?.id ?? null)
+      ? revision : await saveRevision();
     if (
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
