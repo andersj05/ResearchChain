@@ -31,7 +31,7 @@ def execute_code(config: CodeConfig, inputs: CodeInputs) -> CodeExecution:
             # Provider credentials, database configuration and owner secrets must
             # not be inherited. JS has no Python/OS bridge even inside this child.
             env={key: value for key, value in os.environ.items() if key.upper() == "SYSTEMROOT"},
-            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
+            creationflags=int(getattr(subprocess, "CREATE_NO_WINDOW", 0)),
             check=False,
         )
     except subprocess.TimeoutExpired as error:
