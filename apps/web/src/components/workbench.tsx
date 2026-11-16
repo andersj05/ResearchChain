@@ -123,7 +123,8 @@ export function Workbench() {
             })
           : null;
         const unconfirmed = pending?.id === runId ? pending : null;
-        let agentId = parameters.get("agent") ?? restored?.agent_id ?? unconfirmed?.agent_id ?? null;
+        let agentId =
+          parameters.get("agent") ?? restored?.agent_id ?? unconfirmed?.agent_id ?? null;
         if (!agentId && !parameters.has("revision") && !runId) {
           try {
             agentId = localStorage.getItem(storagePrefix + ".active-agent");
@@ -184,10 +185,10 @@ export function Workbench() {
             unconfirmed
               ? "Unconfirmed run restored. Start again with the same inputs to retry this request."
               : draft
-              ? "Agent draft restored from this browser."
-              : latest
-                ? `Loaded revision ${latest.number}.`
-                : "Ready. Create an agent or edit this workflow.",
+                ? "Agent draft restored from this browser."
+                : latest
+                  ? `Loaded revision ${latest.number}.`
+                  : "Ready. Create an agent or edit this workflow.",
           );
         const view = parameters.get("view");
         if (
@@ -534,9 +535,12 @@ export function Workbench() {
   }
 
   async function startRun() {
-    const pinned = saved && pendingStart.current?.revision_id === revision?.id &&
+    const pinned =
+      saved &&
+      pendingStart.current?.revision_id === revision?.id &&
       (pendingStart.current.agent_id ?? null) === (activeAgent?.id ?? null)
-      ? revision : await saveRevision();
+        ? revision
+        : await saveRevision();
     if (
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
