@@ -4,7 +4,7 @@ import { Button } from "@ui-sdk/react/button";
 import { useEffect, useRef, useState } from "react";
 import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { ResearchSettingsEditor } from "@/components/research-settings";
-import { nodeKinds } from "@/components/node-kind";
+import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import {
   addTemplate,
@@ -243,7 +243,7 @@ export function WorkflowEditor({
                 >
                   <span className="outline-label">{item.label}</span>
                   <span className={`outline-kind kind-${item.kind}`}>
-                    {nodeKinds[item.kind].shortLabel}
+                    {nodePresentation(item).shortLabel}
                   </span>
                   {graph.start_node === item.id && <small>Start</small>}
                 </Button>
@@ -428,7 +428,7 @@ export function WorkflowEditor({
                     .filter(([kind]) => kind === node.kind || kind === "note" || kind === "review")
                     .map(([kind, details]) => (
                       <option key={kind} value={kind}>
-                        {details.label}
+                        {kind === node.kind ? nodePresentation(node).label : details.label}
                       </option>
                     ))}
                 </select>

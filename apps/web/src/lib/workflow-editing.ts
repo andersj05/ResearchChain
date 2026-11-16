@@ -230,14 +230,31 @@ function insertFragment<G extends Graph>(
 
 export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, selected: string): G {
   const anchor = insertionAnchor(graph, selected);
+  const nextId =
+    anchor?.kind === "finish"
+      ? anchor.id
+      : graph.edges.find((item) => item.source === anchor?.id)?.target;
+  const finish = graph.nodes.find((node) => node.id === nextId && node.kind === "finish");
   const positioned = {
     ...step,
-    position: {
-      x: anchor?.position.x ?? 60,
-      y: Math.min(9700, Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 180),
-    },
+    position: finish
+      ? { ...finish.position }
+      : {
+          x: anchor?.position.x ?? 60,
+          y: Math.min(9700, Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 260),
+        },
   };
-  return insertFragment(graph, [positioned], [], step.id, step.id, selected);
+  const layout = finish
+    ? {
+        ...graph,
+        nodes: graph.nodes.map((node) =>
+          node.id === finish.id
+            ? { ...node, position: { ...node.position, y: Math.min(10000, node.position.y + 260) } }
+            : node,
+        ),
+      }
+    : graph;
+  return insertFragment(layout, [positioned], [], step.id, step.id, selected);
 }
 
 export function addTemplate(

@@ -1,3 +1,5 @@
+import type { WorkflowNode } from "@/lib/workflow";
+
 export const nodeKinds = {
   research: { label: "Hypothesis research", shortLabel: "Research" },
   note: { label: "Research note", shortLabel: "Note" },
@@ -12,3 +14,9 @@ export const nodeKinds = {
   subgraph: { label: "Subgraph", shortLabel: "Subgraph" },
   finish: { label: "Finish", shortLabel: "Finish" },
 };
+
+export function nodePresentation(node: WorkflowNode) {
+  return node.config?.type === "research" && node.config.stage === "custom"
+    ? { label: "Model prompt", shortLabel: "Model" }
+    : nodeKinds[node.kind];
+}
