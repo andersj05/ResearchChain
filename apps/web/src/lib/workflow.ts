@@ -17,7 +17,10 @@ export type RunSnapshot = components["schemas"]["RunSnapshot"];
 export type RunSummary = components["schemas"]["RunSummary"];
 export type RunRequest = components["schemas"]["RunRequest"];
 export type CommandReceipt = components["schemas"]["CommandReceipt"];
-export type RevisionSummary = components["schemas"]["RevisionSummary"];
+export type RevisionSummary = components["schemas"]["RevisionSummary"] & { agent_version?: number };
+export type AgentSummary = components["schemas"]["AgentSummary"];
+export type AgentDetail = components["schemas"]["AgentDetail"];
+export type AgentVersion = components["schemas"]["AgentVersion"];
 export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
 

@@ -31,10 +31,11 @@ Delivery status as of 2026-11-16:
 - Canvas repair merged in [PR #39](https://github.com/andersj05/ResearchChain/pull/39).
   CI passed 448 backend and 93 browser tests, including the original mid-drag regression.
 - Settings [PR #40](https://github.com/andersj05/ResearchChain/pull/40) and adjustable
-  sidebars [PR #41](https://github.com/andersj05/ResearchChain/pull/41) are under CI review.
+  sidebars [PR #41](https://github.com/andersj05/ResearchChain/pull/41) are merged after full CI.
 - The live request allowance was changed to 1,000/rolling 24 hours, policy revision 2,
   at the owner's explicit request. No requests were submitted. Model visibility is pending.
-- Agent identity/switching, shell/navigation, custom code and data views remain pending.
+- Agent identity/switching is implemented and awaiting full CI and upgrade verification.
+  Shell/navigation, custom code and data views remain pending.
 
 Items are complete only after a merged PR and verified outcome. Existing
 PR #38 delivered the first builder baseline; it does not complete this feedback.
@@ -64,3 +65,19 @@ resize, custom-code errors/timeouts and durable results, model visibility, and n
 layouts. Run pnpm check and applicable browser coverage before each code delivery.
 Preserve existing private records; stop the live app only after fencing admission
 and observing an idle queue, then restore it after test and upgrade work.
+
+## Named-agent implementation
+
+Named agents now have stable IDs and ordered version histories separate from the
+shared immutable workflow documents. The selector creates blank agents or copies a
+workflow, restores per-agent browser drafts and run inputs, and reloads a server
+head without silently overwriting a competing save. Runs pin the exact agent and
+its name at admission; identical workflow content does not mix their histories.
+Legacy records remain unassigned and available in workspace-wide history.
+
+Focused verification: five backend tests cover retry identity, conflicting/concurrent
+saves, intentional reverts, exact run ownership and protected endpoints. Three new
+browser cases cover desktop/mobile switching, refresh recovery, cross-agent run
+iteration with Undo, and stale-tab conflict recovery; twelve existing builder and
+canvas authoring checks also passed with synthetic providers. Full CI and the
+schema-12 backup/upgrade rehearsal remain required before live delivery.

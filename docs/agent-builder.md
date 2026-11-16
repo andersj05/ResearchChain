@@ -6,8 +6,10 @@ saved pilots are optional examples. Evaluating them is not required to start.
 
 ## First experiment
 
-1. Open Workflow and select **New workflow**. This creates only a Finish step;
-   saved revisions and runs remain available. Name it under **Workflow settings**.
+1. Select **New agent**, enter a name and create it. A blank agent starts with a
+   Finish step; optionally copy the current workflow. The **Agent** selector shows
+   what you are editing and switches between agents. Saved versions and runs belong
+   to their agent; existing unassigned workflows remain available.
 2. Select **Add model prompt**. Give the step a name and write your Instructions.
    **Custom instructions** follows your task rather than requiring hypothesis
    formation. The optional hypothesis, challenge and revision behaviors retain
@@ -32,11 +34,23 @@ saved pilots are optional examples. Evaluating them is not required to start.
    to its own revision. Prior review feedback is not automatically copied into a
    new experiment; incorporate it in your prompt/brief if you want it reused.
 
-New workflow, templates and loading a revision are undoable workflow edits. Run
-setup inputs are separate from workflow undo. **Save draft** keeps the workflow in
-this browser; **Export JSON** makes a portable copy. Save a revision before leaving
-or refreshing for durable history. Unsaved workflow edits trigger a browser warning.
-There is no automatic draft recovery after a crash.
+Templates and loading a version are undoable workflow edits. Switching agents starts
+that agent's own undo history. Named-agent drafts, brief, evidence selection and
+account choice recover from this browser after switching or refreshing; **Save
+revision** keeps a durable server version. Browser storage can be cleared or denied,
+so use saved versions or **Export JSON** for work you need to keep. **Save draft** is
+also available for unassigned workflows. Run inputs are separate from workflow undo.
+
+Renaming the workflow and saving renames its agent. Two agents can share identical
+workflow content while their runs remain separate. Older runs retain their original
+agent name and exact workflow. **Iterate from this run** selects its agent, restores
+its workflow and inputs, and leaves the original run unchanged. Undo can recover the
+replaced draft. Unassigned mode shows workspace-wide history for legacy records.
+
+If another tab saves first, a conflicting save keeps your draft and explains the
+conflict. **Load latest** loads the current server version; Undo restores your draft
+so you can combine your changes and save again. A local draft is never silently
+accepted as the latest server version.
 
 ## Available controls and boundaries
 
