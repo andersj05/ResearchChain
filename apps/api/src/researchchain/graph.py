@@ -16,7 +16,7 @@ class Position(StrictModel):
 
 
 NodeKind = Literal[
-    "note", "review", "finish", "route", "fork", "join", "loop", "subgraph", "research"
+    "note", "review", "finish", "route", "fork", "join", "loop", "subgraph", "research", "code"
 ]
 PortType = Literal["control", "text", "number"]
 
@@ -97,6 +97,14 @@ class ResearchConfig(StrictModel):
         return self
 
 
+class CodeConfig(StrictModel):
+    type: Literal["code"] = "code"
+    language: Literal["javascript"] = "javascript"
+    runtime: Literal["quickjs-ng-0.18.0.1"] = "quickjs-ng-0.18.0.1"
+    source: str = Field(min_length=1, max_length=20000, pattern=r"^[^\x00]*$")
+    timeout_seconds: float = Field(default=1, ge=0.05, le=5, allow_inf_nan=False)
+
+
 class ResearchLimits(StrictModel):
     max_model_calls: int = Field(default=3, ge=0, le=100)
     max_tool_calls: int = Field(default=3, ge=0, le=100)
@@ -114,7 +122,7 @@ class ResearchSettings(StrictModel):
 
 
 NodeConfig = Annotated[
-    RouteConfig | ForkConfig | SubgraphConfig | LoopConfig | ResearchConfig,
+    RouteConfig | ForkConfig | SubgraphConfig | LoopConfig | ResearchConfig | CodeConfig,
     Field(discriminator="type"),
 ]
 
@@ -156,12 +164,14 @@ class SubgraphDefinition(GraphDefinition):
 
 OUTPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
+    "code": {"text": "text", "number": "number"},
     "review": {"decision": "text", "feedback": "text"},
     "research": {"text": "text"},
     "loop": {"iterations": "number"},
 }
 INPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
+    "code": {"text": "text", "number": "number"},
     "research": {"context": "text", "feedback": "text"},
 }
 
@@ -226,7 +236,7 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
         if legacy:
             if node.kind not in ("note", "review", "finish") or node.config or node.inputs:
                 raise ValueError("Version 0.1 only supports note, review, and finish nodes.")
-        elif node.kind in ("route", "fork", "loop", "subgraph", "research"):
+        elif node.kind in ("route", "fork", "loop", "subgraph", "research", "code"):
             if node.config is None or node.config.type != node.kind:
                 raise ValueError(
                     f"Node {node.id} requires its registered {node.kind} configuration."

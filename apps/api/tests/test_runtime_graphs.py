@@ -223,9 +223,15 @@ def test_registry_and_openapi_keep_typed_workflow_contracts(client: TestClient) 
         "loop",
         "subgraph",
         "research",
+        "code",
     }
     assert {"name": "text", "type": "text"} in registry["note"]["outputs"]
     assert "max_iterations" in registry["loop"]["config_schema"]["properties"]
+    assert {"name": "number", "type": "number"} in registry["code"]["outputs"]
+    assert {"name": "text", "type": "text"} in registry["code"]["inputs"]
+    code = registry["code"]["config_schema"]["properties"]
+    assert code["language"]["const"] == "javascript"
+    assert code["timeout_seconds"]["maximum"] == 5
     schemas = client.get("/api/openapi.json").json()["components"]["schemas"]
     assert "nodes" in schemas["Workflow"]["properties"]
     assert "Workflow-Output" not in schemas

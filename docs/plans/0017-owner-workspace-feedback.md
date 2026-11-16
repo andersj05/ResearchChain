@@ -81,3 +81,18 @@ browser cases cover desktop/mobile switching, refresh recovery, cross-agent run
 iteration with Undo, and stale-tab conflict recovery; twelve existing builder and
 canvas authoring checks also passed with synthetic providers. Full CI and the
 schema-12 backup/upgrade rehearsal remain required before live delivery.
+
+## Custom code implementation
+
+Owner-authored synchronous JavaScript now has an editor, typed text/number wiring,
+a pinned QuickJS-NG runtime in a disposable child process, bounded CPU/memory/stack
+and output, and durable input/output/source-hash inspection. It makes no model
+requests and exposes no host callbacks, files, credentials, modules or network.
+See [the code-step guide](../custom-code.md). Existing workflow hashes and compiler
+versions remain unchanged; workflows containing code pin code-0.1.0.
+
+Seventeen backend cases passed, including errors/resource exhaustion, durable
+failed runs and review resume without repeating a confirmed transform. Nine graph
+contract/registry cases and two desktop/mobile authoring/inspection/error cases
+passed. Full integrated CI remains required before merge. This supplies custom
+logic primitives; the owner still writes and judges their agent.

@@ -59,12 +59,12 @@ accepted as the latest server version.
 | Authoring               | Blank workflows; custom model instructions; named steps; source and feedback bindings                                                                      |
 | Control flow            | Conditions, parallel branches/joins, bounded loops, nested subgraphs, human reviews                                                                        |
 | Model                   | One model per workflow, chosen from the connected ChatGPT account; no paid API fallback                                                                    |
-| Tools                   | Read pinned captured evidence; notes and graph controls; no web search, code runner or arbitrary external tool registration                                |
+| Tools                   | Read pinned captured evidence; notes and graph controls; [bounded JavaScript steps](custom-code.md); no web search or arbitrary external tools             |
 | Results                 | Custom answers in the structured result's conclusion (up to 6,000 characters); optional hypotheses; saved requests, responses, usage and version manifests |
 | Iteration               | Immutable revisions, original-run inspection, copied experiment inputs, manual feedback and separate new runs                                              |
 | Optional editorial work | Reports, style guides, annotations, blind comparisons and judge calibration records                                                                        |
 
-The custom step still uses a structured result envelope for inspectable, durable
+The custom model step still uses a structured result envelope for inspectable, durable
 outputs. It does not force hypotheses, alternatives or a research strategy. Output
 format customization, per-step models and new tool integrations require further
 implementation; they are not controls hidden elsewhere in the editor. No automatic
@@ -90,6 +90,12 @@ where the UI or available capabilities get in the way. Helpful feedback includes
 the intended action, expected behavior, observed behavior, and workflow/run/revision
 identifiers. No pilot label, finished agent or calibrated judge is required for this
 handoff. External hosting and operational deployment remain separate work.
+
+## Custom logic
+
+**Add custom code** runs your own JavaScript transformations with text/number inputs
+and outputs. It is separate from model prompts and uses no model allowance. Read
+[the code-step guide](custom-code.md) for examples, limits and saved-result inspection.
 
 ## Where the model is used
 

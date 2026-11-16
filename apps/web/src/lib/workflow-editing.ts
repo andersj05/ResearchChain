@@ -11,7 +11,7 @@ import type {
 
 export type GraphScope = SubgraphRef | null;
 export type TemplateKind =
-  "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research" | "model";
+  "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research" | "model" | "code";
 export type Port = {
   key: string;
   node: string;
@@ -88,6 +88,14 @@ export function portsFor(node: WorkflowNode): Port[] {
     ...(node.kind === "note" || node.kind === "research" ? [port("output", "text", "text")] : []),
     ...(node.kind === "research"
       ? [port("input", "context", "text"), port("input", "feedback", "text")]
+      : []),
+    ...(node.kind === "code"
+      ? [
+          port("input", "text", "text"),
+          port("input", "number", "number"),
+          port("output", "text", "text"),
+          port("output", "number", "number"),
+        ]
       : []),
     ...(node.kind === "review"
       ? [port("output", "decision", "text"), port("output", "feedback", "text")]
@@ -273,6 +281,21 @@ export function addTemplate(
     workflow.schema_version === "0.1" && graph.nodes.length >= 32
       ? { ...workflow, schema_version: "0.2" as const }
       : workflow;
+  if (kind === "code") {
+    const step: WorkflowNode = {
+      ...makeNode(id, "code", "Custom code"),
+      config: {
+        type: "code",
+        language: "javascript",
+        runtime: "quickjs-ng-0.18.0.1",
+        source: "return { text: inputs.text, number: inputs.number };",
+        timeout_seconds: 1,
+      },
+      inputs: { text: { source: "brief" } },
+    };
+    next = { ...next, schema_version: next.schema_version === "0.3" ? "0.3" : "0.2" };
+    return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
+  }
   if (kind === "research" || kind === "model") {
     const step = {
       ...makeNode(id, "research", kind === "model" ? "Model prompt" : "Form hypotheses"),

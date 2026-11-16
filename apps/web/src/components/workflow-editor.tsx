@@ -193,6 +193,7 @@ export function WorkflowEditor({
               {(
                 [
                   "model",
+                  "code",
                   "note",
                   "research",
                   "review",
@@ -460,17 +461,19 @@ export function WorkflowEditor({
                       ))}
                   </select>
                 </label>
-                <label>
-                  Instructions
-                  <textarea
-                    rows={4}
-                    maxLength={6000}
-                    value={node.instructions}
-                    onChange={(event) =>
-                      editNode({ instructions: event.target.value }, "instructions")
-                    }
-                  />
-                </label>
+                {node.kind !== "code" && (
+                  <label>
+                    Instructions
+                    <textarea
+                      rows={4}
+                      maxLength={6000}
+                      value={node.instructions}
+                      onChange={(event) =>
+                        editNode({ instructions: event.target.value }, "instructions")
+                      }
+                    />
+                  </label>
+                )}
                 {node.kind === "note" && (
                   <p className="field-hint">
                     Notes copy text; they do not call a model. Use Add model prompt for AI
