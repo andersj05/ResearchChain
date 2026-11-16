@@ -72,3 +72,12 @@ Reproduce after `pnpm build` by setting `CI=1` for the command and running
 `pnpm test:e2e workflow-performance.spec.ts --workers=1`. CI also runs the test as
 part of its full browser suite and uploads metrics/screenshots with the results.
 Timing values are observations, not machine-dependent pass/fail thresholds.
+
+## Canvas alignment
+
+Steps snap to a 10-pixel world grid during dragging and on release. Boxes, ports
+and paths share the snapped preview; one completed drag remains one undoable edit.
+Escape cancels the preview. Alt+arrow nudges by 10 pixels; Shift increases it to 100.
+The quiet dot grid pans and zooms with the workflow and coarsens in an overview.
+Panning, Fit view and zoom do not change saved positions. Imported coordinates
+remain intact until a step is moved; old revisions and pinned runs are unchanged.

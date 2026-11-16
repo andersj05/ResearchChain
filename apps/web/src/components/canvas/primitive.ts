@@ -24,12 +24,22 @@ type CanvasOptions = {
 };
 type MovingState = { positions: Record<string, MovePoint>; moving: MoveDraft | null };
 
+const gridStep = 10;
+const positionLimit = 10000;
+const snap = (value: number) =>
+  Math.max(-positionLimit, Math.min(positionLimit, Math.round(value / gridStep) * gridStep));
+
+// Share one preview between the box and its ports/paths. The SDK commits the same
+// grid and bounds on release; live positions never enter document history.
+function nodePoint(state: MovingState, key: string): MovePoint {
+  const at = state.positions[key] ?? { x: 0, y: 0 };
+  const draft = state.moving?.keys.includes(key) ? state.moving : null;
+  return draft ? { x: snap(at.x + draft.dx), y: snap(at.y + draft.dy) } : at;
+}
 function portPoint(state: MovingState, port?: CanvasPort): MovePoint | undefined {
-  if (!port) return;
-  const at = state.positions[port.node];
-  if (!at) return;
-  const draft = state.moving?.keys.includes(port.node) ? state.moving : null;
-  return { x: at.x + port.offset.x + (draft?.dx ?? 0), y: at.y + port.offset.y + (draft?.dy ?? 0) };
+  if (!port || !state.positions[port.node]) return;
+  const at = nodePoint(state, port.node);
+  return { x: at.x + port.offset.x, y: at.y + port.offset.y };
 }
 function curve(from?: MovePoint, to?: MovePoint) {
   if (!from || !to) return "";
@@ -71,8 +81,13 @@ export const workflowCanvas = definePrimitive({
       draft: "moving",
       set: (value, details) => change("positions", value, details),
       scale: () => context.store.get().viewport.zoom,
-      step: () => 10,
-      bounds: () => ({ minX: -10000, minY: -10000, maxX: 10000, maxY: 10000 }),
+      step: () => gridStep,
+      bounds: () => ({
+        minX: -positionLimit,
+        minY: -positionLimit,
+        maxX: positionLimit,
+        maxY: positionLimit,
+      }),
     });
     const connect = createConnect(context, {
       slot: "port",
@@ -128,6 +143,17 @@ export const workflowCanvas = definePrimitive({
   slots: (slot) => ({
     root: slot({
       attrs: () => ({ tabindex: "0", style: css({ overflow: "clip", "touch-action": "none" }) }),
+      live: live((state) => {
+        // Coarsen the dots at overview zoom while retaining world-grid alignment.
+        const unit = gridStep * state.viewport.zoom;
+        const size = unit * 2 ** Math.max(0, Math.ceil(Math.log2(8 / unit)));
+        return {
+          style: css({
+            "background-size": `${size}px ${size}px`,
+            "background-position": `${state.viewport.x - size / 2}px ${state.viewport.y - size / 2}px`,
+          }),
+        };
+      }),
       on: {
         wheel: (event, { api }) => api.viewport.wheel(event),
         pointerdown: (event, { el, api }) => {
@@ -149,11 +175,10 @@ export const workflowCanvas = definePrimitive({
         }),
       }),
       live: live((state, { api, key }) => ({
-        style:
-          css({
-            left: `${state.positions[key]?.x ?? 0}px`,
-            top: `${state.positions[key]?.y ?? 0}px`,
-          }) + (api.move.style(state, key) ?? ""),
+        style: css({
+          left: `${nodePoint(state, key).x}px`,
+          top: `${nodePoint(state, key).y}px`,
+        }),
         "data-dragging": api.move.dragging(state, key) ? "" : undefined,
       })),
     }),
