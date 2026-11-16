@@ -2720,6 +2720,126 @@
         "required": ["id", "text", "created_at"],
         "title": "ClaimRecord"
       },
+      "CodeConfig": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "code",
+            "title": "Type",
+            "default": "code"
+          },
+          "language": {
+            "type": "string",
+            "const": "javascript",
+            "title": "Language",
+            "default": "javascript"
+          },
+          "runtime": {
+            "type": "string",
+            "const": "quickjs-ng-0.18.0.1",
+            "title": "Runtime",
+            "default": "quickjs-ng-0.18.0.1"
+          },
+          "source": {
+            "type": "string",
+            "maxLength": 20000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]*$",
+            "title": "Source"
+          },
+          "timeout_seconds": {
+            "type": "number",
+            "maximum": 5.0,
+            "minimum": 0.05,
+            "title": "Timeout Seconds",
+            "default": 1
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source"],
+        "title": "CodeConfig"
+      },
+      "CodeExecution": {
+        "properties": {
+          "runtime": {
+            "type": "string",
+            "const": "quickjs-ng-0.18.0.1",
+            "title": "Runtime",
+            "default": "quickjs-ng-0.18.0.1"
+          },
+          "source_sha256": {
+            "type": "string",
+            "title": "Source Sha256"
+          },
+          "inputs": {
+            "$ref": "#/components/schemas/CodeInputs"
+          },
+          "outputs": {
+            "$ref": "#/components/schemas/CodeOutputs"
+          },
+          "duration_ms": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Duration Ms"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source_sha256", "inputs", "outputs", "duration_ms"],
+        "title": "CodeExecution"
+      },
+      "CodeInputs": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 200000,
+            "title": "Text",
+            "default": ""
+          },
+          "number": {
+            "type": "number",
+            "title": "Number",
+            "default": 0
+          },
+          "brief": {
+            "type": "string",
+            "maxLength": 6000,
+            "title": "Brief"
+          },
+          "artifact_count": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Artifact Count"
+          },
+          "iteration": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Iteration"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["brief", "artifact_count", "iteration"],
+        "title": "CodeInputs"
+      },
+      "CodeOutputs": {
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 24000,
+            "title": "Text"
+          },
+          "number": {
+            "type": "number",
+            "title": "Number"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["text", "number"],
+        "title": "CodeOutputs"
+      },
       "CommandReceipt": {
         "properties": {
           "command_id": {
@@ -5371,7 +5491,8 @@
               "join",
               "loop",
               "subgraph",
-              "research"
+              "research",
+              "code"
             ],
             "title": "Kind"
           },
@@ -7116,13 +7237,24 @@
               "join",
               "loop",
               "subgraph",
-              "research"
+              "research",
+              "code"
             ],
             "title": "Kind"
           },
           "detail": {
             "type": "string",
             "title": "Detail"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CodeExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -8282,7 +8414,8 @@
               "join",
               "loop",
               "subgraph",
-              "research"
+              "research",
+              "code"
             ],
             "title": "Kind"
           },
@@ -8319,11 +8452,15 @@
                   },
                   {
                     "$ref": "#/components/schemas/ResearchConfig"
+                  },
+                  {
+                    "$ref": "#/components/schemas/CodeConfig"
                   }
                 ],
                 "discriminator": {
                   "propertyName": "type",
                   "mapping": {
+                    "code": "#/components/schemas/CodeConfig",
                     "fork": "#/components/schemas/ForkConfig",
                     "loop": "#/components/schemas/LoopConfig",
                     "research": "#/components/schemas/ResearchConfig",

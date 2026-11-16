@@ -6,6 +6,7 @@ from uuid import UUID
 
 from pydantic import Field, model_validator
 
+from researchchain.code_models import CodeExecution
 from researchchain.graph import (
     NodeKind,
 )
@@ -75,6 +76,7 @@ class RunEvent(StrictModel):
     label: str
     kind: NodeKind
     detail: str
+    code: CodeExecution | None = None
 
 
 class ReviewPrompt(StrictModel):

@@ -7,6 +7,7 @@ from pydantic import Field
 from researchchain.graph import (
     INPUT_PORTS,
     OUTPUT_PORTS,
+    CodeConfig,
     ForkConfig,
     LoopConfig,
     NodeKind,
@@ -38,6 +39,7 @@ def node_types() -> list[NodeTypeSpec]:
         "loop": LoopConfig,
         "subgraph": SubgraphConfig,
         "research": ResearchConfig,
+        "code": CodeConfig,
     }
     labels: dict[NodeKind, str] = {
         "note": "Research note",
@@ -49,6 +51,7 @@ def node_types() -> list[NodeTypeSpec]:
         "loop": "Bounded loop",
         "subgraph": "Subgraph",
         "research": "Hypothesis research",
+        "code": "Custom code",
     }
     result = []
     for kind, label in labels.items():

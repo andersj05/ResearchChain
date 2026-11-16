@@ -49,9 +49,14 @@ from researchchain.retention_guards import require_retained_run
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
+CODE_COMPILER_VERSION = "code-0.1.0"
 
 
 def compiler_version(workflow: Workflow) -> str:
+    if any(
+        node.kind == "code" for graph in [workflow, *workflow.subgraphs] for node in graph.nodes
+    ):
+        return CODE_COMPILER_VERSION
     return {
         "0.1": COMPILER_VERSION,
         "0.2": STRUCTURED_COMPILER_VERSION,
@@ -96,7 +101,7 @@ def compile_workflow(
     guard: Guard | None = None,
     research: ResearchStep | None = None,
 ) -> Any:
-    """Compile validated registered nodes; never evaluate code from a workflow."""
+    """Compile validated nodes; code steps use the isolated JavaScript executor."""
     if workflow.schema_version != "0.1":
         return compile_structured(workflow, checkpointer, guard, research)
     builder = StateGraph(ResearchState)
@@ -153,6 +158,7 @@ class RunStore:
             raise NotFoundError("Run not found.")
         if row["compiler_version"] not in (
             COMPILER_VERSION,
+            CODE_COMPILER_VERSION,
             STRUCTURED_COMPILER_VERSION,
             RESEARCH_COMPILER_VERSION,
         ):

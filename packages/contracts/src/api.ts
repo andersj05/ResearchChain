@@ -1081,6 +1081,74 @@ export interface components {
        */
       created_at: string;
     };
+    /** CodeConfig */
+    CodeConfig: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      type: "code";
+      /**
+       * Language
+       * @default javascript
+       * @constant
+       */
+      language: "javascript";
+      /**
+       * Runtime
+       * @default quickjs-ng-0.18.0.1
+       * @constant
+       */
+      runtime: "quickjs-ng-0.18.0.1";
+      /** Source */
+      source: string;
+      /**
+       * Timeout Seconds
+       * @default 1
+       */
+      timeout_seconds: number;
+    };
+    /** CodeExecution */
+    CodeExecution: {
+      /**
+       * Runtime
+       * @default quickjs-ng-0.18.0.1
+       * @constant
+       */
+      runtime: "quickjs-ng-0.18.0.1";
+      /** Source Sha256 */
+      source_sha256: string;
+      inputs: components["schemas"]["CodeInputs"];
+      outputs: components["schemas"]["CodeOutputs"];
+      /** Duration Ms */
+      duration_ms: number;
+    };
+    /** CodeInputs */
+    CodeInputs: {
+      /**
+       * Text
+       * @default
+       */
+      text: string;
+      /**
+       * Number
+       * @default 0
+       */
+      number: number;
+      /** Brief */
+      brief: string;
+      /** Artifact Count */
+      artifact_count: number;
+      /** Iteration */
+      iteration: number;
+    };
+    /** CodeOutputs */
+    CodeOutputs: {
+      /** Text */
+      text: string;
+      /** Number */
+      number: number;
+    };
     /** CommandReceipt */
     CommandReceipt: {
       /**
@@ -2234,7 +2302,16 @@ export interface components {
        * @enum {string}
        */
       kind:
-        "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph" | "research";
+        | "note"
+        | "review"
+        | "finish"
+        | "route"
+        | "fork"
+        | "join"
+        | "loop"
+        | "subgraph"
+        | "research"
+        | "code";
       /** Label */
       label: string;
       /** Inputs */
@@ -3072,9 +3149,19 @@ export interface components {
        * @enum {string}
        */
       kind:
-        "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph" | "research";
+        | "note"
+        | "review"
+        | "finish"
+        | "route"
+        | "fork"
+        | "join"
+        | "loop"
+        | "subgraph"
+        | "research"
+        | "code";
       /** Detail */
       detail: string;
+      code?: components["schemas"]["CodeExecution"] | null;
     };
     /** RunRequest */
     RunRequest: {
@@ -3581,7 +3668,16 @@ export interface components {
        * @enum {string}
        */
       kind:
-        "note" | "review" | "finish" | "route" | "fork" | "join" | "loop" | "subgraph" | "research";
+        | "note"
+        | "review"
+        | "finish"
+        | "route"
+        | "fork"
+        | "join"
+        | "loop"
+        | "subgraph"
+        | "research"
+        | "code";
       /** Label */
       label: string;
       /**
@@ -3598,6 +3694,7 @@ export interface components {
             | components["schemas"]["SubgraphConfig"]
             | components["schemas"]["LoopConfig"]
             | components["schemas"]["ResearchConfig"]
+            | components["schemas"]["CodeConfig"]
           )
         | null;
       /** Inputs */

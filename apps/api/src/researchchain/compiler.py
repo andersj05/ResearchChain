@@ -9,7 +9,10 @@ from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.graph import END, START, StateGraph
 from langgraph.types import interrupt
 
+from researchchain.code_execution import CodeExecutionError, execute_code
+from researchchain.code_models import CodeExecution, CodeInputs
 from researchchain.graph import (
+    CodeConfig,
     ForkConfig,
     GraphDefinition,
     LoopConfig,
@@ -90,6 +93,7 @@ def node_function(
         guard(path, True)
         outputs: dict[str, Any] = {}
         rejected = False
+        code: CodeExecution | None = None
         if node.kind == "review":
             decision = interrupt(
                 {
@@ -119,6 +123,25 @@ def node_function(
             )
             outputs["text"] = research(node, path, context, feedback)
             detail = "Validated research result saved for review."
+        elif node.kind == "code":
+            assert isinstance(node.config, CodeConfig)
+            inputs = CodeInputs(
+                **{
+                    key: read_value(value, state, prefix, iteration)
+                    for key, value in node.inputs.items()
+                },
+                brief=state["brief"],
+                artifact_count=len(state["artifact_ids"]),
+                iteration=iteration,
+            )
+            try:
+                code = execute_code(node.config, inputs)
+            except CodeExecutionError as error:
+                raise ExecutionStopped(
+                    f"Code step '{node.label}' ({path}): {error}", "failed"
+                ) from error
+            outputs = code.outputs.model_dump()
+            detail = code.outputs.text
         elif node.kind == "note":
             detail = (
                 str(read_value(node.inputs["text"], state, prefix, iteration))
@@ -149,6 +172,7 @@ def node_function(
                     "label": node.label,
                     "kind": node.kind,
                     "detail": detail,
+                    **({"code": code.model_dump()} if code else {}),
                 }
             },
             "outputs": {path: outputs},
