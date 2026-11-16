@@ -12,6 +12,8 @@ export function readPendingRun(key: string): RunRequest | null {
       !uuid.test(value.id) ||
       typeof value.revision_id !== "string" ||
       !uuid.test(value.revision_id) ||
+      (value.agent_id != null &&
+        (typeof value.agent_id !== "string" || !uuid.test(value.agent_id))) ||
       typeof value.brief !== "string" ||
       !Array.isArray(value.artifacts) ||
       !Array.isArray(value.evidence_ids) ||

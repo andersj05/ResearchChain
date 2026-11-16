@@ -13,8 +13,9 @@ export function useWorkflowHistory(initial: Workflow) {
     setWorkflow(next);
   }
   const initialize = useCallback(
-    (next: Workflow) => {
-      stack.reset(next);
+    (next: Workflow, previous?: Workflow) => {
+      stack.reset(previous ?? next);
+      if (previous && JSON.stringify(previous) !== JSON.stringify(next)) stack.record(next);
       setWorkflow(next);
     },
     [stack],

@@ -74,6 +74,7 @@ export function RunInspector({
           <div className="run-meta">
             <span className="code-label">{run.id.slice(0, 8)}</span>
             <span>Revision {run.revision_number}</span>
+            <span aria-label="Run agent">{run.agent_name ?? "Unassigned workflow"}</span>
             <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
             <div className="actions run-actions">
               <Button className="button" disabled={busy} onClick={onIterate}>

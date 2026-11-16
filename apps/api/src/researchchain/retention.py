@@ -28,6 +28,7 @@ from researchchain.revisions import NotFoundError
 
 # Delete children first. Checkpoints are upstream tables without foreign keys.
 RUN_TABLES = (
+    "agent_runs",
     "run_jobs",
     "run_commands",
     "run_node_executions",
@@ -41,6 +42,8 @@ RUN_TABLES = (
     "runs",
 )
 RETAINED_TABLES = (
+    "agents",
+    "agent_revisions",
     "workflow_revisions",
     "evidence_records",
     "claims",

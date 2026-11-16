@@ -54,6 +54,10 @@ class AgentStore:
 
     def create(self, request: AgentCreate) -> AgentDetail:
         with self.database.connection() as conn, conn.transaction():
+            conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (f"agent:{self.database.schema}:{request.id}",),
+            )
             revision = save_revision(conn, request.workflow)
             inserted = conn.execute(
                 "INSERT INTO agents (id, name, version, revision_id, creation_hash) "
@@ -85,6 +89,10 @@ class AgentStore:
 
     def save(self, agent_id: UUID, request: AgentSave) -> AgentDetail:
         with self.database.connection() as conn, conn.transaction():
+            conn.execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended(%s, 0))",
+                (f"agent:{self.database.schema}:{agent_id}",),
+            )
             agent = read_agent(conn, agent_id, lock=True)
             revision = save_revision(conn, request.workflow)
             if revision.id == agent.revision_id:

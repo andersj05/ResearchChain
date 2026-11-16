@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
 import { useOwner } from "@/components/access-context";
+import { AgentSwitcher } from "@/components/agent-switcher";
+import { agentDraftKey, readAgentDraft, type AgentDraft } from "@/lib/agent-drafts";
 import { AccessControls } from "@/components/access-controls";
 import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
 import { OperationsDesk } from "@/components/operations-desk";
@@ -33,6 +35,9 @@ import {
   type WorkflowRevision,
   type RevisionSummary,
   type ValidationResult,
+  type AgentSummary,
+  type AgentDetail,
+  type AgentVersion,
 } from "@/lib/workflow";
 
 const legacyKey = "researchchain.workflow.v0.1";
@@ -40,7 +45,11 @@ const legacyKey = "researchchain.workflow.v0.1";
 export function Workbench() {
   const { owner, active: accessActive } = useOwner();
   const storagePrefix = ownerStoragePrefix(owner);
-  const storageKey = storagePrefix + ".workflow.v0.1";
+  const [activeAgent, setActiveAgent] = useState<AgentSummary | null>(null);
+  const [agents, setAgents] = useState<AgentSummary[]>([]);
+  const drafts = useRef(new Map<string, AgentDraft>());
+  const storageKey =
+    storagePrefix + (activeAgent ? `.agent.${activeAgent.id}.workflow` : ".workflow.v0.1");
   const pendingKey = storagePrefix + ".run.pending";
   const [legacyAvailable, setLegacyAvailable] = useState(() =>
     legacyDraftAvailable(legacyKey, storagePrefix),
@@ -96,39 +105,78 @@ export function Workbench() {
           setArtifacts(pending.artifacts ?? []);
           setProviderAccount(pending.provider_account_id ?? null);
         }
-        const [savedRevisions, recentRuns] = await Promise.all([
+        const [savedRevisions, recentRuns, agentList] = await Promise.all([
           api<RevisionSummary[]>("revisions"),
           api<RunSummary[]>("runs"),
+          api<AgentSummary[]>("agents?limit=1000"),
         ]);
-        const revisionId = parameters.get("revision") ?? savedRevisions[0]?.id;
+        if (!active) return;
+        setAgents(agentList);
+        const runId = parameters.get("run");
+        const restored = runId ? await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`) : null;
+        let agentId = parameters.get("agent") ?? restored?.agent_id ?? null;
+        if (!agentId && !parameters.has("revision") && !runId) {
+          try {
+            agentId = localStorage.getItem(storagePrefix + ".active-agent");
+          } catch {
+            /* Storage is optional. */
+          }
+        }
+        const detail = agentId
+          ? await api<AgentDetail>(`agents/${encodeURIComponent(agentId)}`)
+          : null;
+        const versions = detail
+          ? await api<AgentVersion[]>(`agents/${detail.agent.id}/revisions?limit=1000`)
+          : null;
+        const revisionId =
+          parameters.get("revision") ??
+          restored?.revision_id ??
+          detail?.revision.id ??
+          savedRevisions[0]?.id;
+        if (detail && revisionId && !versions?.some((item) => item.revision.id === revisionId))
+          throw new Error("This revision does not belong to the selected agent.");
         const latest = revisionId
           ? await api<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
           : null;
+        let draft = detail && !runId ? readAgentDraft(storagePrefix, detail.agent.id) : null;
+        if (parameters.has("revision") && draft?.revision?.id !== revisionId) draft = null;
         if (!active) return;
-        setRevisions(savedRevisions);
-        setRuns(recentRuns);
+        setAgents(agentList);
+        setActiveAgent(draft?.agent ?? detail?.agent ?? null);
+        setRevisions(
+          versions
+            ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
+            : savedRevisions,
+        );
+        setRuns(detail ? await api<RunSummary[]>(`runs?agent_id=${detail.agent.id}`) : recentRuns);
+        if (!active) return;
         if (latest) {
-          setRevision(latest);
-          initialize(latest.workflow);
-          setSelected(latest.workflow.start_node);
+          setRevision(draft?.revision ?? latest);
+          initialize(draft?.workflow ?? latest.workflow);
+          setSelected((draft?.workflow ?? latest.workflow).start_node);
         }
-        const runId = parameters.get("run");
-        if (runId) {
-          selectedRunId.current = runId;
-          const restored = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
-          if (!active) return;
+        if (draft) {
+          setBrief(draft.brief);
+          setEvidenceIds(draft.evidenceIds);
+          setArtifacts(draft.artifacts);
+          setProviderAccount(draft.providerAccount);
+          setEdited(true);
+        }
+        if (restored) {
+          selectedRunId.current = restored.id;
           setRun(restored);
           forgetPendingRun(pendingKey, restored.id);
           if (pendingStart.current?.id === restored.id) pendingStart.current = null;
           setTab("runs");
           setMessage("Saved run restored.");
-        } else {
+        } else
           setMessage(
-            latest
-              ? `Loaded revision ${latest.number}.`
-              : "Ready. Edit the workflow, then save or run it.",
+            draft
+              ? "Agent draft restored from this browser."
+              : latest
+                ? `Loaded revision ${latest.number}.`
+                : "Ready. Create an agent or edit this workflow.",
           );
-        }
         const view = parameters.get("view");
         if (
           view &&
@@ -156,7 +204,120 @@ export function Workbench() {
     return () => {
       active = false;
     };
-  }, [initialize, pendingKey]);
+  }, [initialize, pendingKey, storagePrefix]);
+
+  useEffect(() => {
+    if (!loaded || !activeAgent) return;
+    const draft: AgentDraft = {
+      agent: activeAgent,
+      revision,
+      workflow,
+      brief,
+      evidenceIds,
+      artifacts,
+      providerAccount,
+    };
+    drafts.current.set(activeAgent.id, draft);
+    try {
+      localStorage.setItem(agentDraftKey(storagePrefix, activeAgent.id), JSON.stringify(draft));
+    } catch {
+      /* The in-memory copy still protects switching in this session. */
+    }
+  }, [
+    loaded,
+    activeAgent,
+    revision,
+    workflow,
+    brief,
+    evidenceIds,
+    artifacts,
+    providerAccount,
+    storagePrefix,
+  ]);
+
+  function retainDraft() {
+    drafts.current.set(activeAgent?.id ?? "", {
+      agent: activeAgent,
+      revision,
+      workflow,
+      brief,
+      evidenceIds,
+      artifacts,
+      providerAccount,
+    });
+  }
+  function rememberAgent(id: string | null) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("agent", id);
+    else url.searchParams.delete("agent");
+    url.searchParams.delete("revision");
+    url.searchParams.delete("run");
+    url.searchParams.set("view", "workflow");
+    window.history.replaceState(null, "", url);
+    try {
+      if (id) localStorage.setItem(storagePrefix + ".active-agent", id);
+      else localStorage.removeItem(storagePrefix + ".active-agent");
+    } catch {
+      /* URL still identifies the agent. */
+    }
+  }
+  async function switchAgent(id: string) {
+    retainDraft();
+    const detail = id ? await api<AgentDetail>(`agents/${id}`) : null;
+    const cached = drafts.current.get(id) ?? (id ? readAgentDraft(storagePrefix, id) : null);
+    const next = cached?.workflow ?? detail?.revision.workflow ?? structuredClone(initialWorkflow);
+    const versions = id ? await api<AgentVersion[]>(`agents/${id}/revisions?limit=1000`) : null;
+    const history = await api<RunSummary[]>(id ? `runs?agent_id=${id}` : "runs");
+    setActiveAgent(cached?.agent ?? detail?.agent ?? null);
+    setRevision(cached?.revision ?? detail?.revision ?? null);
+    initialize(next);
+    setEdited(Boolean(cached));
+    setDocumentEpoch((value) => value + 1);
+    setSelected(next.start_node);
+    setBrief(cached?.brief ?? "");
+    setEvidenceIds(cached?.evidenceIds ?? []);
+    setArtifacts(cached?.artifacts ?? []);
+    setProviderAccount(cached?.providerAccount ?? null);
+    setRevisions(
+      versions
+        ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
+        : await api<RevisionSummary[]>("revisions"),
+    );
+    setRuns(history);
+    setRun(null);
+    selectedRunId.current = null;
+    runReadEpoch.current += 1;
+    setExecutingId(null);
+    setTab("workflow");
+    rememberAgent(id || null);
+    setMessage(
+      cached
+        ? "Agent switched. Your draft and inputs were restored."
+        : "Agent switched. Build and save your workflow.",
+    );
+  }
+  async function createAgent(id: string, name: string, copy: boolean) {
+    const document = { ...structuredClone(copy ? workflow : initialWorkflow), name };
+    const created = await api<AgentDetail>("agents", { id, workflow: document });
+    setAgents((previous) => [created.agent, ...previous.filter((item) => item.id !== id)]);
+    await switchAgent(created.agent.id);
+    setMessage(`Agent “${name}” created. Add your steps and save a version.`);
+  }
+  async function loadLatestAgent() {
+    if (!activeAgent) return;
+    const detail = await api<AgentDetail>(`agents/${activeAgent.id}`);
+    await refreshHistory();
+    setAgents((previous) =>
+      previous.map((item) => (item.id === detail.agent.id ? detail.agent : item)),
+    );
+    change(detail.revision.workflow);
+    setRevision(detail.revision);
+    setActiveAgent(detail.agent);
+    setDocumentEpoch((value) => value + 1);
+    setSelected(detail.revision.workflow.start_node);
+    rememberAgent(detail.agent.id);
+    setMessage("Latest saved agent loaded. Undo restores your draft.");
+  }
 
   const pollId =
     executingId ??
@@ -242,8 +403,12 @@ export function Workbench() {
 
   async function refreshHistory() {
     const [savedRevisions, recentRuns] = await Promise.all([
-      api<RevisionSummary[]>("revisions"),
-      api<RunSummary[]>("runs"),
+      activeAgent
+        ? api<AgentVersion[]>(`agents/${activeAgent.id}/revisions?limit=1000`).then((items) =>
+            items.map((item) => ({ ...item.revision, agent_version: item.version })),
+          )
+        : api<RevisionSummary[]>("revisions"),
+      api<RunSummary[]>(activeAgent ? `runs?agent_id=${activeAgent.id}` : "runs"),
     ]);
     setRevisions(savedRevisions);
     setRuns(recentRuns);
@@ -287,22 +452,67 @@ export function Workbench() {
   }
 
   async function saveRevision() {
-    const result = await api<WorkflowRevision>("revisions", workflow);
+    const detail = activeAgent
+      ? await api<AgentDetail>(`agents/${activeAgent.id}/revisions`, {
+          expected_version: activeAgent.version,
+          workflow,
+        })
+      : null;
+    const result = detail?.revision ?? (await api<WorkflowRevision>("revisions", workflow));
+    if (detail) {
+      setActiveAgent(detail.agent);
+      setAgents((previous) =>
+        previous.map((item) => (item.id === detail.agent.id ? detail.agent : item)),
+      );
+    }
     setRevision(result);
     replaceWorkflow(result.workflow);
-    setRevisions((previous) =>
-      [result, ...previous.filter((item) => item.id !== result.id)]
-        .sort((a, b) => b.number - a.number)
-        .slice(0, 50),
-    );
+    if (detail) {
+      const history = await api<AgentVersion[]>(`agents/${detail.agent.id}/revisions?limit=1000`);
+      setRevisions(history.map((item) => ({ ...item.revision, agent_version: item.version })));
+    } else
+      setRevisions((previous) =>
+        [result, ...previous.filter((item) => item.id !== result.id)]
+          .sort((a, b) => b.number - a.number)
+          .slice(0, 50),
+      );
     setMessage(`Revision ${result.number} saved.`);
     rememberRevision(result.id);
     return result;
   }
 
-  async function loadRevision(id: string) {
+  async function loadRevision(id: string, agentId: string | null = activeAgent?.id ?? null) {
     const result = await api<WorkflowRevision>(`revisions/${id}`);
-    change(result.workflow);
+    const detail = agentId ? await api<AgentDetail>(`agents/${agentId}`) : null;
+    const versions = agentId
+      ? await api<AgentVersion[]>(`agents/${agentId}/revisions?limit=1000`)
+      : null;
+    if (versions && !versions.some((item) => item.revision.id === id))
+      throw new Error("This revision does not belong to the selected agent.");
+    if (agentId !== (activeAgent?.id ?? null)) {
+      const cached =
+        drafts.current.get(agentId ?? "") ??
+        (agentId ? readAgentDraft(storagePrefix, agentId) : null);
+      const history = await api<RunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
+      const savedRevisions = versions
+        ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
+        : await api<RevisionSummary[]>("revisions");
+      retainDraft();
+      initialize(result.workflow, cached?.workflow ?? detail?.revision.workflow);
+      setEdited(true);
+      setRevisions(savedRevisions);
+      setRuns(history);
+      setBrief(cached?.brief ?? "");
+      setEvidenceIds(cached?.evidenceIds ?? []);
+      setArtifacts(cached?.artifacts ?? []);
+      setProviderAccount(cached?.providerAccount ?? null);
+      setRun(null);
+      selectedRunId.current = null;
+      runReadEpoch.current += 1;
+      setExecutingId(null);
+      rememberAgent(agentId);
+    } else change(result.workflow);
+    setActiveAgent(detail?.agent ?? null);
     setDocumentEpoch((value) => value + 1);
     setRevision(result);
     setSelected(result.workflow.start_node);
@@ -316,6 +526,7 @@ export function Workbench() {
     if (
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
+      (pendingStart.current.agent_id ?? null) !== (activeAgent?.id ?? null) ||
       pendingStart.current.brief !== brief ||
       JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds) ||
       JSON.stringify(pendingStart.current.artifacts) !== JSON.stringify(artifacts) ||
@@ -324,6 +535,7 @@ export function Workbench() {
       pendingStart.current = {
         id: crypto.randomUUID(),
         revision_id: pinned.id,
+        agent_id: activeAgent?.id ?? null,
         brief,
         artifacts,
         evidence_ids: evidenceIds,
@@ -449,20 +661,45 @@ export function Workbench() {
         <span className="workspace-divider breadcrumb-extra" aria-hidden="true">
           /
         </span>
-        <span className="breadcrumb-title">{workflow.name || "Untitled workflow"}</span>
+        <AgentSwitcher
+          agents={agents}
+          active={activeAgent}
+          disabled={!loaded || busy}
+          onSelect={(id) => {
+            void action(() => switchAgent(id));
+          }}
+          onCreate={createAgent}
+          onLatest={() => {
+            void action(loadLatestAgent);
+          }}
+        />
         <span className="local-badge">Local workspace</span>
         <AccessControls key={accessActive ? "active" : "locked"} />
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">
           <TabsList className="workspace-tabs" aria-label="Workspace">
-            <TabsTab value="workflow">Workflow</TabsTab>
-            <TabsTab value="evidence">Evidence</TabsTab>
-            <TabsTab value="runs">Runs</TabsTab>
-            <TabsTab value="reports">Reports</TabsTab>
-            <TabsTab value="evaluations">Evaluations</TabsTab>
-            <TabsTab value="revisions">Revisions</TabsTab>
-            <TabsTab value="operations">Operations</TabsTab>
+            <TabsTab disabled={busy} value="workflow">
+              Workflow
+            </TabsTab>
+            <TabsTab disabled={busy} value="evidence">
+              Evidence
+            </TabsTab>
+            <TabsTab disabled={busy} value="runs">
+              Runs
+            </TabsTab>
+            <TabsTab disabled={busy} value="reports">
+              Reports
+            </TabsTab>
+            <TabsTab disabled={busy} value="evaluations">
+              Evaluations
+            </TabsTab>
+            <TabsTab disabled={busy} value="revisions">
+              Revisions
+            </TabsTab>
+            <TabsTab disabled={busy} value="operations">
+              Operations
+            </TabsTab>
           </TabsList>
           <div className="actions workspace-actions">
             {tab === "workflow" && (
@@ -529,8 +766,8 @@ export function Workbench() {
             <details className="builder-guide">
               <summary>Build your agent</summary>
               <p>
-                Start a New workflow, name it in Workflow settings, then add the steps you want
-                before Finish. Templates are optional examples.
+                Choose New agent, give it a name, then add the steps you want before Finish. Use the
+                Agent selector to switch between your agents. Templates are optional examples.
               </p>
               <ol>
                 <li>
@@ -560,8 +797,9 @@ export function Workbench() {
               </p>
               <p>
                 Save a revision for durable history. Save draft or Export JSON also keeps your work.
-                Unsaved edits stay on this page; save before refreshing. Use Reports and Evaluations
-                when they help your own process.
+                Named-agent drafts and run inputs are recovered from this browser after switching or
+                refreshing. Saved versions are kept on the server. Use Reports and Evaluations when
+                they help your own process.
               </p>
             </details>
             <WorkflowEditor
@@ -575,24 +813,29 @@ export function Workbench() {
             />
             <div className="editor-footer">
               <div className="actions">
-                <Button
-                  className="button small"
-                  disabled={!loaded || busy}
-                  onClick={() => {
-                    change(structuredClone(initialWorkflow));
-                    setDocumentEpoch((value) => value + 1);
-                    setSelected(initialWorkflow.start_node);
-                    setBrief("");
-                    setEvidenceIds([]);
-                    setArtifacts([]);
-                    setProviderAccount(null);
-                    setMessage(
-                      "New workflow. Add your steps before Finish. Undo restores the previous workflow; saved revisions and runs are kept.",
-                    );
-                  }}
-                >
-                  New workflow
-                </Button>
+                {!activeAgent && (
+                  <Button
+                    className="button small"
+                    disabled={!loaded || busy}
+                    onClick={() => {
+                      retainDraft();
+                      setActiveAgent(null);
+                      rememberAgent(null);
+                      change(structuredClone(initialWorkflow));
+                      setDocumentEpoch((value) => value + 1);
+                      setSelected(initialWorkflow.start_node);
+                      setBrief("");
+                      setEvidenceIds([]);
+                      setArtifacts([]);
+                      setProviderAccount(null);
+                      setMessage(
+                        "New workflow. Add your steps before Finish. Undo restores the previous workflow; saved revisions and runs are kept.",
+                      );
+                    }}
+                  >
+                    New workflow
+                  </Button>
+                )}
                 <Button
                   className="button small"
                   disabled={!loaded || busy}
@@ -759,7 +1002,9 @@ export function Workbench() {
                   Refresh history
                 </Button>
               </div>
-              <p className="muted">Latest 20 runs</p>
+              <p className="muted">
+                Latest 20 runs{activeAgent ? ` for ${activeAgent.name}` : " across the workspace"}
+              </p>
               {runs.length ? (
                 <ul>
                   {runs.map((item) => (
@@ -835,7 +1080,7 @@ export function Workbench() {
               onIterate={() =>
                 action(async () => {
                   if (!run) return;
-                  await loadRevision(run.revision_id);
+                  await loadRevision(run.revision_id, run.agent_id ?? null);
                   setBrief(run.brief);
                   setEvidenceIds(run.evidence_ids ?? []);
                   setArtifacts(run.artifacts);
@@ -847,7 +1092,7 @@ export function Workbench() {
               }
               onOpenRevision={() =>
                 action(async () => {
-                  if (run) await loadRevision(run.revision_id);
+                  if (run) await loadRevision(run.revision_id, run.agent_id ?? null);
                 })
               }
             />
@@ -858,14 +1103,21 @@ export function Workbench() {
             <div>
               <p className="eyebrow">Workflow history</p>
               <h1>Revisions</h1>
-              <p className="muted">Saved versions of your research process.</p>
+              <p className="muted">
+                {activeAgent
+                  ? `Saved versions of ${activeAgent.name}.`
+                  : "All saved workflow revisions in this workspace."}
+              </p>
             </div>
           </div>
           <section className="revisions-panel" aria-label="Saved revisions">
             <div className="section-heading">
               <div>
                 <h2>Saved revisions</h2>
-                <p className="muted">Latest 50 · load any revision to continue editing.</p>
+                <p className="muted">
+                  {activeAgent ? "Agent version history" : "Latest 50 revisions"} · load a revision
+                  to continue editing.
+                </p>
               </div>
               <Button
                 className="button"
@@ -895,9 +1147,13 @@ export function Workbench() {
                   </thead>
                   <tbody>
                     {revisions.map((item) => (
-                      <tr key={item.id}>
+                      <tr key={`${item.id}/${item.agent_version ?? ""}`}>
                         <td>
-                          <strong>Revision {item.number}</strong>
+                          <strong>
+                            {item.agent_version
+                              ? `Version ${item.agent_version}`
+                              : `Revision ${item.number}`}
+                          </strong>
                           <span className="code-label">{item.content_hash.slice(0, 10)}</span>
                         </td>
                         <td>{item.name}</td>

@@ -54,3 +54,19 @@ resize, custom-code errors/timeouts and durable results, model visibility, and n
 layouts. Run pnpm check and applicable browser coverage before each code delivery.
 Preserve existing private records; stop the live app only after fencing admission
 and observing an idle queue, then restore it after test and upgrade work.
+
+## Named-agent implementation
+
+Named agents now have stable IDs and ordered version histories separate from the
+shared immutable workflow documents. The selector creates blank agents or copies a
+workflow, restores per-agent browser drafts and run inputs, and reloads a server
+head without silently overwriting a competing save. Runs pin the exact agent and
+its name at admission; identical workflow content does not mix their histories.
+Legacy records remain unassigned and available in workspace-wide history.
+
+Focused verification: five backend tests cover retry identity, conflicting/concurrent
+saves, intentional reverts, exact run ownership and protected endpoints. Three new
+browser cases cover desktop/mobile switching, refresh recovery, cross-agent run
+iteration with Undo, and stale-tab conflict recovery; twelve existing builder and
+canvas authoring checks also passed with synthetic providers. Full CI and the
+schema-12 backup/upgrade rehearsal remain required before live delivery.
