@@ -90,3 +90,17 @@ where the UI or available capabilities get in the way. Helpful feedback includes
 the intended action, expected behavior, observed behavior, and workflow/run/revision
 identifiers. No pilot label, finished agent or calibrated judge is required for this
 handoff. External hosting and operational deployment remain separate work.
+
+## Where the model is used
+
+The canvas header shows the configured model, and each model step's inspector
+names the same selection. Choose the model in Run workflow. All model prompt and
+hypothesis research steps, including subgraphs, share that model. Notes, reviews
+and routing do not call a model. The run setup identifies the ChatGPT included-plan
+connection and explains this scope before starting.
+
+Saved runs show their pinned selected model and the model identifiers actually
+reported by the provider, with per-attempt details. Missing provider metadata says
+Not reported; it is not inferred from the requested model. Editing the selection
+does not change older runs. The local workspace allowance is 1,000 requests per
+rolling day as explicitly authorized on 2026-11-16; Operations shows current usage.

@@ -150,6 +150,12 @@ export function ResearchConnection({
           ))}
         </select>
       </label>
+      <p className="field-hint" aria-label="Model selection scope">
+        Selected model ID: <strong>{settings.model}</strong>. Every Model prompt and Hypothesis
+        research step in this workflow, including subgraphs, uses this model. Notes, human reviews
+        and control steps do not call a model. Starting a run pins the selection to its saved
+        revision.
+      </p>
       <p className="field-hint">
         Uses your included plan allowance. Keep credit use disabled in{" "}
         <a
