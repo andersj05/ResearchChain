@@ -144,6 +144,8 @@ test("typing and a full drag are grouped edits with live connection previews", a
   await page.mouse.down();
   await page.mouse.move(at.x + 130, at.y + 70, { steps: 12 });
   await expect(edge).not.toHaveAttribute("d", before!);
+  await expect.poll(async () => (await node.boundingBox())!.x).toBeCloseTo(at.x + 50, 0);
+  await expect.poll(async () => (await node.boundingBox())!.y).toBeCloseTo(at.y + 30, 0);
   await page.mouse.up();
   await expect(group).toHaveCSS("left", "110px");
   await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
@@ -151,6 +153,73 @@ test("typing and a full drag are grouped edits with live connection previews", a
   await expect(name).toHaveValue("A clearer research question");
   await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
   await expect(group).toHaveCSS("left", "110px");
+});
+
+for (const zoom of [1, 0.8]) {
+  test(`drag previews snap boxes and paths together at ${zoom} zoom and cancel without edits`, async ({
+    page,
+    request,
+  }, testInfo) => {
+    await page.getByRole("button", { name: "Reset view", exact: true }).click();
+    if (zoom !== 1) await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+    const node = page.getByRole("button", { name: "Edit Frame the question", exact: true });
+    const group = page.locator('[data-node-id="frame"]');
+    const edge = page.locator(".connection-control").first();
+    const at = (await node.boundingBox())!;
+    await page.mouse.move(at.x + 40 * zoom, at.y + 30 * zoom);
+    await page.mouse.down();
+    await page.mouse.move(at.x + 83 * zoom, at.y + 57 * zoom, { steps: 10 });
+    await expect(group).toHaveCSS("left", "100px");
+    await expect(group).toHaveCSS("top", "180px");
+    await expect.poll(async () => (await node.boundingBox())!.x).toBeCloseTo(at.x + 40 * zoom, 0);
+    await expect.poll(async () => (await node.boundingBox())!.y).toBeCloseTo(at.y + 30 * zoom, 0);
+    await expect(edge).toHaveAttribute("d", /^M330,292 /);
+    const preview = await group.boundingBox();
+    await page.mouse.up();
+    expect(await group.boundingBox()).toEqual(preview);
+    const id = await save(page);
+    const saved: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+    expect(saved.workflow.nodes.find((item) => item.id === "frame")?.position).toEqual({
+      x: 100,
+      y: 180,
+    });
+
+    const after = (await node.boundingBox())!;
+    const path = await edge.getAttribute("d");
+    await page.mouse.move(after.x + 40 * zoom, after.y + 30 * zoom);
+    await page.mouse.down();
+    await page.mouse.move(after.x + 77 * zoom, after.y + 64 * zoom, { steps: 10 });
+    await expect(group).toHaveCSS("left", "140px");
+    await expect(edge).not.toHaveAttribute("d", path!);
+    await page.keyboard.press("Escape");
+    await page.mouse.up();
+    await expect(group).toHaveCSS("left", "100px");
+    await expect(edge).toHaveAttribute("d", path!);
+    await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+    await expect(group).toHaveCSS("left", "60px");
+    await expect(group).toHaveCSS("top", "150px");
+    await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
+    await expect(group).toHaveCSS("left", "100px");
+    await expect(group).toHaveCSS("top", "180px");
+    await page.screenshot({ path: testInfo.outputPath(`canvas-grid-${zoom}.png`), fullPage: true });
+  });
+}
+
+test("canvas dots follow pan and zoom without changing saved positions", async ({ page }) => {
+  const canvas = page.getByLabel("Workflow canvas", { exact: true });
+  const group = page.locator('[data-node-id="frame"]');
+  await page.getByRole("button", { name: "Reset view", exact: true }).click();
+  await expect(canvas).toHaveCSS("background-size", "10px 10px");
+  await expect(canvas).toHaveCSS("background-position", "19px 19px");
+  const at = (await canvas.boundingBox())!;
+  await page.mouse.move(at.x + 12, at.y + 12);
+  await page.mouse.wheel(30, 20);
+  await expect(canvas).not.toHaveCSS("background-position", "19px 19px");
+  await page.getByRole("button", { name: "Zoom out", exact: true }).click();
+  await expect(canvas).toHaveCSS("background-size", "8px 8px");
+  await expect(group).toHaveCSS("left", "60px");
+  await expect(group).toHaveCSS("top", "150px");
+  await expect(page.getByRole("button", { name: "Undo last edit", exact: true })).toBeDisabled();
 });
 
 test("templates, nested breadcrumbs, and expandable groups round-trip through a saved revision", async ({
