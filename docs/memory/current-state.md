@@ -33,10 +33,19 @@ CI 43957865925 passed 448 backend and 93 browser tests. Settings PR #40 and
 adjustable panels PR #41 are merged after full CI. Named agents now have isolated
 history, recoverable drafts and exact run ownership; focused backend/browser checks
 passed, with full CI and schema-12 upgrade verification still pending. Model visibility
-is in PR #42. Shell/navigation, code execution and data views remain to be delivered.
+merged in PR #42. Named agents are in PR #43 and bounded JavaScript in PR #44.
+Compact shell/navigation is implemented with renamed task labels and unchanged URL
+keys; full CI and data-view improvements remain before delivery.
 The live workspace allowance is now 1,000 per rolling 24 hours, policy revision 2,
 changed on explicit owner authorization without inference. Private receipt:
 .local/owner-1000-request-allowance.log. Initial policies for other workspaces remain 100.
+
+Schema-12 rehearsal: a schema-11-compatible backup restored all 35 tables and 30
+originals (612,016 bytes) into a separate database. Upgrading that copy preserved
+all 34 existing data-table fingerprints; both legacy runs remain readable and
+unassigned. Private receipts: .local/agents-before-upgrade/restore-receipt.json and
+.local/agents-upgrade-rehearsal.json. The live database is still schema 11, stopped
+pending final integration and upgrade. No model calls or human judgments were made.
 
 ## Checkout and verified delivery
 

@@ -86,7 +86,7 @@ test("refresh after an unconfirmed start retains the same request identity", asy
     firstId,
   );
   await page.reload();
-  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();

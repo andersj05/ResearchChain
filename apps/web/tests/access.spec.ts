@@ -30,7 +30,7 @@ function operator(command: string): { code?: string } {
 async function login(page: Page, value = password) {
   await page.getByLabel("Owner password", { exact: true }).fill(value);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("tab", { name: "Workflow", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
 }
 
 async function ownerApi(
@@ -71,7 +71,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto("/");
     await expect(page.getByRole("heading", { name: "Owner sign-in", exact: true })).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Workflow", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Build", exact: true })).toHaveCount(0);
     expect((await request.get("/api/revisions")).status()).toBe(401);
     await page.getByLabel("Owner password", { exact: true }).fill("incorrect");
     await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -136,7 +136,7 @@ test("first owner setup exchanges a link once and removes it from the address", 
     if (request.url().endsWith("/api/access/exchange")) exchanges += 1;
   });
   await page.goto(`/#owner-link=${code}`);
-  await expect(page.getByRole("tab", { name: "Workflow", exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
   expect(page.url()).not.toContain(code);
   expect(exchanges).toBe(1);
   expect(requestUrls.every((url) => !url.includes(code!))).toBe(true);
@@ -152,7 +152,7 @@ test("first owner setup exchanges a link once and removes it from the address", 
     await expect(replay.locator(".access-card").getByRole("alert")).toContainText(
       "Sign-in was not accepted",
     );
-    await expect(replay.getByRole("tab", { name: "Workflow", exact: true })).toHaveCount(0);
+    await expect(replay.getByRole("tab", { name: "Build", exact: true })).toHaveCount(0);
     await login(replay);
   } finally {
     await another.close();
@@ -251,7 +251,7 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
   try {
     await page.context().addCookies((await api.storageState()).cookies);
     await page.goto("/");
-    await expect(page.getByRole("tab", { name: "Workflow", exact: true })).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
     const other = await page.context().newPage();
     await other.goto("/");
     await expect(
@@ -269,7 +269,7 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
     await page.getByRole("button", { name: "Sign out all sessions", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Sign in again", exact: true })).toBeVisible();
     await expect(other.getByRole("heading", { name: "Sign in again", exact: true })).toBeVisible();
-    await expect(other.getByRole("tab", { name: "Workflow", exact: true })).toBeHidden();
+    await expect(other.getByRole("tab", { name: "Build", exact: true })).toBeHidden();
   } finally {
     await api.dispose();
   }

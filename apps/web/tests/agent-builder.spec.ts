@@ -89,7 +89,7 @@ for (const width of [1440, 390]) {
     expect(await captured.text()).toContain("Use two bullets.");
     await page.reload();
     await page.getByRole("button", { name: "Iterate from this run", exact: true }).click();
-    await expect(page.getByRole("tab", { name: "Workflow", exact: true })).toHaveAttribute(
+    await expect(page.getByRole("tab", { name: "Build", exact: true })).toHaveAttribute(
       "aria-selected",
       "true",
     );

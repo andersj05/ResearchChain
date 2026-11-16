@@ -93,7 +93,7 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   const pinned = page.getByRole("region", { name: "Pinned evidence" });
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   const runId = new URL(page.url()).searchParams.get("run");
-  await page.getByRole("tab", { name: "Evidence", exact: true }).click();
+  await page.getByRole("tab", { name: "Sources", exact: true }).click();
   await page.getByRole("button", { name: "Correct provenance" }).click();
   await page.getByLabel("Source title", { exact: true }).fill(`${title} corrected`);
   const corrected = await saveSource(page, "Save corrected version");
