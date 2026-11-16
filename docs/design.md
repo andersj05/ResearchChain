@@ -46,7 +46,7 @@ adaptation of these patterns; it does not reproduce Vercel branding or assets.
   editor changes never mutate a pinned run.
 - Tokens: white and near-white surfaces, neutral borders, 4/8/12/16/24/32px
   spacing, square corners throughout, 13–14px interface text, 12px metadata.
-  No decorative logo/avatar blocks, icon tiles, canvas pattern, shadows, or fake
+  No decorative logo/avatar blocks, icon tiles, shadows, or fake
   draggable ports. Color belongs to step labels and states; icons support actions.
   Motion respects reduced-motion preferences. Save state remains visible at every width.
 - Responsive: panels flow below the canvas on smaller screens; controls wrap;
@@ -59,3 +59,11 @@ the canvas adapter. The redesign preserves the current deterministic node model,
 server validation, revision pinning, recovery, and review idempotency. Advanced
 connections and subgraphs remain [issue #4](https://github.com/andersj05/ResearchChain/issues/4).
 No provider integration or deployment is part of this work.
+
+## Owner feedback, 2026-11-16
+
+The [workspace feedback plan](plans/0017-owner-workspace-feedback.md) records Figma
+UI3 research and supersedes earlier shell/panel assumptions. Keep an obvious active
+agent, use compact Settings, dock and resize sidebars, and add a subtle canvas grid.
+Grid points share the world coordinate system with steps; dragging must show the
+same preview for the box, ports and connected paths before committing one edit.
