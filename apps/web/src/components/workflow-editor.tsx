@@ -349,6 +349,19 @@ export function WorkflowEditor({
               <PanelLeft size={16} aria-hidden="true" />
               Steps
             </Button>
+            <span
+              className="canvas-model-summary"
+              aria-label="Configured model"
+              title="One model is shared by all model steps. Choose it in Run workflow."
+            >
+              {workflow.research ? (
+                <>
+                  Model · <strong>{workflow.research.model}</strong>
+                </>
+              ) : (
+                "No model configured"
+              )}
+            </span>
             <Button
               className="button ghost"
               aria-label="Toggle details"
@@ -448,6 +461,14 @@ export function WorkflowEditor({
                 <p className="field-hint">
                   Notes copy text; they do not call a model. Use Add model prompt for AI
                   instructions.
+                </p>
+              )}
+              {node.kind === "research" && (
+                <p className="field-hint" aria-label="Step model">
+                  This step uses{" "}
+                  <strong>{workflow.research?.model ?? "an unconfigured model"}</strong> through
+                  your ChatGPT plan. All model steps share this selection. Change it in Run
+                  workflow.
                 </p>
               )}
               <NodeConfiguration

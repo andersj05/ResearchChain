@@ -3005,3 +3005,36 @@ footer p {
   color: var(--muted);
   background: var(--paper);
 }
+
+.canvas-model-summary {
+  min-width: 0;
+  max-width: 45%;
+  padding: 0 8px;
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+.canvas-model-summary strong {
+  font-weight: 500;
+  color: var(--ink);
+}
+.run-model-summary {
+  margin: 20px 0;
+  padding: 16px 0;
+  border-block: 1px solid var(--line);
+}
+.run-model-summary dl {
+  display: grid;
+  grid-template-columns: minmax(100px, 160px) minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 12px 0;
+  font-size: 13px;
+}
+.run-model-summary dt {
+  color: var(--muted);
+}
+.run-model-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}

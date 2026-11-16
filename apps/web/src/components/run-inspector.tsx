@@ -123,6 +123,13 @@ export function RunInspector({
               </Button>
             </div>
           )}
+          {!run.research_manifest && (
+            <p className="field-hint" aria-label="Run model">
+              {run.workflow.research
+                ? "Model manifest is not available yet."
+                : "No model calls. This run uses local steps and human reviews."}
+            </p>
+          )}
           <ResearchResults run={run} />
           {run.status === "paused" &&
             (run.reviews?.length ? run.reviews : run.review ? [run.review] : []).map((review) => (
