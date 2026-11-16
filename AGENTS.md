@@ -5,6 +5,22 @@ report writing. Read `docs/memory/project-context.md` for the product intent and
 `docs/memory/current-state.md` for the latest verified handoff. Read further docs
 only as the task needs them; code, tests, and current GitHub state outrank stale notes.
 
+## First implementation pass: owner-built agents
+
+Confirmed with the owner on 2026-11-16. Deliver the local environment in which the
+owner designs, runs, inspects and iterates on their own agent. The owner determines
+the research strategy, prompts, sources, checkpoints and quality judgments.
+Agent-generated research templates and pilots are optional examples, not the product
+specification or acceptance gates. Do not require pilot labels, a calibrated judge,
+a finished agent, public hosting or publication to complete this environment pass.
+
+Acceptance: the owner can start a blank workflow, configure model instructions and
+human reviews, wire inputs, choose evidence/model/limits, save versions, run and inspect
+outputs, incorporate feedback, and start a revised experiment without editing code.
+Verify with synthetic providers; do not consume the owner's plan or submit human
+judgments to demonstrate readiness. After delivery, the owner will build a simple
+agent and supply usability feedback. Preserve that as the next step.
+
 ## Agent workflow
 
 - Track work in GitHub issues and PRs through `gh` only. Do not use GitHub Projects,
@@ -21,7 +37,7 @@ only as the task needs them; code, tests, and current GitHub state outrank stale
 
 ## Development agreements
 
-- Branches: `main` → `dev` → `feat/<feature-name>`. Feature PRs target `dev`;
+- Branches: `main` â†’ `dev` â†’ `feat/<feature-name>`. Feature PRs target `dev`;
   promotion PRs come from `dev` to `main`. Never squash a dev-to-main promotion.
 - Use pnpm for TypeScript and uv for Python. Commit lockfiles. See
   `docs/development.md` for commands; run focused checks during work and `pnpm check`

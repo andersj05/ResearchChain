@@ -1,6 +1,22 @@
 # Project context
 
-Confirmed with the owner, 2026-11-13.
+Confirmed with the owner, 2026-11-13; scope clarified 2026-11-16.
+
+## First implementation pass: owner-built agents
+
+Confirmed with the owner on 2026-11-16. Deliver the local environment in which the
+owner designs, runs, inspects and iterates on their own agent. The owner determines
+the research strategy, prompts, sources, checkpoints and quality judgments.
+Agent-generated research templates and pilots are optional examples, not the product
+specification or acceptance gates. Do not require pilot labels, a calibrated judge,
+a finished agent, public hosting or publication to complete this environment pass.
+
+Acceptance: the owner can start a blank workflow, configure model instructions and
+human reviews, wire inputs, choose evidence/model/limits, save versions, run and inspect
+outputs, incorporate feedback, and start a revised experiment without editing code.
+Verify with synthetic providers; do not consume the owner's plan or submit human
+judgments to demonstrate readiness. After delivery, the owner will build a simple
+agent and supply usability feedback. Preserve that as the next step.
 
 - Publication: [EquityCats](https://equitycats.substack.com/).
 - Anchor example: [Mixed Signals, Rotations and Correlations](https://equitycats.substack.com/p/mixed-signals-rotations-and-correlations).
@@ -22,7 +38,7 @@ Confirmed with the owner, 2026-11-13.
 - Use LangGraph for orchestration. Do not lock the system to a single model vendor.
 - Provider choice (2026-11-14): use the owner's ChatGPT Pro included allowance via
   the official local-app Sign in with ChatGPT flow. No paid API fallback.
-- Branch structure is `main` → `dev` → `feat/<feature-name>`.
+- Branch structure is `main` â†’ `dev` â†’ `feat/<feature-name>`.
 - Prioritize short, reproducible iteration loops with meaningful quality checks.
 - Track development through GitHub issues and PRs using `gh`; no GitHub Projects
   or browser-based GitHub workflow. Minimize tracking overhead (owner, 2026-11-14).

@@ -1,7 +1,23 @@
 # Current state
 
-Updated 2026-11-15. The owner authorized frequent commits and merging completed
+Updated 2026-11-16. The owner authorized frequent commits and merging completed
 steps into dev after passing checks. No main promotion or public deployment.
+
+## First implementation pass: owner-built agents
+
+Confirmed with the owner on 2026-11-16. Deliver the local environment in which the
+owner designs, runs, inspects and iterates on their own agent. The owner determines
+the research strategy, prompts, sources, checkpoints and quality judgments.
+Agent-generated research templates and pilots are optional examples, not the product
+specification or acceptance gates. Do not require pilot labels, a calibrated judge,
+a finished agent, public hosting or publication to complete this environment pass.
+
+Acceptance: the owner can start a blank workflow, configure model instructions and
+human reviews, wire inputs, choose evidence/model/limits, save versions, run and inspect
+outputs, incorporate feedback, and start a revised experiment without editing code.
+Verify with synthetic providers; do not consume the owner's plan or submit human
+judgments to demonstrate readiness. After delivery, the owner will build a simple
+agent and supply usability feedback. Preserve that as the next step.
 
 ## Checkout and verified delivery
 
@@ -103,7 +119,7 @@ Retain physical writer locks and cleanup reference checks; never purge private d
 as a test. Browser tests use disposable e2e_ schemas and synthetic credentials.
 Restore any displaced live services after testing.
 
-## Remaining criteria
+## Later agent-quality and hosting criteria (not environment blockers)
 
 - [#6](https://github.com/andersj05/ResearchChain/issues/6): actual owner assessment
   of the paused pilot/development comparison and provider-side spend controls.
