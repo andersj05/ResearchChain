@@ -32,7 +32,7 @@ test("save a revision, refresh a paused run, and resume its original workflow", 
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   const runUrl = page.url();
-  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Instructions", exact: true })
     .fill("Only for the next run.");
@@ -67,7 +67,7 @@ test("revision history restores the draft and Undo preserves unsaved work", asyn
   await page
     .getByRole("textbox", { name: "Instructions", exact: true })
     .fill("Unsaved work to recover.");
-  await page.getByRole("tab", { name: "Revisions", exact: true }).click();
+  await page.getByRole("tab", { name: "Versions", exact: true }).click();
   await page.getByRole("button", { name: `Load revision ${number}`, exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toHaveValue(
     firstText,
@@ -179,10 +179,10 @@ test("canvas movement and workspace tabs support the keyboard", async ({ page })
   await node.focus();
   await node.press("Alt+ArrowRight");
   await expect(page.locator('[data-node-id="frame"]')).toHaveCSS("left", "70px");
-  const tab = page.getByRole("tab", { name: "Workflow", exact: true });
+  const tab = page.getByRole("tab", { name: "Build", exact: true });
   await tab.focus();
   await tab.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Evidence", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Sources", exact: true })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -193,9 +193,13 @@ test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testI
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
-  for (const name of ["Workflow", "Runs", "Revisions"]) {
+  for (const [name, heading] of [
+    ["Build", "Agent builder"],
+    ["Runs", "Runs"],
+    ["Versions", "Versions"],
+  ] as const) {
     await page.getByRole("tab", { name, exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath(`${name.toLowerCase()}-mobile.png`),
       fullPage: true,

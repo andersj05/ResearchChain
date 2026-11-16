@@ -373,7 +373,7 @@ test("new definition versions and nested draft edits keep an existing run pinned
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
   const runId = new URL(page.url()).searchParams.get("run");
-  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page
     .getByRole("navigation", { name: "Graph breadcrumbs" })
     .getByRole("button", { name: "Hypothesis review", exact: true })

@@ -130,44 +130,48 @@ export function WorkflowEditor({
     : 0;
   return (
     <>
-      <nav className="graph-breadcrumbs" aria-label="Graph breadcrumbs">
-        <ol>
-          <li>
-            <button
-              type="button"
-              disabled={disabled}
-              aria-current={!scope ? "page" : undefined}
-              onClick={() => {
-                setPath([]);
-                selectNode(validPath[0]?.via ?? workflow.start_node);
-              }}
-            >
-              {workflow.name || "Root workflow"}
-            </button>
-          </li>
-          {validPath.map((crumb, index) => (
-            <li key={`${index}/${scopeKey(crumb.ref)}`}>
-              <span aria-hidden="true">/</span>
+      {scope && (
+        <nav className="graph-breadcrumbs" aria-label="Graph breadcrumbs">
+          <ol>
+            <li>
               <button
                 type="button"
                 disabled={disabled}
-                aria-current={index === validPath.length - 1 ? "page" : undefined}
+                aria-current={!scope ? "page" : undefined}
                 onClick={() => {
-                  setPath(validPath.slice(0, index + 1));
-                  selectNode(validPath[index + 1]?.via ?? graphAt(workflow, crumb.ref)!.start_node);
+                  setPath([]);
+                  selectNode(validPath[0]?.via ?? workflow.start_node);
                 }}
               >
-                {graphAt(workflow, crumb.ref)?.name} <small>v{crumb.ref.version}</small>
+                {workflow.name || "Root workflow"}
               </button>
             </li>
-          ))}
-        </ol>
-        {scope && (
-          <p>
-            Editing a shared definition · {uses} draft {uses === 1 ? "reference" : "references"}
-          </p>
-        )}
-      </nav>
+            {validPath.map((crumb, index) => (
+              <li key={`${index}/${scopeKey(crumb.ref)}`}>
+                <span aria-hidden="true">/</span>
+                <button
+                  type="button"
+                  disabled={disabled}
+                  aria-current={index === validPath.length - 1 ? "page" : undefined}
+                  onClick={() => {
+                    setPath(validPath.slice(0, index + 1));
+                    selectNode(
+                      validPath[index + 1]?.via ?? graphAt(workflow, crumb.ref)!.start_node,
+                    );
+                  }}
+                >
+                  {graphAt(workflow, crumb.ref)?.name} <small>v{crumb.ref.version}</small>
+                </button>
+              </li>
+            ))}
+          </ol>
+          {scope && (
+            <p>
+              Editing a shared definition · {uses} draft {uses === 1 ? "reference" : "references"}
+            </p>
+          )}
+        </nav>
+      )}
       {notice && (
         <p className="error" role="alert">
           {notice}

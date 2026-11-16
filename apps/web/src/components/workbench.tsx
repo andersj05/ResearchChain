@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Link from "next/link";
 import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { AgentSwitcher } from "@/components/agent-switcher";
@@ -669,16 +668,6 @@ export function Workbench() {
       }}
     >
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="ResearchChain home">
-          <span>ResearchChain</span>
-        </Link>
-        <span className="workspace-divider" aria-hidden="true">
-          /
-        </span>
-        <span className="workspace-label">EquityCats</span>
-        <span className="workspace-divider breadcrumb-extra" aria-hidden="true">
-          /
-        </span>
         <AgentSwitcher
           agents={agents}
           active={activeAgent}
@@ -691,17 +680,16 @@ export function Workbench() {
             void action(loadLatestAgent);
           }}
         />
-        <span className="local-badge">Local workspace</span>
         <AccessControls key={accessActive ? "active" : "locked"} />
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">
           <TabsList className="workspace-tabs" aria-label="Workspace">
             <TabsTab disabled={busy} value="workflow">
-              Workflow
+              Build
             </TabsTab>
             <TabsTab disabled={busy} value="evidence">
-              Evidence
+              Sources
             </TabsTab>
             <TabsTab disabled={busy} value="runs">
               Runs
@@ -710,54 +698,60 @@ export function Workbench() {
               Reports
             </TabsTab>
             <TabsTab disabled={busy} value="evaluations">
-              Evaluations
+              Evaluate
             </TabsTab>
             <TabsTab disabled={busy} value="revisions">
-              Revisions
+              Versions
             </TabsTab>
             <TabsTab disabled={busy} value="operations">
-              Operations
+              Status
             </TabsTab>
           </TabsList>
-          <div className="actions workspace-actions">
-            {tab === "workflow" && (
-              <>
-                <span className={`save-state ${saved ? "" : "unsaved"}`}>
-                  <i aria-hidden="true" />
-                  {saved ? `Revision ${revision.number}` : "Unsaved draft"}
-                </span>
-                <Button
-                  className="button"
-                  disabled={!loaded || busy}
-                  onClick={() =>
-                    action(async () => {
-                      await saveRevision();
-                    })
-                  }
-                >
-                  Save revision
-                </Button>
-              </>
-            )}
-            <RunSetup
-              open={setupOpen}
-              onOpenChange={setSetupOpen}
-              brief={brief}
-              onBriefChange={setBrief}
-              evidenceIds={evidenceIds}
-              onEvidenceChange={setEvidenceIds}
-              research={workflow.research}
-              onResearch={(research) => change({ ...workflow, research })}
-              accountId={providerAccount}
-              onAccount={setProviderAccount}
-              name={workflow.name}
-              revision={saved ? revision.number : null}
-              busy={busy}
-              loaded={loaded}
-              error={error}
-              onStart={() => action(startRun)}
-            />
-          </div>
+          {tab === "workflow" && (
+            <div className="actions workspace-actions">
+              {tab === "workflow" && (
+                <>
+                  <span className={`save-state ${saved ? "" : "unsaved"}`}>
+                    <i aria-hidden="true" />
+                    {saved
+                      ? activeAgent
+                        ? `Version ${activeAgent.version}`
+                        : `Revision ${revision.number}`
+                      : "Unsaved draft"}
+                  </span>
+                  <Button
+                    className="button"
+                    disabled={!loaded || busy}
+                    onClick={() =>
+                      action(async () => {
+                        await saveRevision();
+                      })
+                    }
+                  >
+                    Save revision
+                  </Button>
+                </>
+              )}
+              <RunSetup
+                open={setupOpen}
+                onOpenChange={setSetupOpen}
+                brief={brief}
+                onBriefChange={setBrief}
+                evidenceIds={evidenceIds}
+                onEvidenceChange={setEvidenceIds}
+                research={workflow.research}
+                onResearch={(research) => change({ ...workflow, research })}
+                accountId={providerAccount}
+                onAccount={setProviderAccount}
+                name={workflow.name}
+                revision={saved ? revision.number : null}
+                busy={busy}
+                loaded={loaded}
+                error={error}
+                onStart={() => action(startRun)}
+              />
+            </div>
+          )}
         </div>
         {error && !setupOpen && (
           <div className="error workspace-error" role="alert">
@@ -779,7 +773,7 @@ export function Workbench() {
           </div>
         )}
         <TabsPanel className="workflow-view" value="workflow" keepMounted>
-          <h1 className="sr-only">Workflow</h1>
+          <h1 className="sr-only">Agent builder</h1>
           <section className="workspace" aria-label="Workflow editor">
             <details className="builder-guide">
               <summary>Build your agent</summary>
@@ -798,8 +792,8 @@ export function Workbench() {
                   receives.
                 </li>
                 <li>
-                  Add sources in Evidence. Run workflow lets you choose the brief, sources and
-                  model. Set Execution limits and Research limits before starting.
+                  Add sources in Sources. Run workflow lets you choose the brief, sources and model.
+                  Set Execution limits and Research limits before starting.
                 </li>
                 <li>
                   Inspect saved requests, outputs and review checkpoints in Runs. Iterate from this
@@ -1120,7 +1114,7 @@ export function Workbench() {
           <div className="view-heading">
             <div>
               <p className="eyebrow">Workflow history</p>
-              <h1>Revisions</h1>
+              <h1>Versions</h1>
               <p className="muted">
                 {activeAgent
                   ? `Saved versions of ${activeAgent.name}.`

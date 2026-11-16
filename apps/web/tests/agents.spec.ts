@@ -57,11 +57,11 @@ for (const width of [1440, 390]) {
     expect(await (await request.get(`/api/runs?agent_id=${beta}`)).json()).toEqual([]);
     await expect(page.locator(".run-history .run-row")).toHaveCount(0);
     await selector.selectOption(alpha);
-    await page.getByRole("tab", { name: "Revisions", exact: true }).click();
+    await page.getByRole("tab", { name: "Versions", exact: true }).click();
     await expect(page.getByRole("region", { name: "Saved revisions" })).toContainText(
       `Alpha ${width}`,
     );
-    await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+    await page.getByRole("tab", { name: "Build", exact: true }).click();
     await page.screenshot({
       path: info.outputPath(`agent-workspace-${width}.png`),
       fullPage: true,
@@ -80,9 +80,9 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Iterate from this run", exact: true }).click();
     await expect(selector).toHaveValue(alpha);
     await expect(instructions).toHaveValue("My unsaved Alpha note");
-    await page.getByRole("tab", { name: "Revisions", exact: true }).click();
+    await page.getByRole("tab", { name: "Versions", exact: true }).click();
     await expect(page.getByRole("region", { name: "Saved revisions" })).toContainText("Version 3");
-    await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+    await page.getByRole("tab", { name: "Build", exact: true }).click();
     await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
     await expect(instructions).toHaveValue("Alpha draft before opening an older run");
     expect((await (await request.get(`/api/runs/${runId}`)).json()).agent_id).toBe(alpha);

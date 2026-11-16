@@ -67,3 +67,17 @@ UI3 research and supersedes earlier shell/panel assumptions. Keep an obvious act
 agent, use compact Settings, dock and resize sidebars, and add a subtle canvas grid.
 Grid points share the world coordinate system with steps; dragging must show the
 same preview for the box, ports and connected paths before committing one edit.
+
+## Owner workspace navigation (2026-11-16)
+
+Put agent identity and Settings in the header. Remove publication/product branding
+and the duplicate root-workflow breadcrumb; show breadcrumbs only inside subgraphs.
+Keep the canvas tall with compact header, navigation, library rows and footer.
+On narrow screens use two-column step choices and place the agent before Settings.
+
+Task labels: Build (graph authoring), Sources (captured evidence and claims), Runs
+(experiments and checkpoints), Reports (editorial work), Evaluate (comparisons),
+Versions (saved workflow history), Status (worker/usage/maintenance information).
+Keep existing URL view keys for old links. Save/Run actions belong to Build;
+other views have their own actions. Active named-agent version numbers use that
+agent's version sequence. Keyboard tab navigation remains available.
