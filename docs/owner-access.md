@@ -18,7 +18,7 @@ browser. The browser exchanges it for an HttpOnly cookie and removes the link
 fragment from the address. Treat the link as a credential; do not share it.
 The command never prints it into terminal output.
 
-Open **Set owner password** in the workbench header to choose a unique password
+Open **Settings** in the workbench header to choose a unique password
 of 15–128 characters. Normal visits use that password. A password change signs
 out other sessions and invalidates pending links. After five minutes without
 fresh authentication, changing it also requires the current password; first
@@ -140,3 +140,12 @@ public-edge controls, off-machine recovery, operational secret handling and
 measured hosting costs still need a concrete configuration and verification.
 Do not expose a rollback build that lacks the access gate; keep rollback rehearsal
 on loopback.
+
+## Settings dialog
+
+The header's Settings button opens owner password and session controls in one
+compact dialog. Escape or Close settings returns focus to the button and clears
+unsaved password fields. Controls remain in the dialog while a password/sign-out
+request is pending. On a short or narrow screen the content scrolls while the
+heading and close control remain visible. Opening Settings does not call a model,
+change credentials, or alter an agent draft.

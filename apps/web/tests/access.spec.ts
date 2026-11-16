@@ -88,11 +88,20 @@ for (const width of [1440, 390]) {
       if (request.method() === "POST" && request.url().endsWith("/api/revisions"))
         writes.push(request.url());
     });
-    await page
-      .getByText("Owner access", { exact: true })
-      .filter({ has: page.locator(":scope") })
-      .first()
-      .click();
+    const settingsButton = page.getByRole("button", { name: "Settings", exact: true });
+    await settingsButton.click();
+    const settings = page.getByRole("dialog", { name: "Workspace settings", exact: true });
+    await expect(settings).toBeVisible();
+    await expect(settings).toBeFocused();
+    await page.getByLabel("New password", { exact: true }).fill("A temporary unsaved password");
+    await page.keyboard.press("Tab");
+    expect(await settings.evaluate((dialog) => dialog.contains(document.activeElement))).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
+    await expect(settingsButton).toBeFocused();
+    await settingsButton.click();
+    await expect(page.getByLabel("New password", { exact: true })).toHaveValue("");
+    if (width === 1440) expect((await settings.boundingBox())!.height).toBeLessThan(650);
     await expect(page.getByLabel("New password", { exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -132,7 +141,7 @@ test("first owner setup exchanges a link once and removes it from the address", 
   expect(exchanges).toBe(1);
   expect(requestUrls.every((url) => !url.includes(code!))).toBe(true);
   expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toContain(code);
-  await page.getByText("Set owner password", { exact: true }).click();
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
   await page.getByLabel("Create owner password", { exact: true }).fill(password);
   await page.getByRole("button", { name: "Save owner password", exact: true }).click();
   await expect(page.getByText("Password saved.", { exact: false })).toBeVisible();
@@ -248,7 +257,7 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
     await expect(
       other.getByRole("button", { name: "Validate workflow", exact: true }),
     ).toBeEnabled();
-    await page.locator(".access-menu > summary").click();
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByLabel("New password", { exact: true }).fill(password + "-changed");
     await page.getByRole("button", { name: "Save owner password", exact: true }).click();
     await expect(page.getByText("Password saved.", { exact: false })).toBeVisible();
