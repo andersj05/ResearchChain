@@ -17,7 +17,7 @@ pnpm dev
 Open `http://127.0.0.1:3000`. The API is on port 8000, with interactive documentation
 at `http://127.0.0.1:3000/api/docs` after sign-in. Both services bind to loopback.
 In another terminal, run `pnpm access:login` for first enrollment or recovery, then
-set an owner password in the header. See [owner access](owner-access.md).
+set an owner password in **Settings**. See [owner access](owner-access.md).
 `Ctrl+C` stops the web app, API and worker.
 Commands work in PowerShell and on Linux/macOS. Docker Desktop (or Docker Engine
 with Compose) must be running for the local Postgres database. No model API key

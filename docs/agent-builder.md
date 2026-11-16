@@ -117,7 +117,7 @@ Use **Build** to edit and run the active agent. **Sources** holds the shared sou
 library and linked claims; **Runs** shows experiments for the selected agent;
 **Reports** holds editorial drafts. **Evaluate**, **Versions** and **Status** keep
 comparisons, saved workflow history and workspace health separate. Older bookmarks
-continue to work. Owner access and provider controls are in **Settings**.
+continue to work. Owner access is in **Settings**; manage the ChatGPT connection in run setup.
 
 Sources can be filtered by availability and searched by title, author or publisher.
 Search applies to the loaded records; load more to include older sources. The linked

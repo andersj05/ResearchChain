@@ -102,6 +102,7 @@ for (const width of [1440, 390]) {
         .poll(async () => (await history.boundingBox())!.width)
         .toBeGreaterThan(before + 40);
     }
+    await expect(history.locator(".run-row").first()).toBeInViewport({ ratio: 0.8 });
     await page.screenshot({ path: info.outputPath("runs.png"), fullPage: true });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

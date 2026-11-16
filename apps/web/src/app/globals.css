@@ -3389,3 +3389,14 @@ footer p {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 850px) {
+  .collection-layout .run-history {
+    max-height: none;
+    overflow: visible;
+  }
+  .collection-layout .run-history > ul {
+    max-height: 240px;
+    overflow: auto;
+  }
+}
