@@ -237,7 +237,7 @@ export function NodeConfiguration({
             {config.stage === "custom"
               ? "Your instructions define this task. The answer appears in the result's conclusion; hypotheses are optional. "
               : "Challenge and revise need a prior research result. "}
-            Connect a human review's feedback to include it in this step.
+            Connect a human review&apos;s feedback to include it in this step.
           </p>
         </>
       )}
