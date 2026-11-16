@@ -23,9 +23,11 @@ agent and supply usability feedback. Preserve that as the next step.
 
 The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty
 Documents/ChatGPT directory is not the checkout. Use explicit working directories.
-The evaluation protocol checkout is C:/Users/jense/Desktop/ResearchChain-evaluation,
-branch feat/evaluation-study. Check GitHub and the private delivery receipts
-for current integration state; do not infer it from an old service handle.
+The current feature is feat/agent-builder-handoff in that repository. PR #37's
+optional evaluation protocol was merged into dev before this pass. Its pilot
+judgments remain unsubmitted and are not blockers. See [the builder guide](../agent-builder.md)
+for the scope, audit and owner walkthrough. Verification/integration results will
+be recorded at delivery. No real model requests are needed for this audit.
 
 [PR #35](https://github.com/andersj05/ResearchChain/pull/35) delivered the workspace
 request allowance into dev as 4bbf68018d6342b58b96cdf95d3577ca2db69e59.

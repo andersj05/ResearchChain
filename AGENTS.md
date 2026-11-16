@@ -37,7 +37,7 @@ agent and supply usability feedback. Preserve that as the next step.
 
 ## Development agreements
 
-- Branches: `main` â†’ `dev` â†’ `feat/<feature-name>`. Feature PRs target `dev`;
+- Branches: `main` → `dev` → `feat/<feature-name>`. Feature PRs target `dev`;
   promotion PRs come from `dev` to `main`. Never squash a dev-to-main promotion.
 - Use pnpm for TypeScript and uv for Python. Commit lockfiles. See
   `docs/development.md` for commands; run focused checks during work and `pnpm check`

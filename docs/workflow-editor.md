@@ -4,6 +4,10 @@ The editor supports the [structured workflow contract](structured-workflows.md)
 through the UI SDK adapter. Workflow JSON contains graph semantics and positions;
 selection, breadcrumbs, expanded previews, viewport, and history stay in the UI.
 
+Start from **New workflow** and follow [Build your agent](agent-builder.md). **Add
+model prompt** uses your custom instructions; **Use research template** is optional.
+**Iterate from this run** in Runs restores that experiment's workflow and run inputs.
+
 ## Editing
 
 - Add notes, reviews, conditions, parallel branches, bounded loops, or subgraphs

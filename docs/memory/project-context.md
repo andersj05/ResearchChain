@@ -38,7 +38,7 @@ agent and supply usability feedback. Preserve that as the next step.
 - Use LangGraph for orchestration. Do not lock the system to a single model vendor.
 - Provider choice (2026-11-14): use the owner's ChatGPT Pro included allowance via
   the official local-app Sign in with ChatGPT flow. No paid API fallback.
-- Branch structure is `main` â†’ `dev` â†’ `feat/<feature-name>`.
+- Branch structure is `main` → `dev` → `feat/<feature-name>`.
 - Prioritize short, reproducible iteration loops with meaningful quality checks.
 - Track development through GitHub issues and PRs using `gh`; no GitHub Projects
   or browser-based GitHub workflow. Minimize tracking overhead (owner, 2026-11-14).

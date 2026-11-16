@@ -23,7 +23,7 @@ and remote hosting follow the local environment handoff; they do not block it.
 
 | Milestone                | Deliverable                                                            | Exit criteria                                                           |
 | ------------------------ | ---------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| M0 Foundation            | Repo, UI SDK editor slice, LangGraph, contracts, CI, memory            | Clean setup and edit â†’ validate â†’ run â†’ review â†’ resume test    |
+| M0 Foundation            | Repo, UI SDK editor slice, LangGraph, contracts, CI, memory            | Clean setup and edit → validate → run → review → resume test            |
 | M1 Durable workflows     | Postgres, revisions, events, cancellation, bounded loops and subgraphs | Interrupted runs survive restart; runs preserve their original versions |
 | M2 Evidence and research | Source ingestion, charts, hypothesis ledger, model/tool adapters       | Claims trace to sources and as-of dates; hypotheses can be challenged   |
 | M3 Editorial evaluation  | Report editor, style exemplars, annotation, blind A/B evaluation       | Reproducible evidence-fixed and end-to-end evaluations with holdouts    |

@@ -3,6 +3,12 @@
 A customizable research workbench for EquityCats: develop hypotheses, inspect evidence,
 challenge conclusions, and write reports with human editorial judgment in the loop.
 
+## Build your own agent
+
+Start with [the agent builder guide](docs/agent-builder.md). This first pass delivers
+the environment for you to design and iterate on your own agent. Templates, pilots
+and evaluation studies are optional; your judgments shape the agent you build.
+
 ## Development
 
 The foundation uses Next.js + TypeScript + UI SDK for the editor, and Python +

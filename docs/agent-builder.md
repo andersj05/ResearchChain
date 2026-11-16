@@ -1,0 +1,78 @@
+# Build and iterate on your agent
+
+This is your local authoring environment. You choose the agent's purpose, prompts,
+evidence, routing, checkpoints and standards. The bundled research template and
+saved pilots are optional examples. Evaluating them is not required to start.
+
+## First experiment
+
+1. Open Workflow and select **New workflow**. This creates only a Finish step;
+   saved revisions and runs remain available. Name it under **Workflow settings**.
+2. Select **Add model prompt**. Give the step a name and write your Instructions.
+   **Custom instructions** follows your task rather than requiring hypothesis
+   formation. The optional hypothesis, challenge and revision behaviors retain
+   their structured research rules. A **Research note** only copies text; it does
+   not call a model.
+3. Add **Human review** and write the question you want to decide. Add another
+   model prompt after it. Select the first model's text under **Context input**
+   and the review's feedback under **Reviewer feedback**. A control connection
+   determines execution order; data inputs determine what the model receives.
+4. If needed, capture sources in **Evidence**. URL-only records do not fetch pages.
+   Set **Execution limits** and **Research limits** for this experiment.
+5. **Validate workflow**, then **Save revision**. **Run workflow** opens the brief,
+   model and source selection. Choose the available model, enter your task, and
+   select the sources you want pinned to this run. **Start run** uses the connected
+   ChatGPT plan and starts real inference; merely editing and validating does not.
+6. In **Runs**, inspect outputs and **Saved request** / **Saved response**. At a
+   review, write your feedback and approve to continue, or reject to stop. Feedback
+   reaches only later steps explicitly connected to that review's feedback port.
+7. Choose **Iterate from this run** to restore its workflow, brief, evidence,
+   artifact references and account selection into the editor. Change instructions,
+   topology, model or sources, then start a separate run. The original stays pinned
+   to its own revision. Prior review feedback is not automatically copied into a
+   new experiment; incorporate it in your prompt/brief if you want it reused.
+
+New workflow, templates and loading a revision are undoable workflow edits. Run
+setup inputs are separate from workflow undo. **Save draft** keeps the workflow in
+this browser; **Export JSON** makes a portable copy. Save a revision before leaving
+or refreshing for durable history. Unsaved workflow edits trigger a browser warning.
+There is no automatic draft recovery after a crash.
+
+## Available controls and boundaries
+
+| Capability              | Available now                                                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authoring               | Blank workflows; custom model instructions; named steps; source and feedback bindings                                                                      |
+| Control flow            | Conditions, parallel branches/joins, bounded loops, nested subgraphs, human reviews                                                                        |
+| Model                   | One model per workflow, chosen from the connected ChatGPT account; no paid API fallback                                                                    |
+| Tools                   | Read pinned captured evidence; notes and graph controls; no web search, code runner or arbitrary external tool registration                                |
+| Results                 | Custom answers in the structured result's conclusion (up to 6,000 characters); optional hypotheses; saved requests, responses, usage and version manifests |
+| Iteration               | Immutable revisions, original-run inspection, copied experiment inputs, manual feedback and separate new runs                                              |
+| Optional editorial work | Reports, style guides, annotations, blind comparisons and judge calibration records                                                                        |
+
+The custom step still uses a structured result envelope for inspectable, durable
+outputs. It does not force hypotheses, alternatives or a research strategy. Output
+format customization, per-step models and new tool integrations require further
+implementation; they are not controls hidden elsewhere in the editor. No automatic
+publication, trading or model training is performed.
+
+## Environment acceptance audit (2026-11-16)
+
+Existing foundations cover durable execution, typed graph editing, evidence
+provenance, review feedback, cancellation, budgets, request allowances, report
+editing and evaluation records. The audit found missing blank-start controls,
+owner-defined model behavior and restoration of experiment inputs. This pass adds
+those controls, a no-model demo, in-app guidance and unsaved-edit warnings.
+
+Automated acceptance builds a two-step custom agent around a human checkpoint on
+desktop and mobile, runs it against a synthetic provider, verifies feedback in the
+saved request, reloads the run, changes its prompt, and starts another run with the
+same brief/sources while verifying the original revision is unchanged. Backend
+checks cover recovery, structured-result rules and unchanged legacy prompt hashes.
+These checks establish environment behavior, not research quality.
+
+The next acceptance step belongs to the owner: build a simple agent and report
+where the UI or available capabilities get in the way. Helpful feedback includes
+the intended action, expected behavior, observed behavior, and workflow/run/revision
+identifiers. No pilot label, finished agent or calibrated judge is required for this
+handoff. External hosting and operational deployment remain separate work.
