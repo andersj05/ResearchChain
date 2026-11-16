@@ -10,6 +10,14 @@ remain visible during refresh. If another tab/operator changed the policy, load
 the saved limits and review them before saving again. An unconfirmed save is
 checked by reading current settings; the browser never replays it automatically.
 
+## Owner workspace policy
+
+On 2026-11-16 the owner authorized 1,000 admissions per rolling 24 hours for the
+local workspace. The operator applied policy revision 2 with requests enabled;
+no model requests were submitted. Read current status for usage and later policy
+changes. This is the workspace's admission limit, not a guarantee of remaining
+ChatGPT plan allowance. Other new workspaces retain the 100-request starting policy.
+
 ## What is counted
 
 The allowance is shared by every research run, worker process and connected
