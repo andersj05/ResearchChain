@@ -3234,3 +3234,25 @@ footer p {
     white-space: normal;
   }
 }
+
+.code-editor {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+.code-result {
+  width: 100%;
+  min-width: 0;
+}
+.code-result pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.code-result dd {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

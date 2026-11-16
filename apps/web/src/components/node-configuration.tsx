@@ -182,6 +182,82 @@ export function NodeConfiguration({
   const textOptions = sources(graph, node.id).filter((source) => source.type === "text");
   return (
     <>
+      {config?.type === "code" && (
+        <fieldset className="config-fields">
+          <legend>JavaScript code</legend>
+          <p className="field-hint">
+            Write a function body using inputs.text, inputs.number, inputs.brief,
+            inputs.artifact_count and inputs.iteration. Return text (up to 24,000 characters) and a
+            finite number. This step makes no model calls.
+          </p>
+          <label>
+            Code
+            <textarea
+              className="code-editor"
+              spellCheck={false}
+              rows={12}
+              maxLength={20000}
+              value={config.source}
+              onChange={(event) =>
+                onEdit({ config: { ...config, source: event.target.value } }, "code-source")
+              }
+            />
+          </label>
+          {(["text", "number"] as const).map((port) => {
+            const choices = sources(graph, node.id).filter((item) => item.type === port);
+            return (
+              <label key={port}>
+                {port === "text" ? "Code text input" : "Code number input"}
+                <select
+                  value={sourceKey(node.inputs?.[port])}
+                  onChange={(event) =>
+                    onGraph(
+                      bindInput(
+                        graph,
+                        node.id,
+                        port,
+                        choices.find((item) => item.value === event.target.value)?.source,
+                      ),
+                    )
+                  }
+                >
+                  <option value="">{port === "text" ? "Empty text" : "Zero"}</option>
+                  {node.inputs?.[port] &&
+                    !choices.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
+                      <option value={sourceKey(node.inputs[port])}>Missing source</option>
+                    )}
+                  {choices.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            );
+          })}
+          <label>
+            Code time limit (seconds)
+            <input
+              type="number"
+              min={0.05}
+              max={5}
+              step={0.05}
+              value={config.timeout_seconds ?? 1}
+              onChange={(event) =>
+                onEdit(
+                  { config: { ...config, timeout_seconds: event.target.valueAsNumber || 1 } },
+                  "code-timeout",
+                )
+              }
+            />
+          </label>
+          <p className="field-hint">
+            Synchronous JavaScript and standard Math/JSON utilities, with 32 MB of memory. No
+            network, files, Node.js modules, packages or credentials. Connect its text to a model or
+            note step, or its number to a condition. Inputs and outputs are saved in Runs.
+          </p>
+        </fieldset>
+      )}
       {config?.type === "research" && (
         <>
           <label>
