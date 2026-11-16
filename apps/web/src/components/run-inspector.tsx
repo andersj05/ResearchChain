@@ -182,6 +182,22 @@ export function RunInspector({
                 <li key={event.path ?? event.node_id}>
                   <strong>{event.label}</strong>
                   <span>{event.detail}</span>
+                  {event.code && (
+                    <details className="code-result">
+                      <summary>Code inputs and outputs</summary>
+                      <p className="muted">
+                        {event.code.runtime} · {event.code.duration_ms} ms
+                      </p>
+                      <dl>
+                        <dt>Text output</dt>
+                        <dd>{event.code.outputs.text}</dd>
+                        <dt>Number output</dt>
+                        <dd>{event.code.outputs.number}</dd>
+                      </dl>
+                      <pre>{JSON.stringify(event.code.inputs, null, 2)}</pre>
+                      <p className="code-label">Source SHA-256: {event.code.source_sha256}</p>
+                    </details>
+                  )}
                   {event.path && event.path.split("/").length > 2 && (
                     <small className="muted">{event.path.replaceAll("/", " › ")}</small>
                   )}

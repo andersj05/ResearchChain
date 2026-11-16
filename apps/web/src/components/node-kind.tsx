@@ -2,6 +2,7 @@ import type { WorkflowNode } from "@/lib/workflow";
 
 export const nodeKinds = {
   research: { label: "Hypothesis research", shortLabel: "Research" },
+  code: { label: "Custom code", shortLabel: "Code" },
   note: { label: "Research note", shortLabel: "Note" },
   review: {
     label: "Human review",

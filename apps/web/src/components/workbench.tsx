@@ -553,10 +553,10 @@ export function Workbench() {
               </ol>
               <p>
                 Available tools: captured evidence, model prompts, notes, human reviews, conditions,
-                parallel branches, loops and subgraphs. Web browsing, code execution, arbitrary
-                external tools and per-step model selection are not available. One model is selected
-                per workflow; custom output uses a structured envelope with an answer up to 6,000
-                characters.
+                parallel branches, loops, subgraphs and JavaScript code steps. Code steps have typed
+                inputs and saved results. Web browsing, external tool registration and per-step
+                model selection are not available. One model is selected per workflow; custom output
+                uses a structured envelope with an answer up to 6,000 characters.
               </p>
               <p>
                 Save a revision for durable history. Save draft or Export JSON also keeps your work.
