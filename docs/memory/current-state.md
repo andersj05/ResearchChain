@@ -30,7 +30,10 @@ quality judgments. Each cohesive change needs its own PR merged into dev.
 
 Canvas dragging and the alignment grid are merged in PR #39 (6949918).
 CI 43957865925 passed 448 backend and 93 browser tests. Settings PR #40 and
-adjustable panels PR #41 remain in progress; check their live merge/gate state.
+adjustable panels PR #41 are merged after full CI. Named agents now have isolated
+history, recoverable drafts and exact run ownership; focused backend/browser checks
+passed, with full CI and schema-12 upgrade verification still pending. Model visibility
+is in PR #42. Shell/navigation, code execution and data views remain to be delivered.
 The live workspace allowance is now 1,000 per rolling 24 hours, policy revision 2,
 changed on explicit owner authorization without inference. Private receipt:
 .local/owner-1000-request-allowance.log. Initial policies for other workspaces remain 100.

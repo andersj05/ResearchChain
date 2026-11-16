@@ -3043,26 +3043,49 @@ footer p {
   background: var(--paper);
 }
 
-.code-editor {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 12px;
-  line-height: 1.6;
-  tab-size: 2;
-}
-.code-result {
-  width: 100%;
+.agent-switcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
 }
-.code-result pre {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  padding: 12px;
-  background: var(--paper);
-  border: 1px solid var(--line);
+.agent-switcher > label {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
 }
-.code-result dd {
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+.agent-switcher > select {
+  width: min(260px, 30vw);
+  min-width: 100px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.agent-copy-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.agent-copy-option input {
+  width: auto;
+  margin: 0;
+}
+@media (max-width: 850px) {
+  .topbar {
+    height: auto;
+    min-height: 56px;
+    flex-wrap: wrap;
+    padding-block: 8px;
+  }
+  .agent-switcher {
+    order: 2;
+    width: 100%;
+    flex-wrap: wrap;
+  }
+  .agent-switcher > select {
+    flex: 1;
+    width: auto;
+  }
 }
 
 .canvas-model-summary {
@@ -3095,5 +3118,27 @@ footer p {
 }
 .run-model-summary dd {
   margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.code-editor {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+.code-result {
+  width: 100%;
+  min-width: 0;
+}
+.code-result pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 12px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+}
+.code-result dd {
+  white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

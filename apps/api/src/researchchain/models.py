@@ -49,6 +49,7 @@ class ArtifactRef(StrictModel):
 
 
 class RunRequest(StrictModel):
+    agent_id: UUID | None = None
     id: UUID
     revision_id: UUID
     brief: str = Field(min_length=1, max_length=10000)
@@ -87,6 +88,8 @@ class ReviewPrompt(StrictModel):
 
 
 class RunSummary(StrictModel):
+    agent_id: UUID | None = None
+    agent_name: str | None = None
     id: UUID
     revision_id: UUID
     revision_number: int

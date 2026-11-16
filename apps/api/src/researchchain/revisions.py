@@ -38,30 +38,34 @@ def read_revision(conn: Connection[DictRow], revision_id: UUID) -> WorkflowRevis
     return revision_from_row(row)
 
 
+def save_revision(conn: Connection[DictRow], workflow: Workflow) -> WorkflowRevision:
+    document = workflow.canonical_document()
+    canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+    content_hash = hashlib.sha256(canonical.encode()).hexdigest()
+    existing = conn.execute(
+        "SELECT * FROM workflow_revisions WHERE content_hash = %s", (content_hash,)
+    ).fetchone()
+    if existing is not None:
+        return revision_from_row(existing)
+    conn.execute(
+        "INSERT INTO workflow_revisions (id, content_hash, workflow) VALUES (%s, %s, %s) "
+        "ON CONFLICT (content_hash) DO NOTHING",
+        (uuid4(), content_hash, Jsonb(document)),
+    )
+    row = conn.execute(
+        "SELECT * FROM workflow_revisions WHERE content_hash = %s", (content_hash,)
+    ).fetchone()
+    assert row is not None
+    return revision_from_row(row)
+
+
 class RevisionStore:
     def __init__(self, database: Database) -> None:
         self.database = database
 
     def save(self, workflow: Workflow) -> WorkflowRevision:
-        document = workflow.canonical_document()
-        canonical = json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
-        content_hash = hashlib.sha256(canonical.encode()).hexdigest()
         with self.database.connection() as conn:
-            existing = conn.execute(
-                "SELECT * FROM workflow_revisions WHERE content_hash = %s", (content_hash,)
-            ).fetchone()
-            if existing is not None:
-                return revision_from_row(existing)
-            conn.execute(
-                "INSERT INTO workflow_revisions (id, content_hash, workflow) VALUES (%s, %s, %s) "
-                "ON CONFLICT (content_hash) DO NOTHING",
-                (uuid4(), content_hash, Jsonb(document)),
-            )
-            row = conn.execute(
-                "SELECT * FROM workflow_revisions WHERE content_hash = %s", (content_hash,)
-            ).fetchone()
-            assert row is not None
-            return revision_from_row(row)
+            return save_revision(conn, workflow)
 
     def get(self, revision_id: UUID) -> WorkflowRevision:
         with self.database.connection() as conn:

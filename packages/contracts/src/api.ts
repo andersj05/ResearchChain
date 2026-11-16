@@ -830,6 +830,59 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/agents": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Agents */
+    get: operations["list_agents"];
+    put?: never;
+    /** Create Agent */
+    post: operations["create_agent"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/agents/{agent_id}": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Agent */
+    get: operations["get_agent"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/agents/{agent_id}/revisions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Agent Versions */
+    get: operations["agent_versions"];
+    put?: never;
+    /** Save Agent */
+    post: operations["save_agent"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/revisions": {
     parameters: {
       query?: never;
@@ -962,6 +1015,59 @@ export interface components {
       /** Password Enabled */
       password_enabled: boolean;
       session?: components["schemas"]["OwnerSession"] | null;
+    };
+    /** AgentCreate */
+    AgentCreate: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      workflow: components["schemas"]["Workflow"];
+    };
+    /** AgentDetail */
+    AgentDetail: {
+      agent: components["schemas"]["AgentSummary"];
+      revision: components["schemas"]["WorkflowRevision"];
+    };
+    /** AgentSave */
+    AgentSave: {
+      /** Expected Version */
+      expected_version: number;
+      workflow: components["schemas"]["Workflow"];
+    };
+    /** AgentSummary */
+    AgentSummary: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Name */
+      name: string;
+      /** Version */
+      version: number;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string;
+    };
+    /** AgentVersion */
+    AgentVersion: {
+      /** Version */
+      version: number;
+      revision: components["schemas"]["RevisionSummary"];
     };
     /** ArtifactInfo */
     ArtifactInfo: {
@@ -3165,6 +3271,8 @@ export interface components {
     };
     /** RunRequest */
     RunRequest: {
+      /** Agent Id */
+      agent_id?: string | null;
       /**
        * Id
        * Format: uuid
@@ -3186,6 +3294,10 @@ export interface components {
     };
     /** RunSnapshot */
     RunSnapshot: {
+      /** Agent Id */
+      agent_id?: string | null;
+      /** Agent Name */
+      agent_name?: string | null;
       /**
        * Id
        * Format: uuid
@@ -3250,6 +3362,10 @@ export interface components {
     };
     /** RunSummary */
     RunSummary: {
+      /** Agent Id */
+      agent_id?: string | null;
+      /** Agent Name */
+      agent_name?: string | null;
       /**
        * Id
        * Format: uuid
@@ -5391,6 +5507,169 @@ export interface operations {
       };
     };
   };
+  list_agents: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AgentSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  create_agent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AgentCreate"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AgentDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_agent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        agent_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AgentDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  agent_versions: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path: {
+        agent_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AgentVersion"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  save_agent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        agent_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["AgentSave"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["AgentDetail"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   list_revisions: {
     parameters: {
       query?: {
@@ -5490,6 +5769,7 @@ export interface operations {
     parameters: {
       query?: {
         limit?: number;
+        agent_id?: string | null;
       };
       header?: never;
       path?: never;

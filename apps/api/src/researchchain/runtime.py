@@ -13,6 +13,7 @@ from psycopg import Connection
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 
+from researchchain.agents import require_agent_revision, run_agent
 from researchchain.artifacts import EvidenceError, read_artifact
 from researchchain.compiler import (
     STRUCTURED_COMPILER_VERSION,
@@ -216,6 +217,7 @@ class RunStore:
         reviews = [ReviewPrompt(interrupt_id=item.id, **item.value) for item in pending]
         attempts = read_attempts(conn, manifest["id"])
         return RunSnapshot(
+            **run_agent(conn, manifest["id"]),
             id=manifest["id"],
             revision_id=revision.id,
             revision_number=revision.number,
@@ -350,7 +352,8 @@ class RunStore:
         require_retained_run(conn, request.id)
         existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
         if existing and (
-            existing["revision_id"] != request.revision_id
+            run_agent(conn, request.id)["agent_id"] != request.agent_id
+            or existing["revision_id"] != request.revision_id
             or existing["brief"] != request.brief
             or self._evidence_ids(conn, request.id) != request.evidence_ids
         ):
@@ -360,6 +363,11 @@ class RunStore:
             existing_research.account_id if existing_research else None
         ):
             raise ConflictError("This run ID already belongs to a different provider account.")
+        selected_agent = (
+            require_agent_revision(conn, request.agent_id, request.revision_id)
+            if request.agent_id and not existing
+            else None
+        )
         artifacts = [item.model_dump() for item in request.artifacts]
         if existing is None:
             if len({item.id for item in request.artifacts}) != len(request.artifacts):
@@ -404,6 +412,11 @@ class RunStore:
                         Jsonb(artifacts),
                     ),
                 )
+                if selected_agent:
+                    conn.execute(
+                        "INSERT INTO agent_runs (run_id, agent_id, agent_name) VALUES (%s, %s, %s)",
+                        (request.id, selected_agent.id, selected_agent.name),
+                    )
                 if research_manifest:
                     conn.execute(
                         "INSERT INTO run_research_manifests (run_id, manifest) VALUES (%s, %s)",
@@ -470,12 +483,13 @@ class RunStore:
                 worker_error=job["last_error"] if job else None,
             )
 
-    def list(self, limit: int = 20) -> list[RunSummary]:
+    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RunSummary]:
         # History reads journaled summaries, not every graph/checkpoint. A live
         # advisory lock distinguishes executing commands from abandoned ones.
         with self.database.connection() as conn:
             rows = conn.execute(
-                "SELECT r.id, r.revision_id, w.number AS revision_number, "
+                "SELECT r.id, a.agent_id, a.agent_name, r.revision_id, "
+                "w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
                 "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
@@ -489,12 +503,14 @@ class RunStore:
                 ") THEN 'running' WHEN command.state = 'running' THEN 'queued' "
                 "ELSE 'interrupted' END) AS status "
                 "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
+                "LEFT JOIN agent_runs a ON a.run_id = r.id "
                 "JOIN run_controls c ON c.run_id = r.id "
                 "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
+                "WHERE (%s::uuid IS NULL OR a.agent_id = %s) "
                 "ORDER BY r.created_at DESC, r.id DESC LIMIT %s",
-                (limit,),
+                (agent_id, agent_id, limit),
             )
             return [RunSummary.model_validate(row) for row in rows]
 
