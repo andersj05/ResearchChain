@@ -15,6 +15,9 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
   if (!manifest) return null;
   const attempts = run.model_attempts ?? [];
   const limits = manifest.settings.limits;
+  const returnedModels = [
+    ...new Set(attempts.map((attempt) => attempt.returned_model).filter(Boolean)),
+  ];
   const download = () => {
     const url = URL.createObjectURL(
       new Blob([JSON.stringify({ manifest, attempts }, null, 2)], { type: "application/json" }),
@@ -27,9 +30,22 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
   };
   return (
     <section className="research-results" aria-label="Research results">
+      <section className="run-model-summary" aria-label="Run model">
+        <h3>Model for this run</h3>
+        <dl>
+          <dt>Selected model</dt>
+          <dd>{manifest.settings.model}</dd>
+          <dt>Provider-reported models</dt>
+          <dd>{returnedModels.length ? returnedModels.join(", ") : "Not reported yet"}</dd>
+          <dt>Connection</dt>
+          <dd>ChatGPT included plan · {manifest.account_label}</dd>
+        </dl>
+        <p className="field-hint">
+          Pinned when this run started. Editing the workflow’s model changes future runs.
+        </p>
+      </section>
       <div className="section-heading">
         <h3>Research progress</h3>
-        <span className="code-label">{manifest.settings.model}</span>
       </div>
       <p className="muted">
         {attempts.length} / {limits?.max_model_calls} model attempts · {run.usage?.tool_calls ?? 0}{" "}
@@ -49,6 +65,10 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
           </summary>
           <p className="field-hint">
             {attempt.path} · {attempt.output_characters.toLocaleString()} characters received
+          </p>
+          <p className="field-hint">
+            Requested: {attempt.model} · Reported by provider:{" "}
+            {attempt.returned_model ?? "Not reported"}
           </p>
           {attempt.reason && <p className="error">{attempt.reason}</p>}
           {attempt.result && (

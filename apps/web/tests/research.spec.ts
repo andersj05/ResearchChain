@@ -10,7 +10,16 @@ async function prepare(
 ) {
   const saved = await request.post("/api/revisions", { data: example });
   await page.goto(`/?revision=${(await saved.json()).id}`);
+  await expect(page.getByLabel("Configured model", { exact: true })).toHaveText(
+    "No model configured",
+  );
   await page.getByRole("button", { name: "Use research template", exact: true }).click();
+  await expect(page.getByLabel("Configured model", { exact: true })).toContainText(
+    research.research.model,
+  );
+  await expect(page.getByLabel("Step model", { exact: true })).toContainText(
+    research.research.model,
+  );
   await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
   await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
     "Workflow valid. Ready to run.",
@@ -20,6 +29,9 @@ async function prepare(
   await page
     .getByRole("combobox", { name: "Research model", exact: true })
     .selectOption("test-model");
+  await expect(page.getByLabel("Model selection scope", { exact: true })).toContainText(
+    "Selected model ID: test-model",
+  );
 }
 
 for (const width of [1440, 390]) {
@@ -54,6 +66,12 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(snapshot.model_attempts).toHaveLength(3);
+    const modelSummary = page.getByRole("region", { name: "Run model", exact: true });
+    await expect(modelSummary).toContainText("Selected modeltest-model");
+    await expect(modelSummary).toContainText("ChatGPT included plan");
+    for (const attempt of snapshot.model_attempts ?? []) {
+      if (attempt.returned_model) await expect(modelSummary).toContainText(attempt.returned_model);
+    }
     expect(snapshot.usage?.input_tokens).toBe(75);
     const input = snapshot.model_attempts![1]!.input_artifact_id!;
     const captured = await request.get(`/api/artifacts/${encodeURIComponent(input)}/content`);

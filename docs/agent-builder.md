@@ -82,3 +82,17 @@ handoff. External hosting and operational deployment remain separate work.
 **Add custom code** runs your own JavaScript transformations with text/number inputs
 and outputs. It is separate from model prompts and uses no model allowance. Read
 [the code-step guide](custom-code.md) for examples, limits and saved-result inspection.
+
+## Where the model is used
+
+The canvas header shows the configured model, and each model step's inspector
+names the same selection. Choose the model in Run workflow. All model prompt and
+hypothesis research steps, including subgraphs, share that model. Notes, reviews
+and routing do not call a model. The run setup identifies the ChatGPT included-plan
+connection and explains this scope before starting.
+
+Saved runs show their pinned selected model and the model identifiers actually
+reported by the provider, with per-attempt details. Missing provider metadata says
+Not reported; it is not inferred from the requested model. Editing the selection
+does not change older runs. The local workspace allowance is 1,000 requests per
+rolling day as explicitly authorized on 2026-11-16; Operations shows current usage.
