@@ -15,6 +15,14 @@ from researchchain.access_api import AccessMiddleware, access_router
 from researchchain.access_config import AccessConfig
 from researchchain.access_models import AccessError
 from researchchain.access_service import AccessService
+from researchchain.agent_models import (
+    AgentCreate,
+    AgentDetail,
+    AgentSave,
+    AgentSummary,
+    AgentVersion,
+)
+from researchchain.agents import AgentStore
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
 from researchchain.dispatch import RunQueue
@@ -112,6 +120,7 @@ def create_app(
     queue = RunQueue(runs)
     app.state.runs = runs
     revisions = RevisionStore(database)
+    agents = AgentStore(database)
 
     @app.exception_handler(DispatchError)
     async def dispatch_error(request: Request, error: DispatchError) -> JSONResponse:
@@ -192,6 +201,39 @@ def create_app(
     def validate(workflow: Workflow) -> ValidationResult:
         return ValidationResult(node_count=len(workflow.nodes), workflow=workflow)
 
+    @app.get("/api/agents", response_model=list[AgentSummary], operation_id="list_agents")
+    def list_agents(limit: Annotated[int, Query(ge=1, le=1000)] = 100) -> list[AgentSummary]:
+        return agents.list(limit)
+
+    @app.post(
+        "/api/agents", response_model=AgentDetail, status_code=201, operation_id="create_agent"
+    )
+    def create_agent(request: AgentCreate) -> AgentDetail:
+        return agents.create(request)
+
+    @app.get("/api/agents/{agent_id}", response_model=AgentDetail, operation_id="get_agent")
+    def get_agent(agent_id: UUID) -> AgentDetail:
+        return agents.get(agent_id)
+
+    @app.post(
+        "/api/agents/{agent_id}/revisions",
+        response_model=AgentDetail,
+        status_code=201,
+        operation_id="save_agent",
+    )
+    def save_agent(agent_id: UUID, request: AgentSave) -> AgentDetail:
+        return agents.save(agent_id, request)
+
+    @app.get(
+        "/api/agents/{agent_id}/revisions",
+        response_model=list[AgentVersion],
+        operation_id="agent_versions",
+    )
+    def agent_versions(
+        agent_id: UUID, limit: Annotated[int, Query(ge=1, le=1000)] = 100
+    ) -> list[AgentVersion]:
+        return agents.versions(agent_id, limit)
+
     @app.post(
         "/api/revisions",
         response_model=WorkflowRevision,
@@ -216,8 +258,10 @@ def create_app(
         return queue.start(request)
 
     @app.get("/api/runs", response_model=list[RunSummary], operation_id="list_runs")
-    def list_runs(limit: Annotated[int, Query(ge=1, le=50)] = 20) -> list[RunSummary]:
-        return runs.list(limit)
+    def list_runs(
+        limit: Annotated[int, Query(ge=1, le=50)] = 20, agent_id: UUID | None = None
+    ) -> list[RunSummary]:
+        return runs.list(limit, agent_id)
 
     @app.get("/api/runs/{run_id}", response_model=RunSnapshot, operation_id="get_run")
     def get_run(run_id: UUID) -> RunSnapshot:
