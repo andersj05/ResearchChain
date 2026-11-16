@@ -280,21 +280,6 @@ h3 {
   display: flex;
   flex-direction: column;
 }
-.editor-grid {
-  display: grid;
-  grid-template-columns: 232px minmax(0, 1fr) 300px;
-  flex: 1;
-  min-height: 0;
-}
-.editor-grid.library-closed {
-  grid-template-columns: minmax(0, 1fr) 300px;
-}
-.editor-grid.inspector-closed {
-  grid-template-columns: 232px minmax(0, 1fr);
-}
-.editor-grid.library-closed.inspector-closed {
-  grid-template-columns: minmax(0, 1fr);
-}
 .library,
 .inspector {
   background: var(--surface);
@@ -1232,18 +1217,6 @@ footer p {
   border: 0;
 }
 @media (max-width: 1150px) {
-  .editor-grid {
-    grid-template-columns: 208px minmax(0, 1fr) 260px;
-  }
-  .editor-grid.library-closed {
-    grid-template-columns: minmax(0, 1fr) 260px;
-  }
-  .editor-grid.inspector-closed {
-    grid-template-columns: 208px minmax(0, 1fr);
-  }
-  .editor-grid.library-closed.inspector-closed {
-    grid-template-columns: minmax(0, 1fr);
-  }
   .editor-footnote {
     display: none;
   }
@@ -1276,14 +1249,6 @@ footer p {
   .workspace-actions {
     margin-left: auto;
     padding-bottom: 8px;
-  }
-  .editor-grid,
-  .editor-grid.library-closed,
-  .editor-grid.inspector-closed {
-    grid-template-columns: 208px minmax(0, 1fr);
-  }
-  .editor-grid.library-closed {
-    grid-template-columns: minmax(0, 1fr);
   }
   .inspector {
     grid-column: 1 / -1;
@@ -1331,12 +1296,6 @@ footer p {
   .workspace-actions {
     width: 100%;
     justify-content: flex-end;
-  }
-  .editor-grid,
-  .editor-grid.library-closed,
-  .editor-grid.inspector-closed {
-    display: flex;
-    flex-direction: column;
   }
   .canvas-panel {
     order: -1;
@@ -2651,29 +2610,60 @@ footer p {
   background: var(--soft);
   overflow-wrap: anywhere;
 }
-.access-menu {
-  position: relative;
+.settings-trigger {
   flex-shrink: 0;
-  font-size: 13px;
 }
-.access-menu > summary {
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-}
-.access-menu-panel {
-  position: absolute;
-  right: 0;
-  top: calc(100% + 12px);
-  z-index: 100;
-  width: min(380px, calc(100vw - 32px));
-  max-height: calc(100dvh - 90px);
-  overflow: auto;
+.settings-dialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(520px, calc(100vw - 32px));
+  height: fit-content;
+  max-height: calc(100dvh - 32px);
+  padding: 0;
   border: 1px solid var(--border-strong);
   background: var(--surface);
-  padding: 22px;
-  box-shadow: 0 8px 24px #00000014;
+  color: var(--ink);
+  overflow: hidden;
+}
+.settings-dialog:popover-open {
+  display: flex;
+  flex-direction: column;
+}
+.settings-dialog::backdrop {
+  background: transparent;
+}
+.settings-dialog .dialog-heading {
+  padding: 16px 20px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.settings-dialog h2 {
+  font-size: 16px;
+  margin: 0;
+}
+.settings-dialog h3 {
+  font-size: 14px;
+  margin: 0;
+}
+.settings-body {
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+}
+.settings-body section {
   display: grid;
   gap: 16px;
+  margin-top: 24px;
+}
+.settings-body p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.settings-body .access-form label {
+  margin: 4px 0 0;
 }
 @media (max-width: 600px) {
   .access-page {
@@ -2690,7 +2680,7 @@ footer p {
   .topbar .local-badge {
     display: none;
   }
-  .access-menu {
+  .settings-trigger {
     margin-left: auto;
   }
 }
@@ -2996,6 +2986,53 @@ footer p {
 .builder-guide li {
   max-width: 100ch;
   line-height: 1.6;
+}
+
+/* Docked panels use SDK pointer/keyboard resizing and owner-scoped preferences. */
+.editor-grid {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.workspace-panel {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+.workspace-panel > .library,
+.workspace-panel > .inspector,
+.workspace-panel > .canvas-panel {
+  height: 100%;
+  width: 100%;
+}
+.workspace-panel > .library,
+.workspace-panel > .inspector {
+  border: 0;
+}
+.panel-resize-handle {
+  width: 5px;
+  background: var(--surface);
+  border-inline: 1px solid var(--line);
+  z-index: 3;
+}
+.panel-resize-handle[data-hovering],
+.panel-resize-handle[data-dragging],
+.panel-resize-handle:focus-visible {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+.editor-grid.compact {
+  display: flex;
+  flex-direction: column;
+}
+.editor-grid.compact > .library,
+.editor-grid.compact > .inspector {
+  border: 0;
+  border-top: 1px solid var(--line);
+  overflow: visible;
+}
+.editor-grid.compact > .canvas-panel {
+  min-height: 440px;
 }
 
 .canvas-grid-label {
