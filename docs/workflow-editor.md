@@ -82,3 +82,12 @@ also toggle the panels. The canvas keeps at least 320 pixels of working width.
 Widths are remembered in this browser for the signed-in owner/workspace, separately
 from workflow edits and revisions. Below 850 pixels the canvas comes first and
 panels flow below it; returning to desktop restores the desktop layout.
+
+## Canvas alignment
+
+Steps snap to a 10-pixel world grid during dragging and on release. Boxes, ports
+and paths share the snapped preview; one completed drag remains one undoable edit.
+Escape cancels the preview. Alt+arrow nudges by 10 pixels; Shift increases it to 100.
+The quiet dot grid pans and zooms with the workflow and coarsens in an overview.
+Panning, Fit view and zoom do not change saved positions. Imported coordinates
+remain intact until a step is moved; old revisions and pinned runs are unchanged.

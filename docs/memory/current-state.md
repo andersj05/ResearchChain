@@ -19,6 +19,15 @@ Verify with synthetic providers; do not consume the owner's plan or submit human
 judgments to demonstrate readiness. After delivery, the owner will build a simple
 agent and supply usability feedback. Preserve that as the next step.
 
+## Active owner feedback
+
+The owner has reviewed the first builder handoff and requested canvas repair,
+explicit agent switching, compact settings/navigation, adjustable sidebars,
+owner-authored code steps, clearer models, a 1,000/day request limit, and better
+data views. See [the delivery plan](../plans/0017-owner-workspace-feedback.md).
+This extends the environment work; the owner still designs the agent and supplies
+quality judgments. Each cohesive change needs its own PR merged into dev.
+
 ## Checkout and verified delivery
 
 The actual repository is C:/Users/jense/Desktop/ResearchChain. The empty
