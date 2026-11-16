@@ -196,8 +196,8 @@ test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testI
   for (const [name, heading] of [
     ["Build", "Agent builder"],
     ["Runs", "Runs"],
-    ["Versions", "Revisions"],
-  ]) {
+    ["Versions", "Versions"],
+  ] as const) {
     await page.getByRole("tab", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await page.screenshot({

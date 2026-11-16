@@ -792,8 +792,8 @@ export function Workbench() {
                   receives.
                 </li>
                 <li>
-                  Add sources in Evidence. Run workflow lets you choose the brief, sources and
-                  model. Set Execution limits and Research limits before starting.
+                  Add sources in Sources. Run workflow lets you choose the brief, sources and model.
+                  Set Execution limits and Research limits before starting.
                 </li>
                 <li>
                   Inspect saved requests, outputs and review checkpoints in Runs. Iterate from this
@@ -1114,7 +1114,7 @@ export function Workbench() {
           <div className="view-heading">
             <div>
               <p className="eyebrow">Workflow history</p>
-              <h1>Revisions</h1>
+              <h1>Versions</h1>
               <p className="muted">
                 {activeAgent
                   ? `Saved versions of ${activeAgent.name}.`
