@@ -9,6 +9,8 @@ import { api } from "@/lib/workflow";
 import type { ReportSummary, ReportView, StyleGuide } from "@/lib/reports";
 
 export function ReportDesk() {
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState("recent");
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [styles, setStyles] = useState<StyleGuide[]>([]);
   const [view, setView] = useState<ReportView | null>(null);
@@ -68,6 +70,15 @@ export function ReportDesk() {
     remember(null);
     setEpoch((e) => e + 1);
   }
+  const visibleReports = reports
+    .filter((report) =>
+      `${report.title} ${report.change_note}`.toLowerCase().includes(search.trim().toLowerCase()),
+    )
+    .sort((a, b) =>
+      sort === "title"
+        ? a.title.localeCompare(b.title)
+        : Date.parse(b.created_at) - Date.parse(a.created_at),
+    );
   return (
     <section className="report-desk" aria-label="Reports">
       <header className="evidence-header">
@@ -184,14 +195,38 @@ export function ReportDesk() {
           <p className="field-hint">
             Latest 100 reports. Every save preserves a revision; publication is a separate action.
           </p>
+          <div className="collection-toolbar">
+            <label>
+              Find a recent report
+              <input
+                type="search"
+                placeholder="Title or change note…"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+              />
+            </label>
+            <label>
+              Sort reports
+              <select value={sort} onChange={(event) => setSort(event.target.value)}>
+                <option value="recent">Recently updated</option>
+                <option value="title">Title</option>
+              </select>
+            </label>
+          </div>
+          <p className="collection-count">
+            {visibleReports.length} shown · {reports.length} recent reports
+          </p>
+          {reports.length > 0 && !visibleReports.length && (
+            <p className="muted">No reports match this search.</p>
+          )}
           {!reports.length && (
             <p className="muted">
               Start from a completed research result, then draft and review its sections here.
             </p>
           )}
-          {reports.map((r) => (
+          {visibleReports.map((r) => (
             <Button
-              className="report-list-row"
+              className="report-list-row report-browser-row"
               key={r.id}
               onClick={async () => {
                 try {
@@ -202,6 +237,9 @@ export function ReportDesk() {
               }}
             >
               <strong>{r.title}</strong>
+              <span className="report-origin">
+                {r.author === "human" ? "Human edit" : "Research draft"}
+              </span>
               <span>
                 Revision {r.version} · {new Date(r.created_at).toLocaleString()}
               </span>

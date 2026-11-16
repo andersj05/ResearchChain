@@ -19,7 +19,7 @@ saved pilots are optional examples. Evaluating them is not required to start.
    model prompt after it. Select the first model's text under **Context input**
    and the review's feedback under **Reviewer feedback**. A control connection
    determines execution order; data inputs determine what the model receives.
-4. If needed, capture sources in **Evidence**. URL-only records do not fetch pages.
+4. If needed, capture sources in **Sources**. URL-only records do not fetch pages.
    Set **Execution limits** and **Research limits** for this experiment.
 5. **Validate workflow**, then **Save revision**. **Run workflow** opens the brief,
    model and source selection. Choose the available model, enter your task, and
@@ -103,4 +103,28 @@ Saved runs show their pinned selected model and the model identifiers actually
 reported by the provider, with per-attempt details. Missing provider metadata says
 Not reported; it is not inferred from the requested model. Editing the selection
 does not change older runs. The local workspace allowance is 1,000 requests per
-rolling day as explicitly authorized on 2026-11-16; Operations shows current usage.
+rolling day as explicitly authorized on 2026-11-16; Status shows current usage.
+
+## Browsing your work
+
+Use **Build** to edit and run the active agent. **Sources** holds the shared source
+library and linked claims; **Runs** shows experiments for the selected agent;
+**Reports** holds editorial drafts. **Evaluate**, **Versions** and **Status** keep
+comparisons, saved workflow history and workspace health separate. Older bookmarks
+continue to work. Owner access and provider controls are in **Settings**.
+
+Sources can be filtered by availability and searched by title, author or publisher.
+Search applies to the loaded records; load more to include older sources. The linked
+claims checkbox shows only loaded claims connected to the selected source. Filtering
+the list keeps the open source visible, and corrections preserve earlier versions.
+
+Runs shows the latest 20 for the active agent, with search, status filters and review
+counts. Unassigned mode shows workspace-wide history. An open run remains inspectable
+even when filters hide its row. Reports searches the latest 100 titles and change
+notes, sorts by title or update time, and distinguishes research drafts from human
+edits. These badges describe authorship, not quality approval.
+
+Drag the divider in Sources or Runs to resize its list on desktop; focused dividers
+also accept arrow keys. Widths are remembered for this browser and owner. Small
+screens stack the list above the details. Resizing does not discard an open source
+form. The builder's step and detail panels can also be resized or collapsed.

@@ -17,7 +17,9 @@ import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
 import { WorkflowEditor } from "@/components/workflow-editor";
-import { formatTime, RunInspector, RunStatus } from "@/components/run-inspector";
+import { CollectionLayout } from "@/components/collection-layout";
+import { RunHistory } from "@/components/run-history";
+import { formatTime, RunInspector } from "@/components/run-inspector";
 import {
   api,
   ApiError,
@@ -792,8 +794,8 @@ export function Workbench() {
                   receives.
                 </li>
                 <li>
-                  Add sources in Evidence. Run workflow lets you choose the brief, sources and
-                  model. Set Execution limits and Research limits before starting.
+                  Add sources in Sources. Run workflow lets you choose the brief, sources and model.
+                  Set Execution limits and Research limits before starting.
                 </li>
                 <li>
                   Inspect saved requests, outputs and review checkpoints in Runs. Iterate from this
@@ -997,124 +999,101 @@ export function Workbench() {
         </TabsPanel>
         <TabsPanel className="runs-view" value="runs">
           <h1 className="sr-only">Runs</h1>
-          <div className="runs-layout">
-            <aside className="run-history" aria-label="Recent runs">
-              <div className="section-heading">
-                <h2>Recent runs</h2>
-                <Button
-                  className="button small"
-                  disabled={!loaded || busy}
-                  onClick={() =>
-                    action(async () => {
-                      await refreshHistory();
-                      setMessage("History refreshed.");
-                    })
-                  }
-                >
-                  Refresh history
-                </Button>
-              </div>
-              <p className="muted">
-                Latest 20 runs{activeAgent ? ` for ${activeAgent.name}` : " across the workspace"}
-              </p>
-              {runs.length ? (
-                <ul>
-                  {runs.map((item) => (
-                    <li key={item.id}>
-                      <Button
-                        className="run-row"
-                        aria-pressed={run?.id === item.id}
-                        disabled={busy}
-                        onClick={() =>
-                          action(async () => {
-                            await openRun(item.id);
-                            setMessage("Saved run opened.");
-                          })
-                        }
-                      >
-                        <strong>{item.workflow_name}</strong>
-                        <RunStatus status={item.status} />
-                        <span className="run-row-meta">
-                          <span>Revision {item.revision_number}</span>
-                          <span>{formatTime(item.created_at)}</span>
-                        </span>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="muted">{loaded ? "Your runs will appear here." : "Loading runs…"}</p>
-              )}
-            </aside>
-            <RunInspector
-              run={run}
-              busy={busy}
-              onResume={(value, interruptId, feedback) =>
-                action(() => resumeRun(value, interruptId, feedback))
-              }
-              onCancel={async () => {
-                if (!run) return;
-                runReadEpoch.current += 1;
-                try {
-                  await api(`runs/${run.id}/cancel`, {});
-                  const result = await openRun(run.id);
-                  await refreshHistory();
-                  setMessage(`Run ${result.status}.`);
-                } catch (cause) {
-                  setError(cause instanceof Error ? cause.message : "Cancellation failed.");
+          <CollectionLayout
+            id="runs"
+            list={
+              <RunHistory
+                key={activeAgent?.id ?? "all"}
+                runs={runs}
+                selected={run?.id}
+                agentName={activeAgent?.name}
+                busy={busy}
+                loaded={loaded}
+                onRefresh={() =>
+                  void action(async () => {
+                    await refreshHistory();
+                    setMessage("History refreshed.");
+                  })
                 }
-              }}
-              onRefresh={() =>
-                action(async () => {
-                  if (run) {
-                    await openRun(run.id);
-                    await refreshHistory();
-                    setMessage("Run refreshed.");
-                  }
-                })
-              }
-              onRecover={() =>
-                action(async () => {
-                  if (run) {
-                    runReadEpoch.current += 1;
-                    setExecutingId(run.id);
-                    try {
-                      await api<CommandReceipt>(`runs/${run.id}/recover`, {}, admissionTimeout);
-                    } finally {
-                      setExecutingId(null);
-                    }
-                    await openRun(run.id);
-                    await refreshHistory();
-                    setMessage("Run recovered from saved progress.");
-                  }
-                })
-              }
-              onIterate={() =>
-                action(async () => {
+                onOpen={(id) =>
+                  void action(async () => {
+                    await openRun(id);
+                    setMessage("Saved run opened.");
+                  })
+                }
+              />
+            }
+            detail={
+              <RunInspector
+                run={run}
+                busy={busy}
+                onResume={(value, interruptId, feedback) =>
+                  action(() => resumeRun(value, interruptId, feedback))
+                }
+                onCancel={async () => {
                   if (!run) return;
-                  await loadRevision(run.revision_id, run.agent_id ?? null);
-                  setBrief(run.brief);
-                  setEvidenceIds(run.evidence_ids ?? []);
-                  setArtifacts(run.artifacts);
-                  setProviderAccount(run.research_manifest?.account_id ?? null);
-                  setMessage(
-                    "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment. The original run is unchanged.",
-                  );
-                })
-              }
-              onOpenRevision={() =>
-                action(async () => {
-                  if (run) await loadRevision(run.revision_id, run.agent_id ?? null);
-                })
-              }
-            />
-          </div>
+                  runReadEpoch.current += 1;
+                  try {
+                    await api(`runs/${run.id}/cancel`, {});
+                    const result = await openRun(run.id);
+                    await refreshHistory();
+                    setMessage(`Run ${result.status}.`);
+                  } catch (cause) {
+                    setError(cause instanceof Error ? cause.message : "Cancellation failed.");
+                  }
+                }}
+                onRefresh={() =>
+                  action(async () => {
+                    if (run) {
+                      await openRun(run.id);
+                      await refreshHistory();
+                      setMessage("Run refreshed.");
+                    }
+                  })
+                }
+                onRecover={() =>
+                  action(async () => {
+                    if (run) {
+                      runReadEpoch.current += 1;
+                      setExecutingId(run.id);
+                      try {
+                        await api<CommandReceipt>(`runs/${run.id}/recover`, {}, admissionTimeout);
+                      } finally {
+                        setExecutingId(null);
+                      }
+                      await openRun(run.id);
+                      await refreshHistory();
+                      setMessage("Run recovered from saved progress.");
+                    }
+                  })
+                }
+                onIterate={() =>
+                  action(async () => {
+                    if (!run) return;
+                    await loadRevision(run.revision_id, run.agent_id ?? null);
+                    setBrief(run.brief);
+                    setEvidenceIds(run.evidence_ids ?? []);
+                    setArtifacts(run.artifacts);
+                    setProviderAccount(run.research_manifest?.account_id ?? null);
+                    setMessage(
+                      "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment. The original run is unchanged.",
+                    );
+                  })
+                }
+                onOpenRevision={() =>
+                  action(async () => {
+                    if (run) await loadRevision(run.revision_id, run.agent_id ?? null);
+                  })
+                }
+              />
+            }
+          />
         </TabsPanel>
         <TabsPanel className="revisions-view" value="revisions">
           <div className="view-heading">
             <div>
               <p className="eyebrow">Workflow history</p>
-              <h1>Revisions</h1>
+              <h1>Versions</h1>
               <p className="muted">
                 {activeAgent
                   ? `Saved versions of ${activeAgent.name}.`

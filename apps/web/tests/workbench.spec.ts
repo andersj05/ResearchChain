@@ -193,9 +193,13 @@ test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testI
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
-  for (const name of ["Workflow", "Runs", "Revisions"]) {
+  for (const [name, heading] of [
+    ["Build", "Agent builder"],
+    ["Runs", "Runs"],
+    ["Versions", "Versions"],
+  ] as const) {
     await page.getByRole("tab", { name, exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath(`${name.toLowerCase()}-mobile.png`),
       fullPage: true,
