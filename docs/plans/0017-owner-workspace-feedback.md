@@ -64,3 +64,18 @@ resize, custom-code errors/timeouts and durable results, model visibility, and n
 layouts. Run pnpm check and applicable browser coverage before each code delivery.
 Preserve existing private records; stop the live app only after fencing admission
 and observing an idle queue, then restore it after test and upgrade work.
+
+## Custom code implementation
+
+Owner-authored synchronous JavaScript now has an editor, typed text/number wiring,
+a pinned QuickJS-NG runtime in a disposable child process, bounded CPU/memory/stack
+and output, and durable input/output/source-hash inspection. It makes no model
+requests and exposes no host callbacks, files, credentials, modules or network.
+See [the code-step guide](../custom-code.md). Existing workflow hashes and compiler
+versions remain unchanged; workflows containing code pin code-0.1.0.
+
+Seventeen backend cases passed, including errors/resource exhaustion, durable
+failed runs and review resume without repeating a confirmed transform. Nine graph
+contract/registry cases and two desktop/mobile authoring/inspection/error cases
+passed. Full integrated CI remains required before merge. This supplies custom
+logic primitives; the owner still writes and judges their agent.
