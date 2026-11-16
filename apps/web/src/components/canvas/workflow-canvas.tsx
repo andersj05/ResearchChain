@@ -239,8 +239,10 @@ const CanvasNode = memo(
           </span>
           <strong>{node.label}</strong>
           <span className="node-summary">
-            {node.instructions ||
-              (node.kind === "finish" ? "End of workflow" : "Add instructions…")}
+            {node.config?.type === "code"
+              ? node.config.source || "Write your JavaScript…"
+              : node.instructions ||
+                (node.kind === "finish" ? "End of workflow" : "Add instructions…")}
           </span>
         </parts.Node>
         {ports.map((port) => (
