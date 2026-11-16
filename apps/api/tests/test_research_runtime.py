@@ -73,7 +73,12 @@ class FakeProvider:
             if prepared.previous.stage == "hypothesize"
             else "revise"
         )
+        if "Stage: custom\n" in prepared.instructions:
+            stage = "custom"
         result = result_document(stage)
+        if stage == "custom":
+            result["hypotheses"] = []
+            result["conclusion"] = "Synthetic custom answer."
         if self.invalid:
             result["hypotheses"][0]["assessment"] = "supported"
         return Completion(

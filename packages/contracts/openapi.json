@@ -5216,7 +5216,7 @@
           },
           "stage": {
             "type": "string",
-            "enum": ["hypothesize", "challenge", "revise"],
+            "enum": ["hypothesize", "challenge", "revise", "custom"],
             "title": "Stage"
           },
           "model": {
@@ -6476,13 +6476,13 @@
           },
           "stage": {
             "type": "string",
-            "enum": ["hypothesize", "challenge", "revise"],
+            "enum": ["hypothesize", "challenge", "revise", "custom"],
             "title": "Stage",
             "default": "hypothesize"
           },
           "prompt_version": {
             "type": "string",
-            "const": "research-1",
+            "enum": ["research-1", "custom-1"],
             "title": "Prompt Version",
             "default": "research-1"
           }
@@ -6626,7 +6626,7 @@
           },
           "stage": {
             "type": "string",
-            "enum": ["hypothesize", "challenge", "revise"],
+            "enum": ["hypothesize", "challenge", "revise", "custom"],
             "title": "Stage"
           },
           "hypotheses": {
@@ -6635,7 +6635,6 @@
             },
             "type": "array",
             "maxItems": 8,
-            "minItems": 1,
             "title": "Hypotheses"
           },
           "unresolved_questions": {

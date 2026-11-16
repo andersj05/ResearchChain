@@ -184,6 +184,7 @@ export function WorkflowEditor({
           <div className="node-library">
             {(
               [
+                "model",
                 "note",
                 "research",
                 "review",
@@ -210,7 +211,9 @@ export function WorkflowEditor({
                 }}
               >
                 <Plus size={14} aria-hidden="true" />
-                <span>Add {nodeKinds[kind].label.toLowerCase()}</span>
+                <span>
+                  Add {kind === "model" ? "model prompt" : nodeKinds[kind].label.toLowerCase()}
+                </span>
               </Button>
             ))}
           </div>
@@ -441,6 +444,12 @@ export function WorkflowEditor({
                   }
                 />
               </label>
+              {node.kind === "note" && (
+                <p className="field-hint">
+                  Notes copy text; they do not call a model. Use Add model prompt for AI
+                  instructions.
+                </p>
+              )}
               <NodeConfiguration
                 workflow={workflow}
                 graph={graph}

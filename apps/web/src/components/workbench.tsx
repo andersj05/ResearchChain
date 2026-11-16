@@ -23,6 +23,7 @@ import {
   type ValidationIssue,
   initialWorkflow,
   researchWorkflow,
+  exampleWorkflow,
   admissionTimeout,
   type CommandReceipt,
   type RunRequest,
@@ -71,6 +72,8 @@ export function Workbench() {
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
+  const [artifacts, setArtifacts] = useState<RunRequest["artifacts"]>([]);
+  const [edited, setEdited] = useState(false);
   const [providerAccount, setProviderAccount] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -90,6 +93,7 @@ export function Workbench() {
           pendingStart.current = pending;
           setBrief(pending.brief);
           setEvidenceIds(pending.evidence_ids ?? []);
+          setArtifacts(pending.artifacts ?? []);
           setProviderAccount(pending.provider_account_id ?? null);
         }
         const [savedRevisions, recentRuns] = await Promise.all([
@@ -200,7 +204,18 @@ export function Workbench() {
     };
   }, [pollId, accessActive]);
 
+  useEffect(() => {
+    if (!edited || saved) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [edited, saved]);
+
   function change(next: Workflow, group?: string) {
+    setEdited(true);
     recordChange(next, group);
     setDiagnostics([]);
     setError("");
@@ -303,13 +318,14 @@ export function Workbench() {
       pendingStart.current.revision_id !== pinned.id ||
       pendingStart.current.brief !== brief ||
       JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds) ||
+      JSON.stringify(pendingStart.current.artifacts) !== JSON.stringify(artifacts) ||
       pendingStart.current.provider_account_id !== (workflow.research ? providerAccount : null)
     ) {
       pendingStart.current = {
         id: crypto.randomUUID(),
         revision_id: pinned.id,
         brief,
-        artifacts: [],
+        artifacts,
         evidence_ids: evidenceIds,
         provider_account_id: workflow.research ? providerAccount : null,
       };
@@ -367,6 +383,7 @@ export function Workbench() {
 
   function undoRedo(direction: "undo" | "redo") {
     if (travel(direction)) {
+      setEdited(true);
       setError("");
       setDiagnostics([]);
       setMessage(direction === "undo" ? "Last edit undone." : "Last edit redone.");
@@ -509,6 +526,44 @@ export function Workbench() {
         <TabsPanel className="workflow-view" value="workflow" keepMounted>
           <h1 className="sr-only">Workflow</h1>
           <section className="workspace" aria-label="Workflow editor">
+            <details className="builder-guide">
+              <summary>Build your agent</summary>
+              <p>
+                Start a New workflow, name it in Workflow settings, then add the steps you want
+                before Finish. Templates are optional examples.
+              </p>
+              <ol>
+                <li>
+                  Add model prompt and write your Instructions. Custom instructions let you define
+                  the task; research stages are optional.
+                </li>
+                <li>
+                  Add human review to pause for your judgment. In a later model step, select its
+                  Context input and Reviewer feedback. Connections determine which information it
+                  receives.
+                </li>
+                <li>
+                  Add sources in Evidence. Run workflow lets you choose the brief, sources and
+                  model. Set Execution limits and Research limits before starting.
+                </li>
+                <li>
+                  Inspect saved requests, outputs and review checkpoints in Runs. Iterate from this
+                  run restores its workflow and inputs for editing, then start a separate run.
+                </li>
+              </ol>
+              <p>
+                Available tools: captured evidence, model prompts, notes, human reviews, conditions,
+                parallel branches, loops and subgraphs. Web browsing, code execution, arbitrary
+                external tools and per-step model selection are not available. One model is selected
+                per workflow; custom output uses a structured envelope with an answer up to 6,000
+                characters.
+              </p>
+              <p>
+                Save a revision for durable history. Save draft or Export JSON also keeps your work.
+                Unsaved edits stay on this page; save before refreshing. Use Reports and Evaluations
+                when they help your own process.
+              </p>
+            </details>
             <WorkflowEditor
               key={documentEpoch}
               onSeal={seal}
@@ -520,6 +575,38 @@ export function Workbench() {
             />
             <div className="editor-footer">
               <div className="actions">
+                <Button
+                  className="button small"
+                  disabled={!loaded || busy}
+                  onClick={() => {
+                    change(structuredClone(initialWorkflow));
+                    setDocumentEpoch((value) => value + 1);
+                    setSelected(initialWorkflow.start_node);
+                    setBrief("");
+                    setEvidenceIds([]);
+                    setArtifacts([]);
+                    setProviderAccount(null);
+                    setMessage(
+                      "New workflow. Add your steps before Finish. Undo restores the previous workflow; saved revisions and runs are kept.",
+                    );
+                  }}
+                >
+                  New workflow
+                </Button>
+                <Button
+                  className="button small"
+                  disabled={!loaded || busy}
+                  onClick={() => {
+                    change(structuredClone(exampleWorkflow));
+                    setDocumentEpoch((value) => value + 1);
+                    setSelected(exampleWorkflow.start_node);
+                    setMessage(
+                      "Demo loaded. Notes do not call a model. Undo restores your previous draft.",
+                    );
+                  }}
+                >
+                  Use no-model demo
+                </Button>
                 <Button
                   className="button small"
                   disabled={!loaded || busy}
@@ -743,6 +830,19 @@ export function Workbench() {
                     await refreshHistory();
                     setMessage("Run recovered from saved progress.");
                   }
+                })
+              }
+              onIterate={() =>
+                action(async () => {
+                  if (!run) return;
+                  await loadRevision(run.revision_id);
+                  setBrief(run.brief);
+                  setEvidenceIds(run.evidence_ids ?? []);
+                  setArtifacts(run.artifacts);
+                  setProviderAccount(run.research_manifest?.account_id ?? null);
+                  setMessage(
+                    "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment. The original run is unchanged.",
+                  );
                 })
               }
               onOpenRevision={() =>

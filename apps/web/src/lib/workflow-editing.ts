@@ -10,7 +10,8 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
-export type TemplateKind = "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research";
+export type TemplateKind =
+  "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research" | "model";
 export type Port = {
   key: string;
   node: string;
@@ -255,13 +256,13 @@ export function addTemplate(
     workflow.schema_version === "0.1" && graph.nodes.length >= 32
       ? { ...workflow, schema_version: "0.2" as const }
       : workflow;
-  if (kind === "research") {
+  if (kind === "research" || kind === "model") {
     const step = {
-      ...makeNode(id, kind, "Form hypotheses"),
+      ...makeNode(id, "research", kind === "model" ? "Model prompt" : "Form hypotheses"),
       config: {
         type: "research" as const,
-        stage: "hypothesize" as const,
-        prompt_version: "research-1" as const,
+        stage: kind === "model" ? ("custom" as const) : ("hypothesize" as const),
+        prompt_version: kind === "model" ? ("custom-1" as const) : ("research-1" as const),
       },
     };
     next = {

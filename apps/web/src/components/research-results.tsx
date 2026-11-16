@@ -5,6 +5,7 @@ import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { Button } from "@ui-sdk/react/button";
 
 const stageLabels = {
+  custom: "Model output",
   hypothesize: "Hypotheses",
   challenge: "Evidence challenge",
   revise: "Revised conclusions",

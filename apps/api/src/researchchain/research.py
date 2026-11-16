@@ -148,13 +148,22 @@ def make_manifest(
                 as_of_date=source.as_of_date.isoformat() if source.as_of_date else None,
             )
         )
+    hashes = prompt_hashes(
+        include_custom=any(
+            isinstance(node.config, ResearchConfig) and node.config.stage == "custom"
+            for graph in [workflow, *workflow.subgraphs]
+            for node in graph.nodes
+        )
+    )
     return ResearchManifest(
         settings=workflow.research,
         account_id=account.id,
         account_label=account.label,
         workflow_revision_id=revision_id,
-        prompt_versions={stage: PROMPT_VERSION for stage in prompt_hashes()},
-        prompt_hashes=prompt_hashes(),
+        prompt_versions={
+            stage: "custom-1" if stage == "custom" else PROMPT_VERSION for stage in hashes
+        },
+        prompt_hashes=hashes,
         evidence=snapshots,
         created_at=datetime.now(UTC),
         tool_config={
@@ -282,7 +291,12 @@ class ResearchExecutor:
     def execute(self, node: WorkflowNode, path: str, context: str, feedback: str) -> str:
         assert isinstance(node.config, ResearchConfig)
         if (
-            self.manifest.prompt_hashes != prompt_hashes()
+            any(
+                prompt_hashes(include_custom=True).get(stage) != value
+                for stage, value in self.manifest.prompt_hashes.items()
+            )
+            or self.manifest.prompt_hashes.get(node.config.stage)
+            != prompt_hashes(include_custom=True).get(node.config.stage)
             or self.manifest.prompt_versions.get(node.config.stage) != node.config.prompt_version
         ):
             raise ExecutionStopped(
