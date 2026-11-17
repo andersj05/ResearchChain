@@ -19,23 +19,27 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
       "Frame my idea",
     );
-    await expect(
-      page.getByRole("checkbox", { name: "Search the live web", exact: true }),
-    ).not.toBeChecked();
-    const webToggle = page.getByRole("checkbox", { name: "Search the live web", exact: true });
-    await webToggle.check();
-    await expect(webToggle).toBeChecked();
+    const webToggle = page.getByRole("combobox", { name: "Web and market search", exact: true });
+    await expect(webToggle).toHaveValue("auto");
+    await webToggle.selectOption("true");
+    const sec = page.getByRole("checkbox", { name: "SEC financial statements", exact: true });
+    await sec.check();
     await page
       .getByRole("combobox", { name: "Step behavior", exact: true })
       .selectOption("hypothesize");
     await expect(webToggle).toBeHidden();
     await page.getByRole("combobox", { name: "Step behavior", exact: true }).selectOption("custom");
-    await expect(webToggle).not.toBeChecked();
+    await expect(webToggle).toHaveValue("false");
+    await expect(sec).not.toBeChecked();
     await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
     await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
       "Workflow valid. Ready to run.",
     );
     await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+    await page.getByText("External research tools · 1 step", { exact: true }).click();
+    await expect(
+      page.getByText("required web search, optional SEC lookup", { exact: false }),
+    ).toBeVisible();
     await page
       .getByRole("combobox", { name: "Research model", exact: true })
       .selectOption("test-model");

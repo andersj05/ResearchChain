@@ -1,6 +1,7 @@
 "use client";
 
 import { ResearchCitedText } from "./research-cited-text";
+import { ResearchToolReceipts, researchToolUrls } from "./research-tool-receipts";
 import type { RunSnapshot } from "@/lib/workflow";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { Button } from "@ui-sdk/react/button";
@@ -81,10 +82,10 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
                     new Set(
                       attempts
                         .slice(0, index + 1)
-                        .flatMap(
-                          (item) =>
-                            item.result?.web_research?.sources.map((source) => source.url) ?? [],
-                        ),
+                        .flatMap((item) => [
+                          ...(item.result?.web_research?.sources.map((source) => source.url) ?? []),
+                          ...researchToolUrls(item.result),
+                        ]),
                     )
                   }
                 />
@@ -128,6 +129,7 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
                   </details>
                 </section>
               )}
+              <ResearchToolReceipts result={attempt.result} />
               {attempt.result.hypotheses.map((hypothesis) => (
                 <article className="hypothesis" key={hypothesis.id}>
                   <h4>

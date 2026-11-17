@@ -90,7 +90,7 @@ class ResearchConfig(StrictModel):
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
 
     web_search: bool | Literal["auto"] = False
-    sec_financials: bool = Field(default=False, exclude_if=lambda enabled: not enabled)
+    sec_financials: bool = False
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
@@ -416,8 +416,10 @@ class Workflow(GraphDefinition):
         for graph in [document, *document.get("subgraphs", [])]:
             for node in graph["nodes"]:
                 config = node.get("config")
-                if config and config.get("type") == "research" and not config.get("web_search"):
-                    config.pop("web_search", None)
+                if config and config.get("type") == "research":
+                    for tool in ("web_search", "sec_financials"):
+                        if not config.get(tool):
+                            config.pop(tool, None)
         if self.schema_version != "0.3":
             document.pop("research", None)
         if self.schema_version == "0.1":

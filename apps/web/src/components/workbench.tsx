@@ -736,6 +736,7 @@ export function Workbench() {
                 </>
               )}
               <RunSetup
+                workflow={workflow}
                 open={setupOpen}
                 onOpenChange={setSetupOpen}
                 brief={brief}
