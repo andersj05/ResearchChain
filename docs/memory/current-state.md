@@ -1,7 +1,8 @@
 # Current state
 
-Updated 2026-11-16. The owner authorized incremental commits and feature PRs merged
-into dev after checks. No main promotion or public deployment.
+Updated 2026-11-17. The owner authorized consolidating completed changes, promoting
+dev to main through a merge PR, pushing the remote and cleaning up merged branches.
+Public deployment remains a separate follow-up.
 
 ## Scope and next step
 
@@ -61,7 +62,7 @@ submitted for this pass. Existing private research and original files were retai
 ## Verified checkout and runtime
 
 Use **C:/Users/jense/Desktop/ResearchChain**. The empty Documents/ChatGPT directory
-is not the checkout; use explicit working directories. The delivery branch is dev.
+is not the checkout; use explicit working directories. The delivery branch is main after the authorized promotion.
 The local app is http://127.0.0.1:3000 with its API on port 8000 and Postgres on 5433.
 Use pnpm dev to restart web/API/worker and the existing owner sign-in. Owner access
 is managed in Settings; the ChatGPT connection is managed in run setup.

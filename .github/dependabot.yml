@@ -6,6 +6,10 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    ignore:
+      # typescript-eslint 8 rejects TypeScript 7; upgrade the toolchain together.
+      - dependency-name: typescript
+        versions: [7.x]
     groups:
       frontend:
         patterns: ["*"]
