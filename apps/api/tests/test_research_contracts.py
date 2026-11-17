@@ -4,7 +4,7 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from graph_fixtures import chain, node
+from graph_fixtures import chain, nested, node
 from pydantic import ValidationError
 
 from researchchain.database import Database
@@ -96,6 +96,23 @@ def test_old_canonical_documents_do_not_gain_research_settings() -> None:
     assert "research" in parsed.model_dump()
 
 
+def test_step_model_defaults_and_referenced_subgraph_versions() -> None:
+    original = Workflow.model_validate(research_document())
+    assert "model" not in original.canonical_document()["nodes"][0]["config"]
+    bundle = nested()
+    bundle.update(schema_version="0.3", research={"model": "test-model"})
+    body = bundle["subgraphs"][0]
+    body["nodes"][0].update(kind="research", config={"type": "research", "model": "analysis-model"})
+    archived = deepcopy(body)
+    archived["version"] = 2
+    archived["nodes"][0]["config"]["model"] = "retired-model"
+    bundle["subgraphs"].append(archived)
+    assert Workflow.model_validate(bundle).research_models() == {"test-model", "analysis-model"}
+    body["nodes"][0]["config"]["model"] = "invalid model!"
+    with pytest.raises(ValidationError):
+        Workflow.model_validate(bundle)
+
+
 @pytest.mark.parametrize(
     "bad", ["duplicate_id", "no_alternative", "no_falsifier", "no_citation", "null_character"]
 )
@@ -178,7 +195,7 @@ def test_evidence_packet_and_quote_checks(database: Database) -> None:
 
 def test_revision_cannot_silently_change_hypothesis_ids() -> None:
     previous = ResearchResult.model_validate(result_document())
-    prepared = PreparedResearch("", [], output_schema(), {}, previous)
+    prepared = PreparedResearch("", [], output_schema(), {}, previous, "test-model")
     revised = result_document("revise")
     revised["hypotheses"][0]["id"] = "H2"
     with pytest.raises(ValueError, match="preserve"):

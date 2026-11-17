@@ -2938,6 +2938,8 @@ export interface components {
        * @enum {string}
        */
       prompt_version: "research-1" | "custom-1";
+      /** Model */
+      model?: string | null;
       /**
        * Web Search
        * @default false

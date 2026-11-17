@@ -47,11 +47,14 @@ class FakeProvider:
     def status(self) -> ProviderStatus:
         return ProviderStatus(
             accounts=[self.account],
-            models=[ProviderModel(slug="test-model", display_name="Fixture model")],
+            models=[
+                ProviderModel(slug="test-model", display_name="Fixture model"),
+                ProviderModel(slug="analysis-model", display_name="Analysis model"),
+            ],
         )
 
-    def pin_account(self, account_id: str, model: str) -> ProviderAccount:
-        assert account_id == self.account.id and model == "test-model"
+    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount:
+        assert account_id == self.account.id and models <= {"test-model", "analysis-model"}
         return self.account
 
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
@@ -82,7 +85,11 @@ class FakeProvider:
         if self.invalid:
             result["hypotheses"][0]["assessment"] = "supported"
         return Completion(
-            "test-model", json.dumps(result), "response_fixture", self.usage, "test-model-snapshot"
+            prepared.model,
+            json.dumps(result),
+            "response_fixture",
+            self.usage,
+            prepared.model + "-snapshot",
         )
 
 
@@ -149,6 +156,28 @@ def test_research_flow_pins_records_and_review_feedback(database: Database) -> N
     assert len(provider.calls) == 3
     with pytest.raises(ConflictError, match="different provider"):
         store.start(request.model_copy(update={"provider_account_id": "oaiapp_other"}))
+
+
+def test_step_model_is_pinned_across_review(database: Database) -> None:
+    store, request, provider = setup_run(database)
+    document = research_document()
+    document["nodes"][2]["config"]["model"] = "analysis-model"
+    revision = RevisionStore(database).save(Workflow.model_validate(document))
+    request.revision_id = revision.id
+    paused = store.start(request)
+    document["nodes"][2]["config"]["model"] = "test-model"
+    RevisionStore(database).save(Workflow.model_validate(document))
+    resumed = store.resume(request.id, approve(paused))
+    expected = ["test-model", "analysis-model", "test-model"]
+    assert [call.model for call in provider.calls] == expected
+    assert [attempt.model for attempt in resumed.model_attempts] == expected
+    with database.connection() as conn:
+        attempt = resumed.model_attempts[1]
+        assert attempt.returned_model == "analysis-model-snapshot"
+        assert attempt.input_artifact_id
+        assert (
+            json.loads(read_content(conn, attempt.input_artifact_id))["model"] == "analysis-model"
+        )
 
 
 @pytest.mark.parametrize(

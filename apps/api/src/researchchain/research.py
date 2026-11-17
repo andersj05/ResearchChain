@@ -48,7 +48,7 @@ RESEARCH_COMPILER_VERSION = "research-0.3.0"
 
 
 class ResearchProvider(Protocol):
-    def pin_account(self, account_id: str, model: str) -> ProviderAccount: ...
+    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount: ...
     def status(self) -> ProviderStatus: ...
     async def complete(
         self,
@@ -95,15 +95,19 @@ class ChatGPTResearchProvider:
                 result.error = str(error)
         return result
 
-    def pin_account(self, account_id: str, model: str) -> ProviderAccount:
+    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount:
         status = self.status()
         if status.error:
             raise ConnectionError(status.error)
         account = next((item for item in status.accounts if item.id == account_id), None)
         if not account or not account.active or not account.plan_enabled:
             raise ConnectionError("Select the connected ChatGPT account before starting research.")
-        if model not in {item.slug for item in status.models}:
-            raise ConnectionError("Select a model listed for the connected ChatGPT account.")
+        unavailable = models.difference(item.slug for item in status.models)
+        if unavailable:
+            raise ConnectionError(
+                "Choose an available model for this account. Unavailable: "
+                + ", ".join(sorted(unavailable))
+            )
         return account
 
     async def complete(
@@ -116,7 +120,7 @@ class ChatGPTResearchProvider:
         with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as client:
             provider = ChatGPTPlan(ChatGPTAuth(self.store, client))
             return await provider.complete(
-                manifest.settings.model,
+                prepared.model,
                 "",
                 account_id=manifest.account_id,
                 timeout_seconds=limits.max_response_seconds,
@@ -237,7 +241,9 @@ class ResearchExecutor:
             self.control.guard(path, False)
             return self.execute(node, path, context, feedback)
 
-    def reserve(self, node: WorkflowNode, path: str) -> tuple[UUID, ResearchResult | None]:
+    def reserve(
+        self, node: WorkflowNode, path: str, model: str
+    ) -> tuple[UUID, ResearchResult | None]:
         assert isinstance(node.config, ResearchConfig)
         limits = self.manifest.settings.limits
         with self.control.lock:
@@ -286,7 +292,7 @@ class ResearchExecutor:
             self.conn.execute(
                 "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
                 "VALUES (%s, %s, %s, %s, %s, 'preparing')",
-                (attempt_id, self.run_id, path, node.config.stage, self.manifest.settings.model),
+                (attempt_id, self.run_id, path, node.config.stage, model),
             )
             return attempt_id, None
 
@@ -326,7 +332,8 @@ class ResearchExecutor:
             raise ExecutionStopped(
                 "This run requires its pinned web research implementation.", "failed"
             )
-        attempt_id, previous = self.reserve(node, path)
+        model = node.config.model or self.manifest.settings.model
+        attempt_id, previous = self.reserve(node, path, model)
         if previous:
             return previous.model_dump_json()
         partial = ""
@@ -355,9 +362,10 @@ class ResearchExecutor:
                     context,
                     feedback,
                     node.instructions,
+                    model=model,
                     web_search=node.config.web_search,
                 )
-                payload = json_bytes(prepared.request_body(self.manifest.settings.model))
+                payload = json_bytes(prepared.request_body())
                 original = put_artifact(self.conn, payload, f"research-request-{attempt_id}.json")
                 self.conn.execute(
                     "UPDATE research_attempts SET input_artifact_id = %s, input_bytes = %s, "

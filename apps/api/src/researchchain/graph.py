@@ -82,12 +82,14 @@ class LoopConfig(StrictModel):
 
 
 ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
+ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
 
 
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
+    model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
 
     web_search: bool = False
 
@@ -120,7 +122,7 @@ class ResearchLimits(StrictModel):
 
 class ResearchSettings(StrictModel):
     provider: Literal["chatgpt_plan"] = "chatgpt_plan"
-    model: str = Field(default="gpt-6.1-sol", pattern=r"^[a-zA-Z0-9._:-]{1,120}$")
+    model: ModelSlug = "gpt-6.1-sol"
     billing: Literal["included_plan"] = "included_plan"
     limits: ResearchLimits = Field(default_factory=ResearchLimits)
 
@@ -408,6 +410,23 @@ class Workflow(GraphDefinition):
                 expansion(definition, 1)
                 visiting.remove(key)
         return self
+
+    def research_models(self) -> set[str]:
+        """Models to validate at start, excluding archived subgraph versions."""
+        assert self.research is not None
+        models = {self.research.model}
+        definitions = {(item.id, item.version): item for item in self.subgraphs}
+        pending: list[GraphDefinition] = [self]
+        while pending:
+            for node in pending.pop().nodes:
+                config = node.config
+                if isinstance(config, ResearchConfig) and config.model:
+                    models.add(config.model)
+                elif isinstance(config, (LoopConfig, SubgraphConfig)):
+                    body = definitions.pop((config.ref.id, config.ref.version), None)
+                    if body:
+                        pending.append(body)
+        return models
 
     def canonical_document(self) -> dict[str, Any]:
         """Keep legacy content hashes stable; API responses include normalized defaults."""

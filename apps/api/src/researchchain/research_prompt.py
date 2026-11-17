@@ -146,12 +146,13 @@ class PreparedResearch:
     schema: dict[str, Any]
     sources: dict[UUID, dict[str, Any]]
     previous: ResearchResult | None
+    model: str
     web_search: bool = False
 
-    def request_body(self, model: str) -> dict[str, Any]:
+    def request_body(self) -> dict[str, Any]:
         return {
             **(web_request_options() if self.web_search else {}),
-            "model": model,
+            "model": self.model,
             "instructions": self.instructions,
             "input": self.input_items,
             "text": {
@@ -176,6 +177,8 @@ def prepare_research(
     feedback: str,
     instructions: str,
     web_search: bool = False,
+    *,
+    model: str | None = None,
 ) -> PreparedResearch:
     sources: dict[UUID, dict[str, Any]] = {}
     attachments: list[dict[str, Any]] = []
@@ -285,9 +288,10 @@ def prepare_research(
         schema=output_schema(custom=stage == "custom"),
         sources=sources,
         previous=previous,
+        model=model or manifest.settings.model,
         web_search=web_search,
     )
-    if len(json_bytes(prepared.request_body(manifest.settings.model))) > limit:
+    if len(json_bytes(prepared.request_body())) > limit:
         raise ValueError("The evidence packet and prompt exceed the workflow's input byte limit.")
     return prepared
 
