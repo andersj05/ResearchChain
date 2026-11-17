@@ -139,6 +139,13 @@ class Session:
         self.history.append(result)
         call = tool_call(response)
         self.call_id = call["call_id"] if call else ""
+        # Codex's optional usage object requires all three totals. Keep partial
+        # provider accounting in the DB and omit it only from this protocol frame.
+        usage = response.get("usage")
+        if not isinstance(usage, dict) or not all(
+            type(usage.get(key)) is int for key in ("input_tokens", "output_tokens", "total_tokens")
+        ):
+            response = {key: value for key, value in response.items() if key != "usage"}
         events: list[dict[str, Any]] = [
             {
                 "type": "response.created",

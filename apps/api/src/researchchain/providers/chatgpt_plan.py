@@ -266,6 +266,27 @@ class ChatGPTPlan:
                                         if isinstance(item, dict):
                                             observe_item(item)
                                     result = {**result, "output": list(observed_items.values())}
+                                if analyst_options is not None:
+                                    # A Codex pass may stream commentary before its final JSON.
+                                    # Validate the final message independently of those deltas.
+                                    final_messages = [
+                                        item
+                                        for item in observed_items.values()
+                                        if item.get("type") == "message"
+                                        and item.get("phase") != "commentary"
+                                    ]
+                                    if final_messages:
+                                        text = "".join(
+                                            part["text"]
+                                            for part in final_messages[-1].get("content", [])
+                                            if isinstance(part, dict)
+                                            and part.get("type") == "output_text"
+                                            and isinstance(part.get("text"), str)
+                                        )
+                                        if len(text) > output_chars:
+                                            raise ConnectionError(
+                                                "Response exceeded the response output limit."
+                                            )
                                 return Completion(
                                     model,
                                     text,

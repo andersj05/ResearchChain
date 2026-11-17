@@ -1,11 +1,14 @@
 """Model-directed Codex tool continuation, journaling and remote-capability boundaries."""
 
+import asyncio
 import json
 import shutil
 from dataclasses import replace
 from uuid import uuid4
 
+import httpx
 import pytest
+from test_chatgpt_provider import CLIENT, Harness, events
 from test_research_runtime import approve
 from test_web_research import WebProvider, example
 
@@ -13,6 +16,7 @@ from researchchain.artifacts import read_content
 from researchchain.codex_analyst import run_codex_analyst, tool_call
 from researchchain.graph import Workflow
 from researchchain.models import RunRequest
+from researchchain.providers.chatgpt_plan import ChatGPTPlan
 from researchchain.research import ResearchExecutor
 from researchchain.revisions import RevisionStore
 from researchchain.runtime import RunStore
@@ -25,6 +29,7 @@ class AnalystProvider(WebProvider):
         result = await super().complete(manifest, prepared, on_delta)
         if prepared.analyst_options is not None:
             response = result.analyst_response.copy()
+            response["usage"] = {"input_tokens": 25}
             if response["output"][0]["type"] == "message":
                 message = response["output"][0].copy()
                 message["content"] = [
@@ -33,7 +38,40 @@ class AnalystProvider(WebProvider):
                 return replace(
                     result, web_research=None, analyst_response={**response, "output": [message]}
                 )
+            return replace(result, analyst_response=response)
         return result
+
+
+def test_analyst_validates_final_message_separately_from_streamed_commentary(tmp_path):
+    harness = Harness(tmp_path / "auth")
+    harness.complete()
+    output = [
+        {
+            "type": "message",
+            "id": phase,
+            "role": "assistant",
+            "phase": phase,
+            "content": [{"type": "output_text", "text": text}],
+        }
+        for phase, text in (("commentary", "Checking sources."), ("final_answer", '{"answer":1}'))
+    ]
+    response = {"id": "synthetic", "status": "completed", "output": output}
+    wire = events(
+        {"type": "response.output_text.delta", "delta": "Checking sources."},
+        {"type": "response.output_text.delta", "delta": '{"answer":1}'},
+        {"type": "response.completed", "response": response},
+    )
+    result = asyncio.run(
+        ChatGPTPlan(harness.auth).complete(
+            "test-model",
+            "test",
+            account_id=CLIENT,
+            analyst_options={"tools": []},
+            transport=httpx.MockTransport(lambda _: httpx.Response(200, content=wire)),
+        )
+    )
+    assert json.loads(result.text) == {"answer": 1}
+    assert result.analyst_response["output"] == output
 
 
 def start(database, provider, **limits):
