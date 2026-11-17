@@ -1,5 +1,6 @@
 """Provider-observed web activity, separate from model-authored research claims."""
 
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any, Literal
 from urllib.parse import urlsplit
@@ -7,6 +8,11 @@ from urllib.parse import urlsplit
 from pydantic import Field
 
 from researchchain.graph import StrictModel
+
+
+@dataclass(frozen=True)
+class WebSearchProgress:
+    completed_actions: int
 
 
 class WebSource(StrictModel):

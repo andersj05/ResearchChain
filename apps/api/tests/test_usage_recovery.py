@@ -83,6 +83,9 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
         with legacy.connection() as conn, conn.transaction():
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             before = inventory(conn, legacy.schema)
+            previous_attempts = conn.execute(
+                "SELECT * FROM research_attempts ORDER BY id"
+            ).fetchall()
         if rollback:
             name, checksum, statement = migrations[9]
             broken = [
@@ -101,12 +104,18 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
         legacy.migrate()
         with legacy.connection() as conn, conn.transaction():
             after = inventory(conn, legacy.schema)
+            upgraded_attempts = conn.execute(
+                "SELECT * FROM research_attempts ORDER BY id"
+            ).fetchall()
             imported = conn.execute(
                 "SELECT source,policy_revision FROM model_request_admissions"
             ).fetchall()
         for name, fingerprint in before.tables.items():
-            if name != "schema_migrations":
+            if name not in {"schema_migrations", "research_attempts"}:
                 assert after.tables[name] == fingerprint
+        assert upgraded_attempts == [
+            {**attempt, "web_actions_completed": None} for attempt in previous_attempts
+        ]
         assert after.tables["schema_migrations"].rows == len(migrations)
         assert len(imported) == 2
         assert all(

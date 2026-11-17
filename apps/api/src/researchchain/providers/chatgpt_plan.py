@@ -16,7 +16,12 @@ from researchchain.providers.chatgpt_auth import (
     safe_identifier,
 )
 from researchchain.providers.credentials import ConnectionError
-from researchchain.web_research import WebResearch, read_web_research, web_request_options
+from researchchain.web_research import (
+    WebResearch,
+    WebSearchProgress,
+    read_web_research,
+    web_request_options,
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +38,7 @@ class Completion:
     usage: dict[str, Any]
     returned_model: str | None = None
     web_research: WebResearch | None = None
+    analyst_response: dict[str, Any] | None = None
 
 
 class ChatGPTPlan:
@@ -72,7 +78,9 @@ class ChatGPTPlan:
         input_items: list[dict[str, Any]] | None = None,
         output_schema: dict[str, Any] | None = None,
         on_delta: Callable[[str], None] | None = None,
+        on_web_progress: Callable[[WebSearchProgress], None] | None = None,
         web_search: bool | Literal["auto"] = False,
+        analyst_options: dict[str, Any] | None = None,
     ) -> Completion:
         if not 0 < timeout_seconds <= 120 or not 0 < output_chars <= 200000:
             raise ValueError("A bounded time and output allowance are required.")
@@ -102,8 +110,27 @@ class ChatGPTPlan:
             }
         if web_search:
             body.update(web_request_options(web_search))
+        if analyst_options is not None:
+            body.update(analyst_options)
         text = ""
         observed_items: dict[str, dict[str, Any]] = {}
+        completed_ids: set[str] = set()
+
+        def mark_completed(item_id: object) -> None:
+            if (
+                on_web_progress
+                and isinstance(item_id, str)
+                and item_id
+                and item_id not in completed_ids
+            ):
+                completed_ids.add(item_id)
+                on_web_progress(WebSearchProgress(len(completed_ids)))
+
+        def observe_item(item: dict[str, Any]) -> None:
+            observed_items[str(item.get("id", len(observed_items)))] = item
+            if item.get("type") == "web_search_call" and item.get("status") == "completed":
+                mark_completed(item.get("id"))
+
         size = 0
         pending = b""
         try:
@@ -168,10 +195,14 @@ class ChatGPTPlan:
                                     "OpenAI returned an invalid stream event."
                                 ) from None
                             kind = event.get("type")
-                            if web_search and kind == "response.output_item.done":
+                            if (
+                                web_search or analyst_options is not None
+                            ) and kind == "response.output_item.done":
                                 item = event.get("item")
                                 if isinstance(item, dict):
-                                    observed_items[str(item.get("id", len(observed_items)))] = item
+                                    observe_item(item)
+                            if web_search and kind == "response.web_search_call.completed":
+                                mark_completed(event.get("item_id"))
                             if kind == "response.output_text.delta":
                                 delta = event.get("delta")
                                 if not isinstance(delta, str):
@@ -224,7 +255,7 @@ class ChatGPTPlan:
                                     raise ConnectionError(
                                         "The completed response had invalid usage."
                                     )
-                                if web_search:
+                                if web_search or analyst_options is not None:
                                     output = result.get("output", []) or []
                                     if not isinstance(output, list):
                                         raise ConnectionError(
@@ -232,9 +263,7 @@ class ChatGPTPlan:
                                         )
                                     for item in output:
                                         if isinstance(item, dict):
-                                            observed_items[
-                                                str(item.get("id", len(observed_items)))
-                                            ] = item
+                                            observe_item(item)
                                     result = {**result, "output": list(observed_items.values())}
                                 return Completion(
                                     model,
@@ -245,6 +274,7 @@ class ChatGPTPlan:
                                     if isinstance(result.get("model"), str)
                                     else None,
                                     read_web_research(result) if web_search else None,
+                                    result if analyst_options is not None else None,
                                 )
                         if len(pending) > 256 * 1024:
                             raise ConnectionError("OpenAI returned an oversized stream event.")
