@@ -2392,7 +2392,7 @@ export interface components {
       response_id?: string | null;
       /** Reason */
       reason?: string | null;
-      result?: components["schemas"]["ResearchResult"] | null;
+      result?: components["schemas"]["StoredResearchResult"] | null;
       /**
        * Created At
        * Format: date-time
@@ -2938,6 +2938,11 @@ export interface components {
        * @enum {string}
        */
       prompt_version: "research-1" | "custom-1";
+      /**
+       * Web Search
+       * @default false
+       */
+      web_search: boolean;
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -3015,31 +3020,6 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
-    };
-    /** ResearchResult */
-    ResearchResult: {
-      /**
-       * Schema Version
-       * @constant
-       */
-      schema_version: "research-result-1";
-      /**
-       * Stage
-       * @enum {string}
-       */
-      stage: "hypothesize" | "challenge" | "revise" | "custom";
-      /** Hypotheses */
-      hypotheses: components["schemas"]["Hypothesis"][];
-      /** Unresolved Questions */
-      unresolved_questions: string[];
-      /** Evidence Requests */
-      evidence_requests: components["schemas"]["EvidenceRequest"][];
-      /** Conclusion */
-      conclusion: string;
-      /** Revision Summary */
-      revision_summary: string;
-      /** Limitations */
-      limitations: string[];
     };
     /** ResearchSettings */
     ResearchSettings: {
@@ -3517,6 +3497,35 @@ export interface components {
       /** Schema Bytes */
       schema_bytes: number;
     };
+    /**
+     * StoredResearchResult
+     * @description Metadata added by the server; never part of the model output schema.
+     */
+    StoredResearchResult: {
+      /**
+       * Schema Version
+       * @constant
+       */
+      schema_version: "research-result-1";
+      /**
+       * Stage
+       * @enum {string}
+       */
+      stage: "hypothesize" | "challenge" | "revise" | "custom";
+      /** Hypotheses */
+      hypotheses: components["schemas"]["Hypothesis"][];
+      /** Unresolved Questions */
+      unresolved_questions: string[];
+      /** Evidence Requests */
+      evidence_requests: components["schemas"]["EvidenceRequest"][];
+      /** Conclusion */
+      conclusion: string;
+      /** Revision Summary */
+      revision_summary: string;
+      /** Limitations */
+      limitations: string[];
+      web_research?: components["schemas"]["WebResearch"] | null;
+    };
     /** StyleExample */
     StyleExample: {
       /**
@@ -3725,6 +3734,54 @@ export interface components {
       node_id?: string | null;
       /** Port */
       port?: string | null;
+    };
+    /** WebAction */
+    WebAction: {
+      /** Id */
+      id: string;
+      /** Action */
+      action: string;
+      /** Status */
+      status: string;
+      /** Queries */
+      queries: string[];
+      /** Url */
+      url?: string | null;
+    };
+    /** WebResearch */
+    WebResearch: {
+      /**
+       * Version
+       * @default web-research-1
+       * @constant
+       */
+      version: "web-research-1";
+      /**
+       * Observed At
+       * Format: date-time
+       */
+      observed_at: string;
+      /** Actions */
+      actions: components["schemas"]["WebAction"][];
+      /** Sources */
+      sources: components["schemas"]["WebSource"][];
+      /**
+       * Truncated
+       * @default false
+       */
+      truncated: boolean;
+    };
+    /** WebSource */
+    WebSource: {
+      /** Url */
+      url: string;
+      /** Title */
+      title: string;
+      /**
+       * Cited
+       * @default false
+       */
+      cited: boolean;
     };
     /** WorkerOperations */
     WorkerOperations: {

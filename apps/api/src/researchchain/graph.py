@@ -89,8 +89,12 @@ class ResearchConfig(StrictModel):
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
 
+    web_search: bool = False
+
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
+        if self.web_search and self.stage != "custom":
+            raise ValueError("Web search is available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
         if self.prompt_version != expected:
             raise ValueError("The stage must use its matching prompt version.")
@@ -408,6 +412,11 @@ class Workflow(GraphDefinition):
     def canonical_document(self) -> dict[str, Any]:
         """Keep legacy content hashes stable; API responses include normalized defaults."""
         document = self.model_dump(mode="json")
+        for graph in [document, *document.get("subgraphs", [])]:
+            for node in graph["nodes"]:
+                config = node.get("config")
+                if config and config.get("type") == "research" and not config.get("web_search"):
+                    config.pop("web_search", None)
         if self.schema_version != "0.3":
             document.pop("research", None)
         if self.schema_version == "0.1":

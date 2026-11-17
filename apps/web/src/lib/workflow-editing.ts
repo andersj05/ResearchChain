@@ -303,6 +303,7 @@ export function addTemplate(
         type: "research" as const,
         stage: kind === "model" ? ("custom" as const) : ("hypothesize" as const),
         prompt_version: kind === "model" ? ("custom-1" as const) : ("research-1" as const),
+        web_search: false,
       },
     };
     next = {

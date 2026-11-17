@@ -54,15 +54,15 @@ accepted as the latest server version.
 
 ## Available controls and boundaries
 
-| Capability              | Available now                                                                                                                                              |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Authoring               | Blank workflows; custom model instructions; named steps; source and feedback bindings                                                                      |
-| Control flow            | Conditions, parallel branches/joins, bounded loops, nested subgraphs, human reviews                                                                        |
-| Model                   | One model per workflow, chosen from the connected ChatGPT account; no paid API fallback                                                                    |
-| Tools                   | Read pinned captured evidence; notes and graph controls; [bounded JavaScript steps](custom-code.md); no web search or arbitrary external tools             |
-| Results                 | Custom answers in the structured result's conclusion (up to 6,000 characters); optional hypotheses; saved requests, responses, usage and version manifests |
-| Iteration               | Immutable revisions, original-run inspection, copied experiment inputs, manual feedback and separate new runs                                              |
-| Optional editorial work | Reports, style guides, annotations, blind comparisons and judge calibration records                                                                        |
+| Capability              | Available now                                                                                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authoring               | Blank workflows; custom model instructions; named steps; source and feedback bindings                                                                                           |
+| Control flow            | Conditions, parallel branches/joins, bounded loops, nested subgraphs, human reviews                                                                                             |
+| Model                   | One model per workflow, chosen from the connected ChatGPT account; no paid API fallback                                                                                         |
+| Tools                   | Read pinned captured evidence; notes and graph controls; [bounded JavaScript steps](custom-code.md); [opt-in live web research](idea-research-example.md) on custom model steps |
+| Results                 | Custom answers in the structured result's conclusion (up to 6,000 characters); optional hypotheses; saved requests, responses, usage and version manifests                      |
+| Iteration               | Immutable revisions, original-run inspection, copied experiment inputs, manual feedback and separate new runs                                                                   |
+| Optional editorial work | Reports, style guides, annotations, blind comparisons and judge calibration records                                                                                             |
 
 The custom model step still uses a structured result envelope for inspectable, durable
 outputs. It does not force hypotheses, alternatives or a research strategy. Output

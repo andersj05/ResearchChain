@@ -269,6 +269,7 @@ export function NodeConfiguration({
                   config: {
                     ...config,
                     stage: event.target.value as typeof config.stage,
+                    web_search: event.target.value === "custom" && config.web_search,
                     prompt_version: event.target.value === "custom" ? "custom-1" : "research-1",
                   },
                 })
@@ -280,6 +281,25 @@ export function NodeConfiguration({
               <option value="revise">Revise conclusions</option>
             </select>
           </label>
+          {config.stage === "custom" && (
+            <label>
+              <input
+                type="checkbox"
+                aria-label="Search the live web"
+                checked={config.web_search ?? false}
+                onChange={(event) =>
+                  onEdit({ config: { ...config, web_search: event.target.checked } })
+                }
+              />
+              Search the live web
+              <span className="field-hint">
+                Search queries may include information from your brief and selected evidence. Uses
+                your connected plan if its model and policy support web search. Sources and searches
+                are saved with the result; the provider controls the number of searches within each
+                timed request.
+              </span>
+            </label>
+          )}
           {(["context", "feedback"] as const).map((port) => (
             <label key={port}>
               {port === "context" ? "Context input" : "Reviewer feedback"}

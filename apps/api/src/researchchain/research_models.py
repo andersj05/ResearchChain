@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from researchchain.graph import ResearchSettings, ResearchStage, StrictModel
+from researchchain.web_research import WebResearch
 
 Address = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
 Sentence = Annotated[str, Field(min_length=1, max_length=3000)]
@@ -95,6 +96,12 @@ class ResearchResult(ResearchModel):
         return self
 
 
+class StoredResearchResult(ResearchResult):
+    """Metadata added by the server; never part of the model output schema."""
+
+    web_research: WebResearch | None = Field(default=None, exclude_if=lambda value: value is None)
+
+
 class EvidenceSnapshot(StrictModel):
     evidence_id: UUID
     original: Address | None
@@ -137,7 +144,7 @@ class ModelAttempt(StrictModel):
     output_tokens: int | None = None
     response_id: str | None = None
     reason: str | None = None
-    result: ResearchResult | None = None
+    result: StoredResearchResult | None = None
     created_at: datetime
     finished_at: datetime | None = None
 

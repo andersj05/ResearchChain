@@ -16,6 +16,7 @@ from researchchain.providers.chatgpt_auth import (
     safe_identifier,
 )
 from researchchain.providers.credentials import ConnectionError
+from researchchain.web_research import WebResearch, read_web_research, web_request_options
 
 
 @dataclass(frozen=True)
@@ -31,6 +32,7 @@ class Completion:
     response_id: str
     usage: dict[str, Any]
     returned_model: str | None = None
+    web_research: WebResearch | None = None
 
 
 class ChatGPTPlan:
@@ -70,6 +72,7 @@ class ChatGPTPlan:
         input_items: list[dict[str, Any]] | None = None,
         output_schema: dict[str, Any] | None = None,
         on_delta: Callable[[str], None] | None = None,
+        web_search: bool = False,
     ) -> Completion:
         if not 0 < timeout_seconds <= 120 or not 0 < output_chars <= 200000:
             raise ValueError("A bounded time and output allowance are required.")
@@ -97,7 +100,10 @@ class ChatGPTPlan:
                     "schema": output_schema,
                 }
             }
+        if web_search:
+            body.update(web_request_options())
         text = ""
+        observed_items: dict[str, dict[str, Any]] = {}
         size = 0
         pending = b""
         try:
@@ -162,6 +168,10 @@ class ChatGPTPlan:
                                     "OpenAI returned an invalid stream event."
                                 ) from None
                             kind = event.get("type")
+                            if web_search and kind == "response.output_item.done":
+                                item = event.get("item")
+                                if isinstance(item, dict):
+                                    observed_items[str(item.get("id", len(observed_items)))] = item
                             if kind == "response.output_text.delta":
                                 delta = event.get("delta")
                                 if not isinstance(delta, str):
@@ -214,6 +224,18 @@ class ChatGPTPlan:
                                     raise ConnectionError(
                                         "The completed response had invalid usage."
                                     )
+                                if web_search:
+                                    output = result.get("output", []) or []
+                                    if not isinstance(output, list):
+                                        raise ConnectionError(
+                                            "OpenAI returned invalid output metadata."
+                                        )
+                                    for item in output:
+                                        if isinstance(item, dict):
+                                            observed_items[
+                                                str(item.get("id", len(observed_items)))
+                                            ] = item
+                                    result = {**result, "output": list(observed_items.values())}
                                 return Completion(
                                     model,
                                     text,
@@ -222,6 +244,7 @@ class ChatGPTPlan:
                                     result.get("model")
                                     if isinstance(result.get("model"), str)
                                     else None,
+                                    read_web_research(result) if web_search else None,
                                 )
                         if len(pending) > 256 * 1024:
                             raise ConnectionError("OpenAI returned an oversized stream event.")

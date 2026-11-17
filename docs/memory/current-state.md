@@ -11,10 +11,27 @@ prompts, sources, checkpoints and quality judgments. Templates and saved pilots 
 optional examples. A finished agent, pilot labels, a calibrated judge and public
 hosting are not acceptance gates for this environment.
 
-**Next: the owner builds a simple agent and supplies usability feedback.** Use the
-[builder guide](../agent-builder.md) for the walkthrough and capability boundaries.
-Record the intended action, expected behavior, observed behavior and relevant agent/
-run/version IDs. Do not create an agent strategy or submit judgments for the owner.
+**Current request:** the owner explicitly asked for a simple editable idea-generation
+research agent accepting charts and a thesis, with deeper research and modeling,
+and confirmed live web research. The [idea research example](../idea-research-example.md)
+is an optional starting point; the owner still decides the strategy, source quality,
+assumptions and conclusions. Next: review it with a real idea, then supply usability
+and research feedback. Do not submit owner judgments on their behalf.
+
+## Requested idea research example
+
+[PR #47](https://github.com/andersj05/ResearchChain/pull/47) adds the owner-requested
+[editable example](../idea-research-example.md): chart/thesis framing, human direction,
+opt-in live web research with saved source references, executable OLS/correlation/
+scenario calculations from supplied numbers, and a memo with final human review.
+The in-app **Use idea research example** action and importable workflow make it
+reusable. Existing agents retain web search off. No database migration is required.
+
+Two bounded public-documentation connection checks used the existing ChatGPT plan;
+the second confirmed completed streamed web activity and 13 source references after
+the stream handling was corrected. No private evidence or owner judgments were used.
+The focused provider/runtime/analytics suite passed; the PR records the final full
+checks and browser gate. These checks establish behavior, not research quality.
 
 ## Delivered workspace
 

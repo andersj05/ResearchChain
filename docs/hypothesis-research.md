@@ -84,3 +84,6 @@ This is a useful source-discipline check, not evidence of forecasting quality or
 full reproduction of the reference report. The private run and comparison notes
 stay in local storage, outside Git. Broader quality evaluation is tracked in
 [issue #7](https://github.com/andersj05/ResearchChain/issues/7).
+
+The separate [idea research example](idea-research-example.md) opts custom model steps
+into live web research. This original hypothesis template remains supplied-evidence only.

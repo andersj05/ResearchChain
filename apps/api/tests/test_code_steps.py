@@ -189,3 +189,13 @@ def test_code_validation_and_legacy_compiler_identity() -> None:
         }
     )
     assert compiler_version(plain) == "chain-0.1.0"
+
+
+def test_code_accepts_the_full_run_brief_limit(database: Database) -> None:
+    workflow = code_workflow("return {text: inputs.brief, number: inputs.brief.length};")
+    revision = RevisionStore(database).save(workflow)
+    brief = "A" * 10000
+    run = RunStore(database).start(RunRequest(id=uuid4(), revision_id=revision.id, brief=brief))
+    assert run.status == "completed"
+    assert run.events[0].code.inputs.brief == brief
+    assert run.events[0].code.outputs.number == 10000
