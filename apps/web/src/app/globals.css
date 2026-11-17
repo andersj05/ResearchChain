@@ -813,7 +813,7 @@ code {
 .run-history h2 {
   font-size: 14px;
 }
-.run-history > p {
+.run-history #recent-run-list > p {
   font-size: 12px;
   margin: 8px 0 24px;
 }
@@ -3327,7 +3327,7 @@ footer p {
   height: 16px;
   margin: 0;
 }
-.run-history > label {
+.run-history #recent-run-list > label {
   display: grid;
   gap: 6px;
   margin: 12px 0;
@@ -3428,8 +3428,33 @@ footer p {
     max-height: none;
     overflow: visible;
   }
-  .collection-layout .run-history > ul {
+  .collection-layout .run-history ul {
     max-height: 240px;
     overflow: auto;
+  }
+}
+
+.mobile-run-list-toggle {
+  display: none;
+}
+
+@media (max-width: 850px) {
+  .run-history:has(.mobile-run-list-toggle) {
+    padding: 6px 16px;
+  }
+  .mobile-run-list-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 32px;
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-weight: 600;
+    padding: 0;
+  }
+  .run-history:has(.mobile-run-list-toggle) h2,
+  .run-history[data-list-open="false"] :is(#recent-run-list, .refresh-history) {
+    display: none;
   }
 }
