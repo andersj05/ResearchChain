@@ -2,6 +2,8 @@
 
 import asyncio
 import json
+import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
@@ -22,7 +24,7 @@ from researchchain.research_models import ResearchResult
 from researchchain.research_prompt import output_schema, web_prompt_hash
 from researchchain.revisions import RevisionStore
 from researchchain.runtime import RunStore
-from researchchain.web_research import read_web_research
+from researchchain.web_research import WebSearchProgress, read_web_research
 
 EXAMPLE = Path(__file__).resolve().parents[3] / "examples/idea-research.json"
 WEB_OUTPUT = [
@@ -110,6 +112,7 @@ def test_web_search_is_explicit_and_canonical_defaults_stay_compatible():
 def test_provider_captures_streamed_actions_without_inventing_sources(tmp_path):
     harness = Harness(tmp_path / "auth")
     harness.complete()
+    progress = []
 
     def handle(request):
         body = json.loads(request.content)
@@ -119,6 +122,8 @@ def test_provider_captures_streamed_actions_without_inventing_sources(tmp_path):
         return httpx.Response(
             200,
             content=events(
+                {"type": "response.web_search_call.searching", "item_id": "ws_1"},
+                {"type": "response.web_search_call.completed", "item_id": "ws_1"},
                 *[{"type": "response.output_item.done", "item": item} for item in WEB_OUTPUT],
                 {
                     "type": "response.output_text.delta",
@@ -137,13 +142,57 @@ def test_provider_captures_streamed_actions_without_inventing_sources(tmp_path):
             "test",
             account_id=CLIENT,
             web_search=True,
+            on_delta=lambda text: progress.append("text"),
+            on_web_progress=lambda event: progress.append(event.completed_actions),
             transport=httpx.MockTransport(handle),
         )
     )
+    assert progress == [1, "text"]
     assert len(result.web_research.actions) == 1
     assert len(result.web_research.sources) == 1
     assert result.web_research.sources[0].cited
     assert result.web_research.sources[0].url == "https://example.org/data"
+
+
+def test_web_progress_is_readable_before_text_and_survives_cancellation(database):
+    class SearchingProvider(FakeProvider):
+        async def complete(self, manifest, prepared, on_delta):
+            assert prepared.web_search
+            on_delta(WebSearchProgress(completed_actions=2))
+            self.started.set()
+            while not self.released.is_set():
+                await asyncio.sleep(0.02)
+            return await super().complete(manifest, prepared, on_delta)
+
+    workflow = example()
+    workflow.research.model = "test-model"
+    revision = RevisionStore(database).save(workflow)
+    provider = SearchingProvider()
+    store = RunStore(database, provider)
+    request = RunRequest(
+        id=uuid4(),
+        revision_id=revision.id,
+        brief="Synthetic web activity",
+        provider_account_id=provider.account.id,
+    )
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        execution = pool.submit(store.start, request)
+        try:
+            assert provider.started.wait(timeout=5)
+            deadline = time.monotonic() + 5
+            while (attempt := store.get(request.id).model_attempts[0]).web_actions_completed != 2:
+                assert time.monotonic() < deadline
+                time.sleep(0.05)
+            assert attempt.status == "requesting" and attempt.output_characters == 0
+            assert attempt.result is None
+            store.cancel(request.id)
+            final = execution.result(timeout=5)
+            assert (
+                final.status == "cancelled" and final.model_attempts[0].web_actions_completed == 2
+            )
+            assert final.model_attempts[0].result is None
+        finally:
+            provider.released.set()
 
 
 def test_trace_deduplicates_and_bounds_metadata():

@@ -1,11 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { ResearchResults } from "@/components/research-results";
+import "./run-workspace.css";
+
+import { useLayoutEffect, useRef, useState } from "react";
+import { ResearchManifest } from "./research-results";
+import { RunCanvas } from "./canvas/run-canvas";
+import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
+import {
+  graphLocation,
+  pendingReviews,
+  preferredPath,
+  reviewPath,
+  stepStates,
+} from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
-import { RotateCw, Check, X } from "lucide-react";
+import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export const runStatusLabels = {
   queued: "Queued",
@@ -19,10 +30,20 @@ export const runStatusLabels = {
   failed: "Needs attention",
 };
 
-export function RunStatus({ status }: { status: RunSummary["status"] }) {
+export function RunStatus({
+  status,
+  announce = false,
+}: {
+  status: RunSummary["status"];
+  announce?: boolean;
+}) {
   const label = runStatusLabels[status];
   return (
-    <span className={`run-status status-${status}`}>
+    <span
+      className={`run-status status-${status}`}
+      role={announce ? "status" : undefined}
+      aria-label={announce ? "Run status" : undefined}
+    >
       <i aria-hidden="true" />
       {label}
     </span>
@@ -38,7 +59,32 @@ export function formatTime(value: string) {
   });
 }
 
-export function RunInspector({
+type Actions = {
+  busy: boolean;
+  onResume: ResumeReview;
+  onRecover: () => Promise<void>;
+  onRefresh: () => Promise<void>;
+  onCancel: () => Promise<void>;
+  onOpenRevision: () => Promise<void>;
+  onIterate: () => Promise<void>;
+};
+
+export function RunInspector({ run, ...actions }: Actions & { run: RunSnapshot | null }) {
+  return (
+    <section className="run-inspector run-workspace" aria-label="Run inspector">
+      {run ? (
+        <RunWorkspace key={run.id} run={run} {...actions} />
+      ) : (
+        <div className="empty-state">
+          <h2>No run selected</h2>
+          <p>Run a workflow or open a recent run to inspect its progress.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RunWorkspace({
   run,
   busy,
   onResume,
@@ -47,214 +93,241 @@ export function RunInspector({
   onCancel,
   onOpenRevision,
   onIterate,
-}: {
-  run: RunSnapshot | null;
-  busy: boolean;
-  onResume: (
-    decision: "approve" | "reject",
-    interruptId?: string,
-    feedback?: string,
-  ) => Promise<void>;
-  onRecover: () => Promise<void>;
-  onRefresh: () => Promise<void>;
-  onCancel: () => Promise<void>;
-  onOpenRevision: () => Promise<void>;
-  onIterate: () => Promise<void>;
-}) {
+}: Actions & { run: RunSnapshot }) {
+  const [manual, setManual] = useState<string | null>(null);
+  const [context, setContext] = useState(false);
   const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const states = stepStates(run);
+  const current = preferredPath(run);
+  const path = manual ?? current;
+  const readingPane = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (readingPane.current) readingPane.current.scrollTop = 0;
+  }, [path, context]);
+  const { node, graph, parents, prefix } = graphLocation(run, path);
+  const reviews = pendingReviews(run);
+  const select = (value: string) => {
+    setManual(value);
+    setContext(false);
+  };
+  const follow = () => {
+    setManual(null);
+    setContext(false);
+  };
+  const limits = run.research_manifest?.settings.limits ?? run.workflow.research?.limits;
+  const tokens = (run.usage?.input_tokens ?? 0) + (run.usage?.output_tokens ?? 0);
+  const tokenLimit = limits?.max_total_tokens;
+  const live = ["paused", "running", "queued", "interrupted"].includes(run.status);
   return (
-    <section className="run-inspector" aria-label="Run inspector">
-      {run ? (
-        <>
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">{run.workflow_name}</p>
-              <h2>Run {run.status}</h2>
-            </div>
-            <RunStatus status={run.status} />
-          </div>
-          <div className="run-meta">
-            <span className="code-label">{run.id.slice(0, 8)}</span>
-            <span>Revision {run.revision_number}</span>
-            <span aria-label="Run agent">{run.agent_name ?? "Unassigned workflow"}</span>
-            <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
-            <div className="actions run-actions">
-              <Button className="button" disabled={busy} onClick={onIterate}>
-                Iterate from this run
-              </Button>
-              {(run.status === "paused" ||
-                run.status === "queued" ||
-                run.status === "interrupted" ||
-                run.status === "running") && (
-                <Button className="button" onClick={onCancel}>
-                  Cancel run
-                </Button>
-              )}
-              <Button className="button small" disabled={busy} onClick={onRefresh}>
-                <RotateCw size={14} aria-hidden="true" />
-                Refresh run
-              </Button>
-            </div>
-          </div>
-          {run.status === "queued" && (
-            <div className="review-box" role="status">
-              <h3>Waiting to start</h3>
-              <p>
-                Your run is saved and will start when capacity is available. You can leave this page
-                and return later.
-              </p>
-            </div>
-          )}
-          {run.stop_reason && (
-            <p className="review-box" role="status">
-              {run.stop_reason}
-            </p>
-          )}
-          <details className="run-brief" key={`brief-${run.id}`} open={!run.research_manifest}>
-            <summary>Research brief</summary>
-            <p>{run.brief}</p>
-          </details>
-          {run.status === "interrupted" && (
-            <div className="review-box">
-              <h3>Continue from saved progress</h3>
-              <p>
-                The last request did not finish. Recovery continues accepted work and stops at the
-                next review.
-              </p>
-              <Button className="button primary" disabled={busy} onClick={onRecover}>
-                Recover run
-              </Button>
-            </div>
-          )}
-          {!run.research_manifest && (
-            <p className="field-hint" aria-label="Run model">
-              {run.workflow.research
-                ? "Model manifest is not available yet."
-                : "No model calls. This run uses local steps and human reviews."}
-            </p>
-          )}
-          <ResearchResults run={run} />
-          {run.status === "paused" &&
-            (run.reviews?.length ? run.reviews : run.review ? [run.review] : []).map((review) => (
-              <div
-                className="review-box"
-                key={review.interrupt_id}
-                aria-label={`Review ${review.node_id}`}
-              >
-                <p className="eyebrow">Human review</p>
-                <h3>{review.question}</h3>
-                {review.path && <p className="muted">{review.path.replaceAll("/", " › ")}</p>}
-                <p>This decision applies to this checkpoint of revision {run.revision_number}.</p>
-                {run.workflow.schema_version === "0.3" && (
-                  <label>
-                    Reviewer feedback
-                    <textarea
-                      rows={3}
-                      maxLength={6000}
-                      disabled={busy}
-                      value={feedback[review.interrupt_id] ?? ""}
-                      onChange={(event) =>
-                        setFeedback({ ...feedback, [review.interrupt_id]: event.target.value })
-                      }
-                      placeholder="What should the next step challenge or revise?"
-                    />
-                  </label>
-                )}
-                <div className="actions">
-                  <Button
-                    className="button primary"
-                    disabled={busy}
-                    onClick={() =>
-                      onResume("approve", review.interrupt_id, feedback[review.interrupt_id] ?? "")
-                    }
-                  >
-                    <Check size={16} aria-hidden="true" /> Approve and continue
-                  </Button>
-                  <Button
-                    className="button"
-                    disabled={busy}
-                    onClick={() =>
-                      onResume("reject", review.interrupt_id, feedback[review.interrupt_id] ?? "")
-                    }
-                  >
-                    <X size={16} aria-hidden="true" /> Reject and stop
-                  </Button>
-                </div>
-              </div>
-            ))}
-          <PinnedEvidence key={run.id} ids={run.evidence_ids ?? []} />
-          <h3 className="steps-heading">
-            Completed steps <span className="count">{run.events.length}</span>
-          </h3>
-          {run.events.length ? (
-            <ol className="event-list">
-              {run.events.map((event) => (
-                <li key={event.path ?? event.node_id}>
-                  <strong>{event.label}</strong>
-                  {event.detail !== event.code?.outputs.text && <span>{event.detail}</span>}
-                  {event.code && (
-                    <details className="code-result">
-                      <summary>Code inputs and outputs</summary>
-                      <p className="muted">
-                        {event.code.runtime} · {event.code.duration_ms} ms
-                      </p>
-                      <dl>
-                        <dt>Text output</dt>
-                        <dd>{event.code.outputs.text}</dd>
-                        <dt>Number output</dt>
-                        <dd>{event.code.outputs.number}</dd>
-                      </dl>
-                      <pre>{JSON.stringify(event.code.inputs, null, 2)}</pre>
-                      <p className="code-label">Source SHA-256: {event.code.source_sha256}</p>
-                    </details>
-                  )}
-                  {event.path && event.path.split("/").length > 2 && (
-                    <small className="muted">{event.path.replaceAll("/", " › ")}</small>
-                  )}
-                </li>
-              ))}
-            </ol>
-          ) : (
-            <p className="muted">No completed steps yet.</p>
-          )}
-          <details className="run-details">
-            <summary>Pinned workflow &amp; run details</summary>
-            <p className="muted">
-              Editor changes apply to future runs. This run keeps revision {run.revision_number}.
-            </p>
-            <Button className="button" disabled={busy} onClick={onOpenRevision}>
-              Open this revision
+    <>
+      <header className="run-head">
+        <div className="run-title">
+          <h2>{run.workflow_name}</h2>
+          <RunStatus status={run.status} announce />
+        </div>
+        <div className="run-meta">
+          <span className="code-label">{run.id.slice(0, 8)}</span>
+          <span>Revision {run.revision_number}</span>
+          <span aria-label="Run agent">{run.agent_name ?? "Unassigned workflow"}</span>
+          <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
+        </div>
+        <div className="actions run-actions">
+          <Button className="button small" disabled={busy} onClick={onIterate}>
+            Iterate from this run
+            <ArrowRight size={14} aria-hidden />
+          </Button>
+          {live && (
+            <Button className="button small" onClick={onCancel}>
+              Cancel run
             </Button>
-            <dl>
-              <dt>Run ID</dt>
-              <dd>{run.id}</dd>
-              <dt>Checkpoint</dt>
-              <dd>{run.checkpoint_id ?? "Not started"}</dd>
-              <dt>Executor</dt>
-              <dd>{run.compiler_version}</dd>
-              <dt>Executed steps</dt>
-              <dd>{run.usage?.node_executions ?? run.events.length}</dd>
-              <dt>Active time</dt>
-              <dd>{(run.usage?.active_seconds ?? 0).toFixed(2)} seconds</dd>
-              <dt>Artifact references</dt>
-              <dd>{run.artifacts.length}</dd>
-            </dl>
-            <ol className="event-list">
-              {run.workflow.nodes.map((node) => (
-                <li key={node.id}>
-                  <strong>{node.label}</strong>
-                  <span>{node.instructions || node.kind}</span>
-                </li>
-              ))}
-            </ol>
-          </details>
-        </>
-      ) : (
-        <div className="empty-state">
-          <h2>No run selected</h2>
-          <p>Run a workflow or open a recent run to inspect its progress.</p>
+          )}
+          <Button
+            className="button small icon-button"
+            disabled={busy}
+            onClick={onRefresh}
+            aria-label="Refresh run"
+            title="Refresh run"
+          >
+            <RotateCw size={14} aria-hidden />
+          </Button>
+        </div>
+      </header>
+      {run.status === "queued" && (
+        <div className="run-notice" role="status">
+          <strong>Waiting to start</strong>
+          <p>Your run is saved and will start when capacity is available.</p>
         </div>
       )}
-    </section>
+      {run.stop_reason && (
+        <p className="run-notice stop-reason" role="status">
+          {run.stop_reason}
+        </p>
+      )}
+      {run.status === "interrupted" && (
+        <div className="run-notice">
+          <div>
+            <strong>Continue from saved progress</strong>
+            <p>Recovery continues accepted work from the last confirmed checkpoint.</p>
+          </div>
+          <Button className="button primary" disabled={busy} onClick={onRecover}>
+            Recover run
+          </Button>
+        </div>
+      )}
+      <div className="run-graph-shell">
+        <div className="run-graph-line">
+          <h3>Workflow progress</h3>
+          <span className="sr-only" aria-live="polite" aria-atomic="true">
+            {states.has(current) &&
+              `${graphLocation(run, current).node.label}. ${states.get(current)}.`}
+          </span>
+          <div className="run-metrics" aria-label="Run usage">
+            <span>{run.events.length.toLocaleString()} recorded steps</span>
+            {limits && (
+              <>
+                <span>
+                  {(run.model_attempts?.length ?? 0).toLocaleString()} / {limits.max_model_calls}{" "}
+                  model attempts
+                </span>
+                <span>
+                  {tokens.toLocaleString()}
+                  {typeof tokenLimit === "number" ? ` / ${tokenLimit.toLocaleString()}` : ""} tokens
+                  {tokenLimit === "as_needed" ? " · As needed" : ""}
+                  {run.usage?.usage_complete === false ? " (incomplete)" : ""}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        {parents.length > 0 && (
+          <nav className="run-graph-path" aria-label="Nested graph path">
+            {parents.map((parent) => (
+              <span key={parent.path}>
+                <button type="button" className="text-link" onClick={() => select(parent.path)}>
+                  {parent.label}
+                </button>
+                <ChevronRight size={13} aria-hidden />
+              </span>
+            ))}
+            <span>
+              {graph.name}
+              {prefix.split("/").at(-1)?.startsWith("iteration-") &&
+                ` · ${prefix.split("/").at(-1)!.replace("-", " ")}`}
+            </span>
+          </nav>
+        )}
+        <RunCanvas
+          graph={graph}
+          prefix={prefix}
+          selected={node.id}
+          states={states}
+          onSelect={select}
+        />
+        <div className="run-map-navigation">
+          <label>
+            <span>Inspect step</span>
+            <select value={path} onChange={(e) => select(e.target.value)}>
+              {graph.nodes.map((item) => {
+                const p = `${prefix}/${item.id}`;
+                return (
+                  <option key={item.id} value={p}>
+                    {item.label} · {states.get(p) ?? "Not reached"}
+                  </option>
+                );
+              })}
+            </select>
+          </label>
+          {(manual || context) && (
+            <button className="button small follow-run" type="button" onClick={follow}>
+              <Activity size={14} aria-hidden />
+              {reviews.length ? "Return to review" : live ? "Follow run" : "Latest activity"}
+            </button>
+          )}
+          {reviews.length > 1 && (
+            <label>
+              <span>Pending reviews</span>
+              <select
+                aria-label="Pending reviews"
+                value={reviews.some((r) => reviewPath(r) === path) ? path : ""}
+                onChange={(e) => select(e.target.value)}
+              >
+                <option value="" disabled>
+                  Choose review
+                </option>
+                {reviews.map((review) => (
+                  <option key={review.interrupt_id} value={reviewPath(review)}>
+                    {graphLocation(run, reviewPath(review)).node.label} · {reviewPath(review)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      </div>
+      <div className="run-section-switch" role="group" aria-label="Run inspection view">
+        <button type="button" aria-pressed={!context} onClick={() => setContext(false)}>
+          Step details
+        </button>
+        <button type="button" aria-pressed={context} onClick={() => setContext(true)}>
+          Run context
+        </button>
+      </div>
+      <div className="run-reading-pane" ref={readingPane}>
+        {context ? (
+          <div className="run-context-panel">
+            <details className="run-brief" open>
+              <summary>Research brief</summary>
+              <p>{run.brief}</p>
+            </details>
+            <PinnedEvidence ids={run.evidence_ids ?? []} />
+            <ResearchManifest run={run} />
+            {!run.research_manifest && (
+              <p className="field-hint" aria-label="Run model">
+                {run.workflow.research
+                  ? "Model manifest is not available yet."
+                  : "No model calls. This run uses local steps and human reviews."}
+              </p>
+            )}
+            <details className="run-details">
+              <summary>Pinned workflow &amp; run details</summary>
+              <p className="muted">
+                Editor changes apply to future runs. This run keeps revision {run.revision_number}.
+              </p>
+              <Button className="button" disabled={busy} onClick={onOpenRevision}>
+                Open this revision
+              </Button>
+              <dl>
+                <dt>Run ID</dt>
+                <dd>{run.id}</dd>
+                <dt>Checkpoint</dt>
+                <dd>{run.checkpoint_id ?? "Not started"}</dd>
+                <dt>Executor</dt>
+                <dd>{run.compiler_version}</dd>
+                <dt>Executed steps</dt>
+                <dd>{run.usage?.node_executions ?? run.events.length}</dd>
+                <dt>Active time</dt>
+                <dd>{(run.usage?.active_seconds ?? 0).toFixed(2)} seconds</dd>
+                <dt>Artifact references</dt>
+                <dd>{run.artifacts.length}</dd>
+              </dl>
+            </details>
+          </div>
+        ) : (
+          <RunStepInspector
+            run={run}
+            path={path}
+            states={states}
+            busy={busy}
+            feedback={feedback}
+            changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
+            onResume={async (...args) => {
+              await onResume(...args);
+              follow();
+            }}
+            select={select}
+          />
+        )}
+      </div>
+    </>
   );
 }

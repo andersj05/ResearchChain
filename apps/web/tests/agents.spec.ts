@@ -46,7 +46,7 @@ for (const width of [1440, 390]) {
       "Alpha input stays with Alpha",
     );
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
       timeout: 30000,
     });
     await expect(page.getByLabel("Run agent", { exact: true })).toHaveText(`Alpha ${width}`);

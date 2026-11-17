@@ -71,6 +71,11 @@ class ResumeRequest(StrictModel):
     feedback: str = Field(default="", max_length=6000, pattern=r"^[^\x00]*$")
 
 
+class ReviewResponse(StrictModel):
+    decision: Literal["approve", "reject"]
+    feedback: str = ""
+
+
 class RunEvent(StrictModel):
     node_id: str
     path: str | None = None
@@ -78,6 +83,7 @@ class RunEvent(StrictModel):
     kind: NodeKind
     detail: str
     code: CodeExecution | None = None
+    review_response: ReviewResponse | None = None
 
 
 class ReviewPrompt(StrictModel):
@@ -123,6 +129,11 @@ class CancelResult(StrictModel):
     status: Literal["cancelled", "completed", "rejected", "limited", "failed"]
 
 
+class CheckpointStep(StrictModel):
+    path: str
+    status: Literal["scheduled", "stopped"]
+
+
 class RunSnapshot(RunSummary):
     execution_pending: bool = Field(
         default=False, description="An accepted command is still queued or held by a worker."
@@ -133,6 +144,7 @@ class RunSnapshot(RunSummary):
     evidence_ids: list[UUID] = Field(default_factory=list)
     compiler_version: str
     checkpoint_id: str | None
+    checkpoint_steps: list[CheckpointStep] = Field(default_factory=list)
     events: list[RunEvent]
     review: ReviewPrompt | None = None
     reviews: list[ReviewPrompt] = Field(default_factory=list)

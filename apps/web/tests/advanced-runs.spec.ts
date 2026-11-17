@@ -24,15 +24,16 @@ test("nested reviews show the iteration, survive refresh, and finish", async ({
   await page.setViewportSize({ width: 1440, height: 1040 });
   await openWorkflow(page, request, example);
   const inspector = page.getByRole("region", { name: "Run inspector" });
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   await expect(inspector).toContainText("root › review_loop › iteration-1 › review");
   await page.getByRole("button", { name: "Approve and continue" }).click();
   await expect(inspector).toContainText("root › review_loop › iteration-2 › review");
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   await page.screenshot({ path: testInfo.outputPath("nested-review-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "Approve and continue" }).click();
-  await expect(page.getByRole("heading", { name: "Run completed" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
+  await page.getByRole("combobox", { name: "Inspect step" }).selectOption("root/review_loop");
   await expect(inspector).toContainText("Exit condition satisfied.");
   expect(errors).toEqual([]);
 });
@@ -43,18 +44,18 @@ test("cancel a paused nested run and retain the outcome after refresh", async ({
 }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openWorkflow(page, request, example);
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   await page.getByRole("button", { name: "Cancel run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run cancelled" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
   await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Run cancelled" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
   await page.screenshot({ path: testInfo.outputPath("cancelled-mobile.png"), fullPage: true });
 });
 
 test("budget exhaustion is visible and cannot be resumed", async ({ page, request }) => {
   await openWorkflow(page, request, { ...example, budgets: { max_node_executions: 2 } });
-  await expect(page.getByRole("heading", { name: "Run limited" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Limit reached");
   await expect(page.getByRole("region", { name: "Run inspector" })).toContainText(
     "Node execution limit reached.",
   );
@@ -66,7 +67,9 @@ test("parallel reviews have independent decisions", async ({ page, request }) =>
   workflow.nodes[1]!.kind = "review";
   workflow.nodes[2]!.kind = "review";
   await openWorkflow(page, request, workflow);
-  await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(2);
+  const reviews = page.getByRole("combobox", { name: "Pending reviews" });
+  await expect(reviews.locator("option:enabled")).toHaveCount(2);
+  await reviews.selectOption("root/challenge");
   await page
     .locator('[aria-label="Review challenge"]')
     .getByRole("button", { name: "Approve and continue" })
@@ -74,7 +77,7 @@ test("parallel reviews have independent decisions", async ({ page, request }) =>
   await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(1);
   await expect(page.locator('[aria-label="Review support"]')).toBeVisible();
   await page.getByRole("button", { name: "Cancel run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run cancelled" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
 });
 
 test("saving a new step normalizes default ports without leaving a dirty draft", async ({

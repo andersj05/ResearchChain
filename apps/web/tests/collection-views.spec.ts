@@ -94,7 +94,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("combobox", { name: "Run status", exact: true }).selectOption("failed");
     await expect(history).toContainText("No recent runs match these filters.");
     await expect(history).toContainText("Its details remain visible.");
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
     await page.getByRole("combobox", { name: "Run status", exact: true }).selectOption("paused");
     await expect(history.locator(".run-row")).toHaveCount(1);
     if (width > 850) {

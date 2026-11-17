@@ -69,7 +69,7 @@ for (const width of [1440, 390]) {
       .selectOption("test-model");
     await page.getByRole("checkbox", { name: new RegExp(sourceTitle) }).check();
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
       timeout: 30000,
     });
     const runId = new URL(page.url()).searchParams.get("run")!;
@@ -77,7 +77,7 @@ for (const width of [1440, 390]) {
       .getByRole("textbox", { name: "Reviewer feedback", exact: true })
       .fill("Use two bullets.");
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
       timeout: 30000,
     });
     const first: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
@@ -105,7 +105,7 @@ for (const width of [1440, 390]) {
       "test-model",
     );
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
       timeout: 30000,
     });
     const nextId = new URL(page.url()).searchParams.get("run")!;

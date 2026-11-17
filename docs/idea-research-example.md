@@ -21,10 +21,11 @@ All prompts, wiring, code and checkpoints remain yours to change.
    the framing output. At **Choose research direction**, inspect the sources and
    choose which idea to pursue. Include the ticker and metric if the follow-up
    needs a filing comparison.
-4. **Research support and objections** searches for dated primary sources and
-   opposing explanations. Search queries can contain information from your brief
-   and selected evidence; only enable web search for material you want researched
-   externally. Inspect the saved web actions and source links in Research results.
+4. **Research support and objections** uses the Codex analyst after you approve
+   a direction. It can look for dated primary sources, check an objection, follow
+   a lead and finish early when it has enough evidence. Select this step in Build
+   to edit its **Analyst skill**, research tools and **Maximum research passes**.
+   Web queries can include material from the brief and selected evidence.
 5. **Calculate a simple model** compares the two latest available annual SEC
    periods from the approved research step. It reports both values, the absolute
    change, and the percentage change when the prior value is positive. Paired
@@ -101,15 +102,41 @@ the SEC receipt for the reason. Coverage is limited to the supported US-GAAP
 concepts in USD on 10-K or amended 10-K filings. [SEC data APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
 and [SEC fair access](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).
 
-## Research boundaries
+## Reading and repeating a run
 
-The example uses three model requests across framing, research and synthesis.
-The web request may perform multiple searches/page reads. The provider controls
-that action count; the existing evidence-read allowance does not cap hosted web
-actions. Each request has a 120-second timeout and bounded output. The example
-allows 420 active seconds total and checks reported token use before another call.
-Human review time does not consume active execution time. This is a focused
-research pass; narrow the question or split it into more editable steps for depth.
+Open a run in **Runs** to see the graph from its saved version. It follows the
+active step and brings a pending review into focus. At a checkpoint, read the
+previous step's output, enter feedback, and approve or reject. Select a node or
+use **Inspect step** to open an earlier result, its sources, or the feedback you
+gave. **Return to review** takes you back to the decision. **Run context** holds
+the original brief, evidence and research manifest.
+
+**Run workflow** shows the cumulative token budget. New workflows start at
+1,000,000 tokens. A fixed total counts provider-reported input and output across
+all steps. A response can cross the total before the next request is stopped.
+Choose **As needed** to let the run keep using tokens under its request and time
+limits. The model's context window and the size of each response still apply.
+
+For an older agent with a small fixed budget, choose **Iterate from this run**
+and open **Run workflow**. Choose **Use 1,000,000 tokens**, enter your own total
+or select **As needed**. Starting the experiment pins the revised settings to
+a fresh run with the brief and evidence carried forward.
+
+## Research limits
+
+The example allows up to four passes in its analyst step, plus framing and memo
+synthesis. Each pass can use hosted searches and page reads. The provider controls
+the count of these web actions. ResearchChain checks its model request allowance
+before each inference. The example allows 300 seconds per response and 1,200
+seconds of active execution in total. Owners can set **Seconds per response** up
+to 600. Time spent waiting for human review is excluded.
+
+The analyst requires the Codex CLI on the worker's PATH. Each analyst step opens
+an isolated local app-server session. ResearchChain supplies the selected model
+through its existing ChatGPT plan connection and records each pass. The step
+inspector shows the findings, follow-up question and provider-reported sources.
+An existing custom research step can use this mode by enabling **Codex analyst**
+and supplying an **Analyst skill**. [Codex app-server and the ChatGPT plan](https://developers.openai.com/siwc/token-sharing-open-source/codex-app-server)
 
 In a custom step, set **Web and market search** to **Off**, **Let the model
 decide** or **Require a search**. The provider can use its finance feed when

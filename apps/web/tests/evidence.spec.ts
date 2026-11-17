@@ -90,7 +90,9 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("checkbox", { name: `${title} Captured`, exact: true }).check();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
+  const context = page.getByRole("button", { name: "Run context", exact: true });
+  await context.click();
   const pinned = page.getByRole("region", { name: "Pinned evidence" });
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   const runId = new URL(page.url()).searchParams.get("run");
@@ -101,9 +103,11 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   expect(corrected.replaces_id).toBe(first.id);
   expect(corrected.content_hash).toBe(first.content_hash);
   await page.getByRole("tab", { name: "Runs", exact: true }).click();
+  await context.click();
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   await page.reload();
   expect(new URL(page.url()).searchParams.get("run")).toBe(runId);
+  await context.click();
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("pinned-evidence-run.png"), fullPage: true });
 });

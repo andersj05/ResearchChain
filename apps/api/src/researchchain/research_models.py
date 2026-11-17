@@ -108,6 +108,7 @@ class StoredResearchResult(ResearchResult):
     sec_financials: SecFinancials | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    next_lead: str | None = Field(default=None, max_length=1500, exclude_if=lambda x: x is None)
 
 
 class EvidenceSnapshot(StrictModel):
@@ -135,6 +136,7 @@ class ResearchManifest(StrictModel):
 
 
 class ModelAttempt(StrictModel):
+    web_actions_completed: int | None = Field(default=None, ge=0)
     admission_policy_revision: int | None = Field(default=None, ge=1)
     id: UUID
     path: str

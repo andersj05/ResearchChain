@@ -176,6 +176,7 @@ export function NodeConfiguration({
   onOpen: (node: WorkflowNode) => void;
 }) {
   const config = node.config;
+  const analyst = config?.type === "research" ? config.analyst : undefined;
   const ref = referenceOf(node);
   const body = ref ? graphAt(workflow, ref) : undefined;
   const definitions = workflow.subgraphs ?? [];
@@ -271,6 +272,7 @@ export function NodeConfiguration({
                     stage: event.target.value as typeof config.stage,
                     web_search: event.target.value === "custom" && config.web_search,
                     sec_financials: event.target.value === "custom" && config.sec_financials,
+                    analyst: event.target.value === "custom" ? config.analyst : undefined,
                     prompt_version: event.target.value === "custom" ? "custom-1" : "research-1",
                   },
                 })
@@ -284,6 +286,72 @@ export function NodeConfiguration({
           </label>
           {config.stage === "custom" && (
             <>
+              <label>
+                <input
+                  type="checkbox"
+                  checked={Boolean(analyst)}
+                  onChange={(event) =>
+                    onEdit({
+                      config: {
+                        ...config,
+                        analyst: event.target.checked ? { max_passes: 4, skill: "" } : undefined,
+                      },
+                    })
+                  }
+                />
+                Codex analyst
+              </label>
+              {analyst && (
+                <>
+                  <label>
+                    Analyst skill
+                    <textarea
+                      rows={6}
+                      maxLength={32000}
+                      placeholder="How should the analyst find evidence, test leads and decide when to finish?"
+                      value={analyst.skill ?? ""}
+                      onChange={(event) =>
+                        onEdit(
+                          {
+                            config: {
+                              ...config,
+                              analyst: { ...analyst, skill: event.target.value },
+                            },
+                          },
+                          "analyst-skill",
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    Maximum research passes
+                    <input
+                      type="number"
+                      min={1}
+                      max={20}
+                      value={analyst.max_passes ?? 4}
+                      onChange={(event) =>
+                        onEdit(
+                          {
+                            config: {
+                              ...config,
+                              analyst: {
+                                ...analyst,
+                                max_passes: event.target.valueAsNumber || 1,
+                              },
+                            },
+                          },
+                          "analyst-passes",
+                        )
+                      }
+                    />
+                  </label>
+                  <p className="field-hint">
+                    Each pass uses one model request. The analyst can follow a lead using the tools
+                    enabled below and finish as soon as it has enough evidence.
+                  </p>
+                </>
+              )}
               <label>
                 Web and market search
                 <select

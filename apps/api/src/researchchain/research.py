@@ -1,11 +1,12 @@
 """Durable, budgeted model attempts with no implicit retries after uncertain outcomes."""
 
 import asyncio
+import json
 import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import UUID, uuid4
 
 import httpx
@@ -14,7 +15,14 @@ from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
-from researchchain.artifacts import put_artifact
+from researchchain.artifacts import put_artifact, read_content
+from researchchain.codex_analyst import (
+    AnalystPass,
+    ResearchLead,
+    retain_observations,
+    run_codex_analyst,
+    tool_call,
+)
 from researchchain.compiler import ExecutionStopped
 from researchchain.controls import ExecutionControl
 from researchchain.evidence import read_evidence
@@ -34,9 +42,11 @@ from researchchain.research_models import (
     StoredResearchResult,
 )
 from researchchain.research_prompt import (
+    ANALYST_VERSION,
     PROMPT_VERSION,
     PreparedResearch,
     json_bytes,
+    prepare_analyst_pass,
     prepare_research,
     prompt_hashes,
     sec_prompt_hash,
@@ -46,22 +56,28 @@ from researchchain.research_prompt import (
 from researchchain.sec_financials import SEC_TOOL_VERSION, lookup_sec_financials
 from researchchain.usage_models import UsageError
 from researchchain.usage_store import admit_request
+from researchchain.web_research import WebSearchProgress
 
 RESEARCH_COMPILER_VERSION = "research-0.3.0"
 
 
 class ResearchProvider(Protocol):
+    def run_analyst(
+        self, model: str, passes: int, step: AnalystPass, guard: Callable[[], None]
+    ) -> StoredResearchResult: ...
     def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount: ...
     def status(self) -> ProviderStatus: ...
     async def complete(
         self,
         manifest: ResearchManifest,
         prepared: PreparedResearch,
-        on_delta: Callable[[str], None],
+        on_delta: Callable[[str | WebSearchProgress], None],
     ) -> Completion: ...
 
 
 class ChatGPTResearchProvider:
+    run_analyst = staticmethod(run_codex_analyst)
+
     def __init__(self, store: CredentialStore | None = None):
         self.store = store or CredentialStore()
 
@@ -117,7 +133,7 @@ class ChatGPTResearchProvider:
         self,
         manifest: ResearchManifest,
         prepared: PreparedResearch,
-        on_delta: Callable[[str], None],
+        on_delta: Callable[[str | WebSearchProgress], None],
     ) -> Completion:
         limits = manifest.settings.limits
         with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as client:
@@ -132,7 +148,9 @@ class ChatGPTResearchProvider:
                 instructions=prepared.instructions,
                 output_schema=prepared.schema,
                 on_delta=on_delta,
+                on_web_progress=on_delta,
                 web_search=prepared.web_search,
+                analyst_options=prepared.analyst_options,
             )
 
 
@@ -179,6 +197,7 @@ def make_manifest(
         evidence=snapshots,
         created_at=datetime.now(UTC),
         tool_config={
+            **({"analyst_version": ANALYST_VERSION} if any(c.analyst for c in configs) else {}),
             "version": "evidence-packet-1",
             "allowed": ["read_pinned_evidence"],
             "calls_per_attempt": 1,
@@ -200,7 +219,11 @@ def make_manifest(
             ),
             "web_action_limit": "provider-managed; bounded by request time and output",
             "automatic_billing_fallback": False,
-            "token_limit": "stop_before_next_call_after_reported_usage",
+            "token_limit": (
+                "track_usage_without_token_cutoff"
+                if workflow.research.limits.max_total_tokens == "as_needed"
+                else "stop_before_next_call_after_reported_usage"
+            ),
             "workspace_request_allowance": "current_policy_before_each_model_request",
             "spend_control": "included_plan; disable credits in ChatGPT app usage settings",
         },
@@ -286,15 +309,18 @@ class ResearchExecutor:
                 raise ExecutionStopped("Model-call budget reached.")
             if attempts["calls"] >= limits.max_tool_calls:
                 raise ExecutionStopped("Evidence-tool call budget reached.")
-            if attempts["missing_usage"]:
-                raise ExecutionStopped(
-                    "Provider usage is unavailable; another request cannot be admitted "
-                    "within the token budget."
-                )
-            if attempts["tokens"] >= limits.max_total_tokens:
-                raise ExecutionStopped(
-                    "Reported token budget reached; no further model calls are allowed."
-                )
+            token_limit = limits.max_total_tokens
+            if token_limit != "as_needed":
+                if attempts["missing_usage"]:
+                    raise ExecutionStopped(
+                        "Provider usage is unavailable; another request cannot be admitted "
+                        "within the token budget."
+                    )
+                if attempts["tokens"] >= token_limit:
+                    raise ExecutionStopped(
+                        f"Reported token budget reached. Used {attempts['tokens']:,} of "
+                        f"{token_limit:,} tokens before the next model call."
+                    )
             attempt_id = uuid4()
             self.conn.execute(
                 "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
@@ -304,12 +330,27 @@ class ResearchExecutor:
             return attempt_id, None
 
     async def controlled(
-        self, prepared: PreparedResearch, on_delta: Callable[[str], None], path: str
+        self,
+        prepared: PreparedResearch,
+        on_delta: Callable[[str | WebSearchProgress], None],
+        path: str,
     ) -> Completion:
-        task = asyncio.create_task(self.provider.complete(self.manifest, prepared, on_delta))
+        pending_web: WebSearchProgress | None = None
+
+        def observe(update: str | WebSearchProgress) -> None:
+            nonlocal pending_web
+            if isinstance(update, WebSearchProgress):
+                pending_web = update
+            else:
+                on_delta(update)
+
+        task = asyncio.create_task(self.provider.complete(self.manifest, prepared, observe))
         try:
             while not task.done():
                 await asyncio.wait([task], timeout=0.2)
+                if pending_web is not None:
+                    on_delta(pending_web)
+                    pending_web = None
                 if not task.done():
                     self.control.guard(path, False)
             return await task
@@ -317,6 +358,8 @@ class ResearchExecutor:
             if not task.done():
                 task.cancel()
                 await asyncio.gather(task, return_exceptions=True)
+            if pending_web is not None:
+                on_delta(pending_web)
 
     def execute(self, node: WorkflowNode, path: str, context: str, feedback: str) -> str:
         assert isinstance(node.config, ResearchConfig)
@@ -351,21 +394,66 @@ class ResearchExecutor:
                 "This run requires its pinned SEC lookup implementation.", "failed"
             )
         model = node.config.model or self.manifest.settings.model
+        if node.config.analyst:
+            if self.manifest.tool_config.get("analyst_version") != ANALYST_VERSION:
+                raise ExecutionStopped(
+                    "This run requires its pinned analyst implementation.", "failed"
+                )
+
+            def step(
+                history: list[StoredResearchResult], body: dict[str, Any]
+            ) -> tuple[StoredResearchResult, dict[str, Any]]:
+                pass_path = path if not history else f"{path}/analyst-pass-{len(history) + 1}"
+                result = self.execute_pass(node, pass_path, context, feedback, model, history, body)
+                with self.control.lock:
+                    row = self.conn.execute(
+                        "SELECT response_artifact_id FROM research_attempts "
+                        "WHERE run_id=%s AND path=%s",
+                        (self.run_id, pass_path),
+                    ).fetchone()
+                    assert row
+                    receipt = json.loads(read_content(self.conn, row["response_artifact_id"]))
+                return result, receipt["analyst_response"]
+
+            result = self.provider.run_analyst(
+                model, node.config.analyst.max_passes, step, lambda: self.control.guard(path, False)
+            )
+            return result.model_dump_json()
+        return self.execute_pass(node, path, context, feedback, model, []).model_dump_json()
+
+    def execute_pass(
+        self,
+        node: WorkflowNode,
+        path: str,
+        context: str,
+        feedback: str,
+        model: str,
+        history: list[StoredResearchResult],
+        body: dict[str, Any] | None = None,
+    ) -> StoredResearchResult:
+        assert isinstance(node.config, ResearchConfig)
         attempt_id, previous = self.reserve(node, path, model)
         if previous:
-            return previous.model_dump_json()
+            return StoredResearchResult.model_validate(previous)
         partial = ""
         completion: Completion | None = None
         last_update = 0.0
 
-        def progress(text: str) -> None:
+        def progress(update: str | WebSearchProgress) -> None:
             nonlocal partial, last_update
-            partial = text
+            if isinstance(update, WebSearchProgress):
+                with self.control.lock:
+                    self.conn.execute(
+                        "UPDATE research_attempts SET web_actions_completed = %s WHERE id = %s",
+                        (update.completed_actions, attempt_id),
+                    )
+                return
+            partial = update
             if time.monotonic() - last_update >= 0.5:
                 with self.control.lock:
                     self.conn.execute(
                         "UPDATE research_attempts SET output_characters = %s WHERE id = %s",
-                        (len(text), attempt_id),
+                        (len(update), attempt_id),
                     )
                 last_update = time.monotonic()
 
@@ -384,7 +472,17 @@ class ResearchExecutor:
                     web_search=node.config.web_search,
                     sec_financials=node.config.sec_financials,
                 )
+                if node.config.analyst:
+                    assert body is not None
+                    prepare_analyst_pass(prepared, node.config.analyst, history, body)
                 payload = json_bytes(prepared.request_body())
+                if (
+                    node.config.analyst
+                    and len(payload) > self.manifest.settings.limits.max_input_bytes
+                ):
+                    raise ValueError(
+                        "The analyst history and evidence exceed the input byte limit."
+                    )
                 original = put_artifact(self.conn, payload, f"research-request-{attempt_id}.json")
                 self.conn.execute(
                     "UPDATE research_attempts SET input_artifact_id = %s, input_bytes = %s, "
@@ -399,13 +497,46 @@ class ResearchExecutor:
             self.control.guard(path, False)
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
-            validated = validate_result(completion.text, node.config.stage, prepared)
-            result = StoredResearchResult(**validated.model_dump(exclude={"sec_lookup"}))
+            lead = None
+            if node.config.analyst:
+                if completion.analyst_response is None:
+                    raise ValueError("The analyst provider did not return a Codex response.")
+                call = tool_call(completion.analyst_response)
+                if call is not None:
+                    if len(history) + 1 >= node.config.analyst.max_passes:
+                        raise ValueError("The analyst requested a follow-up after its final pass.")
+                    lead = ResearchLead.model_validate_json(call["arguments"])
+                    if lead.sec_lookup and not node.config.sec_financials:
+                        raise ValueError("The analyst requested an unavailable SEC lookup.")
+            if lead:
+                validated: ResearchResult = ResearchWithLookup(
+                    schema_version="research-result-1",
+                    stage="custom",
+                    conclusion=lead.findings,
+                    revision_summary=lead.lead,
+                    unresolved_questions=[lead.lead],
+                    evidence_requests=[],
+                    hypotheses=[],
+                    limitations=["Interim analyst findings."],
+                    sec_lookup=lead.sec_lookup,
+                )
+                partial = json.dumps(call)
+            else:
+                validated = validate_result(completion.text, node.config.stage, prepared)
+            result = StoredResearchResult(
+                **validated.model_dump(exclude={"sec_lookup"}),
+                next_lead=lead.lead if lead else None,
+            )
             if node.config.web_search:
                 trace = completion.web_research
-                if (node.config.web_search is True or (trace and trace.actions)) and not (
-                    trace and any(action.status == "completed" for action in trace.actions)
-                ):
+                if (
+                    (
+                        node.config.web_search is True
+                        and not lead
+                        and not any(p.web_research for p in history)
+                    )
+                    or (trace and trace.actions)
+                ) and not (trace and any(action.status == "completed" for action in trace.actions)):
                     raise ValueError(
                         "The provider did not complete a web search. "
                         "No researched result was accepted."
@@ -416,8 +547,10 @@ class ResearchExecutor:
                 self.control.guard(path, False)
                 result.sec_financials = asyncio.run(lookup_sec_financials(validated.sec_lookup))
                 self.control.guard(path, False)
+            if history and not lead:
+                retain_observations(result, history)
             self.finish(attempt_id, "completed", partial, completion, result=result)
-            return result.model_dump_json()
+            return result
         except ExecutionStopped as error:
             self.finish(
                 attempt_id,
@@ -462,10 +595,15 @@ class ResearchExecutor:
         output_characters = len(text)
         with self.control.lock:
             sec = result.sec_financials if isinstance(result, StoredResearchResult) else None
-            if completion and (completion.web_research or sec):
+            if completion and (completion.web_research or sec or completion.analyst_response):
                 text = json_bytes(
                     {
                         "model_text": text,
+                        **(
+                            {"analyst_response": completion.analyst_response}
+                            if completion.analyst_response
+                            else {}
+                        ),
                         **(
                             {"web_research": completion.web_research.model_dump(mode="json")}
                             if completion.web_research

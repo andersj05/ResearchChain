@@ -371,7 +371,7 @@ test("new definition versions and nested draft edits keep an existing run pinned
     .fill("Original nested instructions.");
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   const runId = new URL(page.url()).searchParams.get("run");
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page

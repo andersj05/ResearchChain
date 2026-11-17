@@ -85,6 +85,11 @@ ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
 ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
 
 
+class AnalystConfig(StrictModel):
+    max_passes: int = Field(default=4, ge=1, le=20)
+    skill: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
+
+
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
@@ -93,10 +98,11 @@ class ResearchConfig(StrictModel):
 
     web_search: bool | Literal["auto"] = False
     sec_financials: bool = False
+    analyst: AnalystConfig | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
-        if (self.web_search or self.sec_financials) and self.stage != "custom":
+        if (self.web_search or self.sec_financials or self.analyst) and self.stage != "custom":
             raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
         if self.prompt_version != expected:
@@ -112,13 +118,18 @@ class CodeConfig(StrictModel):
     timeout_seconds: float = Field(default=1, ge=0.05, le=5, allow_inf_nan=False)
 
 
+MAX_RESPONSE_SECONDS = 600
+
+
 class ResearchLimits(StrictModel):
     max_model_calls: int = Field(default=3, ge=0, le=100)
     max_tool_calls: int = Field(default=3, ge=0, le=100)
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
-    max_response_seconds: float = Field(default=90, gt=0, le=120, allow_inf_nan=False)
-    max_total_tokens: int = Field(default=24000, ge=1, le=1000000)
+    max_response_seconds: float = Field(
+        default=90, gt=0, le=MAX_RESPONSE_SECONDS, allow_inf_nan=False
+    )
+    max_total_tokens: Annotated[int, Field(ge=1, le=2**53 - 1)] | Literal["as_needed"] = 1_000_000
 
 
 class ResearchSettings(StrictModel):

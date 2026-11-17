@@ -30,7 +30,7 @@ test("save a revision, refresh a paused run, and resume its original workflow", 
   await page.screenshot({ path: testInfo.outputPath("workflow-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   const runUrl = page.url();
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page
@@ -41,16 +41,19 @@ test("save a revision, refresh a paused run, and resume its original workflow", 
     /Revision \d+ saved\./,
   );
   await page.getByRole("tab", { name: "Runs", exact: true }).click();
+  await page.getByRole("combobox", { name: "Inspect step" }).selectOption("root/frame");
   await expect(page.getByRole("region", { name: "Run inspector" })).toContainText(
     "Compare competing explanations.",
   );
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
+  await expect(page.locator('[aria-label="Workflow canvas"]')).toBeHidden();
+  await expect(page.getByRole("button", { name: "Approve and continue" })).toBeInViewport();
   await page.screenshot({ path: testInfo.outputPath("run-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "Approve and continue" }).click();
-  await expect(page.getByRole("heading", { name: "Run completed" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
   await page.goto(runUrl);
-  await expect(page.getByRole("heading", { name: "Run completed" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
   await expect(page.locator(".workspace-feedback")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "API reference" })).toHaveCount(0);
   expect(browserErrors).toEqual([]);
@@ -123,10 +126,10 @@ test("a lost start response reopens the accepted run", async ({ page }) => {
   });
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   expect(new URL(page.url()).searchParams.get("run")).toBe(runId);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
 });
 
 test("stale review controls refresh without approving a later review", async ({
@@ -139,7 +142,7 @@ test("stale review controls refresh without approving a later review", async ({
   await page.goto(`/?revision=${revision.id}`);
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   const id = new URL(page.url()).searchParams.get("run");
   const approve = page.getByRole("button", { name: "Approve and continue" });
   await expect(approve).toBeEnabled();
@@ -169,7 +172,7 @@ test("stale review controls refresh without approving a later review", async ({
   }
   await click;
   await expect(approve).toBeEnabled();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   await expect(page.locator(".review-box h3")).toHaveText(workflow.nodes[2]!.instructions);
   const current = await (await request.get(`/api/runs/${id}`)).json();
   expect(current.review.node_id).toBe("review");
@@ -194,7 +197,7 @@ test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testI
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   for (const [name, heading] of [
     ["Build", "Agent builder"],
     ["Runs", "Runs"],
@@ -224,7 +227,7 @@ test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testI
 test("a recoverable run exposes an explicit recovery action", async ({ page }) => {
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   const id = new URL(page.url()).searchParams.get("run");
   // Exercise the interrupted-state UI independently of backend crash injection.
   // The recover endpoint below still executes against the real Postgres run.
@@ -233,7 +236,7 @@ test("a recoverable run exposes an explicit recovery action", async ({ page }) =
     await route.fulfill({ response, json: { ...(await response.json()), status: "interrupted" } });
   });
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Run interrupted" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs recovery");
   await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(0);
   await page.unroute(`**/api/runs/${id}`);
   const recovered = page.waitForResponse(
@@ -241,7 +244,7 @@ test("a recoverable run exposes an explicit recovery action", async ({ page }) =
   );
   await page.getByRole("button", { name: "Recover run" }).click();
   await recovered;
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
 });
 
 test("run setup keeps the brief, traps focus, and returns focus on Escape", async ({

@@ -2804,6 +2804,27 @@
         "required": ["version", "revision"],
         "title": "AgentVersion"
       },
+      "AnalystConfig": {
+        "properties": {
+          "max_passes": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Passes",
+            "default": 4
+          },
+          "skill": {
+            "type": "string",
+            "maxLength": 32000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Skill",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnalystConfig"
+      },
       "ArtifactInfo": {
         "properties": {
           "id": {
@@ -2883,6 +2904,23 @@
         "type": "object",
         "required": ["id", "status"],
         "title": "CancelResult"
+      },
+      "CheckpointStep": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["scheduled", "stopped"],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["path", "status"],
+        "title": "CheckpointStep"
       },
       "ClaimCreate": {
         "properties": {
@@ -5653,6 +5691,18 @@
       },
       "ModelAttempt": {
         "properties": {
+          "web_actions_completed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Actions Completed"
+          },
           "admission_policy_revision": {
             "anyOf": [
               {
@@ -6976,6 +7026,16 @@
             "type": "boolean",
             "title": "Sec Financials",
             "default": false
+          },
+          "analyst": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalystConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7014,17 +7074,25 @@
           },
           "max_response_seconds": {
             "type": "number",
-            "maximum": 120.0,
+            "maximum": 600.0,
             "exclusiveMinimum": 0.0,
             "title": "Max Response Seconds",
             "default": 90
           },
           "max_total_tokens": {
-            "type": "integer",
-            "maximum": 1000000.0,
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9007199254740991.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "string",
+                "const": "as_needed"
+              }
+            ],
             "title": "Max Total Tokens",
-            "default": 24000
+            "default": 1000000
           }
         },
         "additionalProperties": false,
@@ -7448,6 +7516,24 @@
         "required": ["interrupt_id", "node_id", "question"],
         "title": "ReviewPrompt"
       },
+      "ReviewResponse": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"],
+            "title": "Decision"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["decision"],
+        "title": "ReviewResponse"
+      },
       "RevisionSummary": {
         "properties": {
           "id": {
@@ -7544,6 +7630,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/CodeExecution"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResponse"
               },
               {
                 "type": "null"
@@ -7726,6 +7822,13 @@
               }
             ],
             "title": "Checkpoint Id"
+          },
+          "checkpoint_steps": {
+            "items": {
+              "$ref": "#/components/schemas/CheckpointStep"
+            },
+            "type": "array",
+            "title": "Checkpoint Steps"
           },
           "events": {
             "items": {
@@ -8314,6 +8417,18 @@
                 "type": "null"
               }
             ]
+          },
+          "next_lead": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Lead"
           }
         },
         "additionalProperties": false,

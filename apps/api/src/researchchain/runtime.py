@@ -2,13 +2,13 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 from uuid import UUID, uuid4
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import Command, StateSnapshot, interrupt
 from psycopg import Connection
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
@@ -27,6 +27,7 @@ from researchchain.database import Database
 from researchchain.evidence import read_evidence
 from researchchain.models import (
     CancelResult,
+    CheckpointStep,
     ResumeRequest,
     ReviewPrompt,
     RunEvent,
@@ -51,6 +52,39 @@ from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
 CODE_COMPILER_VERSION = "code-0.1.0"
+
+
+def checkpoint_steps(state: StateSnapshot, status: str) -> list[CheckpointStep]:
+    steps = []
+    for task in state.tasks:
+        step_status: Literal["scheduled", "stopped"]
+        if task.name.startswith("__"):
+            continue
+        if task.error is not None:
+            step_status = "stopped"
+        elif status in {"running", "queued", "interrupted"} and task.name in state.next:
+            step_status = "scheduled"
+        else:
+            continue
+        path = task.name if "/" in task.name else f"root/{task.name}"
+        # A loop check or subgraph exit belongs to its enclosing workflow node.
+        # User steps have an even number of components (root/node[/body/node]).
+        if len(path.split("/")) % 2:
+            path = path.rsplit("/", 1)[0]
+        steps.append(CheckpointStep(path=path, status=step_status))
+    return steps
+
+
+def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
+    if workflow.schema_version == "0.1":
+        return [RunEvent.model_validate(event) for event in state.values.get("events", [])]
+    outputs = state.values.get("outputs", {})
+    events = []
+    for path, event in state.values.get("records", {}).items():
+        if event["kind"] == "review" and "decision" in outputs.get(path, {}):
+            event = {**event, "review_response": outputs[path]}
+        events.append(RunEvent.model_validate(event))
+    return events
 
 
 def compiler_version(workflow: Workflow) -> str:
@@ -229,11 +263,10 @@ class RunStore:
             evidence_ids=self._evidence_ids(conn, manifest["id"]),
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
+            checkpoint_steps=checkpoint_steps(state, status),
             status=status,
             execution_pending=running or queued,
-            events=list(state.values.get("records", {}).values())
-            if revision.workflow.schema_version != "0.1"
-            else state.values.get("events", []),
+            events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
             reviews=reviews,
             stop_reason=control["reason"] or worker_error,

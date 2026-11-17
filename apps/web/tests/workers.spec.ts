@@ -23,16 +23,16 @@ for (const width of [1440, 390]) {
     try {
       await openSetup(page, request);
       await page.getByRole("button", { name: "Start run", exact: true }).click();
-      await expect(page.getByRole("heading", { name: "Run queued", exact: true })).toBeVisible();
+      await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Queued");
       const id = new URL(page.url()).searchParams.get("run");
-      await expect(page.getByRole("heading", { name: "Waiting to start" })).toBeVisible();
+      await expect(page.getByText("Waiting to start", { exact: true })).toBeVisible();
       expect((await (await request.get(`/api/runs/${id}`)).json()).usage.node_executions).toBe(0);
       await page.screenshot({ path: testInfo.outputPath("queued-run.png"), fullPage: true });
       await page.reload();
-      await expect(page.getByRole("heading", { name: "Run queued", exact: true })).toBeVisible();
+      await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Queued");
       expect(new URL(page.url()).searchParams.get("run")).toBe(id);
       await release();
-      await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+      await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
       expect((await (await request.get(`/api/runs/${id}`)).json()).events).toHaveLength(2);
     } finally {
       await release();
@@ -45,13 +45,13 @@ test("cancel queued work before a worker can execute it", async ({ page, request
   try {
     await openSetup(page, request);
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run queued", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Queued");
     const id = new URL(page.url()).searchParams.get("run");
     await page.getByRole("button", { name: "Cancel run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
     await release();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
     const cancelled = await (await request.get(`/api/runs/${id}`)).json();
     expect(cancelled.events).toEqual([]);
     expect(cancelled.usage.node_executions).toBe(0);
@@ -90,7 +90,7 @@ test("refresh after an unconfirmed start retains the same request identity", asy
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   expect(retryId).toBe(firstId);
   expect(new URL(page.url()).searchParams.get("run")).toBe(firstId);
   expect(await page.evaluate((key) => sessionStorage.getItem(key), key)).toBeNull();

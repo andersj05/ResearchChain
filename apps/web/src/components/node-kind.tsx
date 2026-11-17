@@ -17,6 +17,9 @@ export const nodeKinds = {
 };
 
 export function nodePresentation(node: WorkflowNode) {
+  if (node.config?.type === "research" && node.config.analyst) {
+    return { label: "Codex analyst", shortLabel: "Analyst" };
+  }
   return node.config?.type === "research" && node.config.stage === "custom"
     ? { label: "Model prompt", shortLabel: "Model" }
     : nodeKinds[node.kind];
