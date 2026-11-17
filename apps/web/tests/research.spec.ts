@@ -89,6 +89,7 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(snapshot.model_attempts).toHaveLength(3);
+    await page.getByText("Research manifest", { exact: true }).click();
     const modelSummary = page.getByRole("region", { name: "Run model", exact: true });
     await expect(modelSummary).toContainText("Selected modeltest-model");
     await expect(modelSummary).toContainText("ChatGPT included plan");
@@ -103,7 +104,6 @@ for (const width of [1440, 390]) {
       element.scrollTop = 0;
     });
     await page.screenshot({ path: testInfo.outputPath("research-results.png"), fullPage: true });
-    await page.getByText("Research manifest", { exact: true }).click();
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download research manifest", exact: true }).click();
     expect((await download).suggestedFilename()).toBe(`research-${runId}.json`);

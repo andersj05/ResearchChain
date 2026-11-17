@@ -82,6 +82,13 @@ for (const width of [1440, 390]) {
 
     await page.goto(`/?view=runs&run=${run.id}`);
     const history = page.getByRole("complementary", { name: "Recent runs" });
+    if (width <= 850) {
+      const toggle = history.getByRole("button", { name: "Recent runs", exact: true });
+      await expect(toggle).toHaveAttribute("aria-expanded", "false");
+      await expect(page.getByLabel("Find a recent run")).toBeHidden();
+      await toggle.press("Enter");
+      await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    }
     await page.getByLabel("Find a recent run").fill(run.id);
     await expect(history.locator(".run-row")).toHaveCount(1);
     await page.getByRole("combobox", { name: "Run status", exact: true }).selectOption("failed");

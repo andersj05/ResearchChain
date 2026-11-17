@@ -110,10 +110,10 @@ export function RunInspector({
               {run.stop_reason}
             </p>
           )}
-          <div className="run-brief">
-            <h3>Research brief</h3>
+          <details className="run-brief" key={`brief-${run.id}`} open={!run.research_manifest}>
+            <summary>Research brief</summary>
             <p>{run.brief}</p>
-          </div>
+          </details>
           {run.status === "interrupted" && (
             <div className="review-box">
               <h3>Continue from saved progress</h3>
@@ -191,7 +191,7 @@ export function RunInspector({
               {run.events.map((event) => (
                 <li key={event.path ?? event.node_id}>
                   <strong>{event.label}</strong>
-                  <span>{event.detail}</span>
+                  {event.detail !== event.code?.outputs.text && <span>{event.detail}</span>}
                   {event.code && (
                     <details className="code-result">
                       <summary>Code inputs and outputs</summary>
