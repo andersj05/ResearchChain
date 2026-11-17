@@ -12,9 +12,11 @@ and keeps earlier decisions and pass-level source receipts accessible. The
 Idea Research example enables an editable, multi-pass Codex analyst after the
 direction checkpoint. [Owner guide](../idea-research-example.md).
 
-The analyst needs the local Codex executable on the worker PATH. Schema 13 adds
-an optional completed web-action count to model attempts. Apply the documented
-backup and migration procedure when adopting this version in the local runtime.
+The analyst needs the local Codex executable on the worker PATH. On 2026-11-17
+the Desktop installation moved to `dev` and took schema 13 after a verified
+backup restore and migration rehearsal. The live web and API checks passed,
+the worker connected, and the served app included the review navigation, analyst
+settings and token-budget controls from [PR #62](https://github.com/andersj05/ResearchChain/pull/62).
 The owner's next step is to try the revised example or adjust a saved agent
 and assess the resulting research.
 
