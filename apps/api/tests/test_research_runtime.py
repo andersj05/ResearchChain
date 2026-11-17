@@ -135,6 +135,10 @@ def test_research_flow_pins_records_and_review_feedback(database: Database) -> N
     review = approve(first, "Please investigate the alternative explanation.")
     revised = store.resume(request.id, review)
     assert revised.status == "paused" and revised.review.node_id == "final_review"
+    inspected = store.get(request.id)
+    decided = next(event for event in inspected.events if event.kind == "review")
+    assert decided.review_response and decided.review_response.decision == "approve"
+    assert decided.review_response.feedback == "Please investigate the alternative explanation."
     assert [attempt.stage for attempt in revised.model_attempts] == [
         "hypothesize",
         "challenge",

@@ -75,6 +75,18 @@ def checkpoint_steps(state: StateSnapshot, status: str) -> list[CheckpointStep]:
     return steps
 
 
+def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
+    if workflow.schema_version == "0.1":
+        return [RunEvent.model_validate(event) for event in state.values.get("events", [])]
+    outputs = state.values.get("outputs", {})
+    events = []
+    for path, event in state.values.get("records", {}).items():
+        if event["kind"] == "review" and "decision" in outputs.get(path, {}):
+            event = {**event, "review_response": outputs[path]}
+        events.append(RunEvent.model_validate(event))
+    return events
+
+
 def compiler_version(workflow: Workflow) -> str:
     if any(
         node.kind == "code" for graph in [workflow, *workflow.subgraphs] for node in graph.nodes
@@ -254,9 +266,7 @@ class RunStore:
             checkpoint_steps=checkpoint_steps(state, status),
             status=status,
             execution_pending=running or queued,
-            events=list(state.values.get("records", {}).values())
-            if revision.workflow.schema_version != "0.1"
-            else state.values.get("events", []),
+            events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
             reviews=reviews,
             stop_reason=control["reason"] or worker_error,
