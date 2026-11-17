@@ -40,13 +40,20 @@ class ResearchLead(StrictModel):
     sec_lookup: SecLookup | None = None
 
 
-def follow_tool() -> dict[str, Any]:
+def follow_tool(*, sec_financials: bool = True) -> dict[str, Any]:
+    schema = ResearchLead.model_json_schema()
+    schema["required"] = list(schema["properties"])
+    lookup = schema["properties"]["sec_lookup"]
+    lookup.pop("default", None)
+    if not sec_financials:
+        schema["properties"]["sec_lookup"] = {"type": "null"}
+        schema.pop("$defs", None)
     return {
         "type": "function",
         "name": "pursue_lead",
         "description": "Record findings and return observed sources for the next lead. "
         "Request an SEC lookup only if enabled in the step instructions.",
-        "inputSchema": ResearchLead.model_json_schema(),
+        "inputSchema": schema,
     }
 
 
@@ -65,7 +72,8 @@ def tool_call(response: dict[str, Any]) -> dict[str, Any] | None:
             and item.get("namespace") == "research"
         ):
             if not (
-                isinstance(item.get("call_id"), str) and item["call_id"]
+                isinstance(item.get("call_id"), str)
+                and item["call_id"]
                 and isinstance(item.get("arguments"), str)
             ):
                 raise ValueError("The analyst returned an incomplete tool call.")
@@ -283,7 +291,8 @@ def _protocol(process: subprocess.Popen[bytes], cwd: Path, session: Session) -> 
                 raise ValueError("Codex requested an unavailable interactive capability.")
         raise ValueError("The Codex analyst process exited before completing the turn.")
     except Exception as error:
-        session.error = error
+        if session.error is None:
+            session.error = error
 
 
 @contextmanager

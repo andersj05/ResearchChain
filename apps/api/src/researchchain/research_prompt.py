@@ -239,7 +239,7 @@ def prepare_analyst_pass(
     prepared.input_items = [*prepared.input_items, *harness_items]
     tools: list[dict[str, Any]] = [{"type": "web_search"}] if prepared.web_search else []
     if len(history) + 1 < config.max_passes:
-        spec = follow_tool()
+        spec = follow_tool(sec_financials=prepared.sec_financials)
         tools.append(
             {
                 "type": "namespace",
@@ -251,6 +251,7 @@ def prepare_analyst_pass(
                         "name": spec["name"],
                         "description": spec["description"],
                         "parameters": spec["inputSchema"],
+                        "strict": True,
                     }
                 ],
             }

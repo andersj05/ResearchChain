@@ -146,7 +146,8 @@ class FakeProvider:
                 "status": "completed",
                 "model": prepared.model,
                 "output": [item],
-                "usage": self.usage,
+                "usage": {**self.usage, "total_tokens": sum(self.usage.values())},
+                "object": "response",
             }
         return Completion(
             prepared.model,
