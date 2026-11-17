@@ -1069,6 +1069,19 @@ export interface components {
       version: number;
       revision: components["schemas"]["RevisionSummary"];
     };
+    /** AnalystConfig */
+    AnalystConfig: {
+      /**
+       * Max Passes
+       * @default 4
+       */
+      max_passes: number;
+      /**
+       * Skill
+       * @default
+       */
+      skill: string;
+    };
     /** ArtifactInfo */
     ArtifactInfo: {
       /** Id */
@@ -1109,6 +1122,16 @@ export interface components {
        * @enum {string}
        */
       status: "cancelled" | "completed" | "rejected" | "limited" | "failed";
+    };
+    /** CheckpointStep */
+    CheckpointStep: {
+      /** Path */
+      path: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "scheduled" | "stopped";
     };
     /** ClaimCreate */
     ClaimCreate: {
@@ -2346,6 +2369,8 @@ export interface components {
     };
     /** ModelAttempt */
     ModelAttempt: {
+      /** Web Actions Completed */
+      web_actions_completed?: number | null;
       /** Admission Policy Revision */
       admission_policy_revision?: number | null;
       /**
@@ -2950,6 +2975,7 @@ export interface components {
        * @default false
        */
       sec_financials: boolean;
+      analyst?: components["schemas"]["AnalystConfig"] | null;
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -2980,9 +3006,9 @@ export interface components {
       max_response_seconds: number;
       /**
        * Max Total Tokens
-       * @default 24000
+       * @default 1000000
        */
-      max_total_tokens: number;
+      max_total_tokens: number | "as_needed";
     };
     /** ResearchManifest */
     ResearchManifest: {
@@ -3199,6 +3225,19 @@ export interface components {
       /** Question */
       question: string;
     };
+    /** ReviewResponse */
+    ReviewResponse: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "reject";
+      /**
+       * Feedback
+       * @default
+       */
+      feedback: string;
+    };
     /** RevisionSummary */
     RevisionSummary: {
       /**
@@ -3255,6 +3294,7 @@ export interface components {
       /** Detail */
       detail: string;
       code?: components["schemas"]["CodeExecution"] | null;
+      review_response?: components["schemas"]["ReviewResponse"] | null;
     };
     /** RunRequest */
     RunRequest: {
@@ -3335,6 +3375,8 @@ export interface components {
       compiler_version: string;
       /** Checkpoint Id */
       checkpoint_id: string | null;
+      /** Checkpoint Steps */
+      checkpoint_steps?: components["schemas"]["CheckpointStep"][];
       /** Events */
       events: components["schemas"]["RunEvent"][];
       review?: components["schemas"]["ReviewPrompt"] | null;
@@ -3604,6 +3646,8 @@ export interface components {
       limitations: string[];
       web_research?: components["schemas"]["WebResearch"] | null;
       sec_financials?: components["schemas"]["SecFinancials"] | null;
+      /** Next Lead */
+      next_lead?: string | null;
     };
     /** StyleExample */
     StyleExample: {

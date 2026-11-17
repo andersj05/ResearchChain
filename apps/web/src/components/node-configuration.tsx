@@ -176,6 +176,7 @@ export function NodeConfiguration({
   onOpen: (node: WorkflowNode) => void;
 }) {
   const config = node.config;
+  const analyst = config?.type === "research" ? config.analyst : undefined;
   const ref = referenceOf(node);
   const body = ref ? graphAt(workflow, ref) : undefined;
   const definitions = workflow.subgraphs ?? [];
@@ -288,7 +289,7 @@ export function NodeConfiguration({
               <label>
                 <input
                   type="checkbox"
-                  checked={Boolean(config.analyst)}
+                  checked={Boolean(analyst)}
                   onChange={(event) =>
                     onEdit({
                       config: {
@@ -300,7 +301,7 @@ export function NodeConfiguration({
                 />
                 Codex analyst
               </label>
-              {config.analyst && (
+              {analyst && (
                 <>
                   <label>
                     Analyst skill
@@ -308,13 +309,13 @@ export function NodeConfiguration({
                       rows={6}
                       maxLength={32000}
                       placeholder="How should the analyst find evidence, test leads and decide when to finish?"
-                      value={config.analyst.skill ?? ""}
+                      value={analyst.skill ?? ""}
                       onChange={(event) =>
                         onEdit(
                           {
                             config: {
                               ...config,
-                              analyst: { ...config.analyst, skill: event.target.value },
+                              analyst: { ...analyst, skill: event.target.value },
                             },
                           },
                           "analyst-skill",
@@ -328,14 +329,14 @@ export function NodeConfiguration({
                       type="number"
                       min={1}
                       max={20}
-                      value={config.analyst.max_passes ?? 4}
+                      value={analyst.max_passes ?? 4}
                       onChange={(event) =>
                         onEdit(
                           {
                             config: {
                               ...config,
                               analyst: {
-                                ...config.analyst,
+                                ...analyst,
                                 max_passes: event.target.valueAsNumber || 1,
                               },
                             },

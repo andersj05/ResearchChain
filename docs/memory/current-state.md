@@ -1,8 +1,22 @@
 # Current state
 
-Updated 2026-11-17. The owner authorized consolidating completed changes, promoting
-dev to main through a merge PR, pushing the remote and cleaning up merged branches.
-Public deployment remains a separate follow-up.
+Updated 2026-11-17. The owner requested deeper research runs and a graph-based
+run inspector for the `dev` branch. [Implementation and verification](https://github.com/andersj05/ResearchChain/pull/62).
+
+## Research run workbench
+
+New research workflows default to one million cumulative tokens. Run setup can
+pin a larger fixed total or **As needed** for a fresh experiment. The inspector
+uses the pinned graph, shows the stopped step when a checkpoint records an error
+and keeps earlier decisions and pass-level source receipts accessible. The
+Idea Research example enables an editable, multi-pass Codex analyst after the
+direction checkpoint. [Owner guide](../idea-research-example.md).
+
+The analyst needs the local Codex executable on the worker PATH. Schema 13 adds
+an optional completed web-action count to model attempts. Apply the documented
+backup and migration procedure when adopting this version in the local runtime.
+The owner's next step is to try the revised example or adjust a saved agent
+and assess the resulting research.
 
 ## Scope and next step
 
@@ -69,8 +83,9 @@ submitted for this pass. Existing private research and original files were retai
 
 ## Verified checkout and runtime
 
-Use **C:/Users/jense/Desktop/ResearchChain**. The empty Documents/ChatGPT directory
-is not the checkout; use explicit working directories. The delivery branch is main after the authorized promotion.
+The running owner app uses **C:/Users/jense/Desktop/ResearchChain**. The current
+feature checkout is **C:/Users/jense/Documents/ChatGPT/ResearchChain**. Check
+the branch in the intended checkout before running development commands.
 The local app is http://127.0.0.1:3000 with its API on port 8000 and Postgres on 5433.
 Use pnpm dev to restart web/API/worker and the existing owner sign-in. Owner access
 is managed in Settings; the ChatGPT connection is managed in run setup.
