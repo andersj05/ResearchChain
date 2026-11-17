@@ -20,8 +20,13 @@ function RunTools({ workflow }: { workflow: Workflow }) {
   const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
     graph.nodes.flatMap((node) => {
       const config = node.config;
-      if (config?.type !== "research" || (!config.web_search && !config.sec_financials)) return [];
+      if (
+        config?.type !== "research" ||
+        (!config.web_search && !config.sec_financials && !config.analyst)
+      )
+        return [];
       const tools = [
+        config.analyst ? `Codex analyst, up to ${config.analyst.max_passes ?? 4} passes` : "",
         config.web_search === "auto"
           ? "optional web search"
           : config.web_search

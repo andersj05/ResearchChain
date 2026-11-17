@@ -85,6 +85,11 @@ ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
 ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
 
 
+class AnalystConfig(StrictModel):
+    max_passes: int = Field(default=4, ge=1, le=20)
+    skill: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
+
+
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
@@ -93,10 +98,11 @@ class ResearchConfig(StrictModel):
 
     web_search: bool | Literal["auto"] = False
     sec_financials: bool = False
+    analyst: AnalystConfig | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
-        if (self.web_search or self.sec_financials) and self.stage != "custom":
+        if (self.web_search or self.sec_financials or self.analyst) and self.stage != "custom":
             raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
         if self.prompt_version != expected:
