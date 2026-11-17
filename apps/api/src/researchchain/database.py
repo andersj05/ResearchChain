@@ -3,6 +3,7 @@
 import hashlib
 import os
 import re
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
@@ -12,10 +13,36 @@ from pathlib import Path
 from dotenv import load_dotenv
 from langgraph.checkpoint.postgres import PostgresSaver
 from psycopg import Connection, connect, sql
+from psycopg.errors import LockNotAvailable
+from psycopg.pq import TransactionStatus
 from psycopg.rows import DictRow, dict_row
 
 LOCAL_DATABASE_URL = "postgresql://researchchain:researchchain-local@127.0.0.1:5433/researchchain"
 MIGRATION_LOCK = 726320023
+
+
+def acquire_migration_lock(conn: Connection[DictRow], *, shared: bool = False) -> None:
+    """Wait outside transactions so concurrent index builds can finish."""
+    if not conn.autocommit or conn.info.transaction_status != TransactionStatus.IDLE:
+        raise RuntimeError("Acquire the migration lock before opening a transaction.")
+    query = (
+        "SELECT pg_try_advisory_lock_shared(%s) AS acquired"
+        if shared
+        else "SELECT pg_try_advisory_lock(%s) AS acquired"
+    )
+    deadline = time.monotonic() + 10
+    while True:
+        row = conn.execute(query, (MIGRATION_LOCK,)).fetchone()
+        assert row is not None
+        if row["acquired"]:
+            # The caller owns this session lock until its connection closes.
+            return
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            raise LockNotAvailable("Timed out waiting for the migration/backup lock.")
+        # A blocking advisory-lock SELECT would retain a snapshot while waiting.
+        # CREATE INDEX CONCURRENTLY can wait for that snapshot, causing a deadlock.
+        time.sleep(min(0.05, remaining))
 
 
 @dataclass(frozen=True)
@@ -52,7 +79,7 @@ class Database:
 
     def migrate(self) -> None:
         with self.connection() as conn:
-            conn.execute("SELECT pg_advisory_lock(%s)", (MIGRATION_LOCK,))
+            acquire_migration_lock(conn)
             conn.execute(
                 sql.SQL("CREATE SCHEMA IF NOT EXISTS {}").format(sql.Identifier(self.schema))
             )
@@ -70,6 +97,9 @@ class Database:
                 raise RuntimeError(
                     "Applied migrations differ from this checkout. Restore compatible code."
                 )
+            # Retention guards also protect upstream checkpoint writes. Create/upgrade
+            # these tables under the migration lock before application migrations.
+            PostgresSaver(conn).setup()
             for name, checksum, statement in migrations():
                 if name not in applied:
                     with conn.transaction():
@@ -78,9 +108,6 @@ class Database:
                             "INSERT INTO schema_migrations (name, checksum) VALUES (%s, %s)",
                             (name, checksum),
                         )
-            # The upstream checkpointer has its own append-only migration list.
-            # Its concurrent indexes require autocommit, outside our transactions.
-            PostgresSaver(conn).setup()
             self.check_ready(conn)
 
     def check_ready(self, conn: Connection[DictRow]) -> None:

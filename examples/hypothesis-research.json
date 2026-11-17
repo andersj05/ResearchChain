@@ -1,0 +1,148 @@
+{
+  "schema_version": "0.3",
+  "name": "Test a research hypothesis",
+  "start_node": "plan",
+  "nodes": [
+    {
+      "id": "plan",
+      "kind": "research",
+      "label": "Form hypotheses",
+      "instructions": "Identify testable explanations, alternatives, and falsifiers.",
+      "position": {
+        "x": 60,
+        "y": 80
+      },
+      "config": {
+        "type": "research",
+        "stage": "hypothesize"
+      }
+    },
+    {
+      "id": "review",
+      "kind": "review",
+      "label": "Review hypotheses",
+      "instructions": "Review the hypotheses and add feedback before challenging them.",
+      "position": {
+        "x": 380,
+        "y": 80
+      }
+    },
+    {
+      "id": "challenge",
+      "kind": "research",
+      "label": "Challenge evidence",
+      "instructions": "Look for independent contradictions and confounding explanations.",
+      "position": {
+        "x": 700,
+        "y": 80
+      },
+      "config": {
+        "type": "research",
+        "stage": "challenge"
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "plan",
+          "port": "text"
+        },
+        "feedback": {
+          "source": "output",
+          "node_id": "review",
+          "port": "feedback"
+        }
+      }
+    },
+    {
+      "id": "revise",
+      "kind": "research",
+      "label": "Revise conclusions",
+      "instructions": "Explain what changed and what remains unresolved.",
+      "position": {
+        "x": 1020,
+        "y": 80
+      },
+      "config": {
+        "type": "research",
+        "stage": "revise"
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "challenge",
+          "port": "text"
+        },
+        "feedback": {
+          "source": "output",
+          "node_id": "review",
+          "port": "feedback"
+        }
+      }
+    },
+    {
+      "id": "final_review",
+      "kind": "review",
+      "label": "Review conclusions",
+      "instructions": "Review the revised conclusion and its source limitations.",
+      "position": {
+        "x": 1340,
+        "y": 80
+      }
+    },
+    {
+      "id": "finish",
+      "kind": "finish",
+      "label": "Finish",
+      "instructions": "",
+      "position": {
+        "x": 1660,
+        "y": 80
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "plan",
+      "target": "review",
+      "source_port": "next"
+    },
+    {
+      "source": "review",
+      "target": "challenge",
+      "source_port": "next"
+    },
+    {
+      "source": "challenge",
+      "target": "revise",
+      "source_port": "next"
+    },
+    {
+      "source": "revise",
+      "target": "final_review",
+      "source_port": "next"
+    },
+    {
+      "source": "final_review",
+      "target": "finish",
+      "source_port": "next"
+    }
+  ],
+  "research": {
+    "provider": "chatgpt_plan",
+    "model": "gpt-6.1-sol",
+    "billing": "included_plan",
+    "limits": {
+      "max_model_calls": 3,
+      "max_tool_calls": 3,
+      "max_input_bytes": 512000,
+      "max_output_characters": 24000,
+      "max_response_seconds": 90,
+      "max_total_tokens": 24000
+    }
+  },
+  "budgets": {
+    "max_node_executions": 30,
+    "max_active_seconds": 300,
+    "max_concurrency": 1
+  }
+}

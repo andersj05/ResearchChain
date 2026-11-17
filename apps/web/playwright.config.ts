@@ -11,11 +11,50 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: { baseURL: "http://127.0.0.1:3000", trace: "retain-on-failure" },
-  projects: [{ name: "chromium", use: { ...devices["Desktop Chrome"] } }],
+  projects: [
+    {
+      name: "usage",
+      testMatch: /usage\.spec\.ts/,
+      dependencies: ["retention"],
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "retention",
+      testMatch: /retention\.spec\.ts/,
+      dependencies: ["workers"],
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium",
+      testIgnore: /(access|workers|retention|signin|usage)\.spec\.ts/,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "workers",
+      testMatch: /workers\.spec\.ts/,
+      dependencies: ["access"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "signin",
+      testMatch: /signin\.spec\.ts/,
+      dependencies: ["chromium"],
+      fullyParallel: false,
+      use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "access",
+      testMatch: /access\.spec\.ts/,
+      dependencies: ["signin"],
+      use: { ...devices["Desktop Chrome"] },
+    },
+  ],
   webServer: [
     {
       command:
-        "uv run --project ../api uvicorn researchchain.main:app --host 127.0.0.1 --port 8000",
+        "uv run --project ../api uvicorn --app-dir ../api/tests research_browser_fixture:app --host 127.0.0.1 --port 8000",
       url: "http://127.0.0.1:8000/api/health",
       reuseExistingServer: false,
       timeout: 60000,

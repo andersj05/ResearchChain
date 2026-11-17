@@ -1,4 +1,6 @@
-import { expect, test } from "@playwright/test";
+import { runRequest } from "./run-fixture";
+import { expect, test } from "./fixtures";
+import type { WorkflowRevision } from "../src/lib/workflow";
 import example from "../../../examples/research-workflow.json";
 
 test.beforeEach(async ({ page, request }) => {
@@ -27,9 +29,10 @@ test("save a revision, refresh a paused run, and resume its original workflow", 
   );
   await page.screenshot({ path: testInfo.outputPath("workflow-desktop.png"), fullPage: true });
   await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   const runUrl = page.url();
-  await page.getByRole("tab", { name: "Workflow", exact: true }).click();
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page
     .getByRole("textbox", { name: "Instructions", exact: true })
     .fill("Only for the next run.");
@@ -64,7 +67,7 @@ test("revision history restores the draft and Undo preserves unsaved work", asyn
   await page
     .getByRole("textbox", { name: "Instructions", exact: true })
     .fill("Unsaved work to recover.");
-  await page.getByRole("tab", { name: "Revisions", exact: true }).click();
+  await page.getByRole("tab", { name: "Versions", exact: true }).click();
   await page.getByRole("button", { name: `Load revision ${number}`, exact: true }).click();
   await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toHaveValue(
     firstText,
@@ -95,13 +98,15 @@ test("local drafts and JSON export remain available", async ({ page }) => {
 });
 
 test("invalid connections cannot be saved or executed", async ({ page }) => {
-  await page.getByRole("combobox", { name: "Next node", exact: true }).selectOption("");
+  await page.getByRole("combobox", { name: "Next step", exact: true }).selectOption("");
   await page.getByRole("button", { name: "Save revision", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "connected chain" })).toBeVisible();
   await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("alert").filter({ hasText: "connected chain" })).toBeVisible();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await page.getByRole("button", { name: "Undo last edit" }).click();
-  await expect(page.getByRole("combobox", { name: "Next node", exact: true })).toHaveValue(
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
     "challenge",
   );
 });
@@ -111,10 +116,11 @@ test("a lost start response reopens the accepted run", async ({ page }) => {
   await page.route("**/api/runs", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     const response = await route.fetch();
-    runId = (await response.json()).id;
+    runId = (await response.json()).run_id;
     await route.abort("failed");
   });
   await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("run")).toBe(runId);
   await page.reload();
@@ -130,17 +136,37 @@ test("stale review controls refresh without approving a later review", async ({
   const revision = await (await request.post("/api/revisions", { data: workflow })).json();
   await page.goto(`/?revision=${revision.id}`);
   await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   const id = new URL(page.url()).searchParams.get("run");
+  const approve = page.getByRole("button", { name: "Approve and continue" });
+  await expect(approve).toBeEnabled();
   const first = await (await request.get(`/api/runs/${id}`)).json();
-  await request.post(`/api/runs/${id}/resume`, {
-    data: {
-      checkpoint_id: first.checkpoint_id,
-      interrupt_id: first.review.interrupt_id,
-      decision: "approve",
-    },
+  const submitted = Promise.withResolvers<{ checkpoint_id: string; interrupt_id: string }>();
+  const release = Promise.withResolvers<void>();
+  await page.route(`**/api/runs/${id}/resume`, async (route) => {
+    submitted.resolve(route.request().postDataJSON());
+    await release.promise;
+    await route.continue();
   });
-  await page.getByRole("button", { name: "Approve and continue" }).click();
+  const click = approve.click();
+  try {
+    const captured = await submitted.promise;
+    expect(captured.checkpoint_id).toBe(first.checkpoint_id);
+    expect(captured.interrupt_id).toBe(first.review.interrupt_id);
+    const advanced = await runRequest(request, `/api/runs/${id}/resume`, {
+      data: {
+        checkpoint_id: first.checkpoint_id,
+        interrupt_id: first.review.interrupt_id,
+        decision: "approve",
+      },
+    });
+    expect(advanced.status()).toBe(200);
+  } finally {
+    release.resolve();
+  }
+  await click;
+  await expect(approve).toBeEnabled();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   await expect(page.locator(".review-box h3")).toHaveText(workflow.nodes[2]!.instructions);
   const current = await (await request.get(`/api/runs/${id}`)).json();
@@ -152,11 +178,11 @@ test("canvas movement and workspace tabs support the keyboard", async ({ page })
   const node = page.getByRole("button", { name: "Edit Frame the question", exact: true });
   await node.focus();
   await node.press("Alt+ArrowRight");
-  await expect(node).toHaveCSS("left", "70px");
-  const tab = page.getByRole("tab", { name: "Workflow", exact: true });
+  await expect(page.locator('[data-node-id="frame"]')).toHaveCSS("left", "70px");
+  const tab = page.getByRole("tab", { name: "Build", exact: true });
   await tab.focus();
   await tab.press("ArrowRight");
-  await expect(page.getByRole("tab", { name: "Runs", exact: true })).toHaveAttribute(
+  await expect(page.getByRole("tab", { name: "Sources", exact: true })).toHaveAttribute(
     "aria-selected",
     "true",
   );
@@ -165,10 +191,15 @@ test("canvas movement and workspace tabs support the keyboard", async ({ page })
 test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
-  for (const name of ["Workflow", "Runs", "Revisions"]) {
+  for (const [name, heading] of [
+    ["Build", "Agent builder"],
+    ["Runs", "Runs"],
+    ["Versions", "Versions"],
+  ] as const) {
     await page.getByRole("tab", { name, exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await page.screenshot({
       path: testInfo.outputPath(`${name.toLowerCase()}-mobile.png`),
       fullPage: true,
@@ -190,6 +221,7 @@ test("workflow, runs, and revisions fit a narrow screen", async ({ page }, testI
 
 test("a recoverable run exposes an explicit recovery action", async ({ page }) => {
   await page.getByRole("button", { name: "Run workflow" }).click();
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
   const id = new URL(page.url()).searchParams.get("run");
   // Exercise the interrupted-state UI independently of backend crash injection.
@@ -203,9 +235,143 @@ test("a recoverable run exposes an explicit recovery action", async ({ page }) =
   await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(0);
   await page.unroute(`**/api/runs/${id}`);
   const recovered = page.waitForResponse(
-    (response) => response.url().endsWith(`/runs/${id}/recover`) && response.status() === 200,
+    (response) => response.url().endsWith(`/runs/${id}/recover`) && response.status() === 202,
   );
   await page.getByRole("button", { name: "Recover run" }).click();
   await recovered;
   await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+});
+
+test("run setup keeps the brief, traps focus, and returns focus on Escape", async ({
+  page,
+}, testInfo) => {
+  const trigger = page.getByRole("button", { name: "Run workflow" });
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Start a research run" });
+  const brief = dialog.getByRole("textbox", { name: "Research brief" });
+  await expect(brief).toBeFocused();
+  await brief.fill("");
+  await expect(dialog.getByRole("button", { name: "Start run", exact: true })).toBeDisabled();
+  await brief.fill("Which observations would disprove the thesis?");
+  await page.screenshot({ path: testInfo.outputPath("run-setup.png"), fullPage: true });
+  await brief.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  await expect(brief).toHaveValue("Which observations would disprove the thesis?");
+  await dialog.getByRole("button", { name: "Start run", exact: true }).focus();
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("button", { name: "Close run setup" })).toBeFocused();
+});
+
+test("panels, outline, and fit view keep a laptop workspace usable", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await page.screenshot({ path: testInfo.outputPath("workflow-laptop.png"), fullPage: true });
+  await page.getByRole("button", { name: "Fit workflow to view" }).click();
+  const canvas = await page.getByLabel("Workflow canvas", { exact: true }).boundingBox();
+  for (const node of await page.locator(".graph-node").all()) {
+    const rect = await node.boundingBox();
+    expect(rect!.x).toBeGreaterThanOrEqual(canvas!.x);
+    expect(rect!.x + rect!.width).toBeLessThanOrEqual(canvas!.x + canvas!.width);
+  }
+  await page.getByRole("button", { name: "Reset view", exact: true }).click();
+  await expect(page.locator(".canvas-world")).toHaveCSS("transform", "matrix(1, 0, 0, 1, 24, 24)");
+  await page.getByRole("button", { name: "Toggle details" }).click();
+  await expect(page.getByRole("group", { name: "Node inspector" })).not.toBeVisible();
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: "Human review Review", exact: true })
+    .click();
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Human review",
+  );
+  await page.getByRole("button", { name: "Toggle steps" }).click();
+  await expect(page.locator("#step-library")).not.toBeVisible();
+  await page.getByRole("button", { name: "Toggle steps" }).click();
+  await expect(page.locator("#step-library")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Save revision", exact: true })).toBeInViewport();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toBeInViewport();
+});
+
+test("adding and removing a middle step preserves a saveable chain and supports undo", async ({
+  page,
+  request,
+}) => {
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(name).toBeFocused();
+  await name.fill("Check the evidence");
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
+    "challenge",
+  );
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /Revision \d+ saved\./,
+  );
+  const id = new URL(page.url()).searchParams.get("revision");
+  const saved: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+  const added = saved.workflow.nodes.find((node) => node.label === "Check the evidence")!;
+  expect(saved.workflow.edges).toContainEqual({
+    source: "frame",
+    target: added.id,
+    source_port: "next",
+    target_port: "in",
+  });
+  expect(saved.workflow.edges).toContainEqual({
+    source: added.id,
+    target: "challenge",
+    source_port: "next",
+    target_port: "in",
+  });
+  await page.getByRole("button", { name: "Remove step", exact: true }).click();
+  await expect(name).toHaveValue("Challenge the thesis");
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit Check the evidence", exact: true }),
+  ).toHaveCount(1);
+});
+
+test("inserting before Finish and removing the first step preserve the workflow entry", async ({
+  page,
+  request,
+}) => {
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: "Finish workflow Finish", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Add human review", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue(
+    "finish",
+  );
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /Revision \d+ saved\./,
+  );
+  const revisionId = new URL(page.url()).searchParams.get("revision");
+  const saved: WorkflowRevision = await (await request.get(`/api/revisions/${revisionId}`)).json();
+  const added = saved.workflow.nodes.find((node) => node.label === "New human review")!;
+  expect(saved.workflow.edges).toContainEqual({
+    source: "review",
+    target: added.id,
+    source_port: "next",
+    target_port: "in",
+  });
+  expect(saved.workflow.start_node).toBe("frame");
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: "Frame the question Note Start", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Remove step", exact: true }).click();
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /Revision \d+ saved\./,
+  );
+  const updatedId = new URL(page.url()).searchParams.get("revision");
+  const updated: WorkflowRevision = await (await request.get(`/api/revisions/${updatedId}`)).json();
+  expect(updated.workflow.start_node).toBe("challenge");
+  expect(updated.workflow.nodes).toHaveLength(4);
 });

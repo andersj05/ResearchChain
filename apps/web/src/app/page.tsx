@@ -1,5 +1,5 @@
-import { Workbench } from "@/components/workbench";
+import { AccessGate } from "@/components/access-gate";
 
 export default function Home() {
-  return <Workbench />;
+  return <AccessGate />;
 }

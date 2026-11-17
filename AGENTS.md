@@ -5,6 +5,26 @@ report writing. Read `docs/memory/project-context.md` for the product intent and
 `docs/memory/current-state.md` for the latest verified handoff. Read further docs
 only as the task needs them; code, tests, and current GitHub state outrank stale notes.
 
+## First implementation pass: owner-built agents
+
+Confirmed with the owner on 2026-11-16. Deliver the local environment in which the
+owner designs, runs, inspects and iterates on their own agent. The owner determines
+the research strategy, prompts, sources, checkpoints and quality judgments.
+Agent-generated research templates and pilots are optional examples, not the product
+specification or acceptance gates. Do not require pilot labels, a calibrated judge,
+a finished agent, public hosting or publication to complete this environment pass.
+
+Acceptance: the owner can start a blank workflow, configure model instructions and
+human reviews, wire inputs, choose evidence/model/limits, save versions, run and inspect
+outputs, incorporate feedback, and start a revised experiment without editing code.
+Verify with synthetic providers; do not consume the owner's plan or submit human
+judgments to demonstrate readiness. After delivery, the owner will build a simple
+agent and supply usability feedback. Preserve that as the next step.
+
+The owner subsequently requested an editable idea-research example, including live
+web research. This is an explicitly authorized optional example; preserve owner
+judgment and the environment-first scope. See `docs/idea-research-example.md`.
+
 ## Agent workflow
 
 - Track work in GitHub issues and PRs through `gh` only. Do not use GitHub Projects,

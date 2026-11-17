@@ -13,20 +13,56 @@ from psycopg import Connection
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 
+from researchchain.agents import require_agent_revision, run_agent
+from researchchain.artifacts import EvidenceError, read_artifact
+from researchchain.compiler import (
+    STRUCTURED_COMPILER_VERSION,
+    ExecutionStopped,
+    Guard,
+    ResearchStep,
+    compile_structured,
+)
+from researchchain.controls import ExecutionControl, control_state, set_terminal
 from researchchain.database import Database
+from researchchain.evidence import read_evidence
 from researchchain.models import (
+    CancelResult,
     ResumeRequest,
     ReviewPrompt,
     RunEvent,
     RunRequest,
     RunSnapshot,
     RunSummary,
+    RunUsage,
     Workflow,
     WorkflowNode,
 )
+from researchchain.research import (
+    RESEARCH_COMPILER_VERSION,
+    ChatGPTResearchProvider,
+    ResearchExecutor,
+    ResearchProvider,
+    make_manifest,
+    read_attempts,
+    read_manifest,
+)
+from researchchain.retention_guards import require_retained_run
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
+CODE_COMPILER_VERSION = "code-0.1.0"
+
+
+def compiler_version(workflow: Workflow) -> str:
+    if any(
+        node.kind == "code" for graph in [workflow, *workflow.subgraphs] for node in graph.nodes
+    ):
+        return CODE_COMPILER_VERSION
+    return {
+        "0.1": COMPILER_VERSION,
+        "0.2": STRUCTURED_COMPILER_VERSION,
+        "0.3": RESEARCH_COMPILER_VERSION,
+    }[workflow.schema_version]
 
 
 class ResearchState(TypedDict):
@@ -60,12 +96,22 @@ def _route_review(state: ResearchState) -> str:
     return "stop" if state["rejected"] else "continue"
 
 
-def compile_workflow(workflow: Workflow, checkpointer: BaseCheckpointSaver[Any]) -> Any:
-    """Compile validated registered nodes; never evaluate code from a workflow."""
+def compile_workflow(
+    workflow: Workflow,
+    checkpointer: BaseCheckpointSaver[Any],
+    guard: Guard | None = None,
+    research: ResearchStep | None = None,
+) -> Any:
+    """Compile validated nodes; code steps use the isolated JavaScript executor."""
+    if workflow.schema_version != "0.1":
+        return compile_structured(workflow, checkpointer, guard, research)
     builder = StateGraph(ResearchState)
     successors = {edge.source: edge.target for edge in workflow.edges}
     for node in workflow.nodes:
-        builder.add_node(node.id, _node_function(node))
+        execute = _node_function(node)
+        if guard:
+            execute = _guarded_legacy(execute, node.id, guard)
+        builder.add_node(node.id, execute)
         if node.kind == "finish":
             builder.add_edge(node.id, END)
         elif node.kind == "review":
@@ -78,9 +124,20 @@ def compile_workflow(workflow: Workflow, checkpointer: BaseCheckpointSaver[Any])
     return builder.compile(checkpointer=checkpointer)
 
 
+def _guarded_legacy(execute: Any, node_id: str, guard: Guard) -> Any:
+    def wrapped(state: ResearchState) -> dict[str, Any]:
+        guard(node_id, True)
+        result: dict[str, Any] = execute(state)
+        guard(node_id, False)
+        return result
+
+    return wrapped
+
+
 class RunStore:
-    def __init__(self, database: Database) -> None:
+    def __init__(self, database: Database, provider: ResearchProvider | None = None) -> None:
         self.database = database
+        self.provider = provider or ChatGPTResearchProvider()
 
     @staticmethod
     def _config(run_id: UUID) -> dict[str, Any]:
@@ -96,10 +153,16 @@ class RunStore:
             yield conn
 
     def _manifest(self, conn: Connection[DictRow], run_id: UUID) -> DictRow:
+        require_retained_run(conn, run_id)
         row = conn.execute("SELECT * FROM runs WHERE id = %s", (run_id,)).fetchone()
         if row is None:
             raise NotFoundError("Run not found.")
-        if row["compiler_version"] != COMPILER_VERSION:
+        if row["compiler_version"] not in (
+            COMPILER_VERSION,
+            CODE_COMPILER_VERSION,
+            STRUCTURED_COMPILER_VERSION,
+            RESEARCH_COMPILER_VERSION,
+        ):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row
 
@@ -109,12 +172,30 @@ class RunStore:
             "SELECT * FROM run_commands WHERE run_id = %s AND response IS NULL", (run_id,)
         ).fetchone()
 
-    def _graph(self, conn: Connection[DictRow], manifest: DictRow) -> Any:
+    def _graph(
+        self,
+        conn: Connection[DictRow],
+        manifest: DictRow,
+        guard: Guard | None = None,
+        *,
+        saver: PostgresSaver | None = None,
+        research: ResearchStep | None = None,
+    ) -> Any:
         revision = read_revision(conn, manifest["revision_id"])
-        return compile_workflow(revision.workflow, PostgresSaver(conn))
+        expected = compiler_version(revision.workflow)
+        if manifest["compiler_version"] != expected:
+            raise ConflictError("This run requires a compatible compiler version before recovery.")
+        return compile_workflow(revision.workflow, saver or PostgresSaver(conn), guard, research)
 
     def _snapshot(
-        self, conn: Connection[DictRow], manifest: DictRow, *, interrupted: bool = False
+        self,
+        conn: Connection[DictRow],
+        manifest: DictRow,
+        *,
+        interrupted: bool = False,
+        running: bool = False,
+        queued: bool = False,
+        worker_error: str | None = None,
     ) -> RunSnapshot:
         revision = read_revision(conn, manifest["revision_id"])
         state = self._graph(conn, manifest).get_state(self._config(manifest["id"]))
@@ -126,7 +207,17 @@ class RunStore:
             status = "rejected"
         elif pending:
             status = "paused"
+        control = control_state(conn, manifest["id"])
+        if queued or running:
+            status = "queued" if queued else "running"
+            pending = []
+        if control["terminal_status"]:
+            status = control["terminal_status"]
+            pending = []
+        reviews = [ReviewPrompt(interrupt_id=item.id, **item.value) for item in pending]
+        attempts = read_attempts(conn, manifest["id"])
         return RunSnapshot(
+            **run_agent(conn, manifest["id"]),
             id=manifest["id"],
             revision_id=revision.id,
             revision_number=revision.number,
@@ -135,13 +226,31 @@ class RunStore:
             workflow=revision.workflow,
             brief=manifest["brief"],
             artifacts=manifest["artifacts"],
+            evidence_ids=self._evidence_ids(conn, manifest["id"]),
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             status=status,
-            events=state.values.get("events", []),
-            review=ReviewPrompt(interrupt_id=pending[0].id, **pending[0].value)
-            if pending
-            else None,
+            execution_pending=running or queued,
+            events=list(state.values.get("records", {}).values())
+            if revision.workflow.schema_version != "0.1"
+            else state.values.get("events", []),
+            review=reviews[0] if reviews else None,
+            reviews=reviews,
+            stop_reason=control["reason"] or worker_error,
+            usage=RunUsage(
+                node_executions=control["node_executions"],
+                active_seconds=control["active_seconds"],
+                model_calls=len(attempts),
+                tool_calls=len(attempts),
+                input_tokens=sum(item.input_tokens or 0 for item in attempts),
+                output_tokens=sum(item.output_tokens or 0 for item in attempts),
+                usage_complete=all(
+                    item.input_tokens is not None and item.output_tokens is not None
+                    for item in attempts
+                ),
+            ),
+            research_manifest=read_manifest(conn, manifest["id"]),
+            model_attempts=attempts,
         )
 
     def _complete_command(
@@ -155,139 +264,309 @@ class RunStore:
     def _drive(self, conn: Connection[DictRow], manifest: DictRow, command: DictRow) -> RunSnapshot:
         if command["response"] is not None:
             return RunSnapshot.model_validate(command["response"])
-        graph = self._graph(conn, manifest)
+        control = control_state(conn, manifest["id"])
+        if control["terminal_status"]:
+            snapshot = self._snapshot(conn, manifest)
+            self._complete_command(conn, command["id"], snapshot)
+            return snapshot
+        workflow = read_revision(conn, manifest["revision_id"]).workflow
+        saver = PostgresSaver(conn)
+        execution = ExecutionControl(conn, manifest["id"], workflow.budgets, saver.lock)
+        research_manifest = read_manifest(conn, manifest["id"])
+        researcher = (
+            ResearchExecutor(
+                conn, manifest["id"], manifest["brief"], research_manifest, execution, self.provider
+            )
+            if research_manifest
+            else None
+        )
+        graph = self._graph(conn, manifest, execution.guard, saver=saver, research=researcher)
         config = self._config(manifest["id"])
+        if workflow.schema_version != "0.1":
+            config.update(recursion_limit=4096, max_concurrency=workflow.budgets.max_concurrency)
         state = graph.get_state(config)
         pending = [item for task in state.tasks for item in task.interrupts]
-
-        if not state.created_at:
-            if command["kind"] != "start":
-                raise ConflictError(
-                    "The checkpoint for this review is missing. Restore a database backup."
-                )
-            graph.invoke(
-                {
+        try:
+            execution.begin()
+            if not state.created_at:
+                if command["kind"] != "start":
+                    raise ConflictError(
+                        "The checkpoint for this review is missing. Restore a database backup."
+                    )
+                initial = {
                     "brief": manifest["brief"],
                     "artifact_ids": [item["id"] for item in manifest["artifacts"]],
-                    "events": [],
                     "rejected": False,
-                },
-                config,
-                durability="sync",
-            )
-        elif command["kind"] == "resume" and any(
-            item.id == command["interrupt_id"] for item in pending
-        ):
-            # Always address the original interrupt, never the next pending review.
-            graph.invoke(
-                Command(resume={command["interrupt_id"]: command["decision"]}),
-                config,
-                durability="sync",
-            )
-        elif state.next and not pending:
-            # Accepted work may have stopped between two durable checkpoints.
-            graph.invoke(None, config, durability="sync")
+                }
+                if workflow.schema_version != "0.1":
+                    initial.update(records={}, outputs={})
+                else:
+                    initial["events"] = []
+                graph.invoke(initial, config, durability="sync")
+            elif command["kind"] == "resume" and any(
+                item.id == command["interrupt_id"] for item in pending
+            ):
+                graph.invoke(
+                    Command(
+                        resume={
+                            command["interrupt_id"]: (
+                                {"decision": command["decision"], "feedback": command["feedback"]}
+                                if workflow.schema_version == "0.3"
+                                else command["decision"]
+                            )
+                        }
+                    ),
+                    config,
+                    durability="sync",
+                )
+            elif state.next and not pending:
+                graph.invoke(None, config, durability="sync")
+            execution.guard("", False)
+        except ExecutionStopped as error:
+            set_terminal(conn, manifest["id"], error.status, str(error))
+        finally:
+            execution.end()
 
         snapshot = self._snapshot(conn, manifest)
         if snapshot.status == "interrupted":
             raise ConflictError(
                 "Execution is still incomplete. Retry recovery from the saved checkpoint."
             )
+        if snapshot.status in ("completed", "rejected"):
+            set_terminal(conn, manifest["id"], snapshot.status)
+            snapshot = self._snapshot(conn, manifest)
         self._complete_command(conn, command["id"], snapshot)
         return snapshot
 
+    @staticmethod
+    def _evidence_ids(conn: Connection[DictRow], run_id: UUID) -> list[UUID]:
+        return [
+            row["evidence_id"]
+            for row in conn.execute(
+                "SELECT evidence_id FROM run_evidence WHERE run_id = %s ORDER BY ordinal", (run_id,)
+            )
+        ]
+
+    def start_command(self, conn: Connection[DictRow], request: RunRequest) -> DictRow:
+        """Validate and journal inputs; the caller serializes admission and commits."""
+        require_retained_run(conn, request.id)
+        existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
+        if existing and (
+            run_agent(conn, request.id)["agent_id"] != request.agent_id
+            or existing["revision_id"] != request.revision_id
+            or existing["brief"] != request.brief
+            or self._evidence_ids(conn, request.id) != request.evidence_ids
+        ):
+            raise ConflictError("This run ID already belongs to different inputs.")
+        existing_research = read_manifest(conn, request.id) if existing else None
+        if existing and request.provider_account_id != (
+            existing_research.account_id if existing_research else None
+        ):
+            raise ConflictError("This run ID already belongs to a different provider account.")
+        selected_agent = (
+            require_agent_revision(conn, request.agent_id, request.revision_id)
+            if request.agent_id and not existing
+            else None
+        )
+        artifacts = [item.model_dump() for item in request.artifacts]
+        if existing is None:
+            if len({item.id for item in request.artifacts}) != len(request.artifacts):
+                raise EvidenceError("Select each original only once.")
+            for item in request.artifacts:
+                stored = read_artifact(conn, item.id)
+                if stored.name != item.name or stored.media_type != item.media_type:
+                    raise EvidenceError("Artifact metadata must match the captured original.")
+        # Accepted legacy requests deliberately bypass new availability rules.
+        # Their saved addresses and command receipts remain valid after migration.
+        for evidence_id in request.evidence_ids:
+            source = read_evidence(conn, evidence_id)
+            if source.artifact and source.artifact.id not in {item["id"] for item in artifacts}:
+                artifacts.append(source.artifact.model_dump(include={"id", "name", "media_type"}))
+        if len(artifacts) > 100:
+            raise EvidenceError("A run supports at most 100 unique originals.")
+        if existing is None:
+            workflow = read_revision(conn, request.revision_id).workflow
+            research_manifest = None
+            if workflow.research:
+                if not request.provider_account_id:
+                    raise EvidenceError(
+                        "Select the connected provider account for this research run."
+                    )
+                account = self.provider.pin_account(
+                    request.provider_account_id, workflow.research.model
+                )
+                research_manifest = make_manifest(
+                    conn, workflow, request.revision_id, request.evidence_ids, account
+                )
+            elif request.provider_account_id:
+                raise EvidenceError("Provider selection is only valid for a research workflow.")
+            with conn.transaction():
+                conn.execute(
+                    "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
+                    "VALUES (%s, %s, %s, %s, %s)",
+                    (
+                        request.id,
+                        request.revision_id,
+                        compiler_version(workflow),
+                        request.brief,
+                        Jsonb(artifacts),
+                    ),
+                )
+                if selected_agent:
+                    conn.execute(
+                        "INSERT INTO agent_runs (run_id, agent_id, agent_name) VALUES (%s, %s, %s)",
+                        (request.id, selected_agent.id, selected_agent.name),
+                    )
+                if research_manifest:
+                    conn.execute(
+                        "INSERT INTO run_research_manifests (run_id, manifest) VALUES (%s, %s)",
+                        (request.id, Jsonb(research_manifest.model_dump(mode="json"))),
+                    )
+                for ordinal, evidence_id in enumerate(request.evidence_ids):
+                    conn.execute(
+                        "INSERT INTO run_evidence (run_id, evidence_id, ordinal) "
+                        "VALUES (%s, %s, %s)",
+                        (request.id, evidence_id, ordinal),
+                    )
+                conn.execute("INSERT INTO run_controls (run_id) VALUES (%s)", (request.id,))
+                conn.execute(
+                    "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
+                    (uuid4(), request.id),
+                )
+        elif existing["artifacts"] != artifacts:
+            raise ConflictError("This run ID already belongs to different inputs.")
+        command = conn.execute(
+            "SELECT * FROM run_commands WHERE run_id = %s AND kind = 'start'", (request.id,)
+        ).fetchone()
+        assert command is not None
+        return command
+
     def start(self, request: RunRequest) -> RunSnapshot:
+        """Synchronous driver for local runtime operations and focused tests."""
         with self._locked(request.id) as conn:
-            existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
-            artifacts = [item.model_dump() for item in request.artifacts]
-            if existing is None:
-                with conn.transaction():
-                    read_revision(conn, request.revision_id)
-                    conn.execute(
-                        "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
-                        "VALUES (%s, %s, %s, %s, %s)",
-                        (
-                            request.id,
-                            request.revision_id,
-                            COMPILER_VERSION,
-                            request.brief,
-                            Jsonb(artifacts),
-                        ),
-                    )
-                    conn.execute(
-                        "INSERT INTO run_commands (id, run_id, kind) VALUES (%s, %s, 'start')",
-                        (uuid4(), request.id),
-                    )
-            elif (
-                existing["revision_id"] != request.revision_id
-                or existing["brief"] != request.brief
-                or existing["artifacts"] != artifacts
-            ):
-                raise ConflictError("This run ID already belongs to different inputs.")
-            manifest = self._manifest(conn, request.id)
-            command = conn.execute(
-                "SELECT * FROM run_commands WHERE run_id = %s AND kind = 'start'", (request.id,)
-            ).fetchone()
-            assert command is not None
-            return self._drive(conn, manifest, command)
+            command = self.start_command(conn, request)
+            return self._drive(conn, self._manifest(conn, request.id), command)
 
     def get(self, run_id: UUID) -> RunSnapshot:
-        with self._locked(run_id) as conn:
+        with self.database.connection() as conn:
+            # Readers never wait for a model call. A live writer owns the run's
+            # advisory lock; checkpoint reads and the attempt journal use MVCC.
+            lock = conn.execute(
+                "SELECT pg_try_advisory_lock(hashtextextended(%s, 0)) AS acquired",
+                (f"run:{run_id}",),
+            ).fetchone()
+            assert lock is not None
+            command = self._unfinished(conn, run_id)
+            job = (
+                conn.execute(
+                    "SELECT state, last_error FROM run_jobs WHERE command_id = %s",
+                    (command["id"],),
+                ).fetchone()
+                if command
+                else None
+            )
+            unfinished = command is not None
             return self._snapshot(
                 conn,
                 self._manifest(conn, run_id),
-                interrupted=self._unfinished(conn, run_id) is not None,
+                interrupted=unfinished,
+                # Other readers briefly own this lock too. Only an unfinished
+                # command indicates that a worker may still be executing.
+                running=unfinished and not lock["acquired"],
+                queued=bool(
+                    unfinished
+                    and job
+                    and (
+                        job["state"] == "queued" or (job["state"] == "running" and lock["acquired"])
+                    )
+                ),
+                worker_error=job["last_error"] if job else None,
             )
 
-    def list(self, limit: int = 20) -> list[RunSummary]:
+    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RunSummary]:
+        # History reads journaled summaries, not every graph/checkpoint. A live
+        # advisory lock distinguishes executing commands from abandoned ones.
         with self.database.connection() as conn:
-            ids = [
-                row["id"]
-                for row in conn.execute(
-                    "SELECT id FROM runs ORDER BY created_at DESC, id DESC LIMIT %s", (limit,)
-                )
-            ]
-        return [
-            RunSummary.model_validate(
-                self.get(run_id).model_dump(include=set(RunSummary.model_fields))
+            rows = conn.execute(
+                "SELECT r.id, a.agent_id, a.agent_name, r.revision_id, "
+                "w.number AS revision_number, "
+                "w.workflow->>'name' AS workflow_name, r.created_at, "
+                "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
+                "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
+                "WHEN EXISTS ("
+                "SELECT 1 FROM pg_locks l WHERE l.locktype = 'advisory' AND l.granted "
+                "AND l.database = (SELECT oid FROM pg_database WHERE datname = current_database()) "
+                "AND l.objsubid = 1 "
+                "AND l.classid::bigint = ((hashtextextended('run:' || r.id::text, 0) >> 32) "
+                "& 4294967295) "
+                "AND l.objid::bigint = (hashtextextended('run:' || r.id::text, 0) & 4294967295)"
+                ") THEN 'running' WHEN command.state = 'running' THEN 'queued' "
+                "ELSE 'interrupted' END) AS status "
+                "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
+                "LEFT JOIN agent_runs a ON a.run_id = r.id "
+                "JOIN run_controls c ON c.run_id = r.id "
+                "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
+                "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
+                "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
+                "WHERE (%s::uuid IS NULL OR a.agent_id = %s) "
+                "ORDER BY r.created_at DESC, r.id DESC LIMIT %s",
+                (agent_id, agent_id, limit),
             )
-            for run_id in ids
-        ]
+            return [RunSummary.model_validate(row) for row in rows]
+
+    def resume_command(
+        self, conn: Connection[DictRow], run_id: UUID, request: ResumeRequest
+    ) -> DictRow:
+        """Journal an exact review; the caller serializes admission and owns the run."""
+        manifest = self._manifest(conn, run_id)
+        existing = conn.execute(
+            "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
+            (run_id, request.interrupt_id),
+        ).fetchone()
+        if existing is not None:
+            if (
+                existing["decision"] != request.decision
+                or existing["checkpoint_id"] != request.checkpoint_id
+                or existing["feedback"] != request.feedback
+            ):
+                raise ConflictError("This review already has a different recorded decision.")
+            return existing
+        if (
+            request.feedback
+            and read_revision(conn, manifest["revision_id"]).workflow.schema_version != "0.3"
+        ):
+            raise ConflictError("Reviewer feedback requires workflow version 0.3.")
+        if self._unfinished(conn, run_id) is not None:
+            raise ConflictError("Recover this run's interrupted request before reviewing it.")
+        snapshot = self._snapshot(conn, manifest)
+        if (
+            snapshot.status != "paused"
+            or not any(item.interrupt_id == request.interrupt_id for item in snapshot.reviews)
+            or snapshot.checkpoint_id != request.checkpoint_id
+        ):
+            raise ConflictError(
+                "This review is no longer current. Refresh the run before deciding."
+            )
+        command = conn.execute(
+            "INSERT INTO run_commands "
+            "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "
+            "VALUES (%s, %s, 'resume', %s, %s, %s, %s) RETURNING *",
+            (
+                uuid4(),
+                run_id,
+                request.checkpoint_id,
+                request.interrupt_id,
+                request.decision,
+                request.feedback,
+            ),
+        ).fetchone()
+        assert command is not None
+        return command
 
     def resume(self, run_id: UUID, request: ResumeRequest) -> RunSnapshot:
         with self._locked(run_id) as conn:
-            manifest = self._manifest(conn, run_id)
-            existing = conn.execute(
-                "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
-                (run_id, request.interrupt_id),
-            ).fetchone()
-            if existing is not None:
-                if (
-                    existing["decision"] != request.decision
-                    or existing["checkpoint_id"] != request.checkpoint_id
-                ):
-                    raise ConflictError("This review already has a different recorded decision.")
-                return self._drive(conn, manifest, existing)
-            if self._unfinished(conn, run_id) is not None:
-                raise ConflictError("Recover this run's interrupted request before reviewing it.")
-            snapshot = self._snapshot(conn, manifest)
-            if (
-                snapshot.status != "paused"
-                or snapshot.review is None
-                or snapshot.review.interrupt_id != request.interrupt_id
-                or snapshot.checkpoint_id != request.checkpoint_id
-            ):
-                raise ConflictError(
-                    "This review is no longer current. Refresh the run before deciding."
-                )
-            command = conn.execute(
-                "INSERT INTO run_commands "
-                "(id, run_id, kind, checkpoint_id, interrupt_id, decision) "
-                "VALUES (%s, %s, 'resume', %s, %s, %s) RETURNING *",
-                (uuid4(), run_id, request.checkpoint_id, request.interrupt_id, request.decision),
-            ).fetchone()
-            assert command is not None
-            return self._drive(conn, manifest, command)
+            command = self.resume_command(conn, run_id, request)
+            return self._drive(conn, self._manifest(conn, run_id), command)
 
     def recover(self, run_id: UUID) -> RunSnapshot:
         with self._locked(run_id) as conn:
@@ -296,3 +575,12 @@ class RunStore:
             return (
                 self._drive(conn, manifest, command) if command else self._snapshot(conn, manifest)
             )
+
+    def cancel(self, run_id: UUID) -> CancelResult:
+        # Do not acquire the execution lock: another HTTP request must be able to
+        # signal a worker currently holding it. Registered nodes stop cooperatively.
+        with self.database.connection() as conn:
+            self._manifest(conn, run_id)
+            set_terminal(conn, run_id, "cancelled", "Cancelled by user.")
+            control = control_state(conn, run_id)
+            return CancelResult(id=run_id, status=control["terminal_status"])
