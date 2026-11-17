@@ -8,6 +8,7 @@ from typing import Any, Literal
 
 import httpx
 
+from researchchain.graph import MAX_RESPONSE_SECONDS
 from researchchain.providers.chatgpt_auth import (
     RESOURCE,
     ChatGPTAuth,
@@ -82,7 +83,7 @@ class ChatGPTPlan:
         web_search: bool | Literal["auto"] = False,
         analyst_options: dict[str, Any] | None = None,
     ) -> Completion:
-        if not 0 < timeout_seconds <= 120 or not 0 < output_chars <= 200000:
+        if not 0 < timeout_seconds <= MAX_RESPONSE_SECONDS or not 0 < output_chars <= 200000:
             raise ValueError("A bounded time and output allowance are required.")
         # Refresh is serialized and has its own network timeout. Never silently use
         # a different account after model selection or a pinned research manifest.

@@ -44,7 +44,11 @@
         "stage": "custom",
         "prompt_version": "custom-1",
         "web_search": true,
-        "sec_financials": true
+        "sec_financials": true,
+        "analyst": {
+          "max_passes": 4,
+          "skill": "Start with the approved question. Look for dated primary evidence and a credible competing explanation. Follow a lead when a specific new source, contrary observation or filing could change the conclusion. Finish when you can explain what the evidence supports, what remains uncertain and which observation would change the judgment."
+        }
       },
       "inputs": {
         "context": {
@@ -165,7 +169,7 @@
       "max_tool_calls": 8,
       "max_input_bytes": 8000000,
       "max_output_characters": 24000,
-      "max_response_seconds": 120,
+      "max_response_seconds": 300,
       "max_total_tokens": 1000000
     }
   },

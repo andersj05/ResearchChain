@@ -118,12 +118,17 @@ class CodeConfig(StrictModel):
     timeout_seconds: float = Field(default=1, ge=0.05, le=5, allow_inf_nan=False)
 
 
+MAX_RESPONSE_SECONDS = 600
+
+
 class ResearchLimits(StrictModel):
     max_model_calls: int = Field(default=3, ge=0, le=100)
     max_tool_calls: int = Field(default=3, ge=0, le=100)
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
-    max_response_seconds: float = Field(default=90, gt=0, le=120, allow_inf_nan=False)
+    max_response_seconds: float = Field(
+        default=90, gt=0, le=MAX_RESPONSE_SECONDS, allow_inf_nan=False
+    )
     max_total_tokens: Annotated[int, Field(ge=1, le=2**53 - 1)] | Literal["as_needed"] = 1_000_000
 
 
