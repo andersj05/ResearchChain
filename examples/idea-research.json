@@ -161,17 +161,17 @@
     "model": "gpt-6.1-sol",
     "billing": "included_plan",
     "limits": {
-      "max_model_calls": 3,
-      "max_tool_calls": 3,
+      "max_model_calls": 8,
+      "max_tool_calls": 8,
       "max_input_bytes": 8000000,
       "max_output_characters": 24000,
       "max_response_seconds": 120,
-      "max_total_tokens": 60000
+      "max_total_tokens": 1000000
     }
   },
   "budgets": {
     "max_node_executions": 12,
-    "max_active_seconds": 420,
+    "max_active_seconds": 1200,
     "max_concurrency": 1
   }
 }

@@ -200,7 +200,11 @@ def make_manifest(
             ),
             "web_action_limit": "provider-managed; bounded by request time and output",
             "automatic_billing_fallback": False,
-            "token_limit": "stop_before_next_call_after_reported_usage",
+            "token_limit": (
+                "track_usage_without_token_cutoff"
+                if workflow.research.limits.max_total_tokens == "as_needed"
+                else "stop_before_next_call_after_reported_usage"
+            ),
             "workspace_request_allowance": "current_policy_before_each_model_request",
             "spend_control": "included_plan; disable credits in ChatGPT app usage settings",
         },
@@ -286,15 +290,18 @@ class ResearchExecutor:
                 raise ExecutionStopped("Model-call budget reached.")
             if attempts["calls"] >= limits.max_tool_calls:
                 raise ExecutionStopped("Evidence-tool call budget reached.")
-            if attempts["missing_usage"]:
-                raise ExecutionStopped(
-                    "Provider usage is unavailable; another request cannot be admitted "
-                    "within the token budget."
-                )
-            if attempts["tokens"] >= limits.max_total_tokens:
-                raise ExecutionStopped(
-                    "Reported token budget reached; no further model calls are allowed."
-                )
+            token_limit = limits.max_total_tokens
+            if token_limit != "as_needed":
+                if attempts["missing_usage"]:
+                    raise ExecutionStopped(
+                        "Provider usage is unavailable; another request cannot be admitted "
+                        "within the token budget."
+                    )
+                if attempts["tokens"] >= token_limit:
+                    raise ExecutionStopped(
+                        f"Reported token budget reached. Used {attempts['tokens']:,} of "
+                        f"{token_limit:,} tokens before the next model call."
+                    )
             attempt_id = uuid4()
             self.conn.execute(
                 "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "

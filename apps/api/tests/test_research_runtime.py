@@ -211,6 +211,33 @@ def test_token_admission_stops_next_call(database: Database, usage: Any) -> None
     assert next_result.usage.usage_complete == bool(provider.usage)
 
 
+def test_default_run_budget_allows_large_research_steps(database: Database) -> None:
+    store, request, provider = setup_run(database)
+    provider.usage = {"input_tokens": 290_000, "output_tokens": 10_000}
+    first = store.start(request)
+    assert first.research_manifest
+    assert first.research_manifest.settings.limits.max_total_tokens == 1_000_000
+    revised = store.resume(request.id, approve(first))
+    assert revised.status == "paused" and len(provider.calls) == 3
+    assert revised.usage.input_tokens + revised.usage.output_tokens == 900_000
+
+
+@pytest.mark.parametrize("usage", [{"input_tokens": 1_100_000, "output_tokens": 30}, {}])
+def test_as_needed_tokens_preserve_request_limits(
+    database: Database, usage: dict[str, int]
+) -> None:
+    store, request, provider = setup_run(database, max_total_tokens="as_needed", max_model_calls=2)
+    provider.usage = usage
+    first = store.start(request)
+    assert first.research_manifest
+    assert first.research_manifest.settings.limits.max_total_tokens == "as_needed"
+    revised = store.resume(request.id, approve(first))
+    assert revised.status == "limited" and revised.stop_reason == "Model-call budget reached."
+    assert len(provider.calls) == 2
+    assert revised.usage.input_tokens == 2 * usage.get("input_tokens", 0)
+    assert revised.usage.usage_complete == bool(usage)
+
+
 def test_input_budget_and_invalid_output_are_not_successes(database: Database) -> None:
     store, request, provider = setup_run(database, max_input_bytes=1000)
     result = store.start(request)

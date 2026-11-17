@@ -118,7 +118,7 @@ class ResearchLimits(StrictModel):
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
     max_response_seconds: float = Field(default=90, gt=0, le=120, allow_inf_nan=False)
-    max_total_tokens: int = Field(default=24000, ge=1, le=1000000)
+    max_total_tokens: Annotated[int, Field(ge=1, le=2**53 - 1)] | Literal["as_needed"] = 1_000_000
 
 
 class ResearchSettings(StrictModel):
