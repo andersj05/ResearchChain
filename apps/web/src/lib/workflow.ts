@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/access";
 import type { components } from "@researchchain/contracts";
+import ideaExample from "../../../../examples/idea-research.json";
 import researchExample from "../../../../examples/hypothesis-research.json";
 import example from "../../../../examples/research-workflow.json";
 
@@ -40,6 +41,7 @@ export const initialWorkflow: Workflow = {
   ],
   edges: [],
 };
+export const ideaWorkflow = ideaExample as Workflow;
 export const researchWorkflow = researchExample as Workflow;
 export type ResearchSettings = components["schemas"]["ResearchSettings"];
 export type ResearchLimits = components["schemas"]["ResearchLimits"];

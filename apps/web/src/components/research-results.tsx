@@ -75,6 +75,44 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
             <>
               <p className="research-conclusion">{attempt.result.conclusion}</p>
               <p>{attempt.result.revision_summary}</p>
+              {attempt.result.web_research && (
+                <section aria-label="Web research sources">
+                  <h4>Web research sources</h4>
+                  <p className="field-hint">
+                    {attempt.result.web_research.actions.length} provider-reported web actions ·{" "}
+                    {new Date(attempt.result.web_research.observed_at).toLocaleString()}. These are
+                    discovered references, not archived copies or verified facts.
+                  </p>
+                  <ul>
+                    {attempt.result.web_research.sources.map((source) => (
+                      <li key={source.url}>
+                        <a href={source.url} target="_blank" rel="noreferrer">
+                          {source.title || source.url}
+                        </a>{" "}
+                        · {source.cited ? "Cited by provider" : "Consulted by provider"}
+                      </li>
+                    ))}
+                  </ul>
+                  {!attempt.result.web_research.sources.length && (
+                    <p>No source URLs were returned by the provider.</p>
+                  )}
+                  {attempt.result.web_research.truncated && (
+                    <p>Source/action metadata exceeded the display limit and was truncated.</p>
+                  )}
+                  <details>
+                    <summary>Search activity</summary>
+                    <ul>
+                      {attempt.result.web_research.actions.map((action, i) => (
+                        <li key={`${action.id}-${i}`}>
+                          {action.action} · {action.status}
+                          {action.queries.length ? ` · ${action.queries.join("; ")}` : ""}
+                          {action.url ? ` · ${action.url}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </section>
+              )}
               {attempt.result.hypotheses.map((hypothesis) => (
                 <article className="hypothesis" key={hypothesis.id}>
                   <h4>

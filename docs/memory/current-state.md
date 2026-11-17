@@ -11,10 +11,12 @@ prompts, sources, checkpoints and quality judgments. Templates and saved pilots 
 optional examples. A finished agent, pilot labels, a calibrated judge and public
 hosting are not acceptance gates for this environment.
 
-**Next: the owner builds a simple agent and supplies usability feedback.** Use the
-[builder guide](../agent-builder.md) for the walkthrough and capability boundaries.
-Record the intended action, expected behavior, observed behavior and relevant agent/
-run/version IDs. Do not create an agent strategy or submit judgments for the owner.
+**Current request:** the owner explicitly asked for a simple editable idea-generation
+research agent accepting charts and a thesis, with deeper research and modeling,
+and confirmed live web research. The [idea research example](../idea-research-example.md)
+is an optional starting point; the owner still decides the strategy, source quality,
+assumptions and conclusions. Next: review it with a real idea, then supply usability
+and research feedback. Do not submit owner judgments on their behalf.
 
 ## Delivered workspace
 

@@ -30,6 +30,7 @@ from researchchain.research_models import (
     ProviderStatus,
     ResearchManifest,
     ResearchResult,
+    StoredResearchResult,
 )
 from researchchain.research_prompt import (
     PROMPT_VERSION,
@@ -38,6 +39,7 @@ from researchchain.research_prompt import (
     prepare_research,
     prompt_hashes,
     validate_result,
+    web_prompt_hash,
 )
 from researchchain.usage_models import UsageError
 from researchchain.usage_store import admit_request
@@ -123,6 +125,7 @@ class ChatGPTResearchProvider:
                 instructions=prepared.instructions,
                 output_schema=prepared.schema,
                 on_delta=on_delta,
+                web_search=prepared.web_search,
             )
 
 
@@ -170,7 +173,21 @@ def make_manifest(
             "version": "evidence-packet-1",
             "allowed": ["read_pinned_evidence"],
             "calls_per_attempt": 1,
-            "remote_tools": [],
+            "remote_tools": ["web_search"]
+            if any(
+                isinstance(node.config, ResearchConfig) and node.config.web_search
+                for graph in [workflow, *workflow.subgraphs]
+                for node in graph.nodes
+            )
+            else [],
+            "web_prompt_hash": web_prompt_hash()
+            if any(
+                isinstance(node.config, ResearchConfig) and node.config.web_search
+                for graph in [workflow, *workflow.subgraphs]
+                for node in graph.nodes
+            )
+            else None,
+            "web_action_limit": "provider-managed; bounded by request time and output",
             "automatic_billing_fallback": False,
             "token_limit": "stop_before_next_call_after_reported_usage",
             "workspace_request_allowance": "current_policy_before_each_model_request",
@@ -230,7 +247,7 @@ class ResearchExecutor:
             ).fetchone()
             if previous:
                 if previous["status"] == "completed":
-                    return previous["id"], ResearchResult.model_validate(previous["result"])
+                    return previous["id"], StoredResearchResult.model_validate(previous["result"])
                 if previous["status"] in {"preparing", "requesting"}:
                     reason = (
                         "The prior model attempt has an uncertain outcome. It will not be resent. "
@@ -302,6 +319,13 @@ class ResearchExecutor:
             raise ExecutionStopped(
                 "This run requires its pinned research prompt implementation.", "failed"
             )
+        if node.config.web_search and (
+            "web_search" not in self.manifest.tool_config.get("remote_tools", [])
+            or self.manifest.tool_config.get("web_prompt_hash") != web_prompt_hash()
+        ):
+            raise ExecutionStopped(
+                "This run requires its pinned web research implementation.", "failed"
+            )
         attempt_id, previous = self.reserve(node, path)
         if previous:
             return previous.model_dump_json()
@@ -331,6 +355,7 @@ class ResearchExecutor:
                     context,
                     feedback,
                     node.instructions,
+                    web_search=node.config.web_search,
                 )
                 payload = json_bytes(prepared.request_body(self.manifest.settings.model))
                 original = put_artifact(self.conn, payload, f"research-request-{attempt_id}.json")
@@ -348,6 +373,17 @@ class ResearchExecutor:
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
             result = validate_result(completion.text, node.config.stage, prepared)
+            if node.config.web_search:
+                if not completion.web_research or not any(
+                    action.status == "completed" for action in completion.web_research.actions
+                ):
+                    raise ValueError(
+                        "The provider did not complete a web search. "
+                        "No researched result was accepted."
+                    )
+                result = StoredResearchResult(
+                    **result.model_dump(), web_research=completion.web_research
+                )
             self.finish(attempt_id, "completed", partial, completion, result=result)
             return result.model_dump_json()
         except ExecutionStopped as error:
@@ -391,7 +427,15 @@ class ResearchExecutor:
                 else None
             )
 
+        output_characters = len(text)
         with self.control.lock:
+            if completion and completion.web_research:
+                text = json_bytes(
+                    {
+                        "model_text": text,
+                        "web_research": completion.web_research.model_dump(mode="json"),
+                    }
+                ).decode()
             original = (
                 put_artifact(self.conn, text.encode("utf-8"), f"research-response-{attempt_id}.txt")
                 if text
@@ -407,7 +451,7 @@ class ResearchExecutor:
                     original.id if original else None,
                     Jsonb(result.model_dump(mode="json")) if result else None,
                     reason,
-                    len(text),
+                    output_characters,
                     completion.response_id if completion else None,
                     completion.returned_model if completion else None,
                     tokens("input_tokens"),

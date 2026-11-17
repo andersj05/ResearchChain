@@ -21,6 +21,10 @@ Verify with synthetic providers; do not consume the owner's plan or submit human
 judgments to demonstrate readiness. After delivery, the owner will build a simple
 agent and supply usability feedback. Preserve that as the next step.
 
+The owner subsequently requested an editable idea-research example, including live
+web research. This is an explicitly authorized optional example; preserve owner
+judgment and the environment-first scope. See `docs/idea-research-example.md`.
+
 ## Agent workflow
 
 - Track work in GitHub issues and PRs through `gh` only. Do not use GitHub Projects,

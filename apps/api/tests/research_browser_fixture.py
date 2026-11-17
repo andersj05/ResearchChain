@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from test_provider_signin import BrowserHarness
-from test_research_runtime import FakeProvider
+from test_web_research import WebProvider
 
 from researchchain.main import create_app
 from researchchain.providers.chatgpt_plan import Completion
@@ -15,7 +15,7 @@ if not os.environ.get("DATABASE_SCHEMA", "").startswith("e2e_"):
     raise RuntimeError("The synthetic provider requires an isolated e2e database.")
 
 
-class BrowserProvider(FakeProvider):
+class BrowserProvider(WebProvider):
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
         on_delta('{"schema_version":')
         if "Wait for cancellation" in str(prepared.input_items):

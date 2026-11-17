@@ -5788,7 +5788,7 @@
           "result": {
             "anyOf": [
               {
-                "$ref": "#/components/schemas/ResearchResult"
+                "$ref": "#/components/schemas/StoredResearchResult"
               },
               {
                 "type": "null"
@@ -6946,6 +6946,11 @@
             "enum": ["research-1", "custom-1"],
             "title": "Prompt Version",
             "default": "research-1"
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -7077,82 +7082,6 @@
           "created_at"
         ],
         "title": "ResearchManifest"
-      },
-      "ResearchResult": {
-        "properties": {
-          "schema_version": {
-            "type": "string",
-            "const": "research-result-1",
-            "title": "Schema Version"
-          },
-          "stage": {
-            "type": "string",
-            "enum": ["hypothesize", "challenge", "revise", "custom"],
-            "title": "Stage"
-          },
-          "hypotheses": {
-            "items": {
-              "$ref": "#/components/schemas/Hypothesis"
-            },
-            "type": "array",
-            "maxItems": 8,
-            "title": "Hypotheses"
-          },
-          "unresolved_questions": {
-            "items": {
-              "type": "string",
-              "maxLength": 3000,
-              "minLength": 1
-            },
-            "type": "array",
-            "maxItems": 20,
-            "title": "Unresolved Questions"
-          },
-          "evidence_requests": {
-            "items": {
-              "$ref": "#/components/schemas/EvidenceRequest"
-            },
-            "type": "array",
-            "maxItems": 12,
-            "title": "Evidence Requests"
-          },
-          "conclusion": {
-            "type": "string",
-            "maxLength": 6000,
-            "minLength": 1,
-            "title": "Conclusion"
-          },
-          "revision_summary": {
-            "type": "string",
-            "maxLength": 3000,
-            "minLength": 1,
-            "title": "Revision Summary"
-          },
-          "limitations": {
-            "items": {
-              "type": "string",
-              "maxLength": 3000,
-              "minLength": 1
-            },
-            "type": "array",
-            "maxItems": 12,
-            "minItems": 1,
-            "title": "Limitations"
-          }
-        },
-        "additionalProperties": false,
-        "type": "object",
-        "required": [
-          "schema_version",
-          "stage",
-          "hypotheses",
-          "unresolved_questions",
-          "evidence_requests",
-          "conclusion",
-          "revision_summary",
-          "limitations"
-        ],
-        "title": "ResearchResult"
       },
       "ResearchSettings": {
         "properties": {
@@ -8144,6 +8073,93 @@
         ],
         "title": "StorageOperations"
       },
+      "StoredResearchResult": {
+        "properties": {
+          "schema_version": {
+            "type": "string",
+            "const": "research-result-1",
+            "title": "Schema Version"
+          },
+          "stage": {
+            "type": "string",
+            "enum": ["hypothesize", "challenge", "revise", "custom"],
+            "title": "Stage"
+          },
+          "hypotheses": {
+            "items": {
+              "$ref": "#/components/schemas/Hypothesis"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "title": "Hypotheses"
+          },
+          "unresolved_questions": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Unresolved Questions"
+          },
+          "evidence_requests": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRequest"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Evidence Requests"
+          },
+          "conclusion": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Conclusion"
+          },
+          "revision_summary": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Revision Summary"
+          },
+          "limitations": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 12,
+            "minItems": 1,
+            "title": "Limitations"
+          },
+          "web_research": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WebResearch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "schema_version",
+          "stage",
+          "hypotheses",
+          "unresolved_questions",
+          "evidence_requests",
+          "conclusion",
+          "revision_summary",
+          "limitations"
+        ],
+        "title": "StoredResearchResult",
+        "description": "Metadata added by the server; never part of the model output schema."
+      },
       "StyleExample": {
         "properties": {
           "kind": {
@@ -8675,6 +8691,105 @@
         "type": "object",
         "required": ["source"],
         "title": "ValueSource"
+      },
+      "WebAction": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "action": {
+            "type": "string",
+            "title": "Action"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "queries": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Queries"
+          },
+          "url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Url"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "action", "status", "queries"],
+        "title": "WebAction"
+      },
+      "WebResearch": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "const": "web-research-1",
+            "title": "Version",
+            "default": "web-research-1"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Observed At"
+          },
+          "actions": {
+            "items": {
+              "$ref": "#/components/schemas/WebAction"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Actions"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/WebSource"
+            },
+            "type": "array",
+            "maxItems": 200,
+            "title": "Sources"
+          },
+          "truncated": {
+            "type": "boolean",
+            "title": "Truncated",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["observed_at", "actions", "sources"],
+        "title": "WebResearch"
+      },
+      "WebSource": {
+        "properties": {
+          "url": {
+            "type": "string",
+            "title": "Url"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "cited": {
+            "type": "boolean",
+            "title": "Cited",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["url", "title"],
+        "title": "WebSource"
       },
       "WorkerOperations": {
         "properties": {
