@@ -48,7 +48,7 @@ test("choose a workflow default and override one step from the graph", async ({
   await page.getByText("Step model overrides (1)", { exact: true }).click();
   await expect(page.locator(".step-model-list")).toContainText("analysis-model");
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
     timeout: 30000,
   });
   const runId = new URL(page.url()).searchParams.get("run");
@@ -72,7 +72,8 @@ for (const width of [1440, 390]) {
     await prepare(page, request);
     await page.screenshot({ path: testInfo.outputPath("research-setup.png"), fullPage: true });
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible(
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText(
+      "Needs review",
       executionWait,
     );
     await expect(page.getByRole("region", { name: "Research results" })).toContainText(
@@ -86,9 +87,10 @@ for (const width of [1440, 390]) {
     // Wait for the next durable checkpoint, not a transient running frame
     // or the previous review still visible while its command is queued.
     await expect(page.locator('[aria-label="Review final_review"]')).toBeVisible(executionWait);
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(snapshot.model_attempts).toHaveLength(3);
+    await page.getByRole("button", { name: "Run context", exact: true }).click();
     await page.getByText("Research manifest", { exact: true }).click();
     const modelSummary = page.getByRole("region", { name: "Run model", exact: true });
     await expect(modelSummary).toContainText("Selected modeltest-model");
@@ -107,12 +109,15 @@ for (const width of [1440, 390]) {
     const download = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download research manifest", exact: true }).click();
     expect((await download).suggestedFilename()).toBe(`research-${runId}.json`);
+    await page.getByRole("button", { name: "Return to review", exact: true }).click();
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible(
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText(
+      "Completed",
       executionWait,
     );
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible(
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText(
+      "Completed",
       executionWait,
     );
     expect(errors).toEqual([]);
@@ -128,17 +133,27 @@ test("cancel an active research response in the separate worker", async ({ page,
     .getByRole("textbox", { name: "Research brief", exact: true })
     .fill("Wait for cancellation");
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run running", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Running");
   await expect(page.getByRole("region", { name: "Research results" })).toContainText("requesting");
+  const choose = page.getByRole("combobox", { name: "Inspect step" });
+  await choose.selectOption("root/revise");
+  const runUrl = new URL(page.url());
+  await page.waitForResponse(
+    (response) =>
+      response.url().endsWith(`/api/runs/${runUrl.searchParams.get("run")}`) && response.ok(),
+  );
+  await expect(choose).toHaveValue("root/revise");
+  await page.getByRole("button", { name: "Follow run", exact: true }).click();
+  await expect(choose).toHaveValue("root/plan");
   await page.getByRole("button", { name: "Cancel run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
   await expect(page.getByText("Saved response (unvalidated)", { exact: true })).toBeVisible();
   const runId = new URL(page.url()).searchParams.get("run");
   await expect
     .poll(async () => (await (await request.get(`/api/runs/${runId}`)).json()).execution_pending)
     .toBe(false);
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Run cancelled", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
 });
 
 test("research settings survive structural edits and zero budgets", async ({ page, request }) => {
@@ -154,7 +169,7 @@ test("research settings survive structural edits and zero budgets", async ({ pag
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await expect(page.getByText("Connected as Synthetic", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run limited", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Limit reached");
   await expect(page.getByRole("region", { name: "Run inspector" })).toContainText(
     "Model-call budget reached.",
   );

@@ -23,9 +23,12 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "Run workflow", exact: true }).click();
     await page.getByRole("textbox", { name: "Research brief", exact: true }).fill("Owner code");
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
       timeout: 30000,
     });
+    const graph = page.getByRole("region", { name: "Run workflow graph" });
+    await graph.getByRole("button", { name: "Fit run graph to view" }).click();
+    await graph.getByRole("button", { name: "Inspect My transform", exact: true }).click();
     await page.getByText("Code inputs and outputs", { exact: true }).click();
     await expect(page.locator(".code-result")).toContainText("OWNER CODE");
     await expect(page.locator(".code-result")).toContainText(/Number output\s*10/);
@@ -35,13 +38,13 @@ for (const width of [1440, 390]) {
     expect(original.events[0]?.code?.outputs).toEqual({ text: "OWNER CODE", number: 10 });
     expect(original.events[1]?.detail).toBe("OWNER CODE");
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
     await page.getByRole("button", { name: "Iterate from this run", exact: true }).click();
     await expect(editor).toHaveValue(source);
     await editor.fill('throw new Error("Check your input");');
     await page.getByRole("button", { name: "Run workflow", exact: true }).click();
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run failed", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs attention", {
       timeout: 30000,
     });
     await expect(page.getByRole("region", { name: "Run inspector" })).toContainText(

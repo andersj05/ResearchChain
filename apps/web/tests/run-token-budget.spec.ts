@@ -34,7 +34,7 @@ test("iterate from a saved fixed budget and pin an as-needed budget to the new r
   await dialog.getByRole("combobox", { name: "Token budget" }).selectOption("as_needed");
   await expect(total).toHaveCount(0);
   await dialog.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
     timeout: 30000,
   });
   const nextId = new URL(page.url()).searchParams.get("run");
