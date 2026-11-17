@@ -123,6 +123,11 @@ class CancelResult(StrictModel):
     status: Literal["cancelled", "completed", "rejected", "limited", "failed"]
 
 
+class CheckpointStep(StrictModel):
+    path: str
+    status: Literal["scheduled", "stopped"]
+
+
 class RunSnapshot(RunSummary):
     execution_pending: bool = Field(
         default=False, description="An accepted command is still queued or held by a worker."
@@ -133,6 +138,7 @@ class RunSnapshot(RunSummary):
     evidence_ids: list[UUID] = Field(default_factory=list)
     compiler_version: str
     checkpoint_id: str | None
+    checkpoint_steps: list[CheckpointStep] = Field(default_factory=list)
     events: list[RunEvent]
     review: ReviewPrompt | None = None
     reviews: list[ReviewPrompt] = Field(default_factory=list)
