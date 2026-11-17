@@ -899,9 +899,7 @@ export function Workbench() {
                     change(structuredClone(ideaWorkflow));
                     setDocumentEpoch((value) => value + 1);
                     setSelected(ideaWorkflow.start_node);
-                    setMessage(
-                      "Idea research example loaded. Add charts and your thesis in Run workflow. Optional research-data in the brief enables calculations. Undo restores your previous draft.",
-                    );
+                    setMessage("Idea research example loaded. Undo to restore your draft.");
                   }}
                 >
                   Use idea research example
