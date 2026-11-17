@@ -98,7 +98,8 @@ def calculate(brief):
 def test_web_search_is_explicit_and_canonical_defaults_stay_compatible():
     workflow = example()
     document = workflow.canonical_document()
-    assert "web_search" not in document["nodes"][0]["config"]
+    assert document["nodes"][0]["config"]["web_search"] == "auto"
+    assert "web_search" not in document["nodes"][4]["config"]
     assert document["nodes"][2]["config"]["web_search"] is True
     with pytest.raises(ValidationError, match="custom"):
         ResearchConfig(web_search=True)
@@ -156,6 +157,27 @@ def test_trace_deduplicates_and_bounds_metadata():
     trace = read_web_research({"output": output})
     assert len(trace.sources) == 200 and trace.truncated
     assert trace.sources[0].cited
+
+
+def test_hosted_finance_reference_is_not_dropped_or_treated_as_a_url():
+    trace = read_web_research(
+        {
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "action": {
+                        "sources": [
+                            {"type": "url", "url": "oai-finance"},
+                            {"type": "api", "name": "oai-finance", "url": None},
+                            {"type": "api", "name": "oai-weather"},
+                            {"type": "url", "url": "javascript:oai-finance"},
+                        ]
+                    },
+                },
+            ]
+        }
+    )
+    assert trace.feeds == ["oai-finance", "oai-weather"] and not trace.sources
 
 
 def test_example_calculates_known_fit_and_marks_extrapolation():

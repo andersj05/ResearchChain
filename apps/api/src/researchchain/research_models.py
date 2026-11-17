@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import Field, model_validator
 
 from researchchain.graph import ResearchSettings, ResearchStage, StrictModel
+from researchchain.sec_financials import SecFinancials, SecLookup
 from researchchain.web_research import WebResearch
 
 Address = Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
@@ -96,10 +97,17 @@ class ResearchResult(ResearchModel):
         return self
 
 
+class ResearchWithLookup(ResearchResult):
+    sec_lookup: SecLookup | None
+
+
 class StoredResearchResult(ResearchResult):
     """Metadata added by the server; never part of the model output schema."""
 
     web_research: WebResearch | None = Field(default=None, exclude_if=lambda value: value is None)
+    sec_financials: SecFinancials | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class EvidenceSnapshot(StrictModel):

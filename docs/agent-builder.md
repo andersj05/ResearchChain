@@ -58,17 +58,15 @@ accepted as the latest server version.
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Authoring               | Blank workflows; custom model instructions; named steps; source and feedback bindings                                                                                           |
 | Control flow            | Conditions, parallel branches/joins, bounded loops, nested subgraphs, human reviews                                                                                             |
-| Model                   | One model per workflow, chosen from the connected ChatGPT account; no paid API fallback                                                                                         |
+| Model                   | Workflow default and optional step overrides from the connected ChatGPT plan                                                                                                    |
 | Tools                   | Read pinned captured evidence; notes and graph controls; [bounded JavaScript steps](custom-code.md); [opt-in live web research](idea-research-example.md) on custom model steps |
 | Results                 | Custom answers in the structured result's conclusion (up to 6,000 characters); optional hypotheses; saved requests, responses, usage and version manifests                      |
 | Iteration               | Immutable revisions, original-run inspection, copied experiment inputs, manual feedback and separate new runs                                                                   |
 | Optional editorial work | Reports, style guides, annotations, blind comparisons and judge calibration records                                                                                             |
 
 The custom model step still uses a structured result envelope for inspectable, durable
-outputs. It does not force hypotheses, alternatives or a research strategy. Output
-format customization, per-step models and new tool integrations require further
-implementation; they are not controls hidden elsewhere in the editor. No automatic
-publication, trading or model training is performed.
+outputs. Choose which hypotheses, alternatives or research strategy to include in
+your instructions.
 
 ## Environment acceptance audit (2026-11-16)
 
@@ -99,11 +97,11 @@ and outputs. It is separate from model prompts and uses no model allowance. Read
 
 ## Where the model is used
 
-The canvas header shows the configured model, and each model step's inspector
-names the same selection. Choose the model in Run workflow. All model prompt and
-hypothesis research steps, including subgraphs, share that model. Notes, reviews
-and routing do not call a model. The run setup identifies the ChatGPT included-plan
-connection and explains this scope before starting.
+Choose **Workflow model** above the graph. Model steps inherit it, including steps
+in subgraphs. To assign a different model to a single step, select the step and
+choose its **Step model**. Select **Workflow default** to restore inheritance.
+Run setup lets you change the default, inspect overrides and manage the connected
+ChatGPT plan. Starting a run pins these choices in its saved revision.
 
 Saved runs show their pinned selected model and the model identifiers actually
 reported by the provider, with per-attempt details. Missing provider metadata says

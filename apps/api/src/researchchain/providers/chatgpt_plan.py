@@ -4,7 +4,7 @@ import asyncio
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 
@@ -72,7 +72,7 @@ class ChatGPTPlan:
         input_items: list[dict[str, Any]] | None = None,
         output_schema: dict[str, Any] | None = None,
         on_delta: Callable[[str], None] | None = None,
-        web_search: bool = False,
+        web_search: bool | Literal["auto"] = False,
     ) -> Completion:
         if not 0 < timeout_seconds <= 120 or not 0 < output_chars <= 200000:
             raise ValueError("A bounded time and output allowance are required.")
@@ -101,7 +101,7 @@ class ChatGPTPlan:
                 }
             }
         if web_search:
-            body.update(web_request_options())
+            body.update(web_request_options(web_search))
         text = ""
         observed_items: dict[str, dict[str, Any]] = {}
         size = 0

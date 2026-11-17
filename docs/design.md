@@ -26,8 +26,9 @@ adaptation of these patterns; it does not reproduce Vercel branding or assets.
 
 ## Composition and conventions
 
-- Full-height desktop shell: workspace breadcrumb, local navigation/action bar,
-  working surface, and a compact status line. Avoid repeated page introductions.
+- Full-height desktop shell with local navigation, actions and a working surface.
+  Show command results when they occur and let the owner dismiss them. Routine
+  navigation and run restoration require no standing status line.
 - Workflow editor: step library/outline, expansive canvas, selected-step inspector.
   Workflow settings are a disclosure. The outline provides a keyboard-accessible
   way to reach offscreen nodes. Panels collapse when more canvas room is needed.
@@ -72,7 +73,7 @@ same preview for the box, ports and connected paths before committing one edit.
 
 Put agent identity and Settings in the header. Remove publication/product branding
 and the duplicate root-workflow breadcrumb; show breadcrumbs only inside subgraphs.
-Keep the canvas tall with compact header, navigation, library rows and footer.
+Keep the canvas tall with compact header, navigation, library rows and editing tools.
 On narrow screens use two-column step choices and place the agent before Settings.
 
 Task labels: Build (graph authoring), Sources (captured evidence and claims), Runs
@@ -81,3 +82,33 @@ Versions (saved workflow history), Status (worker/usage/maintenance information)
 Keep existing URL view keys for old links. Save/Run actions belong to Build;
 other views have their own actions. Active named-agent version numbers use that
 agent's version sequence. Keyboard tab navigation remains available.
+
+## Reading a research run
+
+Lead with the latest step's conclusion. Use the step names from the pinned run so
+the reviewer can move between framing, research and the memo. Render the model's
+Markdown with semantic headings, lists, quotes and tables. A wide table scrolls
+within the memo. Inline citations open only URLs recorded by the provider during
+this or an earlier attempt. Model-provided images appear as their alt text.
+
+Keep hypotheses, limitations, source activity and request metadata available under
+named disclosures. A failed attempt shows its reason and artifact links immediately.
+The brief and manifest are available on demand. This applies the GOV.UK guidance
+to show the main task first and the WAI keyboard interaction for disclosures.
+[GOV.UK details](https://design-system.service.gov.uk/components/details/) ·
+[WAI disclosure pattern](https://www.w3.org/WAI/ARIA/apg/patterns/disclosure/).
+
+## Graph editing feedback (2026-11-17)
+
+A selected step highlights its adjacent paths. Filled ports indicate existing
+connections, and each port names its destinations. Zoom to selected step brings
+one card back into reading range from the overview, as does double-clicking it.
+The card header fits inside its enclosing border at every zoom. Keyboard and pointer instructions live
+in **Build your agent**, and the canvas references them for assistive technology.
+The changes follow the focus and gesture guidance in the
+[Vercel Web Interface Guidelines](https://vercel.com/design/guidelines).
+
+A validation result or unconfirmed run can appear beside the workspace controls.
+Navigating to a saved run opens the run itself. Run status updates remain available
+to assistive technology through a polite status region, following
+[WCAG 2.2 status messages guidance](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).

@@ -3,6 +3,8 @@
 const research = JSON.parse(inputs.text);
 const packet = {
   research_notes: research.conclusion,
+  sec_financials: research.sec_financials ?? null,
+  web_feeds: research.web_research?.feeds ?? [],
   web_sources: [],
   source_list_truncated: false,
 };
@@ -21,6 +23,23 @@ let analytics = {
     "No research-data block supplied. Request paired numeric observations with dates, units and a source. Chart pixels and web prose are not numeric input.",
 };
 if (blocks.length > 1) throw new Error("Use one research-data block per run.");
+if (blocks.length === 0 && packet.sec_financials?.status === "available") {
+  const rows = packet.sec_financials.observations;
+  if (rows.length >= 2) {
+    const [previous, latest] = rows.slice(-2);
+    analytics = {
+      status: "filing_change",
+      method: "Difference between the two latest available annual filing periods",
+      metric: packet.sec_financials.request.metric,
+      ticker: packet.sec_financials.request.ticker,
+      from: previous.end,
+      to: latest.end,
+      change: latest.value - previous.value,
+      unit: latest.unit,
+      source: packet.sec_financials.source_url,
+    };
+  }
+}
 if (blocks.length === 1) {
   const data = JSON.parse(blocks[0][1]);
   const required = ["source", "as_of", "x_label", "x_unit", "y_label", "y_unit"];
@@ -91,5 +110,5 @@ if (blocks.length === 1) {
 }
 return {
   text: JSON.stringify({ ...packet, analytics }),
-  number: analytics.status === "computed" ? analytics.slope : 0,
+  number: analytics.slope ?? analytics.change ?? 0,
 };
