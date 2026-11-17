@@ -8,6 +8,8 @@ import { workflowCanvas, type CanvasPort } from "./primitive";
 import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
 import { nodePresentation } from "@/components/node-kind";
 
+const nodeWidth = 230;
+
 const parts = createParts(workflowCanvas, {
   root: "div",
   world: "div",
@@ -74,7 +76,7 @@ export function WorkflowCanvas({
           ...port,
           label: `${node.label}: ${port.direction} ${port.type} ${port.name}`,
           offset: {
-            x: port.direction === "input" ? 0 : 230,
+            x: port.direction === "input" ? 0 : nodeWidth,
             y: 112 + ports.filter((item) => item.direction === port.direction).indexOf(port) * 28,
           },
         },
@@ -84,9 +86,20 @@ export function WorkflowCanvas({
   const sizes = Object.fromEntries(
     nodes.map(({ node, baseHeight, body, open }) => [
       node.id,
-      { width: 230, height: baseHeight + (body ? 36 : 0) + (open && body ? 160 : 0) },
+      { width: nodeWidth, height: baseHeight + (body ? 36 : 0) + (open && body ? 160 : 0) },
     ]),
   );
+  const neighbors = new Map<string, string[]>();
+  for (const { from, to } of connections) {
+    for (const [port, other] of [
+      [from, to],
+      [to, from],
+    ] as const) {
+      const labels = neighbors.get(port) ?? [];
+      labels.push(ports[other]?.label ?? "missing port");
+      neighbors.set(port, labels);
+    }
+  }
   return (
     <parts.Root
       positions={positions}
@@ -117,7 +130,7 @@ export function WorkflowCanvas({
               markerHeight="6"
               orient="auto-start-reverse"
             >
-              <path d="M 0 0 L 10 5 L 0 10 z" fill="currentColor" />
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
             </marker>
           </defs>
           {connections.map((connection) => (
@@ -125,6 +138,9 @@ export function WorkflowCanvas({
               key={`${connection.from}/${connection.to}`}
               value={`${connection.from}/${connection.to}`}
               type={connection.type}
+              selected={
+                ports[connection.from]?.node === selected || ports[connection.to]?.node === selected
+              }
             />
           ))}
           <parts.Draft className="connection-draft" />
@@ -133,14 +149,10 @@ export function WorkflowCanvas({
           const descriptions = Object.fromEntries(
             nodePorts.map((port) => [
               port.key,
-              connections
-                .filter((edge) => edge.from === port.key || edge.to === port.key)
-                .map(
-                  (edge) =>
-                    `Connected to ${ports[edge.from === port.key ? edge.to : edge.from]?.label ?? "missing port"}.`,
-                )
-                .join(" ") ||
-                "Unconnected. Enter starts a connection; arrows choose a port; Enter connects.",
+              neighbors
+                .get(port.key)
+                ?.map((label) => `Connected to ${label}.`)
+                .join(" ") ?? "",
             ]),
           );
           return (
@@ -161,19 +173,18 @@ export function WorkflowCanvas({
           );
         })}
       </parts.World>
-      <div className="canvas-toolbar">
-        <span className="canvas-grid-label">Snap 10 px</span>
-        <parts.ZoomOut className="button icon-button" aria-label="Zoom out">
+      <div className="canvas-toolbar" role="group" aria-label="Canvas view">
+        <parts.ZoomOut className="button icon-button" aria-label="Zoom out" title="Zoom out">
           <Minus size={16} aria-hidden="true" />
         </parts.ZoomOut>
-        <parts.ZoomIn className="button icon-button" aria-label="Zoom in">
+        <parts.ZoomIn className="button icon-button" aria-label="Zoom in" title="Zoom in">
           <Plus size={16} aria-hidden="true" />
         </parts.ZoomIn>
         <parts.Fit className="button" aria-label="Fit workflow to view">
           <Maximize size={15} aria-hidden="true" />
           Fit view
         </parts.Fit>
-        <parts.Reset className="button icon-button" aria-label="Reset view">
+        <parts.Reset className="button icon-button" aria-label="Reset view" title="Reset to 100%">
           <RotateCcw size={15} aria-hidden="true" />
         </parts.Reset>
       </div>
@@ -184,11 +195,20 @@ export function WorkflowCanvas({
 const CanvasEdge = memo(function CanvasEdge({
   value,
   type,
+  selected,
 }: {
   value: string;
   type: Port["type"];
+  selected: boolean;
 }) {
-  return <parts.Edge value={value} className={`connection-${type}`} markerEnd="url(#arrow)" />;
+  return (
+    <parts.Edge
+      value={value}
+      className={`connection-${type}`}
+      data-selected={selected || undefined}
+      markerEnd="url(#arrow)"
+    />
+  );
 });
 
 type CanvasNodeProps = {
@@ -223,14 +243,15 @@ const CanvasNode = memo(
       <parts.Group
         value={node.id}
         className={`graph-group ${selected ? "selected" : ""}`}
-        style={{ height }}
+        style={{ height, width: nodeWidth }}
         data-node-id={node.id}
       >
         <parts.Node
           value={node.id}
           id={`workflow-node-${node.id}`}
-          className={`graph-node ${selected ? "selected" : ""}`}
+          className="graph-node"
           aria-label={`Edit ${node.label}`}
+          aria-keyshortcuts="Alt+ArrowUp Alt+ArrowRight Alt+ArrowDown Alt+ArrowLeft"
           aria-pressed={selected}
         >
           <span className="node-topline">
@@ -250,9 +271,14 @@ const CanvasNode = memo(
             key={port.key}
             value={port.key}
             className={`graph-port port-${port.direction} port-${port.type}`}
-            style={{ top: port.offset.y - 14 }}
+            style={{ top: port.offset.y - 15 }}
             aria-label={port.label}
-            aria-description={descriptions[port.key]}
+            data-connected={!!descriptions[port.key] || undefined}
+            aria-description={
+              descriptions[port.key] ||
+              "Unconnected. Enter starts a connection; arrows choose a port; Enter connects."
+            }
+            title={descriptions[port.key] || port.label}
           >
             <span aria-hidden="true" className="port-dot" />
             <span className="port-caption">

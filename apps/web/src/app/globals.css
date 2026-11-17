@@ -500,19 +500,23 @@ textarea {
 }
 .graph-group {
   pointer-events: auto;
-  width: 230px;
   background: var(--surface);
   border: 1px solid var(--border-strong);
 }
+.graph-group:hover {
+  border-color: var(--muted);
+}
 .graph-group.selected {
   border-color: var(--blue);
+  z-index: 1;
 }
 .graph-group[data-dragging] {
   z-index: 2;
 }
 .graph-node {
   pointer-events: auto;
-  width: 230px;
+  display: block;
+  width: 100%;
   height: 92px;
   background: var(--surface);
   border: 0;
@@ -521,9 +525,17 @@ textarea {
   padding: 10px 14px;
   text-align: left;
   color: var(--ink);
+  cursor: grab;
+  user-select: none;
 }
-.graph-node.selected {
-  border-color: var(--blue);
+.graph-group.selected .graph-node {
+  background: var(--blue-soft);
+}
+.graph-group[data-dragging] .graph-node {
+  cursor: grabbing;
+}
+.graph-node:focus-visible {
+  outline-offset: -3px;
 }
 .node-topline {
   display: flex;
@@ -545,17 +557,19 @@ textarea {
 .graph-node strong {
   display: block;
   font-size: 14px;
-  font-weight: 500;
-  margin: 10px 0 4px;
+  font-weight: 600;
+  margin: 6px 0 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .node-summary {
-  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
   font-size: 12px;
   color: var(--muted);
 }
@@ -572,13 +586,15 @@ textarea {
   background: transparent;
   color: var(--ink);
   touch-action: none;
+  cursor: crosshair;
+  --port-color: var(--muted);
 }
 .port-input {
-  left: -12px;
+  left: -13px;
   padding: 0;
 }
 .port-output {
-  right: -12px;
+  right: -13px;
   padding: 0;
 }
 .graph-port small {
@@ -606,9 +622,10 @@ textarea {
 }
 .port-dot {
   position: absolute;
+  pointer-events: none;
   width: 10px;
   height: 10px;
-  border: 1px solid var(--muted);
+  border: 1px solid var(--port-color);
   background: var(--surface);
 }
 .port-input .port-dot {
@@ -617,11 +634,14 @@ textarea {
 .port-output .port-dot {
   right: 7px;
 }
-.port-text .port-dot {
-  border-color: var(--blue);
+.port-text {
+  --port-color: var(--blue);
 }
-.port-number .port-dot {
-  border-color: var(--amber);
+.port-number {
+  --port-color: var(--amber);
+}
+.graph-port[data-connected] .port-dot {
+  background: var(--port-color);
 }
 .graph-port:hover,
 .graph-port[data-connect="candidate"] {
@@ -638,6 +658,16 @@ textarea {
 .connections > .connection-text {
   stroke: var(--blue);
   stroke-dasharray: 4 4;
+}
+.connections > .connection-number {
+  stroke: var(--amber);
+  stroke-dasharray: 2 3;
+}
+.connections > [data-selected] {
+  stroke-width: 2.5;
+}
+.connections > .connection-control[data-selected] {
+  stroke: var(--blue);
 }
 .connections > .connection-draft {
   stroke: var(--blue);
@@ -701,7 +731,14 @@ textarea {
   bottom: 16px;
   left: 16px;
   display: flex;
-  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+.canvas-toolbar .button {
+  border: 0;
+}
+.canvas-toolbar .button + .button {
+  border-left: 1px solid var(--line);
 }
 .canvas-help {
   padding: 8px 16px;
@@ -3034,14 +3071,6 @@ footer p {
 }
 .editor-grid.compact > .canvas-panel {
   min-height: 440px;
-}
-
-.canvas-grid-label {
-  align-self: center;
-  padding: 0 8px;
-  font-size: 11px;
-  color: var(--muted);
-  background: var(--paper);
 }
 
 .agent-switcher {
