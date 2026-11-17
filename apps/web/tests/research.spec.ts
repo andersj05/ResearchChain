@@ -15,9 +15,9 @@ async function prepare(
   await expect(page.getByRole("combobox", { name: "Workflow model", exact: true })).toHaveValue(
     research.research.model,
   );
-  await expect(page.getByLabel("Step model", { exact: true })).toContainText(
-    research.research.model,
-  );
+  await expect(
+    page.getByRole("combobox", { name: "Step model", exact: true }).locator("option:checked"),
+  ).toHaveText(`Workflow default · ${research.research.model}`);
   await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
   await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
     "Workflow valid. Ready to run.",
