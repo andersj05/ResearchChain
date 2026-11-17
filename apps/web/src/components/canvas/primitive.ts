@@ -102,8 +102,12 @@ export const workflowCanvas = definePrimitive({
       label: (key) => context.options().ports[key]?.label ?? key,
       radius: () => 18,
     });
-    function fit() {
-      const boxes = Object.entries(context.store.get().positions).map(([key, at]) => ({
+    function fit(nodeId?: string) {
+      const positions = context.store.get().positions;
+      const entries = nodeId
+        ? Object.entries(positions).filter(([id]) => id === nodeId)
+        : Object.entries(positions);
+      const boxes = entries.map(([key, at]) => ({
         ...at,
         width: context.options().sizes[key]?.width ?? 230,
         height: context.options().sizes[key]?.height ?? 160,
@@ -116,7 +120,7 @@ export const workflowCanvas = definePrimitive({
           right: Math.max(...boxes.map((box) => box.x + box.width)) + 12,
           bottom: Math.max(...boxes.map((box) => box.y + box.height)),
         },
-        { padding: 48, maxZoom: 1 },
+        { padding: nodeId ? 12 : 48, maxZoom: 1 },
       );
     }
     function reveal(el: HTMLElement | null | undefined) {
@@ -187,6 +191,7 @@ export const workflowCanvas = definePrimitive({
       attrs: () => ({ type: "button", style: css({ "touch-action": "none" }) }),
       press: ({ api, key }) => api.select(key),
       on: {
+        dblclick: (_event, { api, key }) => api.fit(key),
         keydown: (event, { api, key }) => {
           if (api.move.keydown(event, key)) event.stopPropagation();
         },
@@ -250,6 +255,11 @@ export const workflowCanvas = definePrimitive({
       press: ({ api }) => api.viewport.setViewport({ x: 24, y: 24, zoom: 1 }),
     }),
     fit: slot({ attrs: () => ({ type: "button" }), press: ({ api }) => api.fit() }),
+    focusStep: slot<{ value: string }>({
+      props: { value: "string" },
+      attrs: () => ({ type: "button" }),
+      press: ({ api, key }) => api.fit(key),
+    }),
     zoomIn: slot({
       attrs: () => ({ type: "button" }),
       press: ({ api }) => api.viewport.zoomBy(1.25),
