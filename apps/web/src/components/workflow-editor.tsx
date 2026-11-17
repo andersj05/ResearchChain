@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ResearchSettingsEditor } from "@/components/research-settings";
+import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import {
@@ -31,6 +32,7 @@ const defaults: ExecutionBudgets = {
 };
 
 export function WorkflowEditor({
+  catalog,
   workflow,
   selected,
   onSelect,
@@ -38,6 +40,7 @@ export function WorkflowEditor({
   onSeal,
   disabled,
 }: {
+  catalog: ModelCatalog;
   workflow: Workflow;
   selected: string;
   onSelect: (id: string) => void;
@@ -360,19 +363,19 @@ export function WorkflowEditor({
                 <PanelLeft size={16} aria-hidden="true" />
                 Steps
               </Button>
-              <span
-                className="canvas-model-summary"
-                aria-label="Configured model"
-                title="One model is shared by all model steps. Choose it in Run workflow."
-              >
-                {workflow.research ? (
-                  <>
-                    Model · <strong>{workflow.research.model}</strong>
-                  </>
-                ) : (
-                  "No model configured"
-                )}
-              </span>
+              {workflow.research && (
+                <div className="canvas-model-picker">
+                  <ModelPicker
+                    label="Workflow model"
+                    catalog={catalog}
+                    value={workflow.research.model}
+                    disabled={disabled}
+                    onChange={(model) =>
+                      onChange({ ...workflow, research: { ...workflow.research!, model } })
+                    }
+                  />
+                </div>
+              )}
               <Button
                 className="button ghost"
                 aria-label="Toggle details"
@@ -480,13 +483,24 @@ export function WorkflowEditor({
                     instructions.
                   </p>
                 )}
-                {node.kind === "research" && (
-                  <p className="field-hint" aria-label="Step model">
-                    This step uses{" "}
-                    <strong>{workflow.research?.model ?? "an unconfigured model"}</strong> through
-                    your ChatGPT plan. All model steps share this selection. Change it in Run
-                    workflow.
-                  </p>
+                {node.config?.type === "research" && workflow.research && (
+                  <>
+                    <ModelPicker
+                      label="Step model"
+                      catalog={catalog}
+                      inherited={workflow.research.model}
+                      value={node.config.model ?? ""}
+                      onChange={(model) =>
+                        node.config?.type === "research" &&
+                        editNode({ config: { ...node.config, model: model || undefined } })
+                      }
+                    />
+                    {!catalog.loading && !catalog.status?.models?.length && (
+                      <p className="field-hint">
+                        Open Run workflow to connect or refresh your ChatGPT account.
+                      </p>
+                    )}
+                  </>
                 )}
                 <NodeConfiguration
                   workflow={workflow}

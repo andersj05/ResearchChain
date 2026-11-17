@@ -91,10 +91,10 @@ usage; historical usage counts are not live availability guarantees.
 
 ## Explicit capability boundaries
 
-One model selection applies to all model steps in a workflow, including subgraphs.
-Custom model instructions retain a structured result envelope; its conclusion is
-limited to 6,000 characters. Per-step models and arbitrary output schemas require
-further work. Sources capture supplied permitted content; URL records do not fetch
+The graph header sets a workflow default and individual model steps can override it,
+including in referenced subgraphs. Each attempt records the requested and returned
+model. Custom model instructions retain a structured result envelope with a
+6,000-character conclusion. Sources capture supplied permitted content; URL records do not fetch
 web pages. Source search covers loaded records, runs the latest 20 in scope and
 reports the latest 100.
 

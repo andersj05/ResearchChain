@@ -17,6 +17,8 @@ import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
 import { WorkflowEditor } from "@/components/workflow-editor";
+import { useModelCatalog } from "@/components/model-picker";
+import { pruneDefinitions } from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
 import { formatTime, RunInspector } from "@/components/run-inspector";
@@ -88,6 +90,9 @@ export function Workbench() {
   const [providerAccount, setProviderAccount] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const catalog = useModelCatalog(
+    loaded && accessActive && tab === "workflow" && !!workflow.research,
+  );
   const pendingStart = useRef<RunRequest | null>(null);
   const runReadEpoch = useRef(0);
   const selectedRunId = useRef<string | null>(null);
@@ -737,12 +742,27 @@ export function Workbench() {
               )}
               <RunSetup
                 open={setupOpen}
-                onOpenChange={setSetupOpen}
+                onOpenChange={(open) => {
+                  if (open && workflow.research) catalog.refresh();
+                  setSetupOpen(open);
+                }}
                 brief={brief}
                 onBriefChange={setBrief}
                 evidenceIds={evidenceIds}
                 onEvidenceChange={setEvidenceIds}
                 research={workflow.research}
+                catalog={catalog}
+                stepModels={
+                  setupOpen
+                    ? [workflow, ...(pruneDefinitions(workflow).subgraphs ?? [])].flatMap((graph) =>
+                        graph.nodes.flatMap((node) =>
+                          node.config?.type === "research" && node.config.model
+                            ? [{ label: node.label, model: node.config.model }]
+                            : [],
+                        ),
+                      )
+                    : []
+                }
                 onResearch={(research) => change({ ...workflow, research })}
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
@@ -804,11 +824,8 @@ export function Workbench() {
                 </li>
               </ol>
               <p>
-                Available tools: captured evidence, model prompts, notes, human reviews, conditions,
-                parallel branches, loops, subgraphs and JavaScript code steps. Code steps have typed
-                inputs and saved results. Web browsing, external tool registration and per-step
-                model selection are not available. One model is selected per workflow; custom output
-                uses a structured envelope with an answer up to 6,000 characters.
+                Choose the workflow model above the graph. Select a model step to override that
+                choice or configure its research tools. Use a human review to decide how to proceed.
               </p>
               <p>
                 Save a revision for durable history. Save draft or Export JSON also keeps your work.
@@ -818,6 +835,7 @@ export function Workbench() {
               </p>
             </details>
             <WorkflowEditor
+              catalog={catalog}
               key={documentEpoch}
               onSeal={seal}
               workflow={workflow}

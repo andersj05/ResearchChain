@@ -10,11 +10,9 @@ async function prepare(
 ) {
   const saved = await request.post("/api/revisions", { data: example });
   await page.goto(`/?revision=${(await saved.json()).id}`);
-  await expect(page.getByLabel("Configured model", { exact: true })).toHaveText(
-    "No model configured",
-  );
+  await expect(page.getByRole("combobox", { name: "Workflow model", exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: "Use research template", exact: true }).click();
-  await expect(page.getByLabel("Configured model", { exact: true })).toContainText(
+  await expect(page.getByRole("combobox", { name: "Workflow model", exact: true })).toHaveValue(
     research.research.model,
   );
   await expect(page.getByLabel("Step model", { exact: true })).toContainText(
@@ -29,10 +27,35 @@ async function prepare(
   await page
     .getByRole("combobox", { name: "Research model", exact: true })
     .selectOption("test-model");
-  await expect(page.getByLabel("Model selection scope", { exact: true })).toContainText(
-    "Selected model ID: test-model",
-  );
+  await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeEnabled();
 }
+
+test("choose a workflow default and override one step from the graph", async ({
+  page,
+  request,
+}) => {
+  const saved = await request.post("/api/revisions", { data: research });
+  await page.goto(`/?revision=${(await saved.json()).id}`);
+  const workflowModel = page.getByRole("combobox", { name: "Workflow model", exact: true });
+  const stepModel = page.getByRole("combobox", { name: "Step model", exact: true });
+  await workflowModel.selectOption("test-model");
+  await expect(stepModel).toHaveValue("");
+  await stepModel.selectOption("analysis-model");
+  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Research model", exact: true })).toHaveValue(
+    "test-model",
+  );
+  await page.getByText("Step model overrides (1)", { exact: true }).click();
+  await expect(page.locator(".step-model-list")).toContainText("analysis-model");
+  await page.getByRole("button", { name: "Start run", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+    timeout: 30000,
+  });
+  const runId = new URL(page.url()).searchParams.get("run");
+  const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
+  expect(snapshot.research_manifest?.settings.model).toBe("test-model");
+  expect(snapshot.model_attempts?.[0]?.model).toBe("analysis-model");
+});
 
 for (const width of [1440, 390]) {
   test(`research reviews, saved outputs and manifest on ${width}px screen`, async ({

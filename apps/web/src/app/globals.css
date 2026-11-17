@@ -3089,18 +3089,32 @@ footer p {
   }
 }
 
-.canvas-model-summary {
+.canvas-model-picker {
   min-width: 0;
-  max-width: 45%;
-  padding: 0 8px;
+  max-width: min(55%, 24rem);
+}
+.canvas-model-picker .model-picker {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
   font-size: 11px;
   color: var(--muted);
-  text-align: center;
-  overflow-wrap: anywhere;
 }
-.canvas-model-summary strong {
-  font-weight: 500;
-  color: var(--ink);
+.model-picker select {
+  min-width: 0;
+  max-width: 100%;
+}
+.canvas-model-picker select {
+  width: auto;
+  max-width: min(100%, 16rem);
+  font-size: 12px;
+  padding: 3px;
+}
+.plan-connection-details summary,
+.step-model-list summary {
+  cursor: pointer;
+  font-size: 13px;
 }
 .run-model-summary {
   margin: 20px 0;

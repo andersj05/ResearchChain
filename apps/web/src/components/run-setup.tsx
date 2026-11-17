@@ -2,6 +2,7 @@
 
 import { ResearchConnection } from "@/components/research-settings";
 import type { ResearchSettings } from "@/lib/workflow";
+import type { ModelCatalog } from "@/components/model-picker";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
 import {
@@ -29,11 +30,15 @@ export function RunSetup({
   error,
   onStart,
   research,
+  catalog,
+  stepModels,
   onResearch,
   accountId,
   onAccount,
 }: {
   research?: ResearchSettings | null;
+  catalog: ModelCatalog;
+  stepModels: { label: string; model: string }[];
   onResearch: (settings: ResearchSettings) => void;
   accountId: string | null;
   onAccount: (id: string | null) => void;
@@ -50,6 +55,15 @@ export function RunSetup({
   error: string;
   onStart: () => Promise<void>;
 }) {
+  const available = new Set(catalog.status?.models?.map((model) => model.slug));
+  const unavailable = stepModels.filter((step) => !available.has(step.model));
+  const ready =
+    !research ||
+    (!!accountId &&
+      !catalog.loading &&
+      !catalog.error &&
+      available.has(research.model) &&
+      unavailable.length === 0);
   return (
     <Dialog
       open={open}
@@ -77,7 +91,7 @@ export function RunSetup({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (brief.trim() && !busy && (!research || accountId)) void onStart();
+            if (brief.trim() && !busy && ready) void onStart();
           }}
         >
           <div className="run-context">
@@ -95,17 +109,34 @@ export function RunSetup({
             onChange={(event) => onBriefChange(event.target.value)}
             placeholder="What question should this run explore?"
           />
-          <p className="field-hint">
-            The run keeps its own saved revision. Later edits won’t change it.
-          </p>
           {open && research && (
             <ResearchConnection
               settings={research}
+              catalog={catalog}
               onSettings={onResearch}
               accountId={accountId}
               onAccount={onAccount}
               disabled={busy}
             />
+          )}
+          {!!stepModels.length && (
+            <details className="step-model-list">
+              <summary>Step model overrides ({stepModels.length})</summary>
+              <ul>
+                {stepModels.map((step, index) => (
+                  <li key={index}>
+                    {step.label} · {step.model}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {research && accountId && !catalog.loading && !catalog.error && !ready && (
+            <p role="alert" className="error">
+              {!available.has(research.model) && "Choose an available research model. "}
+              {!!unavailable.length &&
+                `Change the unavailable step models in Build: ${unavailable.map((step) => step.label).join(", ")}.`}
+            </p>
           )}
           {open && (
             <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />
@@ -122,7 +153,7 @@ export function RunSetup({
             <Button
               className="button primary"
               type="submit"
-              disabled={busy || !brief.trim() || (!!research && !accountId)}
+              disabled={busy || !brief.trim() || !ready}
             >
               {busy ? "Starting…" : "Start run"}
               <Play size={14} aria-hidden="true" />
