@@ -807,7 +807,8 @@ export function Workbench() {
                 Drag a step or focus it and use Alt + arrows to move it on the 10 px grid. Drag
                 between ports to connect them. With a port focused, press Enter, choose a
                 destination with the arrows, then press Enter to connect or Escape to cancel. Scroll
-                to pan. Hold Ctrl or Command while scrolling to zoom.
+                to pan. Hold Ctrl or Command while scrolling to zoom. Double-click a step or use
+                Zoom to selected step to read it up close.
               </p>
               <p>
                 Available tools: captured evidence, model prompts, notes, human reviews, conditions,

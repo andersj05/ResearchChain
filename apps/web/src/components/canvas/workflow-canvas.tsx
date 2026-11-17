@@ -5,7 +5,7 @@ import { createParts } from "@ui-sdk/react/primitive";
 import type { Graph, SubgraphDefinition, WorkflowNode } from "@/lib/workflow";
 import { connectionsFor, portsFor, referenceOf, type Port } from "@/lib/workflow-editing";
 import { workflowCanvas, type CanvasPort } from "./primitive";
-import { Maximize, Minus, Plus, RotateCcw } from "lucide-react";
+import { Focus, Maximize, Minus, Plus, RotateCcw } from "lucide-react";
 import { nodePresentation } from "@/components/node-kind";
 
 const nodeWidth = 230;
@@ -21,6 +21,7 @@ const parts = createParts(workflowCanvas, {
   draft: "path",
   reset: "button",
   fit: "button",
+  focusStep: "button",
   zoomIn: "button",
   zoomOut: "button",
 });
@@ -184,6 +185,14 @@ export function WorkflowCanvas({
           <Maximize size={15} aria-hidden="true" />
           Fit view
         </parts.Fit>
+        <parts.FocusStep
+          value={selected}
+          className="button icon-button"
+          title="Zoom to selected step"
+          aria-label="Zoom to selected step"
+        >
+          <Focus size={16} aria-hidden="true" />
+        </parts.FocusStep>
         <parts.Reset className="button icon-button" aria-label="Reset view" title="Reset to 100%">
           <RotateCcw size={15} aria-hidden="true" />
         </parts.Reset>

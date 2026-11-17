@@ -86,7 +86,9 @@ agent's version sequence. Keyboard tab navigation remains available.
 ## Graph editing feedback (2026-11-17)
 
 A selected step highlights its adjacent paths. Filled ports indicate existing
-connections, and focus or hover exposes their destinations. The card header fits
+connections, and each port names its destinations. Zoom to selected step brings
+one card back into reading range from the overview, as does double-clicking it.
+The card header fits
 inside its enclosing border at every zoom. Keyboard and pointer instructions live
 in **Build your agent**, and the canvas references them for assistive technology.
 The changes follow the focus and gesture guidance in the

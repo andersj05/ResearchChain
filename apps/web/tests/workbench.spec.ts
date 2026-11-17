@@ -51,6 +51,8 @@ test("save a revision, refresh a paused run, and resume its original workflow", 
   await expect(page.getByRole("heading", { name: "Run completed" })).toBeVisible();
   await page.goto(runUrl);
   await expect(page.getByRole("heading", { name: "Run completed" })).toBeVisible();
+  await expect(page.locator(".workspace-feedback")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "API reference" })).toHaveCount(0);
   expect(browserErrors).toEqual([]);
 });
 
@@ -290,8 +292,54 @@ test("panels, outline, and fit view keep a laptop workspace usable", async ({ pa
   await page.getByRole("button", { name: "Toggle steps" }).click();
   await expect(page.locator("#step-library")).toBeVisible();
   await expect(page.getByRole("button", { name: "Save revision", exact: true })).toBeInViewport();
-  await expect(page.getByRole("status", { name: "Workspace status" })).toBeInViewport();
+  await expect(page.locator(".workspace-feedback")).toHaveCount(0);
 });
+
+for (const width of [1440, 390]) {
+  test(`idea graph keeps card borders and connected paths visible at ${width}px`, async ({
+    page,
+  }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.getByRole("button", { name: "Use idea research example" }).click();
+    await page.getByRole("button", { name: "Dismiss status" }).click();
+    await expect(page.locator(".workspace-feedback")).toHaveCount(0);
+    await expect(page.locator("#canvas-help")).toBeHidden();
+    await page.getByText("Build your agent", { exact: true }).click();
+    await expect(page.locator("#canvas-help")).toBeVisible();
+    await page.getByText("Build your agent", { exact: true }).click();
+
+    const card = page.locator('[data-node-id="research"]');
+    const header = card.getByRole("button", { name: "Edit Research support and objections" });
+    await header.focus();
+    await header.press("Enter");
+    await expect(header).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator(".connection-control[data-selected]")).toHaveCount(2);
+    await expect(card.locator(".graph-port[data-connected]").first()).toHaveAccessibleDescription(
+      /Connected to/,
+    );
+    for (const action of ["Reset view", "Fit workflow to view"]) {
+      await page.getByRole("button", { name: action, exact: true }).click();
+      const box = (await card.boundingBox())!;
+      const content = (await header.boundingBox())!;
+      expect(content.x).toBeGreaterThan(box.x);
+      expect(content.x + content.width).toBeLessThan(box.x + box.width);
+    }
+    const overview = (await card.boundingBox())!;
+    await page.getByRole("button", { name: "Zoom to selected step" }).press("Enter");
+    const detail = (await card.boundingBox())!;
+    const canvas = (await page.getByLabel("Workflow canvas", { exact: true }).boundingBox())!;
+    expect(detail.width).toBeGreaterThan(overview.width);
+    expect(detail.x).toBeGreaterThan(canvas.x);
+    expect(detail.x + detail.width).toBeLessThan(canvas.x + canvas.width);
+    await page.screenshot({ path: info.outputPath(`idea-graph-${width}.png`) });
+    await page.getByRole("button", { name: "Fit workflow to view" }).click();
+    await page.getByRole("button", { name: "Edit Frame my idea", exact: true }).dblclick();
+    expect((await page.locator('[data-node-id="frame"]').boundingBox())!.width).toBeGreaterThan(
+      overview.width,
+    );
+    await expect(page.locator(".connection-control[data-selected]")).toHaveCount(1);
+  });
+}
 
 test("adding and removing a middle step preserves a saveable chain and supports undo", async ({
   page,
