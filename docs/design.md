@@ -112,3 +112,24 @@ A validation result or unconfirmed run can appear beside the workspace controls.
 Navigating to a saved run opens the run itself. Run status updates remain available
 to assistive technology through a polite status region, following
 [WCAG 2.2 status messages guidance](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).
+
+## Inspecting a run (2026-11-17)
+
+The Runs view draws the saved revision's nodes and control-flow edges at their
+authored positions. Each card pairs a status with a label. Selecting a card opens
+its output, source records, instructions and inputs in the reader. Data links
+can be shown on demand. A step picker reaches offscreen nodes, including on narrow
+screens. This adapts the dependency and job inspection pattern in [GitHub Actions](https://docs.github.com/en/actions/how-tos/monitor-workflows/use-the-visualization-graph).
+
+Follow the checkpoint that needs a decision or stopped execution, then active
+work and the latest recorded output. Once the owner selects a step, preserve
+that selection as the worker reports progress. Each analyst pass, its reported
+web activity and source receipts stay with its research step. An open review
+places the preceding output beside the feedback and decision controls. Parallel
+reviews retain independent controls and an explicit checkpoint selector. This
+follows the overview-to-detail navigation in [LangSmith's trace viewer](https://docs.langchain.com/langsmith/view-traces).
+
+Keep the pinned revision, manifest, evidence, and original brief available in
+**Run context**. Reported token use and the run's own ceiling stay visible during
+inspection. Status updates preserve keyboard focus, and recorded events and
+checkpoints determine progress labels. [W3C status message guidance](https://www.w3.org/WAI/WCAG22/Understanding/status-messages.html).

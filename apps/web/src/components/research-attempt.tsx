@@ -80,6 +80,12 @@ export function ResearchAttempt({
         </span>
       </summary>
       {attempt.reason && <p className="error">{attempt.reason}</p>}
+      {typeof attempt.web_actions_completed === "number" && (
+        <p className="field-hint">
+          {attempt.web_actions_completed.toLocaleString()} web{" "}
+          {attempt.web_actions_completed === 1 ? "action" : "actions"} completed
+        </p>
+      )}
       {result && (
         <>
           <div className="research-conclusion">{prose(result.conclusion)}</div>
@@ -162,6 +168,10 @@ export function ResearchAttempt({
           <dd>{attempt.model}</dd>
           <dt>Provider-reported model</dt>
           <dd>{attempt.returned_model ?? "Not reported"}</dd>
+          <dt>Input tokens</dt>
+          <dd>{attempt.input_tokens?.toLocaleString() ?? "Not reported"}</dd>
+          <dt>Output tokens</dt>
+          <dd>{attempt.output_tokens?.toLocaleString() ?? "Not reported"}</dd>
           <dt>Characters received</dt>
           <dd>{attempt.output_characters.toLocaleString()}</dd>
         </dl>

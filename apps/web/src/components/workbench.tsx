@@ -648,7 +648,6 @@ export function Workbench() {
   }
 
   const showFeedback = !!message && !error && !setupOpen && !busy;
-  const runAnnouncement = tab === "runs" && run ? `Run ${run.status}.` : "";
   return (
     <main
       className="studio"
@@ -754,7 +753,7 @@ export function Workbench() {
         </div>
         <div className={showFeedback ? "workspace-feedback" : "sr-only"}>
           <p role="status" aria-label="Workspace status">
-            {busy ? "Working…" : error ? "" : message || runAnnouncement}
+            {busy ? "Working…" : error ? "" : message}
           </p>
           {showFeedback && (
             <button
@@ -785,7 +784,12 @@ export function Workbench() {
             )}
           </div>
         )}
-        <TabsPanel className="workflow-view" value="workflow" keepMounted>
+        <TabsPanel
+          className="workflow-view"
+          value="workflow"
+          keepMounted
+          hidden={tab !== "workflow"}
+        >
           <h1 className="sr-only">Agent builder</h1>
           <section className="workspace" aria-label="Workflow editor">
             <details className="builder-guide">

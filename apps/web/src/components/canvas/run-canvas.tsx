@@ -19,6 +19,12 @@ const parts = createParts(workflowCanvas, {
 });
 const card = { width: 222, height: 94 };
 
+function axisOffset(min: number, max: number, selected: number, space: number, zoom: number) {
+  const center = space / 2;
+  if ((max - min) * zoom <= space) return center - ((min + max) / 2) * zoom;
+  return Math.max(space - max * zoom, Math.min(-min * zoom, center - selected * zoom));
+}
+
 export function RunCanvas({
   graph,
   prefix,
@@ -42,15 +48,37 @@ export function RunCanvas({
     ports: {},
     onSelect: (id) => onSelect(`${prefix}/${id}`),
   });
+  const instance = canvas.instance;
   useLayoutEffect(() => {
     const el = surface.current;
     if (!el) return;
-    const center = () => canvas.api.fit(selected);
+    const center = () => {
+      const points = Object.values(instance.get().positions);
+      const focus = instance.get().positions[selected];
+      if (!focus || !el.clientWidth) return;
+      const minX = Math.min(...points.map((p) => p.x)),
+        maxX = Math.max(...points.map((p) => p.x)) + card.width;
+      const minY = Math.min(...points.map((p) => p.y)),
+        maxY = Math.max(...points.map((p) => p.y)) + card.height;
+      const width = el.clientWidth - 28,
+        height = el.clientHeight - 46;
+      // Fit the graph when it can still be read. For larger layouts, keep the
+      // selected card and as many neighbors as possible above the view controls.
+      const zoom = Math.min(
+        1,
+        Math.max(0.86, Math.min(width / (maxX - minX), height / (maxY - minY))),
+      );
+      instance.api.viewport.setViewport({
+        zoom,
+        x: 14 + axisOffset(minX, maxX, focus.x + card.width / 2, width, zoom),
+        y: 6 + axisOffset(minY, maxY, focus.y + card.height / 2, height, zoom),
+      });
+    };
     center();
     const observer = new ResizeObserver(center);
     observer.observe(el);
     return () => observer.disconnect();
-  }, [canvas, prefix, selected]);
+  }, [instance, prefix, selected]);
   const links = connectionsFor(graph);
   return usePart(
     canvas,

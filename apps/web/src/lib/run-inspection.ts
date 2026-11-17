@@ -23,13 +23,22 @@ export type StepStatus =
 export function eventPath(event: RunEvent) {
   const path = event.path || `root/${event.node_id}`;
   // A loop check is recorded against its own iteration, on the parent loop step.
-  return event.kind === "loop" && path.includes(`/${event.node_id}/check-`)
+  return event.kind === "loop" && path.split("/").length % 2 === 1 && /\/check-\d+$/.test(path)
     ? path.slice(0, path.lastIndexOf("/"))
     : path;
 }
 
 export function reviewPath(review: Review) {
   return review.path || `root/${review.node_id}`;
+}
+
+export function attemptPath(attempt: Attempt) {
+  const segments = attempt.path.split("/");
+  // Step IDs can themselves be named analyst-pass-2. Only strip the receipt
+  // suffix one segment beyond the normal node path (root/id[/body/id…]).
+  return segments.length % 2 === 1 && /^analyst-pass-\d+$/.test(segments.at(-1)!)
+    ? segments.slice(0, -1).join("/")
+    : attempt.path;
 }
 
 export function pendingReviews(run: RunSnapshot) {
@@ -48,16 +57,22 @@ export function preferredPath(run: RunSnapshot) {
   const checkpoint = run.checkpoint_steps ?? [];
   const stopped = checkpoint.find((step) => step.status === "stopped");
   if (stopped) return stopped.path;
+  const active =
+    run.status === "running" &&
+    run.model_attempts?.findLast(
+      (attempt) => attempt.status === "requesting" || attempt.status === "preparing",
+    );
+  if (active) return attemptPath(active);
   const lastAttempt = run.model_attempts?.at(-1);
-  if (lastAttempt && lastAttempt.status !== "completed") return lastAttempt.path;
-  if (run.status === "running" && checkpoint[0]) return checkpoint[0].path;
+  if (lastAttempt && lastAttempt.status !== "completed") return attemptPath(lastAttempt);
+  if (checkpoint[0]) return checkpoint[0].path;
   const event = run.events.findLast((item) =>
     run.status === "rejected"
       ? item.kind === "review"
       : ["code", "note", "research"].includes(item.kind),
   );
   if (event) return eventPath(event);
-  return lastAttempt?.path ?? `root/${run.workflow.start_node}`;
+  return lastAttempt ? attemptPath(lastAttempt) : `root/${run.workflow.start_node}`;
 }
 
 const attemptLabels: Record<Attempt["status"], StepStatus> = {
@@ -76,20 +91,38 @@ export function stepStates(run: RunSnapshot) {
     states.set(
       eventPath(event),
       event.kind === "loop" || event.kind === "subgraph"
-        ? "Entered"
-        : event.kind === "review" && event.detail.startsWith("Rejected")
+        ? run.status === "completed"
+          ? "Completed"
+          : "Entered"
+        : event.kind === "review" &&
+            (event.review_response?.decision === "reject" || event.detail.startsWith("Rejected"))
           ? "Rejected"
           : "Completed",
     );
   }
   for (const attempt of run.model_attempts ?? []) {
-    states.set(attempt.path, attemptLabels[attempt.status]);
+    states.set(attemptPath(attempt), attemptLabels[attempt.status]);
   }
   for (const step of run.checkpoint_steps ?? []) {
     if (step.status === "stopped") states.set(step.path, "Stopped");
-    else if (run.status === "running" && !states.has(step.path)) states.set(step.path, "Scheduled");
+    else if (!states.has(step.path)) states.set(step.path, "Scheduled");
   }
   for (const review of pendingReviews(run)) states.set(reviewPath(review), "Waiting for review");
+  // Show a child checkpoint on its enclosing card when browsing the outer graph.
+  const attention = new Set<StepStatus>([
+    "Preparing",
+    "Requesting",
+    "Stopped",
+    "Waiting for review",
+  ]);
+  for (const [path, status] of states) {
+    if (!attention.has(status)) continue;
+    const segments = path.split("/");
+    for (let len = 2; len < segments.length; len += 2) {
+      const parent = segments.slice(0, len).join("/");
+      if (states.get(parent) !== "Stopped") states.set(parent, status);
+    }
+  }
   return states;
 }
 
