@@ -45,8 +45,19 @@ runs, workers and accounts. Operations can pause new requests or change its roll
 24-hour allowance. Cleanup does not replenish it. Runs stopped by the guard need
 an explicit new start when capacity is available.
 
-The reported-token threshold stops the **next** request. It is not a hard cap on
-an in-flight response: the current plan route does not support `max_output_tokens`.
+New research workflows start with a **1,000,000-token** budget across model inputs
+and outputs. Change **Token budget** in **Research limits** or **Run workflow**.
+**Fixed total** accepts a smaller or larger number. It checks reported usage before
+each request. A completed response can take the total past the limit, and a missing
+usage report stops the next request. **As needed** allows steps to continue using
+tokens under the workflow's request, time and response limits and the workspace
+request allowance. Usage reporting stays available in either mode.
+
+Earlier runs keep their pinned settings. To repeat one with more room, select
+**Iterate from this run**, open **Run workflow**, change **Token budget** or use
+**Use 1,000,000 tokens**, and start the new run. The new run starts at the first
+step with the copied brief and evidence.
+
 A timeout, output limit or cancellation closes the local stream but cannot guarantee
 that remote work has stopped. Incomplete usage remains visibly unknown. See
 [OpenAI's preview limits](https://developers.openai.com/siwc/token-sharing-open-source/preview-limitations).

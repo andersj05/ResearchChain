@@ -6,6 +6,62 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { ChatGPTSignIn } from "@/components/chatgpt-signin";
 import { Button } from "@ui-sdk/react/button";
 
+function TokenBudget({
+  settings,
+  onChange,
+}: {
+  settings: ResearchSettings;
+  onChange: (settings: ResearchSettings) => void;
+}) {
+  const limits = { ...researchDefaults.limits, ...settings.limits };
+  const budget = limits.max_total_tokens;
+  const defaultTokens = researchDefaults.limits.max_total_tokens;
+  const setBudget = (value: typeof budget) =>
+    onChange({ ...settings, limits: { ...limits, max_total_tokens: value } });
+  return (
+    <>
+      <label>
+        Token budget
+        <select
+          value={budget === "as_needed" ? "as_needed" : "fixed"}
+          onChange={(event) =>
+            setBudget(event.target.value === "fixed" ? defaultTokens : "as_needed")
+          }
+        >
+          <option value="fixed">Fixed total</option>
+          <option value="as_needed">As needed</option>
+        </select>
+      </label>
+      {budget !== "as_needed" && (
+        <>
+          <label>
+            Total tokens per run
+            <input
+              type="number"
+              required
+              min={1}
+              max={Number.MAX_SAFE_INTEGER}
+              step={1}
+              value={budget || ""}
+              onChange={(event) => setBudget(event.target.valueAsNumber || 0)}
+            />
+          </label>
+          {budget !== defaultTokens && (
+            <Button className="button small" onClick={() => setBudget(defaultTokens)}>
+              Use {defaultTokens.toLocaleString("en-US")} tokens
+            </Button>
+          )}
+        </>
+      )}
+      <p className="field-hint">
+        {budget === "as_needed"
+          ? "Steps can use tokens as needed within the run’s request and time limits."
+          : "Counts input and output across steps. A response can take the run past this limit before the next request stops."}
+      </p>
+    </>
+  );
+}
+
 export function ResearchSettingsEditor({
   workflow,
   onChange,
@@ -19,11 +75,14 @@ export function ResearchSettingsEditor({
   return (
     <details className="workflow-settings">
       <summary>Research limits</summary>
+      <TokenBudget
+        settings={settings}
+        onChange={(research) => onChange({ ...workflow, research }, "research/max_total_tokens")}
+      />
       {(
         [
           ["max_model_calls", "Maximum model attempts", 0, 100],
           ["max_tool_calls", "Maximum evidence reads", 0, 100],
-          ["max_total_tokens", "Stop after reported tokens", 1, 1000000],
           ["max_response_seconds", "Seconds per response", 1, 120],
           ["max_input_bytes", "Bytes per request", 1000, 8000000],
           ["max_output_characters", "Characters per response", 1000, 100000],
@@ -57,10 +116,7 @@ export function ResearchSettingsEditor({
           />
         </label>
       ))}
-      <p className="field-hint">
-        Token usage stops the next call. An in-flight response can exceed that threshold.
-        Cancellation closes the connection; provider usage may continue.
-      </p>
+      <p className="field-hint">Cancellation closes the connection; provider usage may continue.</p>
     </details>
   );
 }
@@ -100,6 +156,7 @@ export function ResearchConnection({
       <p className="field-hint" aria-label="Model selection scope">
         Workflow default for steps without an override.
       </p>
+      <TokenBudget settings={settings} onChange={onSettings} />
       {loading && <p role="status">Checking connection…</p>}
       {account && <p>Connected as {account.label}</p>}
       {error && (
