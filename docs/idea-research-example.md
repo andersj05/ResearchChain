@@ -1,8 +1,8 @@
 # Idea research example
 
 An optional starting point for your own agent, requested by the owner on 2026-11-16.
-It accepts your thesis, charts and documents, searches the live web, runs a small
-numeric model when you supply data, and drafts a research memo for your judgment.
+It accepts your thesis, charts and documents, researches current information,
+retrieves company financial statements and drafts a memo for your judgment.
 All prompts, wiring, code and checkpoints remain yours to change.
 
 ## First run
@@ -13,15 +13,18 @@ All prompts, wiring, code and checkpoints remain yours to change.
    market, relevant dates, and what would change your mind in **Research brief**.
    Add/select your chart images, PDFs or text evidence. Choose a model from your
    existing ChatGPT connection. The example defaults to `gpt-6.1-sol`.
-3. Start. **Frame my idea** reads the selected evidence and proposes questions.
+3. Start. **Frame my idea** can search for current ticker information while
+   reviewing the selected evidence. For example, ask how NVDA’s annual revenue
+   changed and which filings support the numbers.
    At **Choose research direction**, read its output and add your judgment before
    approving. Reject stops this run so you can revise it.
 4. **Research support and objections** searches for dated primary sources and
    opposing explanations. Search queries can contain information from your brief
    and selected evidence; only enable web search for material you want researched
    externally. Inspect the saved web actions and source links in Research results.
-5. **Calculate a simple model** runs the editable JavaScript below. Without numeric
-   input it records a data gap. **Draft the research memo** combines the research
+5. The research step can select a ticker and annual financial metric. **Calculate
+   a simple model** reports the change across the two latest available annual filing
+   periods or uses your own paired inputs for OLS. **Draft the research memo** combines the research
    and actual calculation results. Review both at the final checkpoint.
 6. Approve to finish, or reject and iterate. Final-review feedback is saved; it does
    not trigger another model call. Use **Iterate from this run**, edit the prompts/
@@ -71,12 +74,29 @@ Replace the calculation step with your preferred analysis as you iterate.
 
 Charts/PDFs are model-interpreted evidence. The example does not automatically
 convert chart pixels, attached tables or web prose into verified numeric data.
-Paste reviewed numeric observations into the brief to enable reproducible math.
-Without them, the memo proposes a quantitative test and specifies the missing data.
+The calculation records a data gap if neither usable filings nor paired inputs are available.
+
+## Company filings
+
+Enable **SEC financial statements** on a custom step and connect its text output to
+another model or code step. The model chooses a ticker and one annual metric
+(revenue, net income, operating income or operating cash flow), or skips the
+lookup. The worker fetches the selected SEC XBRL concept and attaches up to five
+annual USD observations to that step’s result. Each record includes the reporting
+period, value, filing date, form and accession. When financials are restated, the
+latest filing for the period wins. Market prices use web and market search.
+
+Set `RESEARCHCHAIN_SEC_USER_AGENT` in the worker environment or local `.env` to
+your organization’s name and monitored contact email, then restart the worker.
+The SEC receives this header with the ticker index and concept requests. Search
+and other steps can still run when SEC access or data is unavailable. Inspect
+the SEC receipt for the reason. Coverage is limited to the supported US-GAAP
+concepts in USD on 10-K or amended 10-K filings. [SEC data APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
+and [SEC fair access](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).
 
 ## Research boundaries
 
-Three model requests: framing, one web-enabled research request, and synthesis.
+The example uses three model requests across framing, research and synthesis.
 The web request may perform multiple searches/page reads. The provider controls
 that action count; the existing evidence-read allowance does not cap hosted web
 actions. Each request has a 120-second timeout and bounded output. The example
@@ -84,10 +104,11 @@ allows 420 active seconds total and checks reported token use before another cal
 Human review time does not consume active execution time. This is a focused
 research pass; narrow the question or split it into more editable steps for depth.
 
-Web search is an explicit custom-step checkbox, off by default on existing agents.
-It uses the existing ChatGPT included-plan connection subject to model/account
-policy. There is no paid API fallback. Unsupported tools, refusals, interrupted
-responses, missing web activity and quota failures stop the attempt visibly.
+In a custom step, set **Web and market search** to **Off**, **Let the model
+decide** or **Require a search**. The provider can use its finance feed when
+available. Required search must produce a completed search action. Optional
+search permits an answer from the supplied evidence alone. Unsupported tools,
+refusals, interrupted responses and quota failures stop the attempt visibly.
 Uncertain requests are not automatically repeated.
 
 Web sources come from provider tool records and citation annotations, not URLs

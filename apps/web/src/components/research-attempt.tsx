@@ -2,6 +2,7 @@ import type { components } from "@researchchain/contracts";
 import { useState } from "react";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
+import { ResearchToolReceipts } from "./research-tool-receipts";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 
@@ -123,6 +124,7 @@ export function ResearchAttempt({
             </details>
           )}
           {result.web_research && <WebSources trace={result.web_research} />}
+          <ResearchToolReceipts result={result} />
           <details className="research-disclosure">
             <summary>Limitations and open questions</summary>
             <h4>Limitations</h4>

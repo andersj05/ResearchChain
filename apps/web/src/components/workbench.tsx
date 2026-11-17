@@ -727,6 +727,7 @@ export function Workbench() {
                 </>
               )}
               <RunSetup
+                workflow={setupOpen ? pruneDefinitions(workflow) : workflow}
                 open={setupOpen}
                 onOpenChange={(open) => {
                   if (open && workflow.research) catalog.refresh();
@@ -738,17 +739,6 @@ export function Workbench() {
                 onEvidenceChange={setEvidenceIds}
                 research={workflow.research}
                 catalog={catalog}
-                stepModels={
-                  setupOpen
-                    ? [workflow, ...(pruneDefinitions(workflow).subgraphs ?? [])].flatMap((graph) =>
-                        graph.nodes.flatMap((node) =>
-                          node.config?.type === "research" && node.config.model
-                            ? [{ label: node.label, model: node.config.model }]
-                            : [],
-                        ),
-                      )
-                    : []
-                }
                 onResearch={(research) => change({ ...workflow, research })}
                 accountId={providerAccount}
                 onAccount={setProviderAccount}

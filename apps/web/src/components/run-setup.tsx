@@ -1,7 +1,7 @@
 "use client";
 
 import { ResearchConnection } from "@/components/research-settings";
-import type { ResearchSettings } from "@/lib/workflow";
+import type { ResearchSettings, Workflow } from "@/lib/workflow";
 import type { ModelCatalog } from "@/components/model-picker";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
@@ -15,6 +15,55 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import { Play, X } from "lucide-react";
+
+function RunTools({ workflow }: { workflow: Workflow }) {
+  const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
+    graph.nodes.flatMap((node) => {
+      const config = node.config;
+      if (config?.type !== "research" || (!config.web_search && !config.sec_financials)) return [];
+      const tools = [
+        config.web_search === "auto"
+          ? "optional web search"
+          : config.web_search
+            ? "required web search"
+            : "",
+        config.sec_financials ? "optional SEC lookup" : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      return [
+        {
+          key: `${"id" in graph ? graph.id + "/" + graph.version : "root"}/${node.id}`,
+          label: node.label,
+          tools,
+          sec: config.sec_financials,
+        },
+      ];
+    }),
+  );
+  if (!steps.length) return null;
+  return (
+    <details className="run-details">
+      <summary>
+        External research tools · {steps.length} {steps.length === 1 ? "step" : "steps"}
+      </summary>
+      <ul>
+        {steps.map((step) => (
+          <li key={step.key}>
+            <strong>{step.label}</strong> · {step.tools}
+          </li>
+        ))}
+      </ul>
+      <p className="field-hint">Web queries can include your brief and selected evidence.</p>
+      {steps.some((step) => step.sec) && (
+        <p className="field-hint">
+          SEC lookups send the selected company and metric. Set RESEARCHCHAIN_SEC_USER_AGENT with an
+          operator contact on the worker.
+        </p>
+      )}
+    </details>
+  );
+}
 
 export function RunSetup({
   open,
@@ -31,14 +80,14 @@ export function RunSetup({
   onStart,
   research,
   catalog,
-  stepModels,
+  workflow,
   onResearch,
   accountId,
   onAccount,
 }: {
   research?: ResearchSettings | null;
   catalog: ModelCatalog;
-  stepModels: { label: string; model: string }[];
+  workflow: Workflow;
   onResearch: (settings: ResearchSettings) => void;
   accountId: string | null;
   onAccount: (id: string | null) => void;
@@ -56,6 +105,15 @@ export function RunSetup({
   onStart: () => Promise<void>;
 }) {
   const available = new Set(catalog.status?.models?.map((model) => model.slug));
+  const stepModels = open
+    ? [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
+        graph.nodes.flatMap((node) =>
+          node.config?.type === "research" && node.config.model
+            ? [{ label: node.label, model: node.config.model }]
+            : [],
+        ),
+      )
+    : [];
   const unavailable = stepModels.filter((step) => !available.has(step.model));
   const ready =
     !research ||
@@ -141,6 +199,7 @@ export function RunSetup({
           {open && (
             <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />
           )}
+          {open && <RunTools workflow={workflow} />}
           {error && (
             <div className="error" role="alert">
               {error}

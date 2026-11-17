@@ -1,5 +1,6 @@
 "use client";
 
+import { researchToolUrls } from "./research-tool-receipts";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchAttempt } from "./research-attempt";
@@ -44,9 +45,10 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
             new Set(
               attempts
                 .slice(0, index + 1)
-                .flatMap(
-                  (item) => item.result?.web_research?.sources.map((source) => source.url) ?? [],
-                ),
+                .flatMap((item) => [
+                  ...(item.result?.web_research?.sources.map((source) => source.url) ?? []),
+                  ...researchToolUrls(item.result),
+                ]),
             )
           }
         />
