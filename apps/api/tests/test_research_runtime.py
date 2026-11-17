@@ -81,6 +81,8 @@ class FakeProvider:
             result["conclusion"] = "Synthetic custom answer."
         if self.invalid:
             result["hypotheses"][0]["assessment"] = "supported"
+        if prepared.sec_financials:
+            result["sec_lookup"] = None
         return Completion(
             "test-model", json.dumps(result), "response_fixture", self.usage, "test-model-snapshot"
         )

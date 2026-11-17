@@ -2942,7 +2942,12 @@ export interface components {
        * Web Search
        * @default false
        */
-      web_search: boolean;
+      web_search: boolean | "auto";
+      /**
+       * Sec Financials
+       * @default false
+       */
+      sec_financials: boolean;
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -3418,6 +3423,77 @@ export interface components {
        */
       usage_complete: boolean;
     };
+    /** SecFinancials */
+    SecFinancials: {
+      request: components["schemas"]["SecLookup"];
+      /**
+       * Status
+       * @default unavailable
+       * @enum {string}
+       */
+      status: "available" | "unavailable";
+      /**
+       * Retrieved At
+       * Format: date-time
+       */
+      retrieved_at: string;
+      /** Cik */
+      cik?: string | null;
+      /** Issuer */
+      issuer?: string | null;
+      /** Source Url */
+      source_url?: string | null;
+      /** Observations */
+      observations?: components["schemas"]["SecObservation"][];
+      /**
+       * Detail
+       * @default
+       */
+      detail: string;
+    };
+    /** SecLookup */
+    SecLookup: {
+      /** Ticker */
+      ticker: string;
+      /**
+       * Metric
+       * @enum {string}
+       */
+      metric: "revenue" | "net_income" | "operating_income" | "operating_cash_flow";
+    };
+    /** SecObservation */
+    SecObservation: {
+      /**
+       * Start
+       * Format: date
+       */
+      start: string;
+      /**
+       * End
+       * Format: date
+       */
+      end: string;
+      /**
+       * Filed
+       * Format: date
+       */
+      filed: string;
+      /** Accession */
+      accession: string;
+      /**
+       * Form
+       * @enum {string}
+       */
+      form: "10-K" | "10-K/A";
+      /** Value */
+      value: number;
+      /**
+       * Unit
+       * @default USD
+       * @constant
+       */
+      unit: "USD";
+    };
     /** SignInStatus */
     SignInStatus: {
       /**
@@ -3525,6 +3601,7 @@ export interface components {
       /** Limitations */
       limitations: string[];
       web_research?: components["schemas"]["WebResearch"] | null;
+      sec_financials?: components["schemas"]["SecFinancials"] | null;
     };
     /** StyleExample */
     StyleExample: {
@@ -3770,6 +3847,8 @@ export interface components {
        * @default false
        */
       truncated: boolean;
+      /** Feeds */
+      feeds?: ("oai-finance" | "oai-weather" | "oai-sports")[];
     };
     /** WebSource */
     WebSource: {

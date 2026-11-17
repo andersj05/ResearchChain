@@ -6948,8 +6948,21 @@
             "default": "research-1"
           },
           "web_search": {
-            "type": "boolean",
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string",
+                "const": "auto"
+              }
+            ],
             "title": "Web Search",
+            "default": false
+          },
+          "sec_financials": {
+            "type": "boolean",
+            "title": "Sec Financials",
             "default": false
           }
         },
@@ -7894,6 +7907,142 @@
         "type": "object",
         "title": "RunUsage"
       },
+      "SecFinancials": {
+        "properties": {
+          "request": {
+            "$ref": "#/components/schemas/SecLookup"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["available", "unavailable"],
+            "title": "Status",
+            "default": "unavailable"
+          },
+          "retrieved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Retrieved At"
+          },
+          "cik": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cik"
+          },
+          "issuer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Issuer"
+          },
+          "source_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Url"
+          },
+          "observations": {
+            "items": {
+              "$ref": "#/components/schemas/SecObservation"
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Observations"
+          },
+          "detail": {
+            "type": "string",
+            "title": "Detail",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["request", "retrieved_at"],
+        "title": "SecFinancials"
+      },
+      "SecLookup": {
+        "properties": {
+          "ticker": {
+            "type": "string",
+            "pattern": "^[A-Z0-9][A-Z0-9.-]{0,13}$",
+            "title": "Ticker"
+          },
+          "metric": {
+            "type": "string",
+            "enum": ["revenue", "net_income", "operating_income", "operating_cash_flow"],
+            "title": "Metric"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["ticker", "metric"],
+        "title": "SecLookup"
+      },
+      "SecObservation": {
+        "properties": {
+          "start": {
+            "type": "string",
+            "format": "date",
+            "title": "Start"
+          },
+          "end": {
+            "type": "string",
+            "format": "date",
+            "title": "End"
+          },
+          "filed": {
+            "type": "string",
+            "format": "date",
+            "title": "Filed"
+          },
+          "accession": {
+            "type": "string",
+            "pattern": "^[0-9]{10}-[0-9]{2}-[0-9]{6}$",
+            "title": "Accession"
+          },
+          "form": {
+            "type": "string",
+            "enum": ["10-K", "10-K/A"],
+            "title": "Form"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "number"
+              }
+            ],
+            "title": "Value"
+          },
+          "unit": {
+            "type": "string",
+            "const": "USD",
+            "title": "Unit",
+            "default": "USD"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["start", "end", "filed", "accession", "form", "value"],
+        "title": "SecObservation"
+      },
       "SignInStatus": {
         "properties": {
           "available": {
@@ -8138,6 +8287,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/WebResearch"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sec_financials": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SecFinancials"
               },
               {
                 "type": "null"
@@ -8763,6 +8922,14 @@
             "type": "boolean",
             "title": "Truncated",
             "default": false
+          },
+          "feeds": {
+            "items": {
+              "type": "string",
+              "enum": ["oai-finance", "oai-weather", "oai-sports"]
+            },
+            "type": "array",
+            "title": "Feeds"
           }
         },
         "additionalProperties": false,

@@ -89,12 +89,13 @@ class ResearchConfig(StrictModel):
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
 
-    web_search: bool = False
+    web_search: bool | Literal["auto"] = False
+    sec_financials: bool = Field(default=False, exclude_if=lambda enabled: not enabled)
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
-        if self.web_search and self.stage != "custom":
-            raise ValueError("Web search is available on custom model steps only.")
+        if (self.web_search or self.sec_financials) and self.stage != "custom":
+            raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
         if self.prompt_version != expected:
             raise ValueError("The stage must use its matching prompt version.")

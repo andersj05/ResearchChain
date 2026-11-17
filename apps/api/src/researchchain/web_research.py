@@ -29,6 +29,9 @@ class WebResearch(StrictModel):
     actions: list[WebAction] = Field(max_length=100)
     sources: list[WebSource] = Field(max_length=200)
     truncated: bool = False
+    feeds: list[Literal["oai-finance", "oai-weather", "oai-sports"]] = Field(
+        default_factory=list, exclude_if=lambda feeds: not feeds
+    )
 
 
 def safe_web_url(value: Any) -> str | None:
@@ -48,13 +51,13 @@ def safe_web_url(value: Any) -> str | None:
     return None
 
 
-def web_request_options() -> dict[str, Any]:
+def web_request_options(mode: bool | Literal["auto"] = True) -> dict[str, Any]:
     # SIWC does not support max_tool_calls. Bound requests in the executor and
     # time/output in the transport; report hosted actions without claiming a cap.
     return {
         "tools": [{"type": "web_search"}],
         "include": ["web_search_call.action.sources"],
-        "tool_choice": {"type": "web_search"},
+        "tool_choice": "auto" if mode == "auto" else {"type": "web_search"},
     }
 
 
@@ -66,6 +69,7 @@ def read_web_research(response: dict[str, Any]) -> WebResearch:
     actions: list[WebAction] = []
     sources: dict[str, WebSource] = {}
     truncated = False
+    feeds: list[Literal["oai-finance", "oai-weather", "oai-sports"]] = []
 
     def source(item: Any, cited: bool = False) -> None:
         nonlocal truncated
@@ -110,6 +114,10 @@ def read_web_research(response: dict[str, Any]) -> WebResearch:
             for entry in (
                 action.get("sources", []) if isinstance(action.get("sources"), list) else []
             ):
+                if isinstance(entry, dict):
+                    for feed in ("oai-finance", "oai-weather", "oai-sports"):
+                        if feed in (entry.get("type"), entry.get("url")) and feed not in feeds:
+                            feeds.append(feed)
                 source(entry)
         for content in item.get("content", []) if isinstance(item.get("content"), list) else []:
             if isinstance(content, dict):
@@ -125,4 +133,5 @@ def read_web_research(response: dict[str, Any]) -> WebResearch:
         actions=actions,
         sources=list(sources.values()),
         truncated=truncated,
+        feeds=feeds,
     )
