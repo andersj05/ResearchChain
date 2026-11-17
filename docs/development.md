@@ -164,8 +164,9 @@ ownership across API restarts.
 ## Tooling notes
 
 - Lockfiles are committed; CI uses `--frozen-lockfile` and `--locked`.
-- ESLint 9 is pinned because the current Next.js plugin dependencies declare
-  ESLint 9 support. Upgrade the compatible set together; do not hide peer warnings.
+- ESLint 10 is compatible with the installed Next.js lint configuration. TypeScript
+  stays pinned to 5.9.3 because typescript-eslint 8.72.2 explicitly rejects TypeScript 7. Dependabot ignores the 7.x line until the compatible lint toolchain is upgraded;
+  do not suppress compatibility checks to merge an update.
 - UI SDK is beta and its installed docs are the reference for its exact API.
 - Next.js regenerates `next-env.d.ts`; it is ignored. `pnpm typecheck` runs
   `next typegen` first so a fresh checkout has its required generated types.
