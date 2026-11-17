@@ -7,25 +7,30 @@ All prompts, wiring, code and checkpoints remain yours to change.
 
 ## First run
 
-1. Open the saved **Idea research — charts to research memo** agent, or create an
-   agent and select **Use idea research example** in Build.
+1. Create an agent and select **Use idea research example** in Build. If you
+   already have a saved copy and want to use the revised template there, export or
+   save your edits first, load the example, and save a new version. Runs keep the
+   workflow version they started with.
 2. Select **Run workflow**. Write what you see, your proposed mechanism, the asset/
    market, relevant dates, and what would change your mind in **Research brief**.
    Add/select your chart images, PDFs or text evidence. Choose a model from your
    existing ChatGPT connection. The example defaults to `gpt-6.1-sol`.
-3. Start. **Frame my idea** can search for current ticker information while
-   reviewing the selected evidence. For example, ask how NVDA’s annual revenue
-   changed and which filings support the numbers.
-   At **Choose research direction**, read its output and add your judgment before
-   approving. Reject stops this run so you can revise it.
+3. Start. **Frame my idea** proposes two or three testable ideas from your brief
+   and evidence. It can search for current prices and request annual SEC figures
+   when they would help you pick an idea. The filing receipt appears alongside
+   the framing output. At **Choose research direction**, inspect the sources and
+   choose which idea to pursue. Include the ticker and metric if the follow-up
+   needs a filing comparison.
 4. **Research support and objections** searches for dated primary sources and
    opposing explanations. Search queries can contain information from your brief
    and selected evidence; only enable web search for material you want researched
    externally. Inspect the saved web actions and source links in Research results.
-5. The research step can select a ticker and annual financial metric. **Calculate
-   a simple model** reports the change across the two latest available annual filing
-   periods or uses your own paired inputs for OLS. **Draft the research memo** combines the research
-   and actual calculation results. Review both at the final checkpoint.
+5. **Calculate a simple model** compares the two latest available annual SEC
+   periods from the approved research step. It reports both values, the absolute
+   change, and the percentage change when the prior value is positive. Paired
+   observations in your brief take precedence and run OLS. **Draft the research
+   memo** uses the saved research and calculation results. Review both at the
+   final checkpoint.
 6. Approve to finish, or reject and iterate. Final-review feedback is saved; it does
    not trigger another model call. Use **Iterate from this run**, edit the prompts/
    brief or code, save a version and start another run to apply it.
@@ -85,6 +90,8 @@ lookup. The worker fetches the selected SEC XBRL concept and attaches up to five
 annual USD observations to that step’s result. Each record includes the reporting
 period, value, filing date, form and accession. When financials are restated, the
 latest filing for the period wins. Market prices use web and market search.
+The example enables an optional lookup in both research steps. The framing receipt
+informs the first review. The lookup after approval supplies any filing comparison.
 
 Set `RESEARCHCHAIN_SEC_USER_AGENT` in the worker environment or local `.env` to
 your organization’s name and monitored contact email, then restart the worker.
@@ -116,8 +123,9 @@ invented in model prose. They are saved as references with the research result a
 response artifact, separate from the original evidence library. The app does not
 archive full web pages, guarantee their continued availability, or validate the
 truth of the model's claims. Up to 100 actions and 200 URLs are retained; truncation
-is marked. The memo receives a bounded subset if the source list is large; the
-original research result keeps the full retained list. Open relevant links and
+is marked. The memo receives a bounded list that prioritizes provider-cited sources,
+plus the reported feeds and search observation time. The research output keeps
+the full retained list. Open relevant links and
 attach important originals yourself when reproducibility requires them.
 
 ## Files and verification

@@ -30,8 +30,11 @@ continues with its pinned workflow. Starting a fresh run uses the updated versio
 [editable example](../idea-research-example.md): chart/thesis framing, human direction,
 opt-in live web research with saved source references, executable OLS/correlation/
 scenario calculations from supplied numbers, and a memo with final human review.
-The in-app **Use idea research example** action and importable workflow make it
-reusable. Existing agents retain web search off. No database migration is required.
+The in-app **Use idea research example** action and importable workflow now offer
+optional SEC filing retrieval before the first review and again during approved
+research. The calculation uses the approved research receipt for the annual
+comparison, or paired data from the brief for OLS. The memo gets the recorded
+sources and computed values. Load the updated example to start a new version.
 
 Two bounded public-documentation connection checks used the existing ChatGPT plan;
 the second confirmed completed streamed web activity and 13 source references after
