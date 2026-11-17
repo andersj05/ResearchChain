@@ -17,10 +17,10 @@ type CanvasOptions = {
   positions: Record<string, MovePoint>;
   sizes: Record<string, { width: number; height: number }>;
   ports: Record<string, CanvasPort>;
-  onPositionsChange: (positions: Record<string, MovePoint>, details: { reason: string }) => void;
-  onConnect: (from: string, to: string) => void;
+  onPositionsChange?: (positions: Record<string, MovePoint>, details: { reason: string }) => void;
+  onConnect?: (from: string, to: string) => void;
   onSelect: (id: string) => void;
-  onOpen: (id: string, child?: string) => void;
+  onOpen?: (id: string, child?: string) => void;
 };
 type MovingState = { positions: Record<string, MovePoint>; moving: MoveDraft | null };
 
@@ -41,7 +41,7 @@ function portPoint(state: MovingState, port?: CanvasPort): MovePoint | undefined
   const at = nodePoint(state, port.node);
   return { x: at.x + port.offset.x, y: at.y + port.offset.y };
 }
-function curve(from?: MovePoint, to?: MovePoint) {
+export function curve(from?: MovePoint, to?: MovePoint) {
   if (!from || !to) return "";
   const bend = Math.max(55, Math.min(150, Math.abs(to.x - from.x) / 2));
   return `M${from.x},${from.y} C${from.x + bend},${from.y} ${to.x - bend},${to.y} ${to.x},${to.y}`;
@@ -96,7 +96,7 @@ export const workflowCanvas = definePrimitive({
       canConnect: (from, to) =>
         compatiblePorts(context.options().ports[from], context.options().ports[to]),
       connect: (from, to) => {
-        context.options().onConnect(from, to);
+        context.options().onConnect?.(from, to);
         return true;
       },
       label: (key) => context.options().ports[key]?.label ?? key,
@@ -140,7 +140,7 @@ export const workflowCanvas = definePrimitive({
       fit,
       reveal,
       select: (id: string) => context.options().onSelect(id),
-      open: (id: string, child?: string) => context.options().onOpen(id, child),
+      open: (id: string, child?: string) => context.options().onOpen?.(id, child),
       point: (state: MovingState, key: string) => portPoint(state, context.options().ports[key]),
     };
   },
@@ -200,6 +200,12 @@ export const workflowCanvas = definePrimitive({
         },
         focus: (_event, { el, api }) => api.reveal(el),
       },
+    }),
+    inspect: slot<{ value: string }>({
+      props: { value: "string" },
+      attrs: () => ({ type: "button" }),
+      press: ({ api, key }) => api.select(key),
+      on: { focus: (_event, { api, el }) => api.reveal(el) },
     }),
     open: slot<{ value: string; node: string; child?: string }>({
       props: { value: "string", node: "string", child: "string" },
