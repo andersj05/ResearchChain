@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Undo2, Redo2, CheckCheck, ExternalLink } from "lucide-react";
+import { Undo2, Redo2, CheckCheck, X } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { AgentSwitcher } from "@/components/agent-switcher";
 import { agentDraftKey, readAgentDraft, type AgentDraft } from "@/lib/agent-drafts";
@@ -17,6 +17,8 @@ import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
 import { WorkflowEditor } from "@/components/workflow-editor";
+import { useModelCatalog } from "@/components/model-picker";
+import { pruneDefinitions } from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
 import { formatTime, RunInspector } from "@/components/run-inspector";
@@ -78,7 +80,7 @@ export function Workbench() {
   const [run, setRun] = useState<RunSnapshot | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
   const [tab, setTab] = useState("workflow");
-  const [message, setMessage] = useState("Loading saved workspace…");
+  const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -88,6 +90,9 @@ export function Workbench() {
   const [providerAccount, setProviderAccount] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
+  const catalog = useModelCatalog(
+    loaded && accessActive && tab === "workflow" && !!workflow.research,
+  );
   const pendingStart = useRef<RunRequest | null>(null);
   const runReadEpoch = useRef(0);
   const selectedRunId = useRef<string | null>(null);
@@ -181,17 +186,11 @@ export function Workbench() {
           forgetPendingRun(pendingKey, restored.id);
           if (pendingStart.current?.id === restored.id) pendingStart.current = null;
           setTab("runs");
-          setMessage("Saved run restored.");
-        } else
+        } else if (unconfirmed) {
           setMessage(
-            unconfirmed
-              ? "Unconfirmed run restored. Start again with the same inputs to retry this request."
-              : draft
-                ? "Agent draft restored from this browser."
-                : latest
-                  ? `Loaded revision ${latest.number}.`
-                  : "Ready. Create an agent or edit this workflow.",
+            "Unconfirmed run restored. Start again with the same inputs to retry this request.",
           );
+        }
         const view = parameters.get("view");
         if (
           view &&
@@ -208,8 +207,8 @@ export function Workbench() {
           setTab(view);
       } catch (cause) {
         if (active) {
-          setError(cause instanceof Error ? cause.message : "Unable to load the workspace.");
-          setMessage("The draft is editable. Refresh history when the API is available.");
+          const detail = cause instanceof Error ? cause.message : "Unable to load the workspace.";
+          setError(`${detail} The draft is editable. Refresh history when the API is available.`);
         }
       } finally {
         if (active) setLoaded(true);
@@ -305,11 +304,7 @@ export function Workbench() {
     setExecutingId(null);
     setTab("workflow");
     rememberAgent(id || null);
-    setMessage(
-      cached
-        ? "Agent switched. Your draft and inputs were restored."
-        : "Agent switched. Build and save your workflow.",
-    );
+    setMessage("");
   }
   async function createAgent(id: string, name: string, copy: boolean) {
     const document = { ...structuredClone(copy ? workflow : initialWorkflow), name };
@@ -354,12 +349,6 @@ export function Workbench() {
               item.id === snapshot.id ? { ...item, status: snapshot.status } : item,
             ),
           );
-          if (
-            !snapshot.execution_pending &&
-            snapshot.status !== "queued" &&
-            snapshot.status !== "running"
-          )
-            setMessage(`Run ${snapshot.status}. Progress saved.`);
         }
       } catch (cause) {
         if (
@@ -395,7 +384,7 @@ export function Workbench() {
     recordChange(next, group);
     setDiagnostics([]);
     setError("");
-    setMessage("Draft changed. Save a revision to keep these changes.");
+    setMessage("");
   }
 
   async function action(work: () => Promise<void>) {
@@ -403,6 +392,7 @@ export function Workbench() {
     busyRef.current = true;
     setBusy(true);
     seal();
+    setMessage("");
     setError("");
     setDiagnostics([]);
     try {
@@ -440,6 +430,7 @@ export function Workbench() {
   function switchTab(value: string | null) {
     const next = value ?? "workflow";
     setTab(next);
+    setMessage("");
     const url = new URL(window.location.href);
     url.searchParams.set("view", next);
     window.history.replaceState(null, "", url);
@@ -570,13 +561,12 @@ export function Workbench() {
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
-    setMessage("Saving run request…");
     try {
       await api<CommandReceipt>("runs", request, admissionTimeout);
       forgetPendingRun(pendingKey, request.id);
-      const result = await openRun(request.id);
+      await openRun(request.id);
       pendingStart.current = null;
-      setMessage(`Run ${result.status}. Progress saved.`);
+      setMessage("");
       await refreshHistory();
     } catch (cause) {
       // A lost reply does not mean execution failed. Locate the accepted run;
@@ -604,7 +594,6 @@ export function Workbench() {
         },
         admissionTimeout,
       );
-      setMessage("Review decision saved.");
     } finally {
       setExecutingId(null);
       // Idempotent responses may describe an older review. Read current state.
@@ -618,7 +607,7 @@ export function Workbench() {
       setEdited(true);
       setError("");
       setDiagnostics([]);
-      setMessage(direction === "undo" ? "Last edit undone." : "Last edit redone.");
+      setMessage("");
     }
   }
 
@@ -658,6 +647,8 @@ export function Workbench() {
     setMessage("Workflow exported as JSON.");
   }
 
+  const showFeedback = !!message && !error && !setupOpen && !busy;
+  const runAnnouncement = tab === "runs" && run ? `Run ${run.status}.` : "";
   return (
     <main
       className="studio"
@@ -736,13 +727,18 @@ export function Workbench() {
                 </>
               )}
               <RunSetup
+                workflow={setupOpen ? pruneDefinitions(workflow) : workflow}
                 open={setupOpen}
-                onOpenChange={setSetupOpen}
+                onOpenChange={(open) => {
+                  if (open && workflow.research) catalog.refresh();
+                  setSetupOpen(open);
+                }}
                 brief={brief}
                 onBriefChange={setBrief}
                 evidenceIds={evidenceIds}
                 onEvidenceChange={setEvidenceIds}
                 research={workflow.research}
+                catalog={catalog}
                 onResearch={(research) => change({ ...workflow, research })}
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
@@ -754,6 +750,20 @@ export function Workbench() {
                 onStart={() => action(startRun)}
               />
             </div>
+          )}
+        </div>
+        <div className={showFeedback ? "workspace-feedback" : "sr-only"}>
+          <p role="status" aria-label="Workspace status">
+            {busy ? "Working…" : error ? "" : message || runAnnouncement}
+          </p>
+          {showFeedback && (
+            <button
+              className="button icon-button ghost"
+              aria-label="Dismiss status"
+              onClick={() => setMessage("")}
+            >
+              <X size={14} aria-hidden="true" />
+            </button>
           )}
         </div>
         {error && !setupOpen && (
@@ -803,12 +813,16 @@ export function Workbench() {
                   run restores its workflow and inputs for editing, then start a separate run.
                 </li>
               </ol>
+              <p id="canvas-help">
+                Drag a step or focus it and use Alt + arrows to move it on the 10 px grid. Drag
+                between ports to connect them. With a port focused, press Enter, choose a
+                destination with the arrows, then press Enter to connect or Escape to cancel. Scroll
+                to pan. Hold Ctrl or Command while scrolling to zoom. Double-click a step or use
+                Zoom to selected step to read it up close.
+              </p>
               <p>
-                Available tools: captured evidence, model prompts, notes, human reviews, conditions,
-                parallel branches, loops, subgraphs and JavaScript code steps. Code steps have typed
-                inputs and saved results. Web browsing, external tool registration and per-step
-                model selection are not available. One model is selected per workflow; custom output
-                uses a structured envelope with an answer up to 6,000 characters.
+                Choose the workflow model above the graph. Select a model step to override that
+                choice or configure its research tools. Use a human review to decide how to proceed.
               </p>
               <p>
                 Save a revision for durable history. Save draft or Export JSON also keeps your work.
@@ -818,6 +832,7 @@ export function Workbench() {
               </p>
             </details>
             <WorkflowEditor
+              catalog={catalog}
               key={documentEpoch}
               onSeal={seal}
               workflow={workflow}
@@ -884,9 +899,7 @@ export function Workbench() {
                     change(structuredClone(ideaWorkflow));
                     setDocumentEpoch((value) => value + 1);
                     setSelected(ideaWorkflow.start_node);
-                    setMessage(
-                      "Idea research example loaded. Add charts and your thesis in Run workflow. Optional research-data in the brief enables calculations. Undo restores your previous draft.",
-                    );
+                    setMessage("Idea research example loaded. Undo to restore your draft.");
                   }}
                 >
                   Use idea research example
@@ -996,7 +1009,6 @@ export function Workbench() {
                   </Button>
                 </div>
               </details>
-              <span className="muted editor-footnote">Edits apply to future runs.</span>
             </div>
           </section>
         </TabsPanel>
@@ -1033,7 +1045,6 @@ export function Workbench() {
                 onOpen={(id) =>
                   void action(async () => {
                     await openRun(id);
-                    setMessage("Saved run opened.");
                   })
                 }
               />
@@ -1050,9 +1061,8 @@ export function Workbench() {
                   runReadEpoch.current += 1;
                   try {
                     await api(`runs/${run.id}/cancel`, {});
-                    const result = await openRun(run.id);
+                    await openRun(run.id);
                     await refreshHistory();
-                    setMessage(`Run ${result.status}.`);
                   } catch (cause) {
                     setError(cause instanceof Error ? cause.message : "Cancellation failed.");
                   }
@@ -1062,7 +1072,6 @@ export function Workbench() {
                     if (run) {
                       await openRun(run.id);
                       await refreshHistory();
-                      setMessage("Run refreshed.");
                     }
                   })
                 }
@@ -1078,7 +1087,6 @@ export function Workbench() {
                       }
                       await openRun(run.id);
                       await refreshHistory();
-                      setMessage("Run recovered from saved progress.");
                     }
                   })
                 }
@@ -1190,14 +1198,6 @@ export function Workbench() {
           </section>
         </TabsPanel>
       </Tabs>
-      <footer>
-        <p role="status" aria-label="Workspace status" aria-live="polite">
-          {busy ? "Working…" : message}
-        </p>
-        <a className="text-link" href="http://127.0.0.1:8000/docs" target="_blank" rel="noreferrer">
-          API reference <ExternalLink size={12} aria-hidden="true" />
-        </a>
-      </footer>
     </main>
   );
 }

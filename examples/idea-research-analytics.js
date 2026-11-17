@@ -3,11 +3,15 @@
 const research = JSON.parse(inputs.text);
 const packet = {
   research_notes: research.conclusion,
+  sec_financials: research.sec_financials ?? null,
+  web_feeds: research.web_research?.feeds ?? [],
+  web_observed_at: research.web_research?.observed_at ?? null,
   web_sources: [],
-  source_list_truncated: false,
+  source_list_truncated: research.web_research?.truncated ?? false,
 };
 const sources = research.web_research?.sources ?? [];
-for (const source of sources) {
+const prioritizedSources = [...sources.filter((s) => s.cited), ...sources.filter((s) => !s.cited)];
+for (const source of prioritizedSources) {
   if (JSON.stringify(packet).length + JSON.stringify(source).length > 14000) {
     packet.source_list_truncated = true;
     break;
@@ -18,9 +22,30 @@ const blocks = [...inputs.brief.matchAll(/```research-data\s*([\s\S]*?)```/g)];
 let analytics = {
   status: "needs_data",
   reason:
-    "No research-data block supplied. Request paired numeric observations with dates, units and a source. Chart pixels and web prose are not numeric input.",
+    "No research-data block supplied. The approved research step needs two available annual SEC periods or paired numeric observations with dates, units and a source.",
 };
 if (blocks.length > 1) throw new Error("Use one research-data block per run.");
+if (blocks.length === 0 && packet.sec_financials?.status === "available") {
+  const rows = packet.sec_financials.observations;
+  if (rows.length >= 2) {
+    const [previous, latest] = rows.slice(-2);
+    const change = latest.value - previous.value;
+    analytics = {
+      status: "filing_change",
+      method: "Difference between the two latest available annual filing periods",
+      metric: packet.sec_financials.request.metric,
+      ticker: packet.sec_financials.request.ticker,
+      from: previous.end,
+      to: latest.end,
+      previous_value: previous.value,
+      latest_value: latest.value,
+      change,
+      percent_change: previous.value > 0 ? (change / previous.value) * 100 : null,
+      unit: latest.unit,
+      source: packet.sec_financials.source_url,
+    };
+  }
+}
 if (blocks.length === 1) {
   const data = JSON.parse(blocks[0][1]);
   const required = ["source", "as_of", "x_label", "x_unit", "y_label", "y_unit"];
@@ -91,5 +116,5 @@ if (blocks.length === 1) {
 }
 return {
   text: JSON.stringify({ ...packet, analytics }),
-  number: analytics.status === "computed" ? analytics.slope : 0,
+  number: analytics.slope ?? analytics.change ?? 0,
 };

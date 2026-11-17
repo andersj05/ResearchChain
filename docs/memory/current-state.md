@@ -12,12 +12,17 @@ prompts, sources, checkpoints and quality judgments. Templates and saved pilots 
 optional examples. A finished agent, pilot labels, a calibrated judge and public
 hosting are not acceptance gates for this environment.
 
-**Current request:** the owner explicitly asked for a simple editable idea-generation
-research agent accepting charts and a thesis, with deeper research and modeling,
-and confirmed live web research. The [idea research example](../idea-research-example.md)
-is an optional starting point; the owner still decides the strategy, source quality,
-assumptions and conclusions. Next: review it with a real idea, then supply usability
-and research feedback. Do not submit owner judgments on their behalf.
+The owner tested the idea-research example and requested easier reading, model
+selection in the graph, financial research during framing, and a quieter canvas.
+The [example guide](../idea-research-example.md) describes the updated workflow.
+
+- [Model selection](https://github.com/andersj05/ResearchChain/pull/54) adds a workflow default above the canvas and a model override in the step inspector.
+- [Run reader](https://github.com/andersj05/ResearchChain/pull/55) renders Markdown, opens the latest output and keeps earlier steps and their source records available.
+- [Graph interactions](https://github.com/andersj05/ResearchChain/pull/56) restore complete card borders, highlight connected paths and give the canvas the space previously used by the persistent footer.
+- [Research tools](https://github.com/andersj05/ResearchChain/pull/57) give the editable framing step optional web and market search. The later research step can request annual SEC financials with filing provenance. Direct SEC retrieval requires the worker's configured operator contact.
+
+For an existing agent, edit its tool choices and save a new version. A paused run
+continues with its pinned workflow. Starting a fresh run uses the updated version.
 
 ## Requested idea research example
 
@@ -25,8 +30,11 @@ and research feedback. Do not submit owner judgments on their behalf.
 [editable example](../idea-research-example.md): chart/thesis framing, human direction,
 opt-in live web research with saved source references, executable OLS/correlation/
 scenario calculations from supplied numbers, and a memo with final human review.
-The in-app **Use idea research example** action and importable workflow make it
-reusable. Existing agents retain web search off. No database migration is required.
+The in-app **Use idea research example** action and importable workflow now offer
+optional SEC filing retrieval before the first review and again during approved
+research. The calculation uses the approved research receipt for the annual
+comparison, or paired data from the brief for OLS. The memo gets the recorded
+sources and computed values. Load the updated example to start a new version.
 
 Two bounded public-documentation connection checks used the existing ChatGPT plan;
 the second confirmed completed streamed web activity and 13 source references after
@@ -91,17 +99,17 @@ usage; historical usage counts are not live availability guarantees.
 
 ## Explicit capability boundaries
 
-One model selection applies to all model steps in a workflow, including subgraphs.
-Custom model instructions retain a structured result envelope; its conclusion is
-limited to 6,000 characters. Per-step models and arbitrary output schemas require
-further work. Sources capture supplied permitted content; URL records do not fetch
+The graph header sets a workflow default and individual model steps can override it,
+including in referenced subgraphs. Each attempt records the requested and returned
+model. Custom model instructions retain a structured result envelope with a
+6,000-character conclusion. Sources capture supplied permitted content; URL records do not fetch
 web pages. Source search covers loaded records, runs the latest 20 in scope and
 reports the latest 100.
 
 [Custom code](../custom-code.md) runs synchronous JavaScript transformations with
 text/number outputs in a disposable QuickJS process and bounded resources. It has
 no network, filesystem, credentials, Node modules or third-party package access.
-External tools, web search and other runtimes are separate integrations. Browser
+Model steps provide the web and SEC integrations described above. Browser
 drafts are recoverable conveniences; saved versions and exports are durable copies.
 
 ## Optional studies and future hosting

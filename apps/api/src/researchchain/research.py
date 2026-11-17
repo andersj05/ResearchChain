@@ -30,6 +30,7 @@ from researchchain.research_models import (
     ProviderStatus,
     ResearchManifest,
     ResearchResult,
+    ResearchWithLookup,
     StoredResearchResult,
 )
 from researchchain.research_prompt import (
@@ -38,9 +39,11 @@ from researchchain.research_prompt import (
     json_bytes,
     prepare_research,
     prompt_hashes,
+    sec_prompt_hash,
     validate_result,
     web_prompt_hash,
 )
+from researchchain.sec_financials import SEC_TOOL_VERSION, lookup_sec_financials
 from researchchain.usage_models import UsageError
 from researchchain.usage_store import admit_request
 
@@ -48,7 +51,7 @@ RESEARCH_COMPILER_VERSION = "research-0.3.0"
 
 
 class ResearchProvider(Protocol):
-    def pin_account(self, account_id: str, model: str) -> ProviderAccount: ...
+    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount: ...
     def status(self) -> ProviderStatus: ...
     async def complete(
         self,
@@ -95,15 +98,19 @@ class ChatGPTResearchProvider:
                 result.error = str(error)
         return result
 
-    def pin_account(self, account_id: str, model: str) -> ProviderAccount:
+    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount:
         status = self.status()
         if status.error:
             raise ConnectionError(status.error)
         account = next((item for item in status.accounts if item.id == account_id), None)
         if not account or not account.active or not account.plan_enabled:
             raise ConnectionError("Select the connected ChatGPT account before starting research.")
-        if model not in {item.slug for item in status.models}:
-            raise ConnectionError("Select a model listed for the connected ChatGPT account.")
+        unavailable = models.difference(item.slug for item in status.models)
+        if unavailable:
+            raise ConnectionError(
+                "Choose an available model for this account. Unavailable: "
+                + ", ".join(sorted(unavailable))
+            )
         return account
 
     async def complete(
@@ -116,7 +123,7 @@ class ChatGPTResearchProvider:
         with httpx.Client(timeout=15, follow_redirects=False, trust_env=False) as client:
             provider = ChatGPTPlan(ChatGPTAuth(self.store, client))
             return await provider.complete(
-                manifest.settings.model,
+                prepared.model,
                 "",
                 account_id=manifest.account_id,
                 timeout_seconds=limits.max_response_seconds,
@@ -151,13 +158,15 @@ def make_manifest(
                 as_of_date=source.as_of_date.isoformat() if source.as_of_date else None,
             )
         )
-    hashes = prompt_hashes(
-        include_custom=any(
-            isinstance(node.config, ResearchConfig) and node.config.stage == "custom"
-            for graph in [workflow, *workflow.subgraphs]
-            for node in graph.nodes
-        )
-    )
+    configs = [
+        node.config
+        for graph in [workflow, *workflow.subgraphs]
+        for node in graph.nodes
+        if isinstance(node.config, ResearchConfig)
+    ]
+    hashes = prompt_hashes(include_custom=any(config.stage == "custom" for config in configs))
+    web = any(config.web_search for config in configs)
+    sec = any(config.sec_financials for config in configs)
     return ResearchManifest(
         settings=workflow.research,
         account_id=account.id,
@@ -173,20 +182,22 @@ def make_manifest(
             "version": "evidence-packet-1",
             "allowed": ["read_pinned_evidence"],
             "calls_per_attempt": 1,
-            "remote_tools": ["web_search"]
-            if any(
-                isinstance(node.config, ResearchConfig) and node.config.web_search
-                for graph in [workflow, *workflow.subgraphs]
-                for node in graph.nodes
-            )
-            else [],
-            "web_prompt_hash": web_prompt_hash()
-            if any(
-                isinstance(node.config, ResearchConfig) and node.config.web_search
-                for graph in [workflow, *workflow.subgraphs]
-                for node in graph.nodes
-            )
-            else None,
+            "remote_tools": (["web_search"] if web else []) + (["sec_financials"] if sec else []),
+            "web_prompt_hash": web_prompt_hash() if web else None,
+            **(
+                {"auto_web_prompt_hash": web_prompt_hash("auto")}
+                if any(config.web_search == "auto" for config in configs)
+                else {}
+            ),
+            **(
+                {
+                    "sec_version": SEC_TOOL_VERSION,
+                    "sec_prompt_hash": sec_prompt_hash(),
+                    "sec_lookups_per_enabled_step": 1,
+                }
+                if sec
+                else {}
+            ),
             "web_action_limit": "provider-managed; bounded by request time and output",
             "automatic_billing_fallback": False,
             "token_limit": "stop_before_next_call_after_reported_usage",
@@ -237,7 +248,9 @@ class ResearchExecutor:
             self.control.guard(path, False)
             return self.execute(node, path, context, feedback)
 
-    def reserve(self, node: WorkflowNode, path: str) -> tuple[UUID, ResearchResult | None]:
+    def reserve(
+        self, node: WorkflowNode, path: str, model: str
+    ) -> tuple[UUID, ResearchResult | None]:
         assert isinstance(node.config, ResearchConfig)
         limits = self.manifest.settings.limits
         with self.control.lock:
@@ -286,7 +299,7 @@ class ResearchExecutor:
             self.conn.execute(
                 "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
                 "VALUES (%s, %s, %s, %s, %s, 'preparing')",
-                (attempt_id, self.run_id, path, node.config.stage, self.manifest.settings.model),
+                (attempt_id, self.run_id, path, node.config.stage, model),
             )
             return attempt_id, None
 
@@ -321,12 +334,24 @@ class ResearchExecutor:
             )
         if node.config.web_search and (
             "web_search" not in self.manifest.tool_config.get("remote_tools", [])
-            or self.manifest.tool_config.get("web_prompt_hash") != web_prompt_hash()
+            or self.manifest.tool_config.get(
+                "auto_web_prompt_hash" if node.config.web_search == "auto" else "web_prompt_hash"
+            )
+            != web_prompt_hash(node.config.web_search)
         ):
             raise ExecutionStopped(
                 "This run requires its pinned web research implementation.", "failed"
             )
-        attempt_id, previous = self.reserve(node, path)
+        if node.config.sec_financials and (
+            "sec_financials" not in self.manifest.tool_config.get("remote_tools", [])
+            or self.manifest.tool_config.get("sec_version") != SEC_TOOL_VERSION
+            or self.manifest.tool_config.get("sec_prompt_hash") != sec_prompt_hash()
+        ):
+            raise ExecutionStopped(
+                "This run requires its pinned SEC lookup implementation.", "failed"
+            )
+        model = node.config.model or self.manifest.settings.model
+        attempt_id, previous = self.reserve(node, path, model)
         if previous:
             return previous.model_dump_json()
         partial = ""
@@ -355,9 +380,11 @@ class ResearchExecutor:
                     context,
                     feedback,
                     node.instructions,
+                    model=model,
                     web_search=node.config.web_search,
+                    sec_financials=node.config.sec_financials,
                 )
-                payload = json_bytes(prepared.request_body(self.manifest.settings.model))
+                payload = json_bytes(prepared.request_body())
                 original = put_artifact(self.conn, payload, f"research-request-{attempt_id}.json")
                 self.conn.execute(
                     "UPDATE research_attempts SET input_artifact_id = %s, input_bytes = %s, "
@@ -372,18 +399,23 @@ class ResearchExecutor:
             self.control.guard(path, False)
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
-            result = validate_result(completion.text, node.config.stage, prepared)
+            validated = validate_result(completion.text, node.config.stage, prepared)
+            result = StoredResearchResult(**validated.model_dump(exclude={"sec_lookup"}))
             if node.config.web_search:
-                if not completion.web_research or not any(
-                    action.status == "completed" for action in completion.web_research.actions
+                trace = completion.web_research
+                if (node.config.web_search is True or (trace and trace.actions)) and not (
+                    trace and any(action.status == "completed" for action in trace.actions)
                 ):
                     raise ValueError(
                         "The provider did not complete a web search. "
                         "No researched result was accepted."
                     )
-                result = StoredResearchResult(
-                    **result.model_dump(), web_research=completion.web_research
-                )
+                if trace and trace.actions:
+                    result.web_research = trace
+            if isinstance(validated, ResearchWithLookup) and validated.sec_lookup:
+                self.control.guard(path, False)
+                result.sec_financials = asyncio.run(lookup_sec_financials(validated.sec_lookup))
+                self.control.guard(path, False)
             self.finish(attempt_id, "completed", partial, completion, result=result)
             return result.model_dump_json()
         except ExecutionStopped as error:
@@ -429,11 +461,17 @@ class ResearchExecutor:
 
         output_characters = len(text)
         with self.control.lock:
-            if completion and completion.web_research:
+            sec = result.sec_financials if isinstance(result, StoredResearchResult) else None
+            if completion and (completion.web_research or sec):
                 text = json_bytes(
                     {
                         "model_text": text,
-                        "web_research": completion.web_research.model_dump(mode="json"),
+                        **(
+                            {"web_research": completion.web_research.model_dump(mode="json")}
+                            if completion.web_research
+                            else {}
+                        ),
+                        **({"sec_financials": sec.model_dump(mode="json")} if sec else {}),
                     }
                 ).decode()
             original = (

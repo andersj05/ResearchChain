@@ -82,19 +82,22 @@ class LoopConfig(StrictModel):
 
 
 ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
+ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
 
 
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
+    model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
 
-    web_search: bool = False
+    web_search: bool | Literal["auto"] = False
+    sec_financials: bool = False
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
-        if self.web_search and self.stage != "custom":
-            raise ValueError("Web search is available on custom model steps only.")
+        if (self.web_search or self.sec_financials) and self.stage != "custom":
+            raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
         if self.prompt_version != expected:
             raise ValueError("The stage must use its matching prompt version.")
@@ -120,7 +123,7 @@ class ResearchLimits(StrictModel):
 
 class ResearchSettings(StrictModel):
     provider: Literal["chatgpt_plan"] = "chatgpt_plan"
-    model: str = Field(default="gpt-6.1-sol", pattern=r"^[a-zA-Z0-9._:-]{1,120}$")
+    model: ModelSlug = "gpt-6.1-sol"
     billing: Literal["included_plan"] = "included_plan"
     limits: ResearchLimits = Field(default_factory=ResearchLimits)
 
@@ -409,14 +412,33 @@ class Workflow(GraphDefinition):
                 visiting.remove(key)
         return self
 
+    def research_models(self) -> set[str]:
+        """Models to validate at start, excluding archived subgraph versions."""
+        assert self.research is not None
+        models = {self.research.model}
+        definitions = {(item.id, item.version): item for item in self.subgraphs}
+        pending: list[GraphDefinition] = [self]
+        while pending:
+            for node in pending.pop().nodes:
+                config = node.config
+                if isinstance(config, ResearchConfig) and config.model:
+                    models.add(config.model)
+                elif isinstance(config, (LoopConfig, SubgraphConfig)):
+                    body = definitions.pop((config.ref.id, config.ref.version), None)
+                    if body:
+                        pending.append(body)
+        return models
+
     def canonical_document(self) -> dict[str, Any]:
         """Keep legacy content hashes stable; API responses include normalized defaults."""
         document = self.model_dump(mode="json")
         for graph in [document, *document.get("subgraphs", [])]:
             for node in graph["nodes"]:
                 config = node.get("config")
-                if config and config.get("type") == "research" and not config.get("web_search"):
-                    config.pop("web_search", None)
+                if config and config.get("type") == "research":
+                    for tool in ("web_search", "sec_financials"):
+                        if not config.get(tool):
+                            config.pop(tool, None)
         if self.schema_version != "0.3":
             document.pop("research", None)
         if self.schema_version == "0.1":

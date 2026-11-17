@@ -13,6 +13,7 @@ async function openConnection(page: Page, request: APIRequestContext) {
   );
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await expect(page.getByText("Connected as Synthetic", { exact: true })).toBeVisible();
+  await page.getByText("Manage connection", { exact: true }).click();
 }
 
 async function providerRedirect(page: Page, decline = false) {
@@ -64,6 +65,8 @@ for (const width of [1440, 390]) {
     expect(pending.state).toBe("waiting");
     await page.reload();
     await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+    await expect(page.getByText("Connected as Synthetic", { exact: true })).toBeVisible();
+    await page.getByText("Manage connection", { exact: true }).click();
     await expect(link).toHaveAttribute("href", entry!);
     expect(starts).toBe(1);
     expect((await (await request.get(endpoint)).json()).id).toBe(pending.id);

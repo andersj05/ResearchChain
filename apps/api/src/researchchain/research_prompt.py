@@ -4,7 +4,7 @@ import base64
 import hashlib
 import json
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from psycopg import Connection
@@ -13,7 +13,12 @@ from psycopg.rows import DictRow
 from researchchain.artifacts import read_content
 from researchchain.evidence import read_evidence
 from researchchain.graph import ResearchStage
-from researchchain.research_models import ResearchManifest, ResearchResult, StoredResearchResult
+from researchchain.research_models import (
+    ResearchManifest,
+    ResearchResult,
+    ResearchWithLookup,
+    StoredResearchResult,
+)
 from researchchain.web_research import web_request_options
 
 PROMPT_VERSION = "research-1"
@@ -61,9 +66,28 @@ WEB_SYSTEM_PROMPT = CUSTOM_SYSTEM_PROMPT.replace(
 )
 
 
-def web_prompt_hash() -> str:
+AUTO_WEB_PROMPT = WEB_SYSTEM_PROMPT.replace(
+    "Search the live web for this task.",
+    "Choose whether to search. Look up time-sensitive claims, tickers, quotes and filings "
+    "when the task needs them. Use the finance feed when available and label market as-of times.",
+)
+SEC_PROMPT = (
+    "To retrieve reported annual US-GAAP financial values, set sec_lookup to a US issuer ticker "
+    "and the most relevant supported metric. For example use NVDA and revenue for NVIDIA sales. "
+    "Choose null when this lookup is irrelevant. The worker executes your selection after this "
+    "answer and attaches the SEC observations to your output for connected steps. Never guess "
+    "values in advance. For current market quotes use web search if enabled."
+)
+
+
+def web_prompt_hash(mode: bool | Literal["auto"] = True) -> str:
     return hashlib.sha256(
-        json_bytes({"system": WEB_SYSTEM_PROMPT, "tools": web_request_options()})
+        json_bytes(
+            {
+                "system": AUTO_WEB_PROMPT if mode == "auto" else WEB_SYSTEM_PROMPT,
+                "tools": web_request_options(mode),
+            }
+        )
     ).hexdigest()
 
 
@@ -92,8 +116,8 @@ def json_bytes(value: Any) -> bytes:
     )
 
 
-def output_schema(custom: bool = False) -> dict[str, Any]:
-    schema = ResearchResult.model_json_schema()
+def output_schema(custom: bool = False, sec_financials: bool = False) -> dict[str, Any]:
+    schema = (ResearchWithLookup if sec_financials else ResearchResult).model_json_schema()
     # Preserve the exact legacy schema and prompt hashes for saved research runs.
     schema["properties"]["stage"]["enum"] = (
         ["custom"] if custom else ["hypothesize", "challenge", "revise"]
@@ -117,6 +141,14 @@ def output_schema(custom: bool = False) -> dict[str, Any]:
 
     normalize(schema)
     return schema
+
+
+def sec_prompt_hash() -> str:
+    return hashlib.sha256(
+        json_bytes(
+            {"system": SEC_PROMPT, "schema": output_schema(custom=True, sec_financials=True)}
+        )
+    ).hexdigest()
 
 
 def prompt_hashes(include_custom: bool = False) -> dict[str, str]:
@@ -146,12 +178,14 @@ class PreparedResearch:
     schema: dict[str, Any]
     sources: dict[UUID, dict[str, Any]]
     previous: ResearchResult | None
-    web_search: bool = False
+    model: str
+    web_search: bool | Literal["auto"] = False
+    sec_financials: bool = False
 
-    def request_body(self, model: str) -> dict[str, Any]:
+    def request_body(self) -> dict[str, Any]:
         return {
-            **(web_request_options() if self.web_search else {}),
-            "model": model,
+            **(web_request_options(self.web_search) if self.web_search else {}),
+            "model": self.model,
             "instructions": self.instructions,
             "input": self.input_items,
             "text": {
@@ -175,7 +209,10 @@ def prepare_research(
     context: str,
     feedback: str,
     instructions: str,
-    web_search: bool = False,
+    web_search: bool | Literal["auto"] = False,
+    sec_financials: bool = False,
+    *,
+    model: str | None = None,
 ) -> PreparedResearch:
     sources: dict[UUID, dict[str, Any]] = {}
     attachments: list[dict[str, Any]] = []
@@ -269,12 +306,15 @@ def prepare_research(
     content_items = [{"type": "input_text", "text": json_bytes(packet).decode()}, *attachments]
     prepared = PreparedResearch(
         instructions=(
-            WEB_SYSTEM_PROMPT
+            AUTO_WEB_PROMPT
+            if web_search == "auto"
+            else WEB_SYSTEM_PROMPT
             if web_search
             else CUSTOM_SYSTEM_PROMPT
             if stage == "custom"
             else SYSTEM_PROMPT
         )
+        + ("\n" + SEC_PROMPT if sec_financials else "")
         + "\nStage: "
         + stage
         + "\n"
@@ -282,18 +322,22 @@ def prepare_research(
         + "\nUser's step instructions:\n"
         + instructions,
         input_items=[{"role": "user", "content": content_items}],
-        schema=output_schema(custom=stage == "custom"),
+        schema=output_schema(custom=stage == "custom", sec_financials=sec_financials),
         sources=sources,
         previous=previous,
+        model=model or manifest.settings.model,
         web_search=web_search,
+        sec_financials=sec_financials,
     )
-    if len(json_bytes(prepared.request_body(manifest.settings.model))) > limit:
+    if len(json_bytes(prepared.request_body())) > limit:
         raise ValueError("The evidence packet and prompt exceed the workflow's input byte limit.")
     return prepared
 
 
 def validate_result(text: str, stage: ResearchStage, prepared: PreparedResearch) -> ResearchResult:
-    result = ResearchResult.model_validate_json(text)
+    result = (
+        ResearchWithLookup if prepared.sec_financials else ResearchResult
+    ).model_validate_json(text)
     if result.stage != stage:
         raise ValueError("The response has a different research stage.")
     if (

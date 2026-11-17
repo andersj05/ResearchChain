@@ -82,12 +82,12 @@ def data_block(**changes):
     return "My idea\n```research-data\n" + json.dumps(data) + "\n```"
 
 
-def calculate(brief):
+def calculate(brief, **result):
     config = next(n.config for n in example().nodes if n.id == "analytics")
     return execute_code(
         config,
         CodeInputs(
-            text=json.dumps({"conclusion": "Research notes"}),
+            text=json.dumps({"conclusion": "Research notes", **result}),
             brief=brief,
             artifact_count=0,
             iteration=0,
@@ -98,7 +98,8 @@ def calculate(brief):
 def test_web_search_is_explicit_and_canonical_defaults_stay_compatible():
     workflow = example()
     document = workflow.canonical_document()
-    assert "web_search" not in document["nodes"][0]["config"]
+    assert document["nodes"][0]["config"]["web_search"] == "auto"
+    assert "web_search" not in document["nodes"][4]["config"]
     assert document["nodes"][2]["config"]["web_search"] is True
     with pytest.raises(ValidationError, match="custom"):
         ResearchConfig(web_search=True)
@@ -158,6 +159,27 @@ def test_trace_deduplicates_and_bounds_metadata():
     assert trace.sources[0].cited
 
 
+def test_hosted_finance_reference_is_not_dropped_or_treated_as_a_url():
+    trace = read_web_research(
+        {
+            "output": [
+                {
+                    "type": "web_search_call",
+                    "action": {
+                        "sources": [
+                            {"type": "url", "url": "oai-finance"},
+                            {"type": "api", "name": "oai-finance", "url": None},
+                            {"type": "api", "name": "oai-weather"},
+                            {"type": "url", "url": "javascript:oai-finance"},
+                        ]
+                    },
+                },
+            ]
+        }
+    )
+    assert trace.feeds == ["oai-finance", "oai-weather"] and not trace.sources
+
+
 def test_example_calculates_known_fit_and_marks_extrapolation():
     result = calculate(data_block())
     analytics = json.loads(result.outputs.text)["analytics"]
@@ -198,6 +220,25 @@ def test_constant_y_has_no_defined_correlation():
     analytics = json.loads(result.outputs.text)["analytics"]
     assert analytics["slope"] == 0 and analytics["intercept"] == 7
     assert analytics["correlation"] is None and analytics["r_squared"] is None
+
+
+def test_memo_packet_prioritizes_cited_sources_within_its_size_limit():
+    cited = {"url": "https://example.org/data", "title": "Observations", "cited": True}
+    trace = {
+        "feeds": ["oai-finance"],
+        "observed_at": "2026-11-17T20:00:00Z",
+        "sources": [
+            {"url": f"https://example.org/{index}/" + "x" * 3900, "cited": False}
+            for index in range(5)
+        ]
+        + [cited],
+    }
+    packet = json.loads(calculate("Explore the idea", web_research=trace).outputs.text)
+    assert packet["web_sources"][0] == cited
+    assert len(packet["web_sources"]) < len(trace["sources"])
+    assert packet["source_list_truncated"]
+    assert packet["web_feeds"] == trace["feeds"]
+    assert packet["web_observed_at"] == trace["observed_at"]
 
 
 class WebProvider(FakeProvider):

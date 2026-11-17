@@ -1,7 +1,8 @@
 "use client";
 
 import { ResearchConnection } from "@/components/research-settings";
-import type { ResearchSettings } from "@/lib/workflow";
+import type { ResearchSettings, Workflow } from "@/lib/workflow";
+import type { ModelCatalog } from "@/components/model-picker";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
 import {
@@ -14,6 +15,55 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import { Play, X } from "lucide-react";
+
+function RunTools({ workflow }: { workflow: Workflow }) {
+  const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
+    graph.nodes.flatMap((node) => {
+      const config = node.config;
+      if (config?.type !== "research" || (!config.web_search && !config.sec_financials)) return [];
+      const tools = [
+        config.web_search === "auto"
+          ? "optional web search"
+          : config.web_search
+            ? "required web search"
+            : "",
+        config.sec_financials ? "optional SEC lookup" : "",
+      ]
+        .filter(Boolean)
+        .join(", ");
+      return [
+        {
+          key: `${"id" in graph ? graph.id + "/" + graph.version : "root"}/${node.id}`,
+          label: node.label,
+          tools,
+          sec: config.sec_financials,
+        },
+      ];
+    }),
+  );
+  if (!steps.length) return null;
+  return (
+    <details className="run-details">
+      <summary>
+        External research tools · {steps.length} {steps.length === 1 ? "step" : "steps"}
+      </summary>
+      <ul>
+        {steps.map((step) => (
+          <li key={step.key}>
+            <strong>{step.label}</strong> · {step.tools}
+          </li>
+        ))}
+      </ul>
+      <p className="field-hint">Web queries can include your brief and selected evidence.</p>
+      {steps.some((step) => step.sec) && (
+        <p className="field-hint">
+          SEC lookups send the selected company and metric. Set RESEARCHCHAIN_SEC_USER_AGENT with an
+          operator contact on the worker.
+        </p>
+      )}
+    </details>
+  );
+}
 
 export function RunSetup({
   open,
@@ -29,11 +79,15 @@ export function RunSetup({
   error,
   onStart,
   research,
+  catalog,
+  workflow,
   onResearch,
   accountId,
   onAccount,
 }: {
   research?: ResearchSettings | null;
+  catalog: ModelCatalog;
+  workflow: Workflow;
   onResearch: (settings: ResearchSettings) => void;
   accountId: string | null;
   onAccount: (id: string | null) => void;
@@ -50,6 +104,24 @@ export function RunSetup({
   error: string;
   onStart: () => Promise<void>;
 }) {
+  const available = new Set(catalog.status?.models?.map((model) => model.slug));
+  const stepModels = open
+    ? [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
+        graph.nodes.flatMap((node) =>
+          node.config?.type === "research" && node.config.model
+            ? [{ label: node.label, model: node.config.model }]
+            : [],
+        ),
+      )
+    : [];
+  const unavailable = stepModels.filter((step) => !available.has(step.model));
+  const ready =
+    !research ||
+    (!!accountId &&
+      !catalog.loading &&
+      !catalog.error &&
+      available.has(research.model) &&
+      unavailable.length === 0);
   return (
     <Dialog
       open={open}
@@ -77,7 +149,7 @@ export function RunSetup({
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (brief.trim() && !busy && (!research || accountId)) void onStart();
+            if (brief.trim() && !busy && ready) void onStart();
           }}
         >
           <div className="run-context">
@@ -95,21 +167,39 @@ export function RunSetup({
             onChange={(event) => onBriefChange(event.target.value)}
             placeholder="What question should this run explore?"
           />
-          <p className="field-hint">
-            The run keeps its own saved revision. Later edits won’t change it.
-          </p>
           {open && research && (
             <ResearchConnection
               settings={research}
+              catalog={catalog}
               onSettings={onResearch}
               accountId={accountId}
               onAccount={onAccount}
               disabled={busy}
             />
           )}
+          {!!stepModels.length && (
+            <details className="step-model-list">
+              <summary>Step model overrides ({stepModels.length})</summary>
+              <ul>
+                {stepModels.map((step, index) => (
+                  <li key={index}>
+                    {step.label} · {step.model}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {research && accountId && !catalog.loading && !catalog.error && !ready && (
+            <p role="alert" className="error">
+              {!available.has(research.model) && "Choose an available research model. "}
+              {!!unavailable.length &&
+                `Change the unavailable step models in Build: ${unavailable.map((step) => step.label).join(", ")}.`}
+            </p>
+          )}
           {open && (
             <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />
           )}
+          {open && <RunTools workflow={workflow} />}
           {error && (
             <div className="error" role="alert">
               {error}
@@ -122,7 +212,7 @@ export function RunSetup({
             <Button
               className="button primary"
               type="submit"
-              disabled={busy || !brief.trim() || (!!research && !accountId)}
+              disabled={busy || !brief.trim() || !ready}
             >
               {busy ? "Starting…" : "Start run"}
               <Play size={14} aria-hidden="true" />

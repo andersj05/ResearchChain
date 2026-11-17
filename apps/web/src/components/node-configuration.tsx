@@ -270,6 +270,7 @@ export function NodeConfiguration({
                     ...config,
                     stage: event.target.value as typeof config.stage,
                     web_search: event.target.value === "custom" && config.web_search,
+                    sec_financials: event.target.value === "custom" && config.sec_financials,
                     prompt_version: event.target.value === "custom" ? "custom-1" : "research-1",
                   },
                 })
@@ -282,23 +283,51 @@ export function NodeConfiguration({
             </select>
           </label>
           {config.stage === "custom" && (
-            <label>
-              <input
-                type="checkbox"
-                aria-label="Search the live web"
-                checked={config.web_search ?? false}
-                onChange={(event) =>
-                  onEdit({ config: { ...config, web_search: event.target.checked } })
-                }
-              />
-              Search the live web
-              <span className="field-hint">
-                Search queries may include information from your brief and selected evidence. Uses
-                your connected plan if its model and policy support web search. Sources and searches
-                are saved with the result; the provider controls the number of searches within each
-                timed request.
-              </span>
-            </label>
+            <>
+              <label>
+                Web and market search
+                <select
+                  aria-label="Web and market search"
+                  value={String(config.web_search ?? false)}
+                  onChange={(event) =>
+                    onEdit({
+                      config: {
+                        ...config,
+                        web_search:
+                          event.target.value === "auto" ? "auto" : event.target.value === "true",
+                      },
+                    })
+                  }
+                >
+                  <option value="false">Off</option>
+                  <option value="auto">Let the model decide</option>
+                  <option value="true">Require a search</option>
+                </select>
+              </label>
+              {config.web_search && (
+                <p className="field-hint">
+                  Queries can include your brief and evidence. Finance feeds depend on your
+                  connected model.
+                </p>
+              )}
+              <label>
+                <input
+                  type="checkbox"
+                  aria-label="SEC financial statements"
+                  checked={config.sec_financials ?? false}
+                  onChange={(event) =>
+                    onEdit({ config: { ...config, sec_financials: event.target.checked } })
+                  }
+                />
+                SEC financial statements
+              </label>
+              {config.sec_financials && (
+                <p className="field-hint">
+                  The model can request annual filing data for one ticker. Set
+                  RESEARCHCHAIN_SEC_USER_AGENT with a contact email on the worker for SEC access.
+                </p>
+              )}
+            </>
           )}
           {(["context", "feedback"] as const).map((port) => (
             <label key={port}>

@@ -1,28 +1,36 @@
 # Idea research example
 
 An optional starting point for your own agent, requested by the owner on 2026-11-16.
-It accepts your thesis, charts and documents, searches the live web, runs a small
-numeric model when you supply data, and drafts a research memo for your judgment.
+It accepts your thesis, charts and documents, researches current information,
+retrieves company financial statements and drafts a memo for your judgment.
 All prompts, wiring, code and checkpoints remain yours to change.
 
 ## First run
 
-1. Open the saved **Idea research — charts to research memo** agent, or create an
-   agent and select **Use idea research example** in Build.
+1. Create an agent and select **Use idea research example** in Build. If you
+   already have a saved copy and want to use the revised template there, export or
+   save your edits first, load the example, and save a new version. Runs keep the
+   workflow version they started with.
 2. Select **Run workflow**. Write what you see, your proposed mechanism, the asset/
    market, relevant dates, and what would change your mind in **Research brief**.
    Add/select your chart images, PDFs or text evidence. Choose a model from your
    existing ChatGPT connection. The example defaults to `gpt-6.1-sol`.
-3. Start. **Frame my idea** reads the selected evidence and proposes questions.
-   At **Choose research direction**, read its output and add your judgment before
-   approving. Reject stops this run so you can revise it.
+3. Start. **Frame my idea** proposes two or three testable ideas from your brief
+   and evidence. It can search for current prices and request annual SEC figures
+   when they would help you pick an idea. The filing receipt appears alongside
+   the framing output. At **Choose research direction**, inspect the sources and
+   choose which idea to pursue. Include the ticker and metric if the follow-up
+   needs a filing comparison.
 4. **Research support and objections** searches for dated primary sources and
    opposing explanations. Search queries can contain information from your brief
    and selected evidence; only enable web search for material you want researched
    externally. Inspect the saved web actions and source links in Research results.
-5. **Calculate a simple model** runs the editable JavaScript below. Without numeric
-   input it records a data gap. **Draft the research memo** combines the research
-   and actual calculation results. Review both at the final checkpoint.
+5. **Calculate a simple model** compares the two latest available annual SEC
+   periods from the approved research step. It reports both values, the absolute
+   change, and the percentage change when the prior value is positive. Paired
+   observations in your brief take precedence and run OLS. **Draft the research
+   memo** uses the saved research and calculation results. Review both at the
+   final checkpoint.
 6. Approve to finish, or reject and iterate. Final-review feedback is saved; it does
    not trigger another model call. Use **Iterate from this run**, edit the prompts/
    brief or code, save a version and start another run to apply it.
@@ -71,12 +79,31 @@ Replace the calculation step with your preferred analysis as you iterate.
 
 Charts/PDFs are model-interpreted evidence. The example does not automatically
 convert chart pixels, attached tables or web prose into verified numeric data.
-Paste reviewed numeric observations into the brief to enable reproducible math.
-Without them, the memo proposes a quantitative test and specifies the missing data.
+The calculation records a data gap if neither usable filings nor paired inputs are available.
+
+## Company filings
+
+Enable **SEC financial statements** on a custom step and connect its text output to
+another model or code step. The model chooses a ticker and one annual metric
+(revenue, net income, operating income or operating cash flow), or skips the
+lookup. The worker fetches the selected SEC XBRL concept and attaches up to five
+annual USD observations to that step’s result. Each record includes the reporting
+period, value, filing date, form and accession. When financials are restated, the
+latest filing for the period wins. Market prices use web and market search.
+The example enables an optional lookup in both research steps. The framing receipt
+informs the first review. The lookup after approval supplies any filing comparison.
+
+Set `RESEARCHCHAIN_SEC_USER_AGENT` in the worker environment or local `.env` to
+your organization’s name and monitored contact email, then restart the worker.
+The SEC receives this header with the ticker index and concept requests. Search
+and other steps can still run when SEC access or data is unavailable. Inspect
+the SEC receipt for the reason. Coverage is limited to the supported US-GAAP
+concepts in USD on 10-K or amended 10-K filings. [SEC data APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces)
+and [SEC fair access](https://www.sec.gov/search-filings/edgar-search-assistance/accessing-edgar-data).
 
 ## Research boundaries
 
-Three model requests: framing, one web-enabled research request, and synthesis.
+The example uses three model requests across framing, research and synthesis.
 The web request may perform multiple searches/page reads. The provider controls
 that action count; the existing evidence-read allowance does not cap hosted web
 actions. Each request has a 120-second timeout and bounded output. The example
@@ -84,10 +111,11 @@ allows 420 active seconds total and checks reported token use before another cal
 Human review time does not consume active execution time. This is a focused
 research pass; narrow the question or split it into more editable steps for depth.
 
-Web search is an explicit custom-step checkbox, off by default on existing agents.
-It uses the existing ChatGPT included-plan connection subject to model/account
-policy. There is no paid API fallback. Unsupported tools, refusals, interrupted
-responses, missing web activity and quota failures stop the attempt visibly.
+In a custom step, set **Web and market search** to **Off**, **Let the model
+decide** or **Require a search**. The provider can use its finance feed when
+available. Required search must produce a completed search action. Optional
+search permits an answer from the supplied evidence alone. Unsupported tools,
+refusals, interrupted responses and quota failures stop the attempt visibly.
 Uncertain requests are not automatically repeated.
 
 Web sources come from provider tool records and citation annotations, not URLs
@@ -95,8 +123,9 @@ invented in model prose. They are saved as references with the research result a
 response artifact, separate from the original evidence library. The app does not
 archive full web pages, guarantee their continued availability, or validate the
 truth of the model's claims. Up to 100 actions and 200 URLs are retained; truncation
-is marked. The memo receives a bounded subset if the source list is large; the
-original research result keeps the full retained list. Open relevant links and
+is marked. The memo receives a bounded list that prioritizes provider-cited sources,
+plus the reported feeds and search observation time. The research output keeps
+the full retained list. Open relevant links and
 attach important originals yourself when reproducibility requires them.
 
 ## Files and verification

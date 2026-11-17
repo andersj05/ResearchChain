@@ -1,13 +1,8 @@
 "use client";
 
-import {
-  api,
-  researchDefaults,
-  type ProviderStatus,
-  type ResearchSettings,
-  type Workflow,
-} from "@/lib/workflow";
-import { useCallback, useEffect, useState } from "react";
+import { researchDefaults, type ResearchSettings, type Workflow } from "@/lib/workflow";
+import { useEffect } from "react";
+import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { ChatGPTSignIn } from "@/components/chatgpt-signin";
 import { Button } from "@ui-sdk/react/button";
 
@@ -71,110 +66,69 @@ export function ResearchSettingsEditor({
 }
 
 export function ResearchConnection({
+  catalog,
   settings,
   onSettings,
   accountId,
   onAccount,
   disabled,
 }: {
+  catalog: ModelCatalog;
   settings: ResearchSettings;
   onSettings: (settings: ResearchSettings) => void;
   accountId: string | null;
   onAccount: (id: string | null) => void;
   disabled: boolean;
 }) {
-  const [status, setStatus] = useState<ProviderStatus | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [refresh, setRefresh] = useState(0);
-  const refreshConnection = useCallback(() => {
-    setLoading(true);
-    setRefresh((value) => value + 1);
-  }, []);
+  const { status, loading, error, refresh } = catalog;
+  const connected = status?.accounts.find(
+    (item) => item.active && item.signed_in && item.plan_enabled,
+  );
   useEffect(() => {
-    let active = true;
-    api<ProviderStatus>("providers/chatgpt", undefined, 30000)
-      .then((result) => {
-        if (!active) return;
-        setStatus(result);
-        setError(result.error ?? "");
-        const account = result.accounts?.find(
-          (item) => item.active && item.signed_in && item.plan_enabled,
-        );
-        onAccount(account?.id ?? null);
-      })
-      .catch((cause: unknown) => {
-        if (active) {
-          setError(cause instanceof Error ? cause.message : "Connection unavailable.");
-          onAccount(null);
-        }
-      })
-      .finally(() => {
-        if (active) setLoading(false);
-      });
-    return () => {
-      active = false;
-    };
-  }, [refresh, onAccount]);
+    onAccount(connected?.id ?? null);
+  }, [connected?.id, onAccount]);
   const account = status?.accounts?.find((item) => item.id === accountId);
-  const available = status?.models?.some((item) => item.slug === settings.model);
   return (
-    <fieldset className="research-connection" disabled={disabled || loading}>
+    <fieldset className="research-connection" disabled={disabled}>
       <legend>ChatGPT plan usage</legend>
-      <p>
-        {loading
-          ? "Checking connection…"
-          : account
-            ? `Connected as ${account.label}`
-            : "Connect your ChatGPT account to choose a research model."}
-      </p>
-      <ChatGPTSignIn
-        connected={Boolean(status?.accounts?.some((item) => item.active && item.signed_in))}
-        disabled={disabled}
-        onConnectionChange={refreshConnection}
+      <ModelPicker
+        label="Research model"
+        catalog={catalog}
+        value={settings.model}
+        onChange={(model) => onSettings({ ...settings, model })}
       />
-      <label>
-        Research model
-        <select
-          required
-          value={available ? settings.model : ""}
-          onChange={(event) => onSettings({ ...settings, model: event.target.value })}
-        >
-          <option value="" disabled>
-            Select an available model
-          </option>
-          {status?.models?.map((model) => (
-            <option key={model.slug} value={model.slug}>
-              {model.display_name}
-            </option>
-          ))}
-        </select>
-      </label>
       <p className="field-hint" aria-label="Model selection scope">
-        Selected model ID: <strong>{settings.model}</strong>. Every Model prompt and Hypothesis
-        research step in this workflow, including subgraphs, uses this model. Notes, human reviews
-        and control steps do not call a model. Starting a run pins the selection to its saved
-        revision.
+        Workflow default for steps without an override.
       </p>
-      <p className="field-hint">
-        Uses your included plan allowance. Keep credit use disabled in{" "}
-        <a
-          href={status?.usage_url ?? "https://chatgpt.com/settings/usage"}
-          target="_blank"
-          rel="noreferrer"
-        >
-          ChatGPT usage settings
-        </a>
-        . ResearchChain does not switch to API billing.
-      </p>
+      {loading && <p role="status">Checking connection…</p>}
+      {account && <p>Connected as {account.label}</p>}
       {error && (
         <p role="alert" className="error">
           {error}
         </p>
       )}
-      <Button className="button small" disabled={disabled || loading} onClick={refreshConnection}>
-        Refresh connection
-      </Button>
+      <details className="plan-connection-details" open={!account && !loading}>
+        <summary>Manage connection</summary>
+        <ChatGPTSignIn
+          connected={Boolean(status?.accounts?.some((item) => item.active && item.signed_in))}
+          disabled={disabled}
+          onConnectionChange={refresh}
+        />
+        <p className="field-hint">
+          Uses your included plan allowance. Keep credit use disabled in{" "}
+          <a
+            href={status?.usage_url ?? "https://chatgpt.com/settings/usage"}
+            target="_blank"
+            rel="noreferrer"
+          >
+            ChatGPT usage settings
+          </a>
+          . ResearchChain does not switch to API billing.
+        </p>
+        <Button className="button small" disabled={disabled || loading} onClick={refresh}>
+          Refresh connection
+        </Button>
+      </details>
     </fieldset>
   );
 }
