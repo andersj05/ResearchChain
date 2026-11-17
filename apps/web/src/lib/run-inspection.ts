@@ -11,6 +11,7 @@ export type StepStatus =
   | "Requesting"
   | "Scheduled"
   | "Completed"
+  | "Output saved"
   | "Entered"
   | "Stopped"
   | "Failed"
@@ -100,8 +101,17 @@ export function stepStates(run: RunSnapshot) {
           : "Completed",
     );
   }
+  const recorded = new Set(states.keys());
   for (const attempt of run.model_attempts ?? []) {
-    states.set(attemptPath(attempt), attemptLabels[attempt.status]);
+    const path = attemptPath(attempt);
+    // An analyst may have another pass after it saves a valid result. The
+    // graph step only completes once the executor records its final output.
+    states.set(
+      path,
+      attempt.status === "completed" && !recorded.has(path)
+        ? "Output saved"
+        : attemptLabels[attempt.status],
+    );
   }
   for (const step of run.checkpoint_steps ?? []) {
     if (step.status === "stopped") states.set(step.path, "Stopped");

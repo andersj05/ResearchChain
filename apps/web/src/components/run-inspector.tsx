@@ -177,6 +177,10 @@ function RunWorkspace({
       <div className="run-graph-shell">
         <div className="run-graph-line">
           <h3>Workflow progress</h3>
+          <span className="sr-only" aria-live="polite" aria-atomic="true">
+            {states.has(current) &&
+              `${graphLocation(run, current).node.label}. ${states.get(current)}.`}
+          </span>
           <div className="run-metrics" aria-label="Run usage">
             <span>{run.events.length.toLocaleString()} recorded steps</span>
             {limits && (

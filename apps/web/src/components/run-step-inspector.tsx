@@ -73,10 +73,13 @@ export function RunStepInspector({
   const { node, graph, prefix } = graphLocation(run, path);
   const review = pendingReviews(run).find((item) => reviewPath(item) === path);
   const events = run.events.filter((event) => eventPath(event) === path);
-  const hasAttempt = run.model_attempts?.some((attempt) => attemptPath(attempt) === path);
+  const passCount =
+    run.model_attempts?.filter((attempt) => attemptPath(attempt) === path).length ?? 0;
+  const hasAttempt = passCount > 0;
   const status = states.get(path) ?? "Not reached";
   const children = childGraphs(run, node, path, states);
   const inputs = Object.entries(node.inputs ?? {});
+  const kind = nodePresentation(node).label;
   const previous = new Set(
     graph.edges.filter((edge) => edge.target === node.id).map((edge) => `${prefix}/${edge.source}`),
   );
@@ -90,13 +93,20 @@ export function RunStepInspector({
     <section className="run-step-panel" aria-label="Selected step">
       <div className="step-detail-heading">
         <div>
-          <p className="eyebrow">{nodePresentation(node).label}</p>
+          {kind.toLowerCase() !== node.label.trim().toLowerCase() && (
+            <p className="eyebrow">{kind}</p>
+          )}
           <h3>{node.label}</h3>
         </div>
         <span className="step-status" data-status={status}>
           {status}
         </span>
       </div>
+      {node.config?.type === "research" && node.config.analyst && (
+        <p className="field-hint">
+          {passCount} of {node.config.analyst.max_passes} research passes used
+        </p>
+      )}
       {review && (
         <div className={reviewInputs.length ? "run-decision-grid" : undefined}>
           <div className="review-box" aria-label={`Review ${review.node_id}`}>

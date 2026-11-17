@@ -123,6 +123,20 @@
 .run-graph-path span {
   gap: 5px;
 }
+.run-step-panel button.text-link,
+.run-graph-path button.text-link {
+  border: 0;
+  padding: 0;
+  color: var(--blue);
+  background: transparent;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.run-step-panel button.text-link:hover,
+.run-graph-path button.text-link:hover {
+  text-decoration: underline;
+}
 .run-workspace .run-canvas {
   height: clamp(166px, 20vh, 224px);
   min-height: 0;
@@ -362,6 +376,10 @@
   }
   .review-inputs {
     padding-top: 0;
+  }
+  .run-decision-grid .review-box {
+    position: sticky;
+    top: 0;
   }
 }
 @container (max-width: 710px) {
