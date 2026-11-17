@@ -12,9 +12,11 @@ and keeps earlier decisions and pass-level source receipts accessible. The
 Idea Research example enables an editable, multi-pass Codex analyst after the
 direction checkpoint. [Owner guide](../idea-research-example.md).
 
-The analyst needs the local Codex executable on the worker PATH. Schema 13 adds
-an optional completed web-action count to model attempts. Apply the documented
-backup and migration procedure when adopting this version in the local runtime.
+The analyst needs the local Codex executable on the worker PATH. On 2026-11-17
+the Desktop installation moved to `dev` and took schema 13 after a verified
+backup restore and migration rehearsal. The live web and API checks passed,
+the worker connected, and the served app included the review navigation, analyst
+settings and token-budget controls from [PR #62](https://github.com/andersj05/ResearchChain/pull/62).
 The owner's next step is to try the revised example or adjust a saved agent
 and assess the resulting research.
 
@@ -83,9 +85,10 @@ submitted for this pass. Existing private research and original files were retai
 
 ## Verified checkout and runtime
 
-The running owner app uses **C:/Users/jense/Desktop/ResearchChain**. The current
-feature checkout is **C:/Users/jense/Documents/ChatGPT/ResearchChain**. Check
-the branch in the intended checkout before running development commands.
+The owner's Desktop runtime tracks `dev` in **C:/Users/jense/Desktop/ResearchChain**.
+Development also uses **C:/Users/jense/Documents/ChatGPT/ResearchChain**.
+The owner wants each merged implementation installed and verified in the Desktop
+runtime before handoff. See [Desktop delivery](../development.md#desktop-delivery).
 The local app is http://127.0.0.1:3000 with its API on port 8000 and Postgres on 5433.
 Use pnpm dev to restart web/API/worker and the existing owner sign-in. Owner access
 is managed in Settings; the ChatGPT connection is managed in run setup.

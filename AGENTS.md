@@ -38,6 +38,10 @@ judgment and the environment-first scope. See `docs/idea-research-example.md`.
   skip ceremonial comments, duplicate checklists, and routine status polling.
 - Keep handoffs short and link the issue/PR instead of copying their contents.
   See `docs/github.md` for commands and completion rules.
+- After merging an implementation into `dev`, update the owner's Desktop
+  installation before marking the work complete. The agent doing the delivery
+  owns the update and the live checks in [Desktop delivery](docs/development.md#desktop-delivery).
+  Report the deployed commit and any blocker that leaves Desktop behind.
 
 ## Development agreements
 

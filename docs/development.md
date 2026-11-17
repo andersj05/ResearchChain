@@ -37,6 +37,32 @@ command applies LangGraph's checkpoint migrations under a database lock. Back up
 the database before upgrades; volumes and checkpoints are not backups. Use the
 [backup, verified restore and migration recovery procedure](backups.md).
 
+## Desktop delivery
+
+The owner's Windows app runs from `C:/Users/jense/Desktop/ResearchChain` and
+tracks `origin/dev`. Complete these steps on the owner's machine after merging
+an implementation, even when development and tests ran in a different checkout.
+
+1. In the Desktop clone, run `git status --short --branch` and `git fetch origin dev`.
+   Record the installed and target commits. Compare them for dependency,
+   migration and runtime changes. Preserve local edits, commits, the ignored
+   environment and owner data. If changes conflict with the update, report the
+   conflict with both revisions.
+2. Before restarting services, use `pnpm operations` to check the worker and
+   active requests. Let active work reach a safe pause. For a schema change,
+   follow [Upgrade and rollback](backups.md#upgrade-and-rollback) using the old
+   code for backup and restore verification, then rehearse the new migration.
+3. In the Desktop clone, switch to `dev` and run `git merge --ff-only origin/dev`.
+   Sync changed dependencies with `pnpm install --frozen-lockfile` or
+   `uv sync --project apps/api --locked` as applicable. Apply rehearsed schema
+   changes with `pnpm db:migrate`. Restart the affected services from this clone.
+   The standard `pnpm dev` launcher runs the web app, API and worker together.
+4. Verify the Desktop `HEAD` matches the fetched `origin/dev`. Open the workbench
+   at `http://127.0.0.1:3000`, check `/api/health` through the web app, and
+   confirm a connected worker with `pnpm operations`. Check an observable part
+   of the delivered change without starting a research run. Include the deployed
+   commit and verification result in the handoff.
+
 ## Optional ChatGPT plan connection
 
 Use **Run workflow → ChatGPT plan usage → Connect ChatGPT** in a research
