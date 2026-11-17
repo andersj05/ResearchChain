@@ -35,27 +35,31 @@ def sec_server(request):
     assert request.headers["user-agent"] == "Fixture test@example.org"
     if str(request.url) == INDEX_URL:
         return httpx.Response(200, json={"0": {"ticker": "NVDA", "cik_str": 1045810}})
-    assert str(request.url) == (
-        "https://data.sec.gov/api/xbrl/companyconcept/CIK0001045810/us-gaap/NetIncomeLoss.json"
+    base = "https://data.sec.gov/api/xbrl/companyconcept/CIK0001045810/us-gaap/"
+    concept = str(request.url).removeprefix(base).removesuffix(".json")
+    assert str(request.url) == f"{base}{concept}.json"
+    assert concept in {"NetIncomeLoss", "RevenueFromContractWithCustomerExcludingAssessedTax"}
+    rows = (
+        [
+            annual(2023, 40),
+            annual(2024, 50),
+            annual(2024, 52, form="10-K/A", filed="2025-03-02"),
+            annual(2024, 30, start="2024-10-01"),
+            annual(2025, 999, form="10-Q"),
+            annual(2025, True),
+            annual(2025, 500, accn="not a filing"),
+        ]
+        if concept == "NetIncomeLoss"
+        else [annual(2023, 100), annual(2024, 200)]
     )
     return httpx.Response(
         200,
         json={
-            "tag": "NetIncomeLoss",
+            "tag": concept,
             "taxonomy": "us-gaap",
             "cik": 1045810,
             "entityName": "Test issuer",
-            "units": {
-                "USD": [
-                    annual(2023, 40),
-                    annual(2024, 50),
-                    annual(2024, 52, form="10-K/A", filed="2025-03-02"),
-                    annual(2024, 30, start="2024-10-01"),
-                    annual(2025, 999, form="10-Q"),
-                    annual(2025, True),
-                    annual(2025, 500, accn="not a filing"),
-                ]
-            },
+            "units": {"USD": rows},
         },
     )
 
@@ -105,7 +109,10 @@ def test_sec_request_from_model_records_facts_and_reaches_memo(database, monkeyp
             if not prepared.sec_financials:
                 return completed
             doc = json.loads(completed.text)
-            doc["sec_lookup"] = {"ticker": "NVDA", "metric": "net_income"}
+            doc["sec_lookup"] = {
+                "ticker": "NVDA",
+                "metric": "revenue" if prepared.previous is None else "net_income",
+            }
             return replace(completed, text=json.dumps(doc))
 
     workflow = example()
@@ -117,12 +124,18 @@ def test_sec_request_from_model_records_facts_and_reaches_memo(database, monkeyp
         RunRequest(
             id=uuid4(),
             revision_id=revision.id,
-            brief="Research NVDA profits.",
+            brief="Frame an idea about NVDA's annual performance.",
             provider_account_id=provider.account.id,
         )
     )
-    resumed = store.resume(first.id, approve(first, "Look at annual results."))
+    assert first.status == "paused" and len(provider.calls) == 1
+    frame_receipt = first.model_attempts[0].result.sec_financials
+    assert frame_receipt.status == "available" and frame_receipt.request.metric == "revenue"
+    assert [obs.value for obs in frame_receipt.observations] == [100, 200]
+    resumed = store.resume(first.id, approve(first, "Focus on annual net income."))
     assert resumed.status == "paused" and len(provider.calls) == 3
+    assert provider.calls[1].previous.sec_financials == frame_receipt
+    assert not provider.calls[2].sec_financials and not provider.calls[2].web_search
     receipt = resumed.model_attempts[1].result.sec_financials
     assert receipt.issuer == "Test issuer" and receipt.status == "available"
     assert [obs.value for obs in receipt.observations] == [40, 52]
@@ -133,5 +146,7 @@ def test_sec_request_from_model_records_facts_and_reaches_memo(database, monkeyp
     packet = json.loads(provider.calls[-1].input_items[0]["content"][0]["text"])
     context = json.loads(packet["additional_context"])
     assert context["sec_financials"] == saved["sec_financials"]
-    assert context["analytics"]["change"] == 12
-    assert context["analytics"]["status"] == "filing_change"
+    analytics = context["analytics"]
+    assert analytics["status"] == "filing_change" and analytics["metric"] == "net_income"
+    assert (analytics["previous_value"], analytics["latest_value"]) == (40, 52)
+    assert (analytics["change"], analytics["percent_change"]) == (12, 30)

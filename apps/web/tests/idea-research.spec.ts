@@ -24,10 +24,10 @@ for (const width of [1440, 390]) {
       "Frame my idea",
     );
     const webToggle = page.getByRole("combobox", { name: "Web and market search", exact: true });
-    await expect(webToggle).toHaveValue("auto");
-    await webToggle.selectOption("true");
     const sec = page.getByRole("checkbox", { name: "SEC financial statements", exact: true });
-    await sec.check();
+    await expect(webToggle).toHaveValue("auto");
+    await expect(sec).toBeChecked();
+    await webToggle.selectOption("true");
     await page
       .getByRole("combobox", { name: "Step behavior", exact: true })
       .selectOption("hypothesize");
@@ -35,12 +35,16 @@ for (const width of [1440, 390]) {
     await page.getByRole("combobox", { name: "Step behavior", exact: true }).selectOption("custom");
     await expect(webToggle).toHaveValue("false");
     await expect(sec).not.toBeChecked();
+    await page.getByRole("button", { name: "Use idea research example", exact: true }).click();
     await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
     await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
       "Workflow valid. Ready to run.",
     );
     await page.getByRole("button", { name: "Run workflow", exact: true }).click();
-    await page.getByText("External research tools · 1 step", { exact: true }).click();
+    await page.getByText("External research tools · 2 steps", { exact: true }).click();
+    await expect(
+      page.getByText("optional web search, optional SEC lookup", { exact: false }),
+    ).toBeVisible();
     await expect(
       page.getByText("required web search, optional SEC lookup", { exact: false }),
     ).toBeVisible();
@@ -60,6 +64,7 @@ for (const width of [1440, 390]) {
     const runId = new URL(page.url()).searchParams.get("run")!;
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(snapshot.model_attempts).toHaveLength(3);
+    expect(snapshot.model_attempts![0]!.result!.web_research!.sources[0]!.cited).toBe(true);
     expect(snapshot.model_attempts![1]!.result!.web_research!.sources[0]!.cited).toBe(true);
     const calculations = snapshot.events.find((event) => event.code)?.code;
     expect(JSON.parse(calculations!.outputs.text).analytics.status).toBe("needs_data");
