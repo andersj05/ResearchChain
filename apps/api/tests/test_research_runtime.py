@@ -57,6 +57,28 @@ class FakeProvider:
         assert account_id == self.account.id and models <= {"test-model", "analysis-model"}
         return self.account
 
+    def run_analyst(self, model: str, passes: int, step: Any, guard: Any) -> Any:
+        history = []
+        transcript: list[dict[str, Any]] = []
+        for _ in range(passes):
+            guard()
+            result, response = step(history, {"model": model, "input": transcript})
+            history.append(result)
+            if not result.next_lead:
+                return result
+            call = response["output"][-1]
+            transcript.extend(
+                [
+                    call,
+                    {
+                        "type": "function_call_output",
+                        "call_id": call["call_id"],
+                        "output": result.model_dump_json(),
+                    },
+                ]
+            )
+        raise AssertionError("Synthetic analyst exceeded the configured passes.")
+
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
         self.calls.append(prepared)
         on_delta('{"schema_version":')
@@ -86,12 +108,53 @@ class FakeProvider:
             result["hypotheses"][0]["assessment"] = "supported"
         if prepared.sec_financials:
             result["sec_lookup"] = None
+        analyst_response = None
+        if prepared.analyst_options is not None:
+            text = json.dumps(result)
+            call_id = f"fixture_{len(self.calls)}"
+            follow = "Inspect Markdown output" in str(
+                prepared.input_items
+            ) or "Follow an analyst lead" in str(prepared.input_items)
+            continued = any(
+                item.get("type") == "function_call_output" for item in prepared.input_items
+            )
+            item = (
+                {
+                    "type": "function_call",
+                    "namespace": "research",
+                    "name": "pursue_lead",
+                    "id": call_id,
+                    "call_id": call_id,
+                    "status": "completed",
+                    "arguments": json.dumps(
+                        {"lead": "Check contrary evidence", "findings": "Synthetic findings."}
+                    ),
+                }
+                if follow
+                and not continued
+                and any(t.get("type") == "namespace" for t in prepared.analyst_options["tools"])
+                else {
+                    "type": "message",
+                    "id": call_id,
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": text, "annotations": []}],
+                }
+            )
+            analyst_response = {
+                "id": call_id,
+                "status": "completed",
+                "model": prepared.model,
+                "output": [item],
+                "usage": self.usage,
+            }
         return Completion(
             prepared.model,
             json.dumps(result),
             "response_fixture",
             self.usage,
             prepared.model + "-snapshot",
+            analyst_response=analyst_response,
         )
 
 
