@@ -115,8 +115,9 @@ def read_web_research(response: dict[str, Any]) -> WebResearch:
                 action.get("sources", []) if isinstance(action.get("sources"), list) else []
             ):
                 if isinstance(entry, dict):
+                    label = entry.get("name") if entry.get("type") == "api" else entry.get("url")
                     for feed in ("oai-finance", "oai-weather", "oai-sports"):
-                        if feed in (entry.get("type"), entry.get("url")) and feed not in feeds:
+                        if label == feed and feed not in feeds:
                             feeds.append(feed)
                 source(entry)
         for content in item.get("content", []) if isinstance(item.get("content"), list) else []:
