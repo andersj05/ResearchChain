@@ -1,5 +1,6 @@
 "use client";
 
+import { ResearchCitedText } from "./research-cited-text";
 import type { RunSnapshot } from "@/lib/workflow";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { Button } from "@ui-sdk/react/button";
@@ -73,7 +74,21 @@ export function ResearchResults({ run }: { run: RunSnapshot }) {
           {attempt.reason && <p className="error">{attempt.reason}</p>}
           {attempt.result && (
             <>
-              <p className="research-conclusion">{attempt.result.conclusion}</p>
+              <p className="research-conclusion">
+                <ResearchCitedText
+                  text={attempt.result.conclusion}
+                  sources={
+                    new Set(
+                      attempts
+                        .slice(0, index + 1)
+                        .flatMap(
+                          (item) =>
+                            item.result?.web_research?.sources.map((source) => source.url) ?? [],
+                        ),
+                    )
+                  }
+                />
+              </p>
               <p>{attempt.result.revision_summary}</p>
               {attempt.result.web_research && (
                 <section aria-label="Web research sources">

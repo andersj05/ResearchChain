@@ -63,6 +63,11 @@ for (const width of [1440, 390]) {
     });
     await expect(source).toHaveAttribute("href", "https://example.org/data");
     await expect(researchAttempt).toContainText("Cited by provider");
+    await expect(
+      researchAttempt
+        .locator(".research-conclusion")
+        .getByRole("link", { name: "Reference", exact: true }),
+    ).toHaveAttribute("href", "https://example.org/data");
     await page.screenshot({ path: info.outputPath(`idea-research-${width}.png`), fullPage: true });
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible({

@@ -203,11 +203,15 @@ def test_constant_y_has_no_defined_correlation():
 class WebProvider(FakeProvider):
     async def complete(self, manifest, prepared, on_delta):
         result = await super().complete(manifest, prepared, on_delta)
-        return (
-            replace(result, web_research=read_web_research({"output": WEB_OUTPUT}))
-            if prepared.web_search
-            else result
-        )
+        if prepared.web_search:
+            document = json.loads(result.text)
+            document["conclusion"] = "Synthetic research [Reference](https://example.org/data)."
+            return replace(
+                result,
+                text=json.dumps(document),
+                web_research=read_web_research({"output": WEB_OUTPUT}),
+            )
+        return result
 
 
 @pytest.mark.parametrize("has_web", [True, False])
