@@ -1964,6 +1964,7 @@ footer p {
   margin: 16px 0 4px;
 }
 .research-conclusion {
+  white-space: pre-wrap;
   font-size: 16px;
   font-weight: 500;
 }

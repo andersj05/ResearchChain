@@ -56,7 +56,8 @@ My idea: investigate whether X is associated with Y, and why that relationship m
 
 This produces slope 2, intercept 1, correlation 1, and scenario values 5 and 9.
 The second scenario is marked as extrapolation. The code accepts 3–500 distinct
-paired periods and up to 12 explicit x scenarios; it rejects missing values,
+paired periods and up to 12 explicit x scenarios, subject to the 10,000-character
+brief limit (including your prose and JSON). It rejects missing values,
 numeric strings, duplicate periods and constant x. Constant y has an undefined
 correlation. Use `basis: "estimate"` for estimated inputs. Provenance is your
 assertion, not independent verification. Exact inputs, code hash and outputs are

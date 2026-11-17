@@ -3144,7 +3144,7 @@
           },
           "brief": {
             "type": "string",
-            "maxLength": 6000,
+            "maxLength": 10000,
             "title": "Brief"
           },
           "artifact_count": {

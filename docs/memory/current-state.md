@@ -18,6 +18,21 @@ is an optional starting point; the owner still decides the strategy, source qual
 assumptions and conclusions. Next: review it with a real idea, then supply usability
 and research feedback. Do not submit owner judgments on their behalf.
 
+## Requested idea research example
+
+[PR #47](https://github.com/andersj05/ResearchChain/pull/47) adds the owner-requested
+[editable example](../idea-research-example.md): chart/thesis framing, human direction,
+opt-in live web research with saved source references, executable OLS/correlation/
+scenario calculations from supplied numbers, and a memo with final human review.
+The in-app **Use idea research example** action and importable workflow make it
+reusable. Existing agents retain web search off. No database migration is required.
+
+Two bounded public-documentation connection checks used the existing ChatGPT plan;
+the second confirmed completed streamed web activity and 13 source references after
+the stream handling was corrected. No private evidence or owner judgments were used.
+The focused provider/runtime/analytics suite passed; the PR records the final full
+checks and browser gate. These checks establish behavior, not research quality.
+
 ## Delivered workspace
 
 The builder baseline is [PR #38](https://github.com/andersj05/ResearchChain/pull/38).
