@@ -409,10 +409,6 @@ export function WorkflowEditor({
                 )
               }
             />
-            <p id="canvas-help" className="canvas-help">
-              Drag a card to move · Alt + arrows to nudge · Drag ports to connect · Enter on a port,
-              arrows, Enter to connect · Escape cancels · Scroll to pan · Ctrl/⌘ + scroll to zoom
-            </p>
           </div>
         }
         inspector={
