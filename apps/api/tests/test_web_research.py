@@ -168,7 +168,8 @@ def test_hosted_finance_reference_is_not_dropped_or_treated_as_a_url():
                     "action": {
                         "sources": [
                             {"type": "url", "url": "oai-finance"},
-                            {"type": "oai-finance"},
+                            {"type": "api", "name": "oai-finance", "url": None},
+                            {"type": "api", "name": "oai-weather"},
                             {"type": "url", "url": "javascript:oai-finance"},
                         ]
                     },
@@ -176,7 +177,7 @@ def test_hosted_finance_reference_is_not_dropped_or_treated_as_a_url():
             ]
         }
     )
-    assert trace.feeds == ["oai-finance"] and not trace.sources
+    assert trace.feeds == ["oai-finance", "oai-weather"] and not trace.sources
 
 
 def test_example_calculates_known_fit_and_marks_extrapolation():
