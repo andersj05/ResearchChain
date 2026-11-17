@@ -515,14 +515,16 @@ textarea {
 }
 .graph-node {
   pointer-events: auto;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   width: 100%;
   height: 92px;
   background: var(--surface);
   border: 0;
   border-bottom: 1px solid var(--line);
   border-radius: 0;
-  padding: 10px 14px;
+  padding: 7px 14px;
   text-align: left;
   color: var(--ink);
   cursor: grab;
@@ -555,21 +557,22 @@ textarea {
   border-radius: 0;
 }
 .graph-node strong {
-  display: block;
-  font-size: 14px;
-  font-weight: 600;
-  margin: 6px 0 2px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.node-summary {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
+  font-size: 14px;
+  line-height: 1.25;
+  font-weight: 600;
+  margin: 4px 0 3px;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+.node-summary {
+  display: block;
   overflow: hidden;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  text-overflow: ellipsis;
   font-size: 12px;
   color: var(--muted);
 }

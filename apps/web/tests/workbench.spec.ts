@@ -331,6 +331,13 @@ for (const width of [1440, 390]) {
     expect(detail.width).toBeGreaterThan(overview.width);
     expect(detail.x).toBeGreaterThan(canvas.x);
     expect(detail.x + detail.width).toBeLessThan(canvas.x + canvas.width);
+    const titleFits = await header
+      .locator("strong")
+      .evaluate(
+        (label) =>
+          label.scrollHeight <= label.clientHeight && label.scrollWidth <= label.clientWidth,
+      );
+    expect(titleFits).toBe(true);
     await page.screenshot({ path: info.outputPath(`idea-graph-${width}.png`) });
     await page.getByRole("button", { name: "Fit workflow to view" }).click();
     await page.getByRole("button", { name: "Edit Frame my idea", exact: true }).dblclick();
