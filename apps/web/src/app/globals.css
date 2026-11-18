@@ -391,6 +391,26 @@ h3 {
   color: var(--ink);
   font-weight: 500;
 }
+.step-search {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 12px;
+}
+.step-search input {
+  min-width: 0;
+}
+.step-search-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  row-gap: 3px;
+  color: var(--ink);
+}
+.step-search-result small {
+  grid-column: 1 / -1;
+  margin-left: 0;
+  overflow-wrap: anywhere;
+}
 .workflow-settings {
   margin-top: 24px;
   padding-top: 16px;
