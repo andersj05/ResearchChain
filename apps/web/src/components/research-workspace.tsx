@@ -1,17 +1,13 @@
 import { useEffect, useState } from "react";
 import type { components } from "@researchchain/contracts";
 import { apiFetch } from "@/lib/access";
-import { contentUrl } from "@/lib/evidence";
+import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 type WorkspaceFile = components["schemas"]["WorkspaceFile"];
 const imageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const previewLimit = 128 * 1024;
-
-function downloadUrl(file: WorkspaceFile) {
-  return `${contentUrl(file.artifact_id)}?filename=${encodeURIComponent(file.name)}`;
-}
 
 function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<string> }) {
   const [text, setText] = useState<string | null>(null);
@@ -69,7 +65,7 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
         </label>
         <a
           className="button small"
-          href={downloadUrl(file)}
+          href={contentDownloadUrl(file.artifact_id, file.name)}
           download={file.name}
           aria-label={`Download ${file.name}`}
         >
@@ -139,7 +135,10 @@ export function ResearchWorkspace({
                       <ul aria-label={`Files from pass ${pass}`}>
                         {activity.files.map((file) => (
                           <li key={file.name}>
-                            <a href={downloadUrl(file)} download={file.name}>
+                            <a
+                              href={contentDownloadUrl(file.artifact_id, file.name)}
+                              download={file.name}
+                            >
                               {file.name}
                             </a>
                           </li>

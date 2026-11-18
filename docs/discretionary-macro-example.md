@@ -26,3 +26,6 @@ fresh run to try a different research process.
 this feedback** to inspect the downstream steps and their saved model requests.
 **Iterate with this feedback** copies the saved version and appends the selected
 judgment to the next editable brief.
+
+**Runs → Files** finds saved charts, CSVs, and methods files across the run. Open
+the listed pass to inspect the calculation or download that exact file version.
