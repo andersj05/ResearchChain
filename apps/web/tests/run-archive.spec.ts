@@ -79,6 +79,9 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
   await expect(
     page.getByText(`Comparison run · ${older.slice(0, 8)}`, { exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("combobox", { name: "Comparison run" }).locator("option:checked"),
+  ).toContainText(olderBrief);
   expect(new URL(page.url()).searchParams.get("run")).toBe(active);
   expect(new URL(page.url()).searchParams.get("compare")).toBe(older);
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
