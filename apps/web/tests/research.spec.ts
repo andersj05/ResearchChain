@@ -1,8 +1,8 @@
 import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import research from "../../../examples/hypothesis-research.json";
-import { addTemplate } from "../src/lib/workflow-editing";
-import type { RunSnapshot, Workflow } from "../src/lib/workflow";
+import { addTemplate, forkDefinition, referenceOf } from "../src/lib/workflow-editing";
+import type { RunSnapshot, Workflow, WorkflowRevision } from "../src/lib/workflow";
 
 async function prepare(
   page: import("@playwright/test").Page,
@@ -30,7 +30,7 @@ async function prepare(
   await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeEnabled();
 }
 
-test("choose a workflow default and override one step from the graph", async ({
+test("change a model override from Build and Run setup before pinning the run", async ({
   page,
   request,
 }) => {
@@ -40,13 +40,15 @@ test("choose a workflow default and override one step from the graph", async ({
   const stepModel = page.getByRole("combobox", { name: "Step model", exact: true });
   await workflowModel.selectOption("test-model");
   await expect(stepModel).toHaveValue("");
-  await stepModel.selectOption("analysis-model");
+  await stepModel.selectOption("test-model");
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Research model", exact: true })).toHaveValue(
     "test-model",
   );
-  await page.getByText("Step model overrides (1)", { exact: true }).click();
-  await expect(page.locator(".step-model-list")).toContainText("analysis-model");
+  await page.getByText("Step models (1 override)", { exact: true }).click();
+  const setupStepModel = page.getByRole("combobox", { name: "Form hypotheses", exact: true });
+  await expect(setupStepModel).toHaveValue("test-model");
+  await setupStepModel.selectOption("analysis-model");
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
     timeout: 30000,
@@ -55,6 +57,63 @@ test("choose a workflow default and override one step from the graph", async ({
   const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
   expect(snapshot.research_manifest?.settings.model).toBe("test-model");
   expect(snapshot.model_attempts?.[0]?.model).toBe("analysis-model");
+});
+
+test("reset unavailable and nested step models from Run setup on a phone", async ({
+  page,
+  request,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const root = addTemplate(structuredClone(research) as Workflow, null, "subgraph", "challenge");
+  const call = root.workflow.nodes.find((node) => node.id === root.selected)!;
+  const ref = referenceOf(call)!;
+  const nested = addTemplate(root.workflow, ref, "model", "step");
+  const nestedStep = nested.workflow.subgraphs?.[0]?.nodes.find(
+    (node) => node.id === nested.selected,
+  );
+  const plan = nested.workflow.nodes.find((node) => node.id === "plan");
+  if (nestedStep?.config?.type !== "research" || plan?.config?.type !== "research") {
+    throw new Error("Expected root and nested research steps.");
+  }
+  nestedStep.config.model = "retired-model";
+  plan.config.model = "analysis-model";
+  const fixture = forkDefinition(nested.workflow, ref);
+  const original = await request.post("/api/revisions", { data: fixture.workflow });
+  expect(original.ok(), await original.text()).toBe(true);
+  await page.goto(`/?revision=${(await original.json()).id}`);
+  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+  await page
+    .getByRole("combobox", { name: "Research model", exact: true })
+    .selectOption("test-model");
+  const start = page.getByRole("button", { name: "Start run", exact: true });
+  await expect(start).toBeDisabled();
+  await expect(page.getByRole("dialog").getByRole("alert")).toContainText("choose a replacement");
+  await page.getByText("Step models (2 overrides)", { exact: true }).click();
+  const nestedModel = page.getByRole("combobox", { name: "Model prompt · New subgraph v1" });
+  await expect(nestedModel.locator("option:checked")).toHaveText("retired-model (unavailable)");
+  await expect(page.getByRole("combobox", { name: "Model prompt · New subgraph v2" })).toHaveCount(
+    0,
+  );
+  await page.getByRole("button", { name: "Use workflow default for all steps" }).click();
+  await expect(page.getByText("Step models (0 overrides)", { exact: true })).toBeVisible();
+  await expect(nestedModel.locator("option:checked")).toHaveText("Workflow default · test-model");
+  await expect(start).toBeEnabled();
+  await page.getByRole("button", { name: "Close run setup" }).click();
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    /^Revision \d+ saved\.$/,
+  );
+  const revisionId = new URL(page.url()).searchParams.get("revision");
+  const saved: WorkflowRevision = await (await request.get(`/api/revisions/${revisionId}`)).json();
+  expect(saved.workflow.nodes.find((node) => node.id === "plan")?.config).not.toHaveProperty(
+    "model",
+  );
+  expect(
+    saved.workflow.subgraphs?.[0]?.nodes.find((node) => node.id === nested.selected)?.config,
+  ).not.toHaveProperty("model");
+  expect(
+    saved.workflow.subgraphs?.[1]?.nodes.find((node) => node.id === nested.selected)?.config,
+  ).toMatchObject({ model: "retired-model" });
 });
 
 for (const width of [1440, 390]) {

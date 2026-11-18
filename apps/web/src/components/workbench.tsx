@@ -18,7 +18,7 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
 import { WorkflowEditor } from "@/components/workflow-editor";
 import { useModelCatalog } from "@/components/model-picker";
-import { pruneDefinitions } from "@/lib/workflow-editing";
+import { pruneDefinitions, updateStepModels } from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
 import { RunInspector, type ReviewFocus } from "@/components/run-inspector";
@@ -790,6 +790,7 @@ export function Workbench() {
                 research={workflow.research}
                 catalog={catalog}
                 onResearch={(research) => change({ ...workflow, research })}
+                onStepModels={(changes) => change(updateStepModels(workflow, changes))}
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
                 name={workflow.name}

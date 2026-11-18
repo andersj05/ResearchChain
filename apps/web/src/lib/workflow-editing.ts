@@ -10,6 +10,7 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
+export type StepModelChange = { scope: GraphScope; nodeId: string; model: string };
 export type TemplateKind =
   | "note"
   | "review"
@@ -62,6 +63,29 @@ export function updateGraph(workflow: Workflow, scope: GraphScope, graph: Graph)
       item.id === scope.id && item.version === scope.version ? { ...item, ...patch } : item,
     ),
   };
+}
+
+export function updateStepModels(workflow: Workflow, changes: StepModelChange[]): Workflow {
+  const byScope = new Map<string, { scope: GraphScope; models: Map<string, string> }>();
+  for (const { scope, nodeId, model } of changes) {
+    const key = scopeKey(scope);
+    const group = byScope.get(key) ?? { scope, models: new Map<string, string>() };
+    group.models.set(nodeId, model);
+    byScope.set(key, group);
+  }
+
+  let next = workflow;
+  for (const { scope, models } of byScope.values()) {
+    const graph = graphAt(next, scope);
+    if (!graph) continue;
+    const nodes = graph.nodes.map((node) => {
+      const model = models.get(node.id);
+      if (node.config?.type !== "research" || model === undefined) return node;
+      return { ...node, config: { ...node.config, model: model || undefined } };
+    });
+    next = updateGraph(next, scope, { ...graph, nodes });
+  }
+  return next;
 }
 
 export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
