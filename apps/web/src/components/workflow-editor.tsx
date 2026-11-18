@@ -568,7 +568,9 @@ export function WorkflowEditor({
                 Details
               </Button>
             </div>
-            {workflow.research && <WorkflowModelPlan workflow={workflow} onSelect={openStep} />}
+            {workflow.research && (
+              <WorkflowModelPlan workflow={workflow} catalog={catalog} onSelect={openStep} />
+            )}
             <WorkflowReviewPlan workflow={workflow} onSelect={openStep} />
             <WorkflowCanvas
               key={scopeKey(scope)}
