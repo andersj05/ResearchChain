@@ -1,8 +1,14 @@
 import { useState } from "react";
-import { attemptPath, graphLocation, runStepLabel, type ComparisonPasses } from "@/lib/run-inspection";
+import {
+  attemptPath,
+  graphLocation,
+  runStepLabel,
+  type ComparisonPasses,
+} from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
 import { ModelRequestPreview } from "./model-request-preview";
+import { ModelRequestComparison } from "./model-request-comparison";
 import { researchToolUrls } from "./research-tool-receipts";
 import { CopyRunLink } from "./copy-run-link";
 import { RunPassSourceComparison } from "./run-pass-source-comparison";
@@ -248,6 +254,18 @@ export function RunStepOutputComparison({
               }}
             />
           </div>
+          {baselinePass?.attempt.input_artifact_id && openPass?.attempt.input_artifact_id && (
+            <ModelRequestComparison
+              comparison={{
+                id: baselinePass.attempt.input_artifact_id,
+                bytes: baselinePass.attempt.input_bytes,
+              }}
+              current={{
+                id: openPass.attempt.input_artifact_id,
+                bytes: openPass.attempt.input_bytes,
+              }}
+            />
+          )}
           {baselinePass && openPass && (
             <RunPassSourceComparison
               comparison={baselinePass.attempt.result?.web_research}

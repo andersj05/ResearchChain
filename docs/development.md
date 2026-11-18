@@ -263,6 +263,9 @@ active work.
 **Recorded web sources** shows shared and unique provider-recorded URLs for the
 two selected passes and flags incomplete receipts. The saved input preview shows
 the material each pass received from earlier work.
+**Saved research input changes** compares the brief, feedback, instructions,
+prior result, and evidence records supplied in the two requests. Open an
+individual saved request for the complete payload.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
 routing, limits and judgments. It follows the referenced subgraph versions and
 compares pinned source identities and order.
