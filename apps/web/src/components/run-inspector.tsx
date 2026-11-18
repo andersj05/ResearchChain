@@ -2,7 +2,7 @@
 
 import "./run-workspace.css";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
@@ -12,34 +12,36 @@ import { RunFiles, savedRunFiles } from "./run-files";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
-  comparisonUrl,
+  attemptPath,
   graphLocation,
   pendingReviews,
   preferredPath,
   reviewPath,
+  runInspectionUrl,
   stepStates,
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { useOwner } from "@/components/access-context";
 import { ownerStoragePrefix } from "@/lib/access";
+import { pruneReviewDrafts, readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
 
-function comparisonFromUrl(runId: string) {
-  if (typeof window === "undefined") return;
+function runLinkTarget(run: RunSnapshot) {
+  if (typeof window === "undefined") return {};
   const params = new URL(window.location.href).searchParams;
+  if (params.get("run")?.toLowerCase() !== run.id) return {};
+  const attemptId = params.get("attempt")?.toLowerCase();
+  const attempt = attemptId && run.model_attempts?.find((item) => item.id === attemptId);
+  if (attempt) return { attemptId: attempt.id, path: attemptPath(attempt) };
   const id = params.get("compare")?.toLowerCase();
-  if (
-    params.get("run")?.toLowerCase() === runId &&
-    id !== runId &&
-    id &&
-    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)
-  ) {
-    return id;
+  if (id && id !== run.id && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)) {
+    return { comparison: id };
   }
+  return {};
 }
 
 type Actions = {
@@ -88,9 +90,11 @@ function RunWorkspace({
 }: Actions & { run: RunSnapshot }) {
   const { owner } = useOwner();
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
-  const [comparison, setComparison] = useState(() => comparisonFromUrl(run.id));
+  const reviewDraftKey = `${ownerStoragePrefix(owner)}.review-drafts.${run.id}`;
+  const [link] = useState(() => runLinkTarget(run));
+  const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
-  const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? null);
+  const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
   const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">(
     comparison && !reviewFocus ? "context" : "step",
   );
@@ -101,8 +105,14 @@ function RunWorkspace({
       return true;
     }
   });
-  const [attemptId, setAttemptId] = useState<string>();
-  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
+  const [feedback, setFeedback] = useState(() => readReviewDrafts(reviewDraftKey));
+  const pendingFeedback = pruneReviewDrafts(run, feedback);
+  if (pendingFeedback !== feedback) setFeedback(pendingFeedback);
+  const reviewDrafts = JSON.stringify(pendingFeedback);
+  useEffect(() => {
+    storeReviewDrafts(reviewDraftKey, reviewDrafts);
+  }, [reviewDraftKey, reviewDrafts]);
   if (reviewFocus !== lastFocus) {
     setLastFocus(reviewFocus);
     if (reviewFocus) {
@@ -139,7 +149,7 @@ function RunWorkspace({
   const selectComparison = (id: string | undefined) => {
     setComparison(id);
     const url = id
-      ? comparisonUrl(window.location.href, run.id, id)
+      ? runInspectionUrl(window.location.href, run.id, "compare", id)
       : new URL(window.location.href);
     if (!id) url.searchParams.delete("compare");
     window.history.replaceState(null, "", url);
@@ -421,7 +431,7 @@ function RunWorkspace({
             attemptId={attemptId}
             states={states}
             busy={busy}
-            feedback={feedback}
+            feedback={pendingFeedback}
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
             onResume={async (...args) => {
               await onResume(...args);
