@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Run limits in setup
+
+**Run workflow → Run limits** shows and edits execution, request, and evidence
+limits in the draft. The synthetic check pinned 270 active seconds, verified a
+zero-attempt run, and reopened a collapsed section with an invalid value. CI
+passed 516 backend tests with 2 skips and all 119 browser tests. Desktop at
+`172778e` served the controls with a healthy API and connected worker.
+[PR #90](https://github.com/andersj05/ResearchChain/pull/90).
+
 ## Compare matching model outputs
 
 **Runs → Run context → Compare a saved run → Model outputs by step** pairs the

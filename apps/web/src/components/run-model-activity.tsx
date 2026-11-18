@@ -3,6 +3,7 @@ import { useOwner } from "@/components/access-context";
 import { ownerStoragePrefix } from "@/lib/access";
 import { attemptPath, graphLocation, modelAttemptStatus } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
+import { ModelActivityTimeline } from "./model-activity-timeline";
 
 const orderLabels = {
   newest: "Newest first",
@@ -12,14 +13,20 @@ const orderLabels = {
 };
 type Order = keyof typeof orderLabels;
 
-function savedOrder(key: string): Order {
+function readPreference(key: string) {
   try {
-    const value = localStorage.getItem(key);
-    if (value && Object.hasOwn(orderLabels, value)) return value as Order;
+    return localStorage.getItem(key);
   } catch {
-    // The default remains available when browser storage is disabled.
+    return null;
   }
-  return "newest";
+}
+
+function storePreference(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // The selected option still applies to the open view.
+  }
 }
 
 export function RunModelActivity({
@@ -30,16 +37,23 @@ export function RunModelActivity({
   inspect: (path: string, attemptId: string) => void;
 }) {
   const { owner } = useOwner();
-  const preference = `${ownerStoragePrefix(owner)}.model-activity-order`;
+  const orderKey = `${ownerStoragePrefix(owner)}.model-activity-order`;
+  const displayKey = `${ownerStoragePrefix(owner)}.model-activity-display`;
   const [query, setQuery] = useState("");
-  const [order, setOrder] = useState(() => savedOrder(preference));
+  const [display, setDisplay] = useState<"table" | "timeline">(() =>
+    readPreference(displayKey) === "timeline" ? "timeline" : "table",
+  );
+  const [order, setOrder] = useState<Order>(() => {
+    const value = readPreference(orderKey);
+    return value && Object.hasOwn(orderLabels, value) ? (value as Order) : "newest";
+  });
   const changeOrder = (next: Order) => {
     setOrder(next);
-    try {
-      localStorage.setItem(preference, next);
-    } catch {
-      // The selected order still applies to the open view.
-    }
+    storePreference(orderKey, next);
+  };
+  const changeDisplay = (next: typeof display) => {
+    setDisplay(next);
+    storePreference(displayKey, next);
   };
   const attempts = run.model_attempts ?? [];
   const passes = new Map<string, number>();
@@ -51,9 +65,8 @@ export function RunModelActivity({
     const label = node.label;
     const location = parents.length ? path.replaceAll("/", " › ") : "";
     const status = modelAttemptStatus(attempt);
-    const elapsed = attempt.finished_at
-      ? (Date.parse(attempt.finished_at) - Date.parse(attempt.created_at)) / 1000
-      : null;
+    const started = Date.parse(attempt.created_at) / 1000;
+    const elapsed = attempt.finished_at ? Date.parse(attempt.finished_at) / 1000 - started : null;
     const tokens =
       attempt.input_tokens != null && attempt.output_tokens != null
         ? attempt.input_tokens + attempt.output_tokens
@@ -65,6 +78,7 @@ export function RunModelActivity({
       label,
       location,
       status,
+      started,
       elapsed: elapsed !== null && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
       tokens,
     };
@@ -75,8 +89,8 @@ export function RunModelActivity({
       value?.toLowerCase().includes(search),
     ),
   );
-  if (order !== "oldest") visible.reverse();
-  if (order === "elapsed" || order === "tokens")
+  if (display === "table" && order !== "oldest") visible.reverse();
+  if (display === "table" && (order === "elapsed" || order === "tokens"))
     visible.sort((left, right) => (right[order] ?? -1) - (left[order] ?? -1));
 
   if (!attempts.length) return <p className="muted">No model attempts have been recorded.</p>;
@@ -94,23 +108,41 @@ export function RunModelActivity({
           />
         </label>
         <label>
-          Sort model activity
-          <select value={order} onChange={(event) => changeOrder(event.target.value as Order)}>
-            {Object.entries(orderLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+          Display model activity
+          <select
+            value={display}
+            onChange={(event) =>
+              changeDisplay(event.target.value === "timeline" ? "timeline" : "table")
+            }
+          >
+            <option value="table">Table</option>
+            <option value="timeline">Timeline</option>
           </select>
         </label>
+        {display === "table" && (
+          <label>
+            Sort model activity
+            <select value={order} onChange={(event) => changeOrder(event.target.value as Order)}>
+              {Object.entries(orderLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
-      {order === "tokens" && visible.some((item) => item.tokens === null) && (
-        <p className="field-hint">Attempts with a missing token count follow complete totals.</p>
-      )}
+      {display === "table" &&
+        order === "tokens" &&
+        visible.some((item) => item.tokens === null) && (
+          <p className="field-hint">Attempts with a missing token count follow complete totals.</p>
+        )}
       {!visible.length ? (
         <p className="muted" role="status">
           No attempts match this filter.
         </p>
+      ) : display === "timeline" ? (
+        <ModelActivityTimeline rows={rows} visible={visible} inspect={inspect} />
       ) : (
         <div
           className="model-activity-scroll"

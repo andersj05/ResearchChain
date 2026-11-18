@@ -187,8 +187,10 @@ saves the draft if needed and pins the saved model assignments to that run.
 Expand it to edit execution, response, and evidence limits in the same draft.
 
 **Model activity** can sort attempts by elapsed time or total reported tokens.
-Rows with missing measurements follow measured rows, and the sort preference is
-stored in the owner's browser.
+Rows with missing measurements follow measured rows. Switch to **Timeline** to
+see when recorded model attempts started and overlapped. A hollow point marks a
+start whose duration is unreported. Select any attempt to inspect its exact
+request and output. The browser remembers the display and sort preferences.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
