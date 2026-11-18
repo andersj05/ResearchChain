@@ -1582,10 +1582,38 @@ td time {
   overflow-wrap: anywhere;
 }
 .review-handoff .button,
-.output-binding-list .button {
+.output-binding-list .button,
+.branch-paths .button {
   max-width: 100%;
   white-space: normal;
   text-align: left;
+}
+.branch-paths {
+  margin-top: 16px;
+  padding-top: 8px;
+  overflow-wrap: anywhere;
+}
+.branch-paths dl {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+}
+.branch-paths dt {
+  font-weight: 600;
+}
+.branch-paths dd {
+  margin: 4px 0 0;
+}
+.branch-paths ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.branch-paths li {
+  max-width: 100%;
 }
 .config-actions {
   margin-top: 16px;

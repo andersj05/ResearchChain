@@ -42,6 +42,105 @@ def test_graph_wide_validation_has_no_step_location() -> None:
 
 @pytest.mark.parametrize("in_subgraph", [False, True])
 @pytest.mark.parametrize(
+    "fault,location,message",
+    [
+        ("missing_join", (0, "config", "join"), "Each split requires its own existing join node."),
+        ("claimed_join", (1, "config", "join"), "Each split requires its own existing join node."),
+        ("same_start", (0,), "Split branches must have distinct starting nodes."),
+        ("direct_join", (0,), "A split branch needs a step before its join."),
+        ("single_input", (4,), "A join needs at least two incoming branches."),
+    ],
+)
+def test_branch_topology_errors_identify_the_affected_step(
+    in_subgraph: bool, fault: str, location: tuple[str | int, ...], message: str
+) -> None:
+    graph = split("route" if fault in ("missing_join", "direct_join") else "fork")
+    if fault == "missing_join":
+        graph["nodes"][0]["config"]["join"] = "missing"
+    elif fault == "claimed_join":
+        graph["nodes"][1] = node("left", "fork", config=deepcopy(graph["nodes"][0]["config"]))
+        graph["nodes"].extend([node("inner_a"), node("inner_b")])
+        graph["edges"][2] = edge("left", "inner_a", "left")
+        graph["edges"].extend(
+            [edge("left", "inner_b", "right"), edge("inner_a", "join"), edge("inner_b", "join")]
+        )
+    elif fault == "same_start":
+        graph["edges"][1]["target"] = "left"
+    elif fault == "direct_join":
+        graph["edges"][0]["target"] = "join"
+        del graph["nodes"][1], graph["edges"][2]
+    else:
+        graph["edges"][2]["target"] = "finish"
+
+    document = graph
+    prefix = ("subgraphs", 0) if in_subgraph else ()
+    if in_subgraph:
+        document = nested()
+        graph.pop("schema_version")
+        document["subgraphs"][0].update(graph)
+
+    with pytest.raises(ValidationError) as raised:
+        Workflow.model_validate(document)
+
+    error = raised.value.errors()[0]
+    assert error["loc"] == (*prefix, "nodes", *location)
+    assert error["msg"] == f"Value error, {message}"
+
+
+@pytest.mark.parametrize(
+    "branch_target,owner_index,message",
+    [
+        ("outer_join", 1, "A branch reached a different split's join."),
+        ("inner_join", 0, "Every branch must reach its paired join before finishing."),
+    ],
+)
+def test_branch_walk_errors_identify_the_nearest_owning_split(
+    branch_target: str, owner_index: int, message: str
+) -> None:
+    workflow = {
+        "schema_version": "0.2",
+        "name": "Nested splits",
+        "start_node": "outer",
+        "nodes": [
+            node(
+                "outer",
+                "fork",
+                config={"type": "fork", "branches": ["a", "b", "c"], "join": "outer_join"},
+            ),
+            node(
+                "inner",
+                "route",
+                config={"type": "route", "condition": predicate(), "join": "inner_join"},
+            ),
+            *[node(step) for step in ("a", "b", "c", "d")],
+            node("outer_join", "join"),
+            node("inner_join", "join"),
+            node("finish", "finish"),
+        ],
+        "edges": [
+            edge("outer", "inner", "a"),
+            edge("outer", "c", "b"),
+            edge("outer", "d", "c"),
+            edge("inner", "a", "true"),
+            edge("inner", "b", "false"),
+            edge("a", branch_target),
+            edge("b", "inner_join"),
+            edge("c", "outer_join"),
+            edge("d", "outer_join"),
+            edge("outer_join", "inner_join"),
+            edge("inner_join", "finish"),
+        ],
+    }
+    with pytest.raises(ValidationError) as raised:
+        Workflow.model_validate(workflow)
+
+    error = raised.value.errors()[0]
+    assert error["loc"] == ("nodes", owner_index)
+    assert error["msg"] == f"Value error, {message}"
+
+
+@pytest.mark.parametrize("in_subgraph", [False, True])
+@pytest.mark.parametrize(
     "port,source,message",
     [
         (
@@ -158,8 +257,10 @@ def test_ambiguous_or_untyped_control_is_rejected(case: str) -> None:
         document["nodes"][1]["inputs"] = {"unknown": {"source": "brief"}}
     else:
         document["nodes"][1]["inputs"] = {"text": {"source": "artifact_count"}}
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as raised:
         Workflow.model_validate(document)
+    if case == "crossed":
+        assert raised.value.errors()[0]["loc"] == ()
 
 
 @pytest.mark.parametrize("kind,valid", [("fork", True), ("route", False)])

@@ -269,8 +269,17 @@ def validate_graph(
     finishes = [node.id for node in graph.nodes if node.kind == "finish"]
     if len(finishes) != 1:
         raise ValueError("A workflow must contain exactly one finish node.")
+    indices = {node.id: index for index, node in enumerate(graph.nodes)}
+
+    def topology_error(node: WorkflowNode, message: str) -> ValidationError:
+        return _located_value_error(
+            ValueError(message),
+            (*location, "nodes", indices[node.id]),
+            node.model_dump(mode="json"),
+        )
+
     owners: dict[str, WorkflowNode] = {}
-    for index, node in enumerate(graph.nodes):
+    for node in graph.nodes:
         if legacy:
             if node.kind not in ("note", "review", "finish") or node.config or node.inputs:
                 raise ValueError("Version 0.1 only supports note, review, and finish nodes.")
@@ -287,24 +296,26 @@ def validate_graph(
                 if legacy
                 else f"Node {node.id} must connect each declared control output exactly once."
             )
-            raise _located_value_error(
-                ValueError(message), (*location, "nodes", index), node.model_dump(mode="json")
-            )
+            raise topology_error(node, message)
         if node.id == graph.start_node:
             if incoming[node.id]:
                 raise ValueError("The start node cannot have incoming connections.")
         elif node.kind == "join" and not legacy:
             if len(incoming[node.id]) < 2:
-                raise ValueError("A join needs at least two incoming branches.")
+                raise topology_error(node, "A join needs at least two incoming branches.")
         elif len(incoming[node.id]) != 1:
             raise ValueError("Branches must reconverge at an explicit join.")
         if isinstance(node.config, (RouteConfig, ForkConfig)):
             join = node.config.join
             if join not in nodes or nodes[join].kind != "join" or join in owners:
-                raise ValueError("Each split requires its own existing join node.")
+                raise _located_value_error(
+                    ValueError("Each split requires its own existing join node."),
+                    (*location, "nodes", indices[node.id], "config", "join"),
+                    join,
+                )
             owners[join] = node
             if len(set(outgoing[node.id].values())) != len(outgoing[node.id]):
-                raise ValueError("Split branches must have distinct starting nodes.")
+                raise topology_error(node, "Split branches must have distinct starting nodes.")
     if legacy and (len(nodes) > 32 or len(graph.edges) > 31):
         raise ValueError("Version 0.1 supports at most 32 nodes in one connected chain.")
     # Reject cycles before recursively checking the structured branch regions.
@@ -334,17 +345,22 @@ def validate_graph(
                 join = node.config.join
                 for target in outgoing[current].values():
                     if target == join:
-                        raise ValueError("A split branch needs a step before its join.")
+                        raise topology_error(node, "A split branch needs a step before its join.")
                     walk(target, join)
                 if join in visited:
                     raise ValueError("Crossed or shared joins are ambiguous.")
                 visited.add(join)
                 current = outgoing[join]["next"]
             elif node.kind == "join":
-                raise ValueError("A branch reached a different split's join.")
+                message = "A branch reached a different split's join."
+                if stop is not None:
+                    raise topology_error(owners[stop], message)
+                raise ValueError(message)
             elif node.kind == "finish":
                 if stop is not None:
-                    raise ValueError("Every branch must reach its paired join before finishing.")
+                    raise topology_error(
+                        owners[stop], "Every branch must reach its paired join before finishing."
+                    )
                 return
             else:
                 current = outgoing[current]["next"]
@@ -354,7 +370,6 @@ def validate_graph(
         raise ValueError("Every node must be reachable from the start.")
     # Availability follows actual join semantics, not mere reachability.
     available: dict[str, set[str]] = {}
-    indices = {node.id: index for index, node in enumerate(graph.nodes)}
     for node_id in order:
         predecessors = [available[p] | {p} for p in incoming[node_id]]
         if not predecessors:
