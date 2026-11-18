@@ -5,6 +5,7 @@ import { ResearchMarkdown } from "./research-markdown";
 import { ModelRequestPreview } from "./model-request-preview";
 import { researchToolUrls } from "./research-tool-receipts";
 import { CopyRunLink } from "./copy-run-link";
+import { RunPassSourceComparison } from "./run-pass-source-comparison";
 
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 type SavedPass = {
@@ -256,6 +257,12 @@ export function RunStepOutputComparison({
               }}
             />
           </div>
+          {baselinePass && openPass && (
+            <RunPassSourceComparison
+              comparison={baselinePass.attempt.result?.web_research}
+              current={openPass.attempt.result?.web_research}
+            />
+          )}
           <div className="comparison-output-versions">
             <SavedOutput
               key={`baseline/${path}`}
