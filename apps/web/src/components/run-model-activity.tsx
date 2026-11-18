@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useOwner } from "@/components/access-context";
 import { ownerStoragePrefix } from "@/lib/access";
-import { attemptPath, graphLocation, modelAttemptStatus } from "@/lib/run-inspection";
+import { attemptPath, graphLocation, modelAttemptStatus, runStepLabel } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ModelActivityTimeline } from "./model-activity-timeline";
 
@@ -12,7 +12,7 @@ const orderLabels = {
   tokens: "Most reported tokens",
 };
 type Order = keyof typeof orderLabels;
-export type ModelActivityFilter = { query: string; fitFiltered: boolean };
+export type ModelActivityFilter = { query: string; step?: string; fitFiltered: boolean };
 
 function readPreference(key: string) {
   try {
@@ -44,7 +44,7 @@ export function RunModelActivity({
   const { owner } = useOwner();
   const orderKey = `${ownerStoragePrefix(owner)}.model-activity-order`;
   const displayKey = `${ownerStoragePrefix(owner)}.model-activity-display`;
-  const { query, fitFiltered } = filter;
+  const { query, step, fitFiltered } = filter;
   const [display, setDisplay] = useState<"table" | "timeline">(() =>
     readPreference(displayKey) === "timeline" ? "timeline" : "table",
   );
@@ -89,10 +89,17 @@ export function RunModelActivity({
     };
   });
   const search = query.trim().toLowerCase();
-  const visible = rows.filter(({ attempt, label, location, status }) =>
-    [label, location, status, attempt.model, attempt.returned_model].some((value) =>
-      value?.toLowerCase().includes(search),
-    ),
+  const filtered = Boolean(search || step);
+  const steps = [...passes.keys()].map((path) => ({ path, label: runStepLabel(run, path) }));
+  const labelCounts = new Map<string, number>();
+  for (const { label } of steps) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
+  const visible = rows.filter(
+    ({ attempt, path, label, location, status }) =>
+      (!step || path === step) &&
+      (!search ||
+        [label, location, status, attempt.model, attempt.returned_model].some((value) =>
+          value?.toLowerCase().includes(search),
+        )),
   );
   if (display === "table" && order !== "oldest") visible.reverse();
   if (display === "table" && (order === "elapsed" || order === "tokens"))
@@ -103,6 +110,23 @@ export function RunModelActivity({
   return (
     <section className="run-model-activity" aria-label="Model attempts">
       <div className="model-activity-controls">
+        <label>
+          Workflow step
+          <select
+            value={step ?? ""}
+            onChange={(event) =>
+              onFilterChange({ ...filter, step: event.target.value || undefined })
+            }
+          >
+            <option value="">All steps</option>
+            {steps.map(({ path, label }) => (
+              <option key={path} value={path}>
+                {label}
+                {(labelCounts.get(label) ?? 0) > 1 && ` · ${path.replace(/^root\//, "")}`}
+              </option>
+            ))}
+          </select>
+        </label>
         <label>
           Filter model activity
           <input
@@ -136,7 +160,7 @@ export function RunModelActivity({
             </select>
           </label>
         )}
-        {display === "timeline" && search && (
+        {display === "timeline" && filtered && (
           <label>
             Timeline range
             <select
@@ -164,7 +188,7 @@ export function RunModelActivity({
         <ModelActivityTimeline
           rows={rows}
           visible={visible}
-          fitVisible={Boolean(search && fitFiltered)}
+          fitVisible={filtered && fitFiltered}
           inspect={inspect}
         />
       ) : (

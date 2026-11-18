@@ -218,6 +218,8 @@ request and output. The browser remembers the display and sort preferences.
 When the timeline is filtered, **Timeline range** can fit the matching attempts
 or keep the original scale for the entire run. Model activity and Files keep
 their filters as you inspect a step and return within the same open run.
+Use **Workflow step** to scope activity to a saved step and loop iteration.
+**Model activity for this step** opens that scope directly from Step details.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
@@ -230,6 +232,9 @@ the association before starting. After you start the revised experiment,
 
 Unsent feedback stays in the current browser tab when you switch runs or refresh.
 Drafts clear when the app observes a resolved checkpoint or a terminal run.
+**Copy review link** opens the same pending question in another tab. When the
+question has been answered or the checkpoint changes, the link opens Decisions
+with the saved decisions and current questions.
 
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
@@ -261,6 +266,9 @@ active work.
 **Recorded web sources** shows shared and unique provider-recorded URLs for the
 two selected passes and flags incomplete receipts. The saved input preview shows
 the material each pass received from earlier work.
+**Saved research input changes** compares the brief, feedback, instructions,
+prior result, and evidence records supplied in the two requests. Open an
+individual saved request for the complete payload.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
 routing, limits and judgments. It follows the referenced subgraph versions and
 compares pinned source identities and order.
@@ -281,7 +289,8 @@ Selecting a comparison run puts both run IDs in the address bar. Use **Copy
 comparison link** to bookmark the pair, including a baseline from the archive.
 
 Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
-including runs outside Recent runs. It lists the oldest runs first, 20 per page, and
+including runs outside Recent runs. Each row includes a brief excerpt to identify
+the experiment. It lists the oldest runs first, 20 per page, and
 refreshes while open. Opening a question checks the current checkpoint and takes
 you to its evidence and decision controls. An expired entry refreshes the inbox.
 

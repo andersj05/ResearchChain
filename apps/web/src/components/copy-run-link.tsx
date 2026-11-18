@@ -17,6 +17,11 @@ const copyText = {
     success: "Pass comparison link copied.",
     fallback: "Copy the pass comparison link from the address bar.",
   },
+  review: {
+    button: "Copy review link",
+    success: "Review link copied.",
+    fallback: "Copy the review link from the address bar.",
+  },
 };
 
 export function CopyRunLink({
@@ -24,15 +29,18 @@ export function CopyRunLink({
   target,
   id,
   passes,
+  checkpointId,
 }: {
   runId: string;
   id: string;
 } & (
-  | { target: "compare" | "attempt"; passes?: never }
+  | { target: "compare" | "attempt"; passes?: never; checkpointId?: never }
   | {
       target: "passes";
       passes: ComparisonPasses;
+      checkpointId?: never;
     }
+  | { target: "review"; checkpointId: string; passes?: never }
 )) {
   const [status, setStatus] = useState("");
   const text = copyText[target];
@@ -46,6 +54,7 @@ export function CopyRunLink({
     if (passes) {
       url.searchParams.set("passes", `${passes.baselineAttempt ?? ""},${passes.openAttempt ?? ""}`);
     }
+    if (checkpointId) url.searchParams.set("checkpoint", checkpointId);
     window.history.replaceState(null, "", url);
     try {
       await navigator.clipboard.writeText(url.href);

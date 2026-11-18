@@ -37,18 +37,19 @@ function parseRequest(body: ArrayBuffer) {
   const sources = packet.sources.flatMap((value: unknown) => {
     const source = object(value);
     const id = text(source?.id);
-    if (!evidenceId.test(id)) return [];
+    if (!source || !evidenceId.test(id)) return [];
     return [
       {
         id,
-        title: text(source?.title) || `Source ${id.slice(0, 8)}`,
+        title: text(source.title) || `Source ${id.slice(0, 8)}`,
         metadata: sourceMetadata({
-          representation: text(source?.representation) || undefined,
-          as_of_date: text(source?.as_of_date),
-          published_date: text(source?.published_date),
+          representation: text(source.representation) || undefined,
+          as_of_date: text(source.as_of_date),
+          published_date: text(source.published_date),
         }),
-        delivery: text(source?.delivery),
-        text: text(source?.text),
+        delivery: text(source.delivery),
+        text: text(source.text),
+        record: source,
       },
     ];
   });
@@ -57,13 +58,16 @@ function parseRequest(body: ArrayBuffer) {
     brief: packet.brief,
     feedback: packet.human_feedback,
     context: packet.additional_context,
-    priorConclusion: text(object(packet.prior_result)?.conclusion),
+    priorResult: object(packet.prior_result),
     instructions: text(request?.instructions),
     sources,
   };
 }
 
-function Excerpt({ value }: { value: string }) {
+export type SavedModelInputs = NonNullable<ReturnType<typeof parseRequest>>;
+export type SavedRequestArtifact = { id: string; bytes: number };
+
+export function ModelInputExcerpt({ value }: { value: string }) {
   return (
     <>
       <pre tabIndex={0}>{value.slice(0, previewCharacters)}</pre>
@@ -74,13 +78,17 @@ function Excerpt({ value }: { value: string }) {
   );
 }
 
-function Preview({ id }: { id: string }) {
-  const [preview, setPreview] = useState<
-    ReturnType<typeof parseRequest> | "failed" | "large" | undefined
-  >();
+type PreviewResult = SavedModelInputs | null | "failed" | "large";
+
+export function useModelRequestPreview({ id, bytes }: SavedRequestArtifact) {
+  const [state, setState] = useState<{ id: string; preview: PreviewResult }>();
   const [generation, setGeneration] = useState(0);
   useEffect(() => {
+    if (bytes > previewBytes) return;
     const controller = new AbortController();
+    function save(preview: PreviewResult) {
+      if (!controller.signal.aborted) setState({ id, preview });
+    }
     async function load() {
       try {
         const response = await apiFetch(contentUrl(id), {
@@ -88,33 +96,36 @@ function Preview({ id }: { id: string }) {
         });
         if (!response.ok) throw new Error();
         if (Number(response.headers.get("content-length")) > previewBytes) {
-          if (!controller.signal.aborted) setPreview("large");
+          save("large");
           return;
         }
         const body = await response.arrayBuffer();
         if (!controller.signal.aborted)
-          setPreview(body.byteLength > previewBytes ? "large" : parseRequest(body));
+          save(body.byteLength > previewBytes ? "large" : parseRequest(body));
       } catch {
-        if (!controller.signal.aborted) setPreview("failed");
+        save("failed");
       }
     }
     void load();
     return () => controller.abort();
-  }, [generation, id]);
+  }, [bytes, generation, id]);
+  return {
+    preview: bytes > previewBytes ? "large" : state?.id === id ? state.preview : undefined,
+    retry: () => {
+      setState(undefined);
+      setGeneration((value) => value + 1);
+    },
+  } as const;
+}
 
+function Preview({ id, bytes }: SavedRequestArtifact) {
+  const { preview, retry } = useModelRequestPreview({ id, bytes });
   if (preview === undefined) return <p role="status">Loading saved inputs…</p>;
   if (preview === "failed")
     return (
       <div>
         <p role="alert">The saved request could not be previewed.</p>
-        <button
-          type="button"
-          className="button small"
-          onClick={() => {
-            setPreview(undefined);
-            setGeneration((value) => value + 1);
-          }}
-        >
+        <button type="button" className="button small" onClick={retry}>
           Retry saved input preview
         </button>
       </div>
@@ -122,26 +133,27 @@ function Preview({ id }: { id: string }) {
   if (preview === "large" || preview === null)
     return <p className="field-hint">Open the saved request to inspect these inputs.</p>;
 
+  const priorConclusion = text(preview.priorResult?.conclusion);
   return (
     <section className="saved-model-inputs" aria-label="Saved model inputs">
       <h4>Research brief</h4>
-      <Excerpt value={preview.brief} />
+      <ModelInputExcerpt value={preview.brief} />
       {preview.feedback && (
         <>
           <h4>Reviewer feedback</h4>
-          <Excerpt value={preview.feedback} />
+          <ModelInputExcerpt value={preview.feedback} />
         </>
       )}
       {preview.context && (
         <details>
           <summary>Additional context</summary>
-          <Excerpt value={preview.context} />
+          <ModelInputExcerpt value={preview.context} />
         </details>
       )}
-      {preview.priorConclusion && (
+      {priorConclusion && (
         <details>
           <summary>Prior result conclusion</summary>
-          <Excerpt value={preview.priorConclusion} />
+          <ModelInputExcerpt value={priorConclusion} />
         </details>
       )}
       {preview.sources.length > 0 && (
@@ -160,7 +172,7 @@ function Preview({ id }: { id: string }) {
                 {source.text && (
                   <details>
                     <summary>Supplied text</summary>
-                    <Excerpt value={source.text} />
+                    <ModelInputExcerpt value={source.text} />
                   </details>
                 )}
               </li>
@@ -171,14 +183,14 @@ function Preview({ id }: { id: string }) {
       {preview.instructions && (
         <details>
           <summary>Saved instructions</summary>
-          <Excerpt value={preview.instructions} />
+          <ModelInputExcerpt value={preview.instructions} />
         </details>
       )}
     </section>
   );
 }
 
-export function ModelRequestPreview({ id, bytes }: { id: string; bytes: number }) {
+export function ModelRequestPreview({ id, bytes }: SavedRequestArtifact) {
   const [open, setOpen] = useState(false);
   return (
     <details
@@ -188,11 +200,7 @@ export function ModelRequestPreview({ id, bytes }: { id: string; bytes: number }
       <summary>Inspect saved inputs</summary>
       {open && (
         <>
-          {bytes > previewBytes ? (
-            <p className="field-hint">Open the saved request to inspect these inputs.</p>
-          ) : (
-            <Preview key={id} id={id} />
-          )}
+          <Preview key={id} id={id} bytes={bytes} />
           <a className="text-link" href={contentUrl(id)} download>
             Download saved request
           </a>

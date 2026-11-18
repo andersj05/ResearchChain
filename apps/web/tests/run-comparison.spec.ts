@@ -142,14 +142,17 @@ test("compare two saved research runs without switching the open run", async ({ 
     result: { ...original.result!, conclusion, workspace_files: [], web_research },
   });
   const savedInputs = new Map<string, string>();
-  const requestFor = (feedback: string) => {
+  const requestFor = (feedback: string, instructions: string, id: string, title: string) => {
     const packet = JSON.stringify({
       brief: "Check policy repricing",
       human_feedback: feedback,
       additional_context: "",
-      sources: [],
+      sources: [
+        { id, title, delivery: "complete UTF-8 text", text: `Synthetic data for ${title}` },
+      ],
     });
     const body = JSON.stringify({
+      instructions,
       input: [{ role: "user", content: [{ type: "input_text", text: packet }] }],
     });
     const input_artifact_id = `sha256:${createHash("sha256").update(body).digest("hex")}`;
@@ -166,7 +169,12 @@ test("compare two saved research runs without switching the open run", async ({ 
         ["https://example.org/five-sessions", "Synthetic five-session data"],
       ]),
     ),
-    ...requestFor("Use five sessions."),
+    ...requestFor(
+      "Use five sessions.",
+      "Check the front-end spread.",
+      priorSource,
+      "Original curves",
+    ),
   };
   const openPass = {
     ...modelOutput(
@@ -177,7 +185,7 @@ test("compare two saved research runs without switching the open run", async ({ 
         ["https://example.org/twenty-sessions", "Synthetic twenty-session data"],
       ]),
     ),
-    ...requestFor("Use twenty sessions."),
+    ...requestFor("Use twenty sessions.", "Check the belly spread.", newSource, "Updated curves"),
   };
   const leadPass = (conclusion: string, next_lead: string, web?: ReturnType<typeof recordWeb>) => {
     const attempt = modelOutput(iterationPath(1), conclusion, web);
@@ -390,6 +398,30 @@ test("compare two saved research runs without switching the open run", async ({ 
   allowBaselinePreview = true;
   await beforeOutput.getByRole("button", { name: "Retry saved input preview" }).click();
   await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toBeVisible();
+  const inputChanges = comparisons.locator("details.saved-model-inputs");
+  allowBaselinePreview = false;
+  await comparisons.getByText("Saved research input changes", { exact: true }).click();
+  await expect(inputChanges.getByRole("alert")).toHaveText(
+    "Comparison pass · Saved request could not be loaded.",
+  );
+  allowBaselinePreview = true;
+  await inputChanges.getByRole("button", { name: "Retry comparison pass request" }).click();
+  await inputChanges.getByText("Reviewer feedback", { exact: true }).click();
+  await expect(
+    inputChanges.getByRole("region", { name: "Comparison pass input" }).locator("pre"),
+  ).toHaveText("Use five sessions.");
+  await expect(inputChanges.getByRole("region", { name: "Open run pass input" })).toContainText(
+    "Use twenty sessions.",
+  );
+  await expect(inputChanges.getByText("Research brief", { exact: true })).toHaveCount(0);
+  await inputChanges.getByText("Saved instructions", { exact: true }).click();
+  await expect(inputChanges.getByText("Check the belly spread.", { exact: true })).toBeVisible();
+  await inputChanges.getByText("Evidence selection and order", { exact: true }).click();
+  await expect(inputChanges.getByText(/^Updated curves · /)).toBeVisible();
+  await inputChanges.getByText("Evidence records changed (2)", { exact: true }).click();
+  await inputChanges.getByText(/^Evidence · Original curves/).click();
+  await expect(inputChanges.getByText(/Synthetic data for Original curves/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const beforePass = beforeOutput.getByRole("combobox", { name: "Saved pass" });
   const currentPass = openOutput.getByRole("combobox", { name: "Saved pass" });
   await expect(beforePass).toHaveValue(baselinePass.id);
@@ -406,6 +438,9 @@ test("compare two saved research runs without switching the open run", async ({ 
     "https://example.org/policy",
   );
   await beforePass.selectOption(baselineLead.id);
+  await expect(comparisons.getByText("Saved research input changes", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(beforePass.locator("option:checked")).toHaveText("Pass 1 · Research lead");
   await expect(beforeOutput.getByText("Check five-session pricing.")).toBeVisible();
   await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toHaveCount(0);
@@ -463,6 +498,9 @@ test("compare two saved research runs without switching the open run", async ({ 
   expect(new URL(page.url()).searchParams.has("passes")).toBe(false);
   await page.getByText("Output file changes", { exact: true }).click();
   await expect(page.getByText("The latest saved files match.")).toBeVisible();
+  await page.getByText("Model outputs by step (3)", { exact: true }).click();
+  await comparisons.getByText("Saved research input changes", { exact: true }).click();
+  await expect(inputChanges.getByText("Both passes have the same saved request.")).toBeVisible();
   await page.getByRole("button", { name: "Hide workflow map", exact: true }).click();
   await page.reload();
   await expect(page.getByRole("button", { name: "Show workflow map", exact: true })).toBeVisible();

@@ -28,7 +28,7 @@ import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
 import { RunInspector, type ReviewFocus } from "@/components/run-inspector";
 import type { ReviewTarget } from "@/components/review-inbox";
-import { pendingReviews, reviewPath } from "@/lib/run-inspection";
+import { bookmarkedReview, reviewPath } from "@/lib/run-inspection";
 import { formatTime } from "@/components/run-status";
 import {
   api,
@@ -310,6 +310,8 @@ export function Workbench() {
     url.searchParams.delete("compare");
     url.searchParams.delete("passes");
     url.searchParams.delete("attempt");
+    url.searchParams.delete("review");
+    url.searchParams.delete("checkpoint");
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
     try {
@@ -479,10 +481,15 @@ export function Workbench() {
   function rememberRun(id: string, fromInbox = false) {
     selectedRunId.current = id;
     const url = new URL(window.location.href);
-    if (url.searchParams.get("run") !== id) {
+    const changedRun = url.searchParams.get("run") !== id;
+    if (changedRun) {
       url.searchParams.delete("compare");
       url.searchParams.delete("passes");
       url.searchParams.delete("attempt");
+    }
+    if (changedRun || fromInbox) {
+      url.searchParams.delete("review");
+      url.searchParams.delete("checkpoint");
     }
     if (fromInbox) {
       url.searchParams.delete("agent");
@@ -514,10 +521,8 @@ export function Workbench() {
     const result = await api<RunSnapshot>(`runs/${id}`);
     if (epoch === runReadEpoch.current && (target || selectedRunId.current === id)) {
       if (target) {
-        const review = pendingReviews(result).find(
-          (item) => item.interrupt_id === target.interruptId,
-        );
-        if (!review || result.checkpoint_id !== target.checkpointId) {
+        const review = bookmarkedReview(result, target);
+        if (!review) {
           if (selectedRunId.current === id) setRun(result);
           throw new Error("That checkpoint changed. Select a current review from the inbox.");
         }

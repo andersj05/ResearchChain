@@ -13,12 +13,14 @@ import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
   attemptPath,
+  bookmarkedReview,
   graphLocation,
   pendingReviews,
   preferredPath,
   reviewPath,
   runInspectionUrl,
   stepStates,
+  type ReviewBookmark,
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { useOwner } from "@/components/access-context";
@@ -35,6 +37,14 @@ function runLinkTarget(run: RunSnapshot) {
   if (typeof window === "undefined") return {};
   const params = new URL(window.location.href).searchParams;
   if (params.get("run")?.toLowerCase() !== run.id) return {};
+  if (params.has("review") || params.has("checkpoint")) {
+    const bookmark = {
+      checkpointId: params.get("checkpoint") ?? "",
+      interruptId: params.get("review") ?? "",
+    };
+    const review = bookmarkedReview(run, bookmark);
+    return { reviewBookmark: bookmark, path: review && reviewPath(review) };
+  }
   const attemptId = params.get("attempt")?.toLowerCase();
   const attempt = attemptId && run.model_attempts?.find((item) => item.id === attemptId);
   if (attempt) return { attemptId: attempt.id, path: attemptPath(attempt) };
@@ -93,10 +103,17 @@ function RunWorkspace({
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
   const reviewDraftKey = `${ownerStoragePrefix(owner)}.review-drafts.${run.id}`;
   const [link] = useState(() => runLinkTarget(run));
+  const [reviewBookmark, setReviewBookmark] = useState<ReviewBookmark | undefined>(
+    reviewFocus ? undefined : link.reviewBookmark,
+  );
   const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
-  const [view, setView] = useState<RunView>(comparison && !reviewFocus ? "comparison" : "step");
+  const [selectedView, setView] = useState<RunView>(
+    comparison && !reviewFocus ? "comparison" : "step",
+  );
+  const staleReviewLink = reviewBookmark && !bookmarkedReview(run, reviewBookmark);
+  const view = staleReviewLink ? "decisions" : selectedView;
   const navigation = useRef(0);
   const [showGraph, setShowGraph] = useState(() => {
     try {
@@ -122,6 +139,7 @@ function RunWorkspace({
   if (reviewFocus !== lastFocus) {
     setLastFocus(reviewFocus);
     if (reviewFocus) {
+      setReviewBookmark(undefined);
       setManual(reviewFocus.path);
       setView("step");
       setAttemptId(undefined);
@@ -147,8 +165,18 @@ function RunWorkspace({
   const { node, graph, parents, prefix } = graphLocation(run, path);
   const reviews = pendingReviews(run);
   const files = savedRunFiles(run);
+  const clearReviewBookmark = () => {
+    setReviewBookmark(undefined);
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("review") || url.searchParams.has("checkpoint")) {
+      url.searchParams.delete("review");
+      url.searchParams.delete("checkpoint");
+      window.history.replaceState(null, "", url);
+    }
+  };
   const changeView = (next: RunView) => {
     navigation.current += 1;
+    clearReviewBookmark();
     setView(next);
   };
   const select = (value: string, id?: string) => {
@@ -409,6 +437,7 @@ function RunWorkspace({
         </button>
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
+        {staleReviewLink && <p role="status">This review link is out of date.</p>}
         {view === "activity" && (
           <RunModelActivity
             run={run}
@@ -496,8 +525,14 @@ function RunWorkspace({
             feedback={pendingFeedback}
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
             onIterateStep={() => onIterate(undefined, path)}
+            onModelActivity={() => {
+              focusOnInspect.current = true;
+              setActivityFilter((previous) => ({ ...previous, query: "", step: path }));
+              changeView("activity");
+            }}
             onResume={async (...args) => {
               const submittedFrom = navigation.current;
+              clearReviewBookmark();
               await onResume(...args);
               if (navigation.current === submittedFrom) follow();
             }}

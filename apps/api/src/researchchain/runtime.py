@@ -602,6 +602,7 @@ class RunStore:
         with self.database.connection() as conn:
             rows = conn.execute(
                 "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
+                "LEFT(r.brief, 240) AS brief_excerpt, "
                 "command.response->>'checkpoint_id' AS checkpoint_id, "
                 "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
                 "THEN command.response->'reviews' "

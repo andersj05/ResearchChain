@@ -4,16 +4,22 @@ import {
   type RunSnapshot,
   type WorkflowRevision,
 } from "../src/lib/workflow";
+import { addTemplate, referenceOf } from "../src/lib/workflow-editing";
 
 test("sort model activity by measured work and remember the preference", async ({ page }) => {
   const stamp = (minute: number) => new Date(Date.UTC(2026, 10, 18, 15, minute)).toISOString();
+  const loop = addTemplate(structuredClone(discretionaryMacroWorkflow), null, "loop", "activity");
+  const loopRef = referenceOf(loop.workflow.nodes.find((node) => node.id === loop.selected)!)!;
+  const body = addTemplate(loop.workflow, loopRef, "model", "pass");
+  const firstIteration = `root/${loop.selected}/iteration-1/${body.selected}`;
+  const secondIteration = `root/${loop.selected}/iteration-2/${body.selected}`;
   const revision: WorkflowRevision = {
     id: crypto.randomUUID(),
     name: discretionaryMacroWorkflow.name,
     number: 1,
     content_hash: "0123456789abcdef",
     created_at: stamp(0),
-    workflow: discretionaryMacroWorkflow,
+    workflow: body.workflow,
   };
   const attempt = {
     stage: "custom",
@@ -24,7 +30,7 @@ test("sort model activity by measured work and remember the preference", async (
     id: crypto.randomUUID(),
     revision_id: revision.id,
     revision_number: 1,
-    workflow: discretionaryMacroWorkflow,
+    workflow: body.workflow,
     workflow_name: revision.name,
     status: "running",
     execution_pending: true,
@@ -38,7 +44,7 @@ test("sort model activity by measured work and remember the preference", async (
       {
         ...attempt,
         id: crypto.randomUUID(),
-        path: "root/map",
+        path: firstIteration,
         status: "completed",
         model: "slow-partial-model",
         input_tokens: 450,
@@ -48,7 +54,7 @@ test("sort model activity by measured work and remember the preference", async (
       {
         ...attempt,
         id: crypto.randomUUID(),
-        path: "root/map/analyst-pass-2",
+        path: `${firstIteration}/analyst-pass-2`,
         status: "completed",
         model: "fast-metered-model",
         input_tokens: 12,
@@ -59,7 +65,7 @@ test("sort model activity by measured work and remember the preference", async (
       {
         ...attempt,
         id: crypto.randomUUID(),
-        path: "root/test",
+        path: secondIteration,
         status: "completed",
         model: "zero-tokens-model",
         input_tokens: 0,
@@ -155,8 +161,22 @@ test("sort model activity by measured work and remember the preference", async (
   await expect(expanded).toContainText("Pass 1");
   await expect(step).toContainText("slow-partial-model");
   await expect(page.getByRole("group", { name: "Latest workflow activity" })).toBeVisible();
-  await activity.click();
+  await step.getByRole("button", { name: "Model activity for this step", exact: true }).click();
   await expect(display).toHaveValue("timeline");
+  const scope = page.getByRole("combobox", { name: "Workflow step", exact: true });
+  await expect(scope).toHaveValue(firstIteration);
+  await expect(scope.locator("option:checked")).toHaveText(/Iteration 1/);
+  await expect(entries).toHaveCount(2);
+  await range.selectOption("filtered");
+  await expect(timeline.getByText("Time since the first matching model attempt")).toBeVisible();
+  await entries.nth(1).getByRole("button").click();
+  await expect(expanded).toContainText("Pass 2");
+  await activity.click();
+  await expect(scope).toHaveValue(firstIteration);
+  await scope.selectOption(secondIteration);
+  await expect(entries).toHaveCount(1);
+  await expect(entries.nth(0)).toContainText("zero-tokens-model");
+  await scope.selectOption("");
   await expect(entries).toHaveCount(4);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

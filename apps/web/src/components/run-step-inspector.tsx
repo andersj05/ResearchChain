@@ -1,4 +1,5 @@
 import { Button } from "@ui-sdk/react/button";
+import { CopyRunLink } from "./copy-run-link";
 import { ArrowUpRight, Check, X } from "lucide-react";
 import type { RunSnapshot } from "@/lib/workflow";
 import { outputBindings } from "@/lib/workflow-editing";
@@ -64,6 +65,7 @@ export function RunStepInspector({
   changeFeedback,
   onResume,
   onIterateStep,
+  onModelActivity,
   select,
 }: {
   run: RunSnapshot;
@@ -75,6 +77,7 @@ export function RunStepInspector({
   changeFeedback: (id: string, value: string) => void;
   onResume: ResumeReview;
   onIterateStep: () => Promise<void>;
+  onModelActivity: () => void;
   select: (path: string, attemptId?: string) => void;
 }) {
   const { node, graph, prefix } = graphLocation(run, path);
@@ -131,6 +134,11 @@ export function RunStepInspector({
         <Button className="button small" disabled={busy} onClick={onIterateStep}>
           Iterate from this step
         </Button>
+        {hasAttempt && (
+          <Button className="button small" onClick={onModelActivity}>
+            Model activity for this step
+          </Button>
+        )}
       </div>
       {node.config?.type === "research" && node.config.analyst && (
         <p className="field-hint">
@@ -191,6 +199,15 @@ export function RunStepInspector({
                 <X size={15} aria-hidden />
                 Reject and stop
               </Button>
+              {run.checkpoint_id && (
+                <CopyRunLink
+                  key={`${run.checkpoint_id}/${review.interrupt_id}`}
+                  runId={run.id}
+                  target="review"
+                  id={review.interrupt_id}
+                  checkpointId={run.checkpoint_id}
+                />
+              )}
             </div>
           </div>
           {!!reviewInputs.length && (

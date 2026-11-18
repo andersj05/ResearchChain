@@ -5,11 +5,12 @@ type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 export type ComparisonPasses = { baselineAttempt?: string; openAttempt?: string };
+export type ReviewBookmark = { checkpointId: string; interruptId: string };
 
 export function runInspectionUrl(
   location: string,
   run: string,
-  key: "compare" | "attempt",
+  key: "compare" | "attempt" | "review",
   id: string,
 ) {
   const url = new URL(location);
@@ -64,6 +65,12 @@ export function pendingReviews(run: RunSnapshot) {
         ? [run.review]
         : []
     : [];
+}
+
+export function bookmarkedReview(run: RunSnapshot, { checkpointId, interruptId }: ReviewBookmark) {
+  return checkpointId === run.checkpoint_id
+    ? pendingReviews(run).find((review) => review.interrupt_id === interruptId)
+    : undefined;
 }
 
 export function preferredPath(run: RunSnapshot) {
@@ -178,6 +185,15 @@ export function graphLocation(run: RunSnapshot, path: string) {
   }
   const node = graph.nodes.find((item) => `${prefix}/${item.id}` === path) ?? graph.nodes[0]!;
   return { graph, prefix, parents, node };
+}
+
+export function runStepLabel(run: RunSnapshot, path: string) {
+  const { node, parents } = graphLocation(run, path);
+  const context = parents.map((parent) => {
+    const iteration = /^iteration-(\d+)\//.exec(path.slice(parent.path.length + 1))?.[1];
+    return iteration ? `Iteration ${iteration} · ${parent.label}` : parent.label;
+  });
+  return [node.label, ...context].join(" · ");
 }
 
 export function feedbackRecipients(graph: Graph, reviewId: string) {

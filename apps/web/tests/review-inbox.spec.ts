@@ -54,13 +54,21 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await page.setViewportSize({ width: 390, height: 950 });
   await page.goto(`/?agent=${agents[0]!.agent.id}&view=runs`);
   await page.getByText("Review inbox", { exact: true }).click();
-  const item = page.getByRole("listitem").filter({ hasText: "Inbox macro analysis" });
+  const inbox = page.locator("details.review-inbox");
+  const item = inbox.getByRole("listitem").filter({ hasText: "Inbox macro analysis" });
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
+  await expect(item.getByText("Synthetic rates disagreement", { exact: true })).toBeVisible();
+  await expect(
+    item.locator(".review-inbox-question").filter({ hasText: dissentQuestion }).getByRole("button"),
+  ).toHaveAccessibleDescription(`${dissentQuestion} Synthetic rates disagreement`);
   const scope = page.getByRole("combobox", { name: "Show reviews for" });
   await expect(scope).toHaveValue("all");
   await scope.selectOption("agent");
-  const currentAgentReview = page.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
+  const currentAgentReview = inbox.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
   await expect(currentAgentReview.getByRole("button", { name: "Open review" })).toHaveCount(1);
+  await expect(
+    currentAgentReview.getByText("Synthetic comparison run", { exact: true }),
+  ).toBeVisible();
   await expect(item).toHaveCount(0);
   await scope.selectOption("all");
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
@@ -76,7 +84,7 @@ test("the mobile inbox opens the exact parallel review across agents and handles
     });
   const chooseQuestion = async (question: string) => {
     await openQuestion(question).click();
-    await expect(page.locator("details.review-inbox")).not.toHaveAttribute("open", "");
+    await expect(inbox).not.toHaveAttribute("open", "");
   };
   await chooseQuestion(dissentQuestion);
   await expect(page.getByLabel("Review challenge", { exact: true })).toBeVisible();
@@ -84,6 +92,29 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await expect(page.getByRole("combobox", { name: "Agent", exact: true })).toHaveValue(
     agents[0]!.agent.id,
   );
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Copy review link", exact: true }).click();
+  await expect(page.getByText("Review link copied.", { exact: true })).toBeVisible();
+  const reviewLink = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+  const originalCheckpoint = scopedPage.items[0]!;
+  expect(reviewLink.searchParams.get("run")).toBe(id);
+  expect(reviewLink.searchParams.get("checkpoint")).toBe(originalCheckpoint.checkpoint_id);
+  expect(reviewLink.searchParams.get("review")).toBe(
+    originalCheckpoint.reviews.find((review) => review.question === dissentQuestion)!.interrupt_id,
+  );
+  const reviewTab = await page.context().newPage();
+  await reviewTab.setViewportSize({ width: 390, height: 950 });
+  await reviewTab.goto(reviewLink.href);
+  await expect(reviewTab.getByLabel("Review challenge", { exact: true })).toBeVisible();
+  await expect(reviewTab.getByLabel("Review support", { exact: true })).toHaveCount(0);
+  await reviewTab
+    .getByRole("combobox", { name: "Agent", exact: true })
+    .selectOption(agents[0]!.agent.id);
+  await expect
+    .poll(() => new URL(reviewTab.url()).searchParams.get("agent"))
+    .toBe(agents[0]!.agent.id);
+  expect(new URL(reviewTab.url()).searchParams.has("review")).toBe(false);
+  expect(new URL(reviewTab.url()).searchParams.has("checkpoint")).toBe(false);
   const feedback = page.getByRole("textbox", { name: "Reviewer feedback" });
   await feedback.fill("Keep the liquidity explanation in the scenario set.");
   await page.getByText("Review inbox", { exact: true }).click();
@@ -120,6 +151,9 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await chooseQuestion(supportQuestion);
   await expect(page.getByLabel("Review support", { exact: true })).toBeVisible();
   await expect(feedback).toHaveValue("Compare the priced path against the meeting calendar.");
+  await page.getByRole("button", { name: "Copy review link", exact: true }).click();
+  await expect(page.getByText("Review link copied.", { exact: true })).toBeVisible();
+  const supportLink = new URL(await page.evaluate(() => navigator.clipboard.readText()));
   await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
   await expect(page.getByLabel("Review challenge", { exact: true })).toBeVisible();
   await expect(feedback).toHaveValue("Keep the liquidity explanation in the scenario set.");
@@ -133,6 +167,26 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   // Freeze one inbox response, then resolve it elsewhere before the owner clicks.
   const live: PendingReviewsPage = await (await request.get("/api/runs/reviews")).json();
   const old = live.items.find((entry) => entry.id === id)!;
+  expect(old.reviews.map((review) => review.interrupt_id)).not.toContain(
+    supportLink.searchParams.get("review"),
+  );
+  await reviewTab.goto(supportLink.href);
+  await expect(reviewTab.getByText("This review link is out of date.")).toBeVisible();
+  await expect(reviewTab.getByRole("button", { name: "Approve and continue" })).toHaveCount(0);
+  await expect(reviewTab.getByRole("region", { name: "Recorded decisions" })).toContainText(
+    "Compare the priced path against the meeting calendar.",
+  );
+  const wrongCheckpoint = new URL(reviewLink);
+  wrongCheckpoint.searchParams.set("checkpoint", crypto.randomUUID());
+  await reviewTab.goto(wrongCheckpoint.href);
+  await expect(reviewTab.getByText("This review link is out of date.")).toBeVisible();
+  await reviewTab
+    .getByRole("region", { name: "Decisions needed" })
+    .getByRole("button", { name: "Open review" })
+    .click();
+  await expect(reviewTab.getByLabel("Review challenge", { exact: true })).toBeVisible();
+  expect(new URL(reviewTab.url()).searchParams.has("checkpoint")).toBe(false);
+  await reviewTab.close();
   await page.route("**/api/runs/reviews?*", (route) =>
     route.fulfill({ json: { items: [old], has_more: false } }),
   );

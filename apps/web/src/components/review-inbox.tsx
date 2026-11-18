@@ -74,6 +74,11 @@ function InboxPage({
                 )}
                 <time dateTime={item.created_at}>{formatTime(item.created_at)}</time>
               </p>
+              {item.brief_excerpt?.trim() && (
+                <p className="run-row-brief" id={`inbox-brief-${item.id}`}>
+                  {item.brief_excerpt}
+                </p>
+              )}
               {item.reviews.map((review) => {
                 const questionId = `inbox-${item.id}-${review.interrupt_id}`;
                 return (
@@ -84,7 +89,11 @@ function InboxPage({
                     )}
                     <Button
                       className="button small"
-                      aria-describedby={questionId}
+                      aria-describedby={
+                        item.brief_excerpt?.trim()
+                          ? `${questionId} inbox-brief-${item.id}`
+                          : questionId
+                      }
                       disabled={busy}
                       onClick={async () => {
                         const opened = await onOpen({
