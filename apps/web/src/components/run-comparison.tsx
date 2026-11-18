@@ -5,6 +5,7 @@ import { formatTime, RunStatus } from "./run-status";
 import { ResearchMarkdown } from "./research-markdown";
 import { researchToolUrls } from "./research-tool-receipts";
 import { RunSetupChanges } from "./run-setup-changes";
+import { RunArchive } from "./run-archive";
 
 function reportedModels(run: RunSnapshot) {
   const models = new Set(run.model_attempts?.flatMap((attempt) => attempt.returned_model ?? []));
@@ -164,31 +165,52 @@ function Comparison({ run, id }: { run: RunSnapshot; id: string }) {
         Loading comparison run…
       </p>
     );
+  if ((result.agent_id ?? null) !== (run.agent_id ?? null))
+    return <p role="alert">Select a comparison run from the same agent.</p>;
   return <RunComparisonResult run={run} baseline={result} />;
 }
 
 export function RunComparison({ run, recentRuns }: { run: RunSnapshot; recentRuns: RunSummary[] }) {
   const [id, setId] = useState("");
+  const [archived, setArchived] = useState<RunSummary>();
   const options = recentRuns.filter(
     (item) => item.id !== run.id && (item.agent_id ?? null) === (run.agent_id ?? null),
   );
+  if (
+    archived &&
+    archived.id !== run.id &&
+    (archived.agent_id ?? null) === (run.agent_id ?? null) &&
+    !options.some((item) => item.id === archived.id)
+  ) {
+    options.push(archived);
+  }
   const selected = options.some((item) => item.id === id) ? id : "";
-  if (!options.length) return null;
   return (
     <details className="run-details run-comparison">
-      <summary>Compare a recent run</summary>
-      <label>
-        Comparison run
-        <select value={selected} onChange={(event) => setId(event.target.value)}>
-          <option value="">Choose a run</option>
-          {options.map((item) => (
-            <option key={item.id} value={item.id}>
-              {formatTime(item.created_at)} · {item.id.slice(0, 8)}
-              {item.workflow_name !== run.workflow_name && ` · ${item.workflow_name}`}
-            </option>
-          ))}
-        </select>
-      </label>
+      <summary>Compare a saved run</summary>
+      {options.length > 0 && (
+        <label>
+          Comparison run
+          <select value={selected} onChange={(event) => setId(event.target.value)}>
+            <option value="">Choose a run</option>
+            {options.map((item) => (
+              <option key={item.id} value={item.id}>
+                {formatTime(item.created_at, true)} · {item.id.slice(0, 8)}
+                {item.workflow_name !== run.workflow_name && ` · ${item.workflow_name}`}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <RunArchive
+        key={run.id}
+        agentId={run.agent_id}
+        excludeRun={run.id}
+        onSelect={(item) => {
+          setArchived(item);
+          setId(item.id);
+        }}
+      />
       {selected && <Comparison key={selected} run={run} id={selected} />}
     </details>
   );

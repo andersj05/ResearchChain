@@ -35,6 +35,8 @@ from researchchain.models import (
     PendingReviewsPage,
     ResumeRequest,
     RevisionSummary,
+    RunArchivePage,
+    RunArchiveQuery,
     RunRequest,
     RunSnapshot,
     RunSummary,
@@ -263,6 +265,10 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20, agent_id: UUID | None = None
     ) -> list[RunSummary]:
         return runs.list(limit, agent_id)
+
+    @app.get("/api/runs/search", response_model=RunArchivePage, operation_id="search_runs")
+    def search_runs(query: Annotated[RunArchiveQuery, Query()]) -> RunArchivePage:
+        return runs.search(query)
 
     @app.get(
         "/api/runs/reviews", response_model=PendingReviewsPage, operation_id="list_pending_reviews"

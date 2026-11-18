@@ -936,6 +936,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/runs/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Search Runs */
+    get: operations["search_runs"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/runs/reviews": {
     parameters: {
       query?: never;
@@ -3317,6 +3334,19 @@ export interface components {
       condition: components["schemas"]["Predicate"];
       /** Join */
       join: string;
+    };
+    /** RunArchiveItem */
+    RunArchiveItem: {
+      run: components["schemas"]["RunSummary"];
+      /** Brief Excerpt */
+      brief_excerpt: string;
+    };
+    /** RunArchivePage */
+    RunArchivePage: {
+      /** Items */
+      items: components["schemas"]["RunArchiveItem"][];
+      /** Has More */
+      has_more: boolean;
     };
     /** RunEvent */
     RunEvent: {
@@ -6087,6 +6117,56 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CommandReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_runs: {
+    parameters: {
+      query?: {
+        limit?: number;
+        search?: string;
+        status?:
+          | (
+              | "queued"
+              | "paused"
+              | "completed"
+              | "rejected"
+              | "interrupted"
+              | "cancelled"
+              | "limited"
+              | "running"
+              | "failed"
+            )
+          | null;
+        agent_id?: string | null;
+        unassigned?: boolean;
+        exclude_id?: string | null;
+        before_created_at?: string | null;
+        before_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunArchivePage"];
         };
       };
       /** @description Validation Error */

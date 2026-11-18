@@ -32,6 +32,9 @@ from researchchain.models import (
     PendingReviewsPage,
     ResumeRequest,
     ReviewPrompt,
+    RunArchiveItem,
+    RunArchivePage,
+    RunArchiveQuery,
     RunEvent,
     RunRequest,
     RunSnapshot,
@@ -518,14 +521,21 @@ class RunStore:
                 worker_error=job["last_error"] if job else None,
             )
 
-    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RunSummary]:
+    def search(self, query: RunArchiveQuery) -> RunArchivePage:
+        matches = self._search_runs(query, look_ahead=True)
+        return RunArchivePage(items=matches[: query.limit], has_more=len(matches) > query.limit)
+
+    def _search_runs(
+        self, query: RunArchiveQuery, *, look_ahead: bool = False
+    ) -> list[RunArchiveItem]:
         # History reads journaled summaries, not every graph/checkpoint. A live
         # advisory lock distinguishes executing commands from abandoned ones.
         with self.database.connection() as conn:
             rows = conn.execute(
-                "SELECT r.id, a.agent_id, a.agent_name, r.revision_id, "
+                "SELECT * FROM (SELECT r.id, a.agent_id, a.agent_name, r.revision_id, "
                 "w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
+                "LEFT(r.brief, 240) AS brief_excerpt, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
                 "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
                 "WHEN EXISTS ("
@@ -543,11 +553,32 @@ class RunStore:
                 "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
-                "WHERE (%s::uuid IS NULL OR a.agent_id = %s) "
-                "ORDER BY r.created_at DESC, r.id DESC LIMIT %s",
-                (agent_id, agent_id, limit),
+                "WHERE (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(unassigned)s OR a.agent_id IS NULL) "
+                "AND (%(exclude_id)s::uuid IS NULL OR r.id <> %(exclude_id)s) "
+                "AND (%(before_created_at)s::timestamptz IS NULL "
+                "OR (r.created_at, r.id) < (%(before_created_at)s, %(before_id)s)) "
+                "AND (%(search)s = '' OR strpos(lower(concat_ws(' ', "
+                "w.workflow->>'name', a.agent_name, r.id::text, r.brief)), lower(%(search)s)) > 0)"
+                ") summary WHERE (%(status)s::text IS NULL OR status = %(status)s) "
+                "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
+                {
+                    **query.model_dump(),
+                    "search": query.search.strip(),
+                    "limit": query.limit + int(look_ahead),
+                },
             )
-            return [RunSummary.model_validate(row) for row in rows]
+            return [
+                RunArchiveItem(
+                    brief_excerpt=row.pop("brief_excerpt"), run=RunSummary.model_validate(row)
+                )
+                for row in rows
+            ]
+
+    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RunSummary]:
+        return [
+            item.run for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
+        ]
 
     def pending_reviews(self, limit: int, offset: int) -> PendingReviewsPage:
         # Read the most recent command receipt. An admitted resume has no response

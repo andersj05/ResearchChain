@@ -194,13 +194,18 @@ parameters and direct UUID lookups; there is no automatic data deletion. A run
 also pins a compiler version. Incompatible executors refuse recovery instead of
 silently interpreting old checkpoints through changed code.
 
-In **Runs → Run context → Compare a recent run**, select another run for the same
+In **Runs → Run context → Compare a saved run**, select another run for the same
 agent to inspect its pinned revision, models, usage, sources, brief, feedback and
 latest recorded model output alongside the open run. The comparison reads a saved
 snapshot when you select it. Open its own run view to follow active work.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
 routing, limits and judgments. It follows the referenced subgraph versions and
 compares pinned source identities and order.
+
+Open **Search saved runs** in Runs for the full archive, or **Search comparison
+runs** in the comparison picker for the current agent's archive. Search by brief,
+agent, workflow, or run ID and filter by saved status. The recent run list still
+provides a quick view of the latest 20 runs.
 
 Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
 including runs outside Recent runs. It lists the oldest runs first, 20 per page, and

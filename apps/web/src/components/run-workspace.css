@@ -357,6 +357,59 @@
   gap: 4px;
   max-width: 360px;
 }
+.run-archive {
+  margin-block: 8px;
+}
+.run-archive summary {
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 13px;
+}
+.archive-search {
+  display: grid;
+  gap: 8px;
+  margin-block: 8px;
+}
+.archive-search label {
+  min-width: 0;
+  margin: 0;
+}
+.archive-search input,
+.archive-search select {
+  width: 100%;
+}
+.archive-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.archive-results > ul {
+  max-height: min(50vh, 28rem);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.archive-results li + li {
+  border-top: 1px solid var(--line);
+}
+.archive-results .run-row:hover {
+  background: var(--paper);
+}
+.archive-brief {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+}
+.archive-paging {
+  flex-wrap: wrap;
+  margin-block: 8px;
+}
 .run-comparison table {
   table-layout: fixed;
   overflow-wrap: anywhere;
