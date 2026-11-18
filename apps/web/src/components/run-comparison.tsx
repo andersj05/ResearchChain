@@ -5,6 +5,7 @@ import { formatTime, RunStatus } from "./run-status";
 import { ResearchMarkdown } from "./research-markdown";
 import { researchToolUrls } from "./research-tool-receipts";
 import { RunSetupChanges } from "./run-setup-changes";
+import { RunOutputFileChanges } from "./run-output-file-changes";
 import { RunArchive } from "./run-archive";
 
 function reportedModels(run: RunSnapshot) {
@@ -86,6 +87,7 @@ function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: Ru
   return (
     <>
       <RunSetupChanges before={baseline} after={run} />
+      <RunOutputFileChanges before={baseline} after={run} />
       <div
         className="model-activity-scroll"
         role="region"
