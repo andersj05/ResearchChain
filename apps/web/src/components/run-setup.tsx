@@ -1,7 +1,7 @@
 "use client";
 
 import { ResearchConnection } from "@/components/research-settings";
-import type { ResearchSettings, Workflow } from "@/lib/workflow";
+import { ideaGenerationBrief, type ResearchSettings, type Workflow } from "@/lib/workflow";
 import type { ModelCatalog } from "@/components/model-picker";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
@@ -120,6 +120,10 @@ export function RunSetup({
       )
     : [];
   const unavailable = stepModels.filter((step) => !available.has(step.model));
+  const sampleBrief = [brief.trimEnd(), ideaGenerationBrief].filter(Boolean).join("\n\n");
+  const hasWorkspace = [workflow, ...(workflow.subgraphs ?? [])].some((graph) =>
+    graph.nodes.some((node) => node.config?.type === "research" && node.config.analyst?.workspace),
+  );
   const ready =
     !research ||
     (!!accountId &&
@@ -172,6 +176,15 @@ export function RunSetup({
             onChange={(event) => onBriefChange(event.target.value)}
             placeholder="What question should this run explore?"
           />
+          {hasWorkspace && !brief.includes(ideaGenerationBrief) && sampleBrief.length <= 10000 && (
+            <Button
+              className="button small"
+              disabled={busy}
+              onClick={() => onBriefChange(sampleBrief)}
+            >
+              {brief.trim() ? "Append synthetic rotation brief" : "Use synthetic rotation brief"}
+            </Button>
+          )}
           {open && research && (
             <ResearchConnection
               settings={research}

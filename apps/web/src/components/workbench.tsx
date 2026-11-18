@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Undo2, Redo2, CheckCheck, X } from "lucide-react";
 import { useOwner } from "@/components/access-context";
-import { AgentSwitcher } from "@/components/agent-switcher";
+import { AgentSwitcher, type StartingWorkflow } from "@/components/agent-switcher";
 import { agentDraftKey, readAgentDraft, type AgentDraft } from "@/lib/agent-drafts";
 import { AccessControls } from "@/components/access-controls";
 import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
@@ -29,6 +29,8 @@ import {
   initialWorkflow,
   researchWorkflow,
   ideaWorkflow,
+  ideaGenerationWorkflow,
+  ideaGenerationBrief,
   exampleWorkflow,
   admissionTimeout,
   type CommandReceipt,
@@ -306,12 +308,16 @@ export function Workbench() {
     rememberAgent(id || null);
     setMessage("");
   }
-  async function createAgent(id: string, name: string, copy: boolean) {
-    const document = { ...structuredClone(copy ? workflow : initialWorkflow), name };
+  async function createAgent(id: string, name: string, starter: StartingWorkflow) {
+    const starters = { blank: initialWorkflow, current: workflow, ideas: ideaGenerationWorkflow };
+    const document = { ...structuredClone(starters[starter]), name };
     const created = await api<AgentDetail>("agents", { id, workflow: document });
     setAgents((previous) => [created.agent, ...previous.filter((item) => item.id !== id)]);
     await switchAgent(created.agent.id);
-    setMessage(`Agent “${name}” created. Add your steps and save a version.`);
+    if (starter === "ideas") {
+      setBrief(ideaGenerationBrief);
+      setMessage(`Agent “${name}” created. Open Run workflow to try the synthetic rotation brief.`);
+    } else setMessage(`Agent “${name}” created. Add your steps and save a version.`);
   }
   async function loadLatestAgent() {
     if (!activeAgent) return;
