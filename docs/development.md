@@ -190,6 +190,9 @@ pinned. Inspect the source in a separate tab, check its as-of date when availabl
 or move or remove it while browsing the rest of the library.
 Search the entire evidence library by title, author, publisher, or saved date
 while keeping the selected records in view.
+The **Sources** workspace uses the same library search and applies availability
+before paging. Filtering the list keeps the open source and its linked claims
+in view.
 
 **Model activity** can sort attempts by elapsed time or total reported tokens.
 Rows with missing measurements follow measured rows. Switch to **Timeline** to

@@ -23,6 +23,7 @@ from researchchain.evidence_models import (
     ClaimPage,
     ClaimRecord,
     ContentPreview,
+    EvidenceAvailability,
     EvidenceCreate,
     EvidencePage,
     EvidenceRecord,
@@ -149,22 +150,28 @@ class EvidenceStore:
         with self.database.connection() as conn:
             return read_evidence(conn, evidence_id)
 
-    def list(self, limit: int = 50, offset: int = 0, search: str = "") -> EvidencePage:
+    def list(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        search: str = "",
+        availability: EvidenceAvailability | None = None,
+    ) -> EvidencePage:
         matches = (
             "FROM evidence_records WHERE (%(search)s = '' OR strpos(lower(concat_ws(' ', "
             "document->>'title', document->>'publisher', document->>'author', "
-            "document->>'as_of_date', document->>'published_date')), lower(%(search)s)) > 0)"
+            "document->>'as_of_date', document->>'published_date')), lower(%(search)s)) > 0) "
+            "AND (%(availability)s::text IS NULL "
+            "OR coalesce(document->>'availability', 'available') = %(availability)s)"
         )
-        query = search.strip()
+        filters = {"search": search.strip(), "availability": availability}
         with self.database.connection() as conn:
             rows = conn.execute(
                 f"SELECT document {matches} ORDER BY created_at DESC, id DESC "
                 "LIMIT %(limit)s OFFSET %(offset)s",
-                {"search": query, "limit": limit, "offset": offset},
+                {**filters, "limit": limit, "offset": offset},
             ).fetchall()
-            total = conn.execute(
-                f"SELECT count(*) AS total {matches}", {"search": query}
-            ).fetchone()
+            total = conn.execute(f"SELECT count(*) AS total {matches}", filters).fetchone()
             assert total is not None
             items = [EvidenceRecord.model_validate(row["document"]) for row in rows]
             return EvidencePage(

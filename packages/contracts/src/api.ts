@@ -4483,6 +4483,7 @@ export interface operations {
         limit?: number;
         offset?: number;
         search?: string;
+        availability?: ("available" | "reference_only" | "missing" | "paywalled") | null;
       };
       header?: never;
       path?: never;

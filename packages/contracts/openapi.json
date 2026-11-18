@@ -496,8 +496,26 @@
             "schema": {
               "type": "string",
               "maxLength": 240,
+              "pattern": "^[^\\x00]*$",
               "default": "",
               "title": "Search"
+            }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["available", "reference_only", "missing", "paywalled"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Availability"
             }
           }
         ],
