@@ -7,7 +7,7 @@ import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity } from "./run-model-activity";
-import { RunDecisions } from "./run-decisions";
+import { RunDecisions, type FeedbackBriefDraft } from "./run-decisions";
 import { RunFiles, savedRunFiles } from "./run-files";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
@@ -107,6 +107,7 @@ function RunWorkspace({
   });
   const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
   const [feedback, setFeedback] = useState(() => readReviewDrafts(reviewDraftKey));
+  const [feedbackBrief, setFeedbackBrief] = useState<FeedbackBriefDraft | null>(null);
   const pendingFeedback = pruneReviewDrafts(run, feedback);
   if (pendingFeedback !== feedback) setFeedback(pendingFeedback);
   const reviewDrafts = JSON.stringify(pendingFeedback);
@@ -375,7 +376,14 @@ function RunWorkspace({
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
         {view === "activity" && <RunModelActivity run={run} inspect={inspectFromPanel} />}
         {view === "decisions" && (
-          <RunDecisions run={run} busy={busy} inspect={inspectFromPanel} iterate={onIterate} />
+          <RunDecisions
+            run={run}
+            busy={busy}
+            inspect={inspectFromPanel}
+            iterate={onIterate}
+            feedbackDraft={feedbackBrief}
+            onFeedbackDraftChange={setFeedbackBrief}
+          />
         )}
         {view === "files" && <RunFiles files={files} run={run} inspect={inspectFromPanel} />}
         {view === "context" && (

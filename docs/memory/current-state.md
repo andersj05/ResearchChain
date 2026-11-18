@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Inspect saved inputs and iterate from a step
+
+**Inspect saved inputs** shows the text supplied for a recorded model attempt,
+including prior conclusions, selected evidence, and reviewer feedback. The
+comparison view can open each request independently. **Iterate from this step**
+opens the exact saved step in Build. **Timeline range** fits filtered attempts
+on request. CI passed 517 backend tests with 2 skips and all 120 browser tests.
+Desktop at `0794cd7` served the controls with a healthy API and connected
+worker. Read-only checks passed for evidence search, run archive and review
+inbox. [PR #95](https://github.com/andersj05/ResearchChain/pull/95).
+
 ## Search and verify saved evidence
 
 **Sources** searches the entire library and applies availability before paging.

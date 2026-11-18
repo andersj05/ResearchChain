@@ -10,6 +10,106 @@ import {
 } from "@/lib/run-inspection";
 import type { RunSnapshot, WorkflowNode } from "@/lib/workflow";
 
+type DecisionEvent = RunSnapshot["events"][number];
+
+export type FeedbackBriefDraft = {
+  brief: string;
+  selected: string[];
+};
+
+const briefLimit = 10_000;
+
+function feedbackEntry(event: DecisionEvent, runId: string) {
+  const path = eventPath(event).split("/");
+  const run = runId.slice(0, 8);
+  const origin = path.length > 2 ? `${path.slice(1).join(" › ")}, run ${run}` : run;
+  return `Reviewer feedback from ${event.label} (${origin}):\n${event.review_response?.feedback ?? ""}`;
+}
+
+function FeedbackBrief({
+  decisions,
+  run,
+  draft,
+  onDraftChange,
+  busy,
+  iterate,
+}: {
+  decisions: DecisionEvent[];
+  run: RunSnapshot;
+  draft: FeedbackBriefDraft | null;
+  onDraftChange: (draft: FeedbackBriefDraft) => void;
+  busy: boolean;
+  iterate: (brief: string) => Promise<void>;
+}) {
+  const { brief, selected } = draft ?? { brief: run.brief, selected: [] };
+  const entries = decisions.filter((event) => selected.includes(eventPath(event)));
+  const combined = [brief.trimEnd(), ...entries.map((event) => feedbackEntry(event, run.id))]
+    .filter(Boolean)
+    .join("\n\n");
+  const overLimit = combined.length > briefLimit;
+
+  return (
+    <details className="decision-brief" open={draft !== null}>
+      <summary>Combine feedback for next run</summary>
+      <fieldset>
+        <legend>Feedback to include</legend>
+        {decisions.map((event) => {
+          const path = eventPath(event);
+          const nested = path.split("/").length > 2;
+          return (
+            <label className="decision-brief-choice" key={path}>
+              <input
+                type="checkbox"
+                checked={selected.includes(path)}
+                onChange={(change) =>
+                  onDraftChange({
+                    brief,
+                    selected: change.target.checked
+                      ? [...selected, path]
+                      : selected.filter((item) => item !== path),
+                  })
+                }
+              />
+              <span>
+                <strong>{event.label}</strong>
+                {nested && <small>{path.replaceAll("/", " › ")}</small>}
+                <span className="decision-brief-feedback">{event.review_response?.feedback}</span>
+              </span>
+            </label>
+          );
+        })}
+      </fieldset>
+      <label className="decision-brief-field">
+        Prior research brief
+        <textarea
+          rows={4}
+          value={brief}
+          onChange={(change) => onDraftChange({ brief: change.target.value, selected })}
+        />
+      </label>
+      {entries.length > 0 && (
+        <label className="decision-brief-field">
+          Next research brief
+          <textarea rows={8} readOnly value={combined} />
+        </label>
+      )}
+      {overLimit && (
+        <p className="error" role="alert">
+          This brief has {combined.length.toLocaleString()} characters. Shorten the prior brief or
+          clear a selection to fit the {briefLimit.toLocaleString()} character limit.
+        </p>
+      )}
+      <Button
+        className="button small"
+        disabled={busy || entries.length === 0 || overLimit}
+        onClick={() => iterate(combined)}
+      >
+        Open next experiment in Build
+      </Button>
+    </details>
+  );
+}
+
 function FeedbackInputs({
   recipients,
   prefix,
@@ -63,14 +163,19 @@ export function RunDecisions({
   busy,
   inspect,
   iterate,
+  feedbackDraft,
+  onFeedbackDraftChange,
 }: {
   run: RunSnapshot;
   busy: boolean;
   inspect: (path: string, attemptId?: string) => void;
   iterate: (brief: string) => Promise<void>;
+  feedbackDraft: FeedbackBriefDraft | null;
+  onFeedbackDraftChange: (draft: FeedbackBriefDraft) => void;
 }) {
   const pending = pendingReviews(run);
-  const saved = run.events.filter((event) => event.kind === "review").reverse();
+  const saved = run.events.filter((event) => event.kind === "review");
+  const withFeedback = saved.filter((event) => event.review_response?.feedback.trim());
   if (!pending.length && !saved.length) {
     return <p className="muted">No review decisions yet.</p>;
   }
@@ -100,8 +205,18 @@ export function RunDecisions({
       {saved.length > 0 && (
         <section aria-label="Recorded decisions">
           <h3>Recorded decisions</h3>
+          {withFeedback.length > 1 && (
+            <FeedbackBrief
+              decisions={withFeedback}
+              run={run}
+              draft={feedbackDraft}
+              onDraftChange={onFeedbackDraftChange}
+              busy={busy}
+              iterate={iterate}
+            />
+          )}
           <ul>
-            {saved.map((event) => {
+            {saved.toReversed().map((event) => {
               const path = eventPath(event);
               const { graph, node, parents, prefix } = graphLocation(run, path);
               const feedback = event.review_response?.feedback.trim();
@@ -127,7 +242,7 @@ export function RunDecisions({
                     <button className="button small" type="button" onClick={() => inspect(path)}>
                       Inspect decision
                     </button>
-                    {feedback && brief.length <= 10000 && (
+                    {feedback && brief.length <= briefLimit && (
                       <Button
                         className="button small"
                         disabled={busy}

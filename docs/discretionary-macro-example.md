@@ -32,7 +32,10 @@ In an open review, **Files for this review** shows saved files from the output
 under review and its earlier context. Preview the chart or observations while
 you write your judgment.
 **Iterate with this feedback** copies the saved version and appends the selected
-judgment to the next editable brief.
+judgment to the next editable brief. Use **Combine feedback for next run** to
+carry several recorded judgments into one brief, such as the mandate and your
+later view on what the market is pricing. Edit the prior brief and preview the
+combined text before opening the revised experiment in Build.
 
 **Runs → Files** finds saved charts, CSVs, and methods files across the run. Open
 the listed pass to inspect the calculation. Preview charts and supported text
