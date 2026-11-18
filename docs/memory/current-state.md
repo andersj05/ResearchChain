@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Follow and repair Build data bindings
+
+**Output bindings** opens the step input that consumes an output in the current
+graph. **Open input** focuses a binding picker when validation identifies it.
+Fourteen focused browser cases covered nested repairs and the macro workflow.
+CI passed 538 backend tests with 2 skips and all 140 browser cases. Desktop at
+`bab5176` served both controls. Owner access, the synthetic input diagnostic,
+and the repaired binding also passed live verification.
+[PR #113](https://github.com/andersj05/ResearchChain/pull/113).
+
 ## Choose where a new Build step goes
 
 **Insert position** can add before the selected entry or a step with one incoming
