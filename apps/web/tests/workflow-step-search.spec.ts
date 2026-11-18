@@ -44,3 +44,50 @@ test("find a nested review by its question and return to an editable root step",
     macro.nodes.filter((node) => node.kind === "research").length,
   );
 });
+
+test("inspect and follow a review handoff while building the macro workflow", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post("/api/revisions", { data: macro });
+  expect(response.status()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+
+  const outline = page.locator(".node-outline");
+  const mandate = outline.getByRole("button", { name: /Choose the question and horizon/ });
+  const undo = page.getByRole("button", { name: "Undo last edit" });
+  const handoff = page.getByRole("group", { name: "Review handoff" });
+  const testBinding = handoff.getByRole("button", {
+    name: "Run the discriminating test · feedback",
+  });
+  await mandate.click();
+  await expect(handoff.getByText("Find the cross-asset tension", { exact: true })).toBeVisible();
+  await expect(handoff.getByRole("button")).toHaveText([
+    "Estimate what markets price · feedback",
+    "Run the discriminating test · feedback",
+    "Challenge the transmission story · feedback",
+  ]);
+  await testBinding.press("Enter");
+  const input = page.getByRole("combobox", { name: "Reviewer feedback" });
+  await expect(input).toBeFocused();
+  await expect(input).toHaveValue("mandate:feedback");
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+
+  await input.selectOption("");
+  await mandate.click();
+  await expect(testBinding).toHaveCount(0);
+  await undo.click();
+  await expect(testBinding).toBeVisible();
+
+  await outline.getByRole("button", { name: /Decide whether the view is ready/ }).click();
+  await expect(
+    handoff.getByText("No step inputs are wired to this feedback.", { exact: true }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+});
