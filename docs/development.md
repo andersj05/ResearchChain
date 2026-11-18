@@ -155,6 +155,10 @@ Zoom controls and Fit view change only the viewport; Reset view restores
 100% zoom. Workflow settings expand beneath the outline. On smaller screens,
 the library and inspector move below the canvas.
 
+On a human review, **Review handoff** shows the steps that lead into the review
+and the inputs wired to its feedback. Select a feedback recipient to open and
+focus its input in Build.
+
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
 validation failures remain visible in the dialog. Visual conventions and the
