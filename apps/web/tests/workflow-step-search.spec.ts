@@ -154,6 +154,146 @@ test("inspect and follow a review handoff while building the macro workflow", as
   );
 });
 
+test("duplicate a macro review with independent questions and unchanged feedback wiring", async ({
+  page,
+  request,
+}) => {
+  const original = macro.nodes.find((step) => step.id === "mandate")!;
+  const originalQuestion = original.instructions ?? "";
+  const response = await request.post("/api/revisions", { data: macro });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+
+  const outline = page.locator(".node-outline");
+  const source = outline.getByRole("button", { name: /^Choose the question and horizon/ });
+  const copy = outline.getByRole("button", { name: /^Copy of Choose the question and horizon/ });
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  const question = page.getByRole("textbox", { name: "Review question", exact: true });
+  const next = page.getByRole("combobox", { name: "Next step", exact: true });
+  const handoff = page.getByRole("group", { name: "Review handoff" });
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+  await source.click();
+  await page.getByRole("button", { name: "Duplicate review", exact: true }).press("Enter");
+  await expect(stepName).toHaveValue(`Copy of ${original.label}`);
+  await expect(stepName).toBeFocused();
+  await expect(question).toHaveValue(originalQuestion);
+  await expect(next).toHaveValue("pricing");
+  await expect(handoff.getByText(original.label, { exact: true })).toBeVisible();
+  await expect(handoff.getByText("No step inputs are wired to this feedback.")).toBeVisible();
+
+  await question.fill("What evidence would make us change the horizon?");
+  await source.click();
+  await expect(question).toHaveValue(originalQuestion);
+  await expect(next.locator("option:checked")).toHaveText(`Copy of ${original.label}`);
+  expect(await next.inputValue()).toMatch(/^review-/);
+  await handoff
+    .getByRole("button", { name: "Estimate what markets price · feedback" })
+    .press("Enter");
+  const feedback = page.getByRole("combobox", { name: "Reviewer feedback" });
+  await expect(feedback).toBeFocused();
+  await expect(feedback).toHaveValue("mandate:feedback");
+  await copy.click();
+  await expect(question).toHaveValue("What evidence would make us change the horizon?");
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+
+  await undo.click();
+  await expect(question).toHaveValue(originalQuestion);
+  await undo.click();
+  await expect(copy).toHaveCount(0);
+  await source.click();
+  await expect(next).toHaveValue("pricing");
+  await expect(
+    handoff.getByRole("button", { name: "Estimate what markets price · feedback" }),
+  ).toBeVisible();
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+});
+
+test("duplicate a review at the legacy length limit and undo the upgrade", async ({
+  page,
+  request,
+}) => {
+  const legacy: Workflow = {
+    schema_version: "0.1",
+    name: "Legacy review chain",
+    start_node: "checkpoint",
+    nodes: [
+      {
+        id: "checkpoint",
+        kind: "review",
+        label: "Question checkpoint",
+        instructions: "What is the strongest challenge?",
+        position: { x: 60, y: 80 },
+      },
+      ...Array.from({ length: 30 }, (_, index) => ({
+        id: `note-${index}`,
+        kind: "note" as const,
+        label: `Note ${index}`,
+        instructions: "",
+        position: { x: 360 + (index % 6) * 280, y: 80 + Math.floor(index / 6) * 210 },
+      })),
+      {
+        id: "finish",
+        kind: "finish",
+        label: "Finish",
+        instructions: "",
+        position: { x: 2000, y: 80 },
+      },
+    ],
+    edges: [],
+  };
+  legacy.edges = legacy.nodes.slice(0, -1).map((step, index) => ({
+    source: step.id,
+    target: legacy.nodes[index + 1]!.id,
+    source_port: "next",
+    target_port: "in",
+  }));
+  const response = await request.post("/api/revisions", { data: legacy });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+
+  await page.getByRole("button", { name: "Duplicate review", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Copy of Question checkpoint",
+  );
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+});
+
+test("duplicate a review inside its pinned subgraph", async ({ page, request }) => {
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+  const search = page.getByRole("searchbox", { name: "Find a step" });
+  await search.fill("ready for the next pass");
+  await search.press("Enter");
+  const crumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  await expect(crumbs).toContainText("Critique and review");
+  await page.getByRole("button", { name: "Duplicate review", exact: true }).click();
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(stepName).toBeFocused();
+  await expect(stepName).toHaveValue("Copy of Review");
+  await expect(crumbs).toContainText("Critique and review");
+  await expect(page.getByRole("combobox", { name: "Next step", exact: true })).toHaveValue("done");
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+});
+
 test("follow macro output bindings to exact inputs and see edits reflected in Build", async ({
   page,
   request,

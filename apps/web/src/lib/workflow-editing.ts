@@ -419,8 +419,9 @@ function copyName(name: string, limit: number) {
   return Array.from(`Copy of ${name}`).slice(0, limit).join("");
 }
 
-export function duplicateResearchStep(graph: Graph, step: WorkflowNode) {
-  const id = makeId(step.kind);
+export function duplicateStep(graph: Graph, step: WorkflowNode) {
+  let id = makeId(step.kind);
+  while (graph.nodes.some((node) => node.id === id)) id = makeId(step.kind);
   const label = copyName(step.label, 100);
   const duplicate = { ...structuredClone(step), id, label };
   return { graph: insertStep(graph, duplicate, step.id), id };
