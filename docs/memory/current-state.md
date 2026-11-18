@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Step models in Run setup
+
+**Run workflow → Step models** edits model assignments for the reachable
+research steps, including versioned subgraphs. An unavailable override can be
+replaced or cleared in setup. The synthetic checks verified the requested model
+on the new run and preserved an unused subgraph version when clearing overrides.
+CI passed 516 backend tests with 2 skips and all 119 browser tests. Desktop at
+`253bcf5` served the controls with a healthy API and connected worker.
+[PR #88](https://github.com/andersj05/ResearchChain/pull/88).
+
 ## Workspace files at a review checkpoint
 
 **Files for this review** shows saved files from the work under review and the
