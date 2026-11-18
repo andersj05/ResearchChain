@@ -48,8 +48,8 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
 
   await page.setViewportSize({ width: 390, height: 950 });
   await page.goto(`/?agent=${agent.agent.id}&run=${active}&view=runs`);
-  await page.getByRole("button", { name: "Run context", exact: true }).click();
-  await page.getByText("Compare a saved run", { exact: true }).click();
+  const compareRuns = page.getByRole("button", { name: "Compare runs", exact: true });
+  await compareRuns.click();
   const comparisonSearch = page.getByText("Search comparison runs", { exact: true });
   await comparisonSearch.click();
   const search = page.getByRole("searchbox", { name: "Search the archive" });
@@ -77,9 +77,10 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
   expect(link).toBe(page.url());
 
   await page.getByRole("button", { name: "Model activity", exact: true }).click();
-  await page.getByRole("button", { name: "Run context", exact: true }).click();
+  await compareRuns.click();
   await expect(page.getByRole("combobox", { name: "Comparison run" })).toHaveValue(older);
   await page.goto(link);
+  await expect(compareRuns).toHaveAttribute("aria-pressed", "true");
   await expect(
     page.getByText(`Comparison run · ${older.slice(0, 8)}`, { exact: true }),
   ).toBeVisible();

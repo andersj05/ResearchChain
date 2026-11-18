@@ -213,7 +213,8 @@ see when recorded model attempts started and overlapped. A hollow point marks a
 start whose duration is unreported. Select any attempt to inspect its exact
 request and output. The browser remembers the display and sort preferences.
 When the timeline is filtered, **Timeline range** can fit the matching attempts
-or keep the original scale for the entire run.
+or keep the original scale for the entire run. Model activity and Files keep
+their filters as you inspect a step and return within the same open run.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
@@ -240,7 +241,7 @@ parameters and direct UUID lookups; there is no automatic data deletion. A run
 also pins a compiler version. Incompatible executors refuse recovery instead of
 silently interpreting old checkpoints through changed code.
 
-In **Runs → Run context → Compare a saved run**, select another run for the same
+In **Runs → Compare runs**, select another run for the same
 agent to inspect its pinned revision, models, usage, sources, brief, and feedback
 alongside the open run. **Model outputs by step** compares the latest saved
 output at the same step and iteration, shows when only one run has output, and

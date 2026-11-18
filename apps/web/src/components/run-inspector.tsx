@@ -6,7 +6,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
-import { RunModelActivity } from "./run-model-activity";
+import { RunModelActivity, type ModelActivityFilter } from "./run-model-activity";
 import { RunDecisions, type FeedbackBriefDraft } from "./run-decisions";
 import { RunFiles, savedRunFiles } from "./run-files";
 import { RunComparison } from "./run-comparison";
@@ -95,9 +95,9 @@ function RunWorkspace({
   const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
-  const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">(
-    comparison && !reviewFocus ? "context" : "step",
-  );
+  const [view, setView] = useState<
+    "step" | "activity" | "decisions" | "files" | "context" | "comparison"
+  >(comparison && !reviewFocus ? "comparison" : "step");
   const [showGraph, setShowGraph] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
@@ -108,6 +108,11 @@ function RunWorkspace({
   const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
   const [feedback, setFeedback] = useState(() => readReviewDrafts(reviewDraftKey));
   const [feedbackBrief, setFeedbackBrief] = useState<FeedbackBriefDraft | null>(null);
+  const [activityFilter, setActivityFilter] = useState<ModelActivityFilter>({
+    query: "",
+    fitFiltered: false,
+  });
+  const [fileQuery, setFileQuery] = useState("");
   const pendingFeedback = pruneReviewDrafts(run, feedback);
   if (pendingFeedback !== feedback) setFeedback(pendingFeedback);
   const reviewDrafts = JSON.stringify(pendingFeedback);
@@ -372,9 +377,23 @@ function RunWorkspace({
         <button type="button" aria-pressed={view === "context"} onClick={() => setView("context")}>
           Run context
         </button>
+        <button
+          type="button"
+          aria-pressed={view === "comparison"}
+          onClick={() => setView("comparison")}
+        >
+          Compare runs
+        </button>
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
-        {view === "activity" && <RunModelActivity run={run} inspect={inspectFromPanel} />}
+        {view === "activity" && (
+          <RunModelActivity
+            run={run}
+            inspect={inspectFromPanel}
+            filter={activityFilter}
+            onFilterChange={setActivityFilter}
+          />
+        )}
         {view === "decisions" && (
           <RunDecisions
             run={run}
@@ -385,7 +404,22 @@ function RunWorkspace({
             onFeedbackDraftChange={setFeedbackBrief}
           />
         )}
-        {view === "files" && <RunFiles files={files} run={run} inspect={inspectFromPanel} />}
+        {view === "files" && (
+          <RunFiles
+            files={files}
+            run={run}
+            inspect={inspectFromPanel}
+            filter={{ query: fileQuery, onChange: setFileQuery }}
+          />
+        )}
+        {view === "comparison" && (
+          <RunComparison
+            run={run}
+            recentRuns={recentRuns}
+            selected={comparison}
+            onSelect={selectComparison}
+          />
+        )}
         {view === "context" && (
           <div className="run-context-panel">
             <details className="run-brief" open>
@@ -395,12 +429,6 @@ function RunWorkspace({
             <PinnedEvidence
               ids={run.evidence_ids ?? []}
               snapshots={run.research_manifest?.evidence}
-            />
-            <RunComparison
-              run={run}
-              recentRuns={recentRuns}
-              selected={comparison}
-              onSelect={selectComparison}
             />
             <ResearchManifest run={run} />
             {!run.research_manifest && (

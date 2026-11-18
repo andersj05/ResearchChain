@@ -228,8 +228,7 @@ test("compare two saved research runs without switching the open run", async ({ 
   };
   await page.route(`**/api/revisions/${revision.id}`, (route) => route.fulfill({ json: revision }));
   await page.goto(`/?run=${current.id}`);
-  await page.getByRole("button", { name: "Run context", exact: true }).click();
-  await page.getByText("Compare a saved run", { exact: true }).click();
+  await page.getByRole("button", { name: "Compare runs", exact: true }).click();
   const compare = page.getByRole("combobox", { name: "Comparison run", exact: true });
   await expect(compare.locator("option")).toHaveCount(3);
   await compare.selectOption(base.id);

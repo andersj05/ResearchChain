@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Duplicate configured research steps
+
+**Duplicate research step** in Build inserts a copy with the same instructions,
+model, tools, and input bindings and focuses its name. The browser test verified
+Undo and the exact saved copy, original step, and successor connections. CI
+passed 517 backend tests with 2 skips and 121 browser cases, including one
+access test that passed on retry. Desktop at `50ee743` served the control with
+a healthy API and connected worker. Read-only evidence search, run archive
+and review inbox checks passed. [PR #98](https://github.com/andersj05/ResearchChain/pull/98).
+
 ## Save a web reference from an attempt
 
 **Web sources → Save source link** lets the owner review the title and URL
