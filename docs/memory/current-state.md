@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Open a saved-version run from Build
+
+**Recent run** opens the newest known run for the exact saved version and agent
+and keeps the Build draft available on return. The shortcut uses the recent
+20-run history. **Find a step** shows stable IDs when results would otherwise
+look identical. Desktop at `d46e56b` served the controls, API, and worker. CI
+passed 559 backend tests with 2 skips and all 181 browser cases on the first
+attempt. [PR #122](https://github.com/andersj05/ResearchChain/pull/122).
+
 ## Trace review decisions and edit long prompts
 
 **Expand** opens a larger editor for instructions and review questions.
