@@ -322,12 +322,19 @@
   border-top: 1px solid var(--line);
   padding-block: 10px;
 }
-.run-files li > div {
+.run-file-metadata {
   display: grid;
   flex: 1 1 150px;
   gap: 4px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.run-file-actions {
+  flex-wrap: wrap;
+}
+.run-file-preview {
+  flex: 1 0 100%;
+  min-width: 0;
 }
 .run-files small {
   color: var(--muted);
