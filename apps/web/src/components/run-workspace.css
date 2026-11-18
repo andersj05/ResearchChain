@@ -399,6 +399,58 @@
 .model-activity-controls :is(input, select) {
   width: 100%;
 }
+.model-timeline ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.model-timeline-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  align-items: center;
+  padding-block: 8px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.model-timeline-axis {
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.model-timeline-axis div {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+}
+.model-timeline .text-link {
+  text-align: start;
+}
+.model-timeline-meta {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+.model-timeline-track {
+  position: relative;
+  height: 14px;
+  margin: 0 4px 2px;
+  border-block-end: 1px solid var(--line);
+}
+.model-timeline-mark {
+  position: absolute;
+  top: 3px;
+  min-width: 4px;
+  height: 7px;
+  border-radius: 4px;
+  background: var(--ink);
+}
+.model-timeline-mark[data-unknown-duration] {
+  min-width: 7px;
+  border: 1px solid currentColor;
+  transform: translateX(-50%);
+  background: var(--surface);
+}
 .run-comparison label {
   display: grid;
   gap: 4px;

@@ -3,6 +3,7 @@ import { useOwner } from "@/components/access-context";
 import { ownerStoragePrefix } from "@/lib/access";
 import { attemptPath, graphLocation, modelAttemptStatus } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
+import { ModelActivityTimeline } from "./model-activity-timeline";
 
 const orderLabels = {
   newest: "Newest first",
@@ -32,6 +33,7 @@ export function RunModelActivity({
   const { owner } = useOwner();
   const preference = `${ownerStoragePrefix(owner)}.model-activity-order`;
   const [query, setQuery] = useState("");
+  const [display, setDisplay] = useState<"table" | "timeline">("table");
   const [order, setOrder] = useState(() => savedOrder(preference));
   const changeOrder = (next: Order) => {
     setOrder(next);
@@ -51,9 +53,8 @@ export function RunModelActivity({
     const label = node.label;
     const location = parents.length ? path.replaceAll("/", " › ") : "";
     const status = modelAttemptStatus(attempt);
-    const elapsed = attempt.finished_at
-      ? (Date.parse(attempt.finished_at) - Date.parse(attempt.created_at)) / 1000
-      : null;
+    const started = Date.parse(attempt.created_at) / 1000;
+    const elapsed = attempt.finished_at ? Date.parse(attempt.finished_at) / 1000 - started : null;
     const tokens =
       attempt.input_tokens != null && attempt.output_tokens != null
         ? attempt.input_tokens + attempt.output_tokens
@@ -65,6 +66,7 @@ export function RunModelActivity({
       label,
       location,
       status,
+      started,
       elapsed: elapsed !== null && Number.isFinite(elapsed) && elapsed >= 0 ? elapsed : null,
       tokens,
     };
@@ -75,8 +77,8 @@ export function RunModelActivity({
       value?.toLowerCase().includes(search),
     ),
   );
-  if (order !== "oldest") visible.reverse();
-  if (order === "elapsed" || order === "tokens")
+  if (display === "table" && order !== "oldest") visible.reverse();
+  if (display === "table" && (order === "elapsed" || order === "tokens"))
     visible.sort((left, right) => (right[order] ?? -1) - (left[order] ?? -1));
 
   if (!attempts.length) return <p className="muted">No model attempts have been recorded.</p>;
@@ -94,23 +96,41 @@ export function RunModelActivity({
           />
         </label>
         <label>
-          Sort model activity
-          <select value={order} onChange={(event) => changeOrder(event.target.value as Order)}>
-            {Object.entries(orderLabels).map(([value, label]) => (
-              <option key={value} value={value}>
-                {label}
-              </option>
-            ))}
+          Display model activity
+          <select
+            value={display}
+            onChange={(event) =>
+              setDisplay(event.target.value === "timeline" ? "timeline" : "table")
+            }
+          >
+            <option value="table">Table</option>
+            <option value="timeline">Timeline</option>
           </select>
         </label>
+        {display === "table" && (
+          <label>
+            Sort model activity
+            <select value={order} onChange={(event) => changeOrder(event.target.value as Order)}>
+              {Object.entries(orderLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
-      {order === "tokens" && visible.some((item) => item.tokens === null) && (
-        <p className="field-hint">Attempts with a missing token count follow complete totals.</p>
-      )}
+      {display === "table" &&
+        order === "tokens" &&
+        visible.some((item) => item.tokens === null) && (
+          <p className="field-hint">Attempts with a missing token count follow complete totals.</p>
+        )}
       {!visible.length ? (
         <p className="muted" role="status">
           No attempts match this filter.
         </p>
+      ) : display === "timeline" ? (
+        <ModelActivityTimeline rows={rows} visible={visible} inspect={inspect} />
       ) : (
         <div
           className="model-activity-scroll"
