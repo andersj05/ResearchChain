@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Compare web sources recorded on selected passes
+
+**Recorded web sources** groups the shared URLs and sources recorded on only
+one selected pass. It updates when the pass changes and flags missing or
+incomplete records. The phone comparison test verified the source groups and
+earlier pass selection. CI passed 519 backend tests with 2 skips and all 123
+browser cases. Desktop at `e4ffa16` served the controls with the API and worker
+ready.
+[PR #105](https://github.com/andersj05/ResearchChain/pull/105).
+
 ## Keep the baseline attached to an experiment
 
 **Iterate** keeps the original run as a baseline through draft reload and start
