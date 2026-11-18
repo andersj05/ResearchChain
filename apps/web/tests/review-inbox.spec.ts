@@ -66,7 +66,9 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await scope.selectOption("agent");
   const currentAgentReview = inbox.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
   await expect(currentAgentReview.getByRole("button", { name: "Open review" })).toHaveCount(1);
-  await expect(currentAgentReview.getByText("Synthetic comparison run", { exact: true })).toBeVisible();
+  await expect(
+    currentAgentReview.getByText("Synthetic comparison run", { exact: true }),
+  ).toBeVisible();
   await expect(item).toHaveCount(0);
   await scope.selectOption("all");
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
