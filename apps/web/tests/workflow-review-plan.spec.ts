@@ -54,20 +54,32 @@ test("Review plan shows macro questions and feedback in pinned nested graphs", a
   for (const step of macro.nodes.filter((node) => node.kind === "review")) {
     await expect(rowFor(step.label)).toContainText(step.instructions!);
   }
-  await expect(
-    rowFor("Choose the question and horizon")
-      .getByRole("list", { name: "Feedback bindings" })
-      .getByRole("listitem"),
-  ).toHaveText([
+  const mandate = rowFor("Choose the question and horizon");
+  const judgment = rowFor("Weigh the thesis and the dissent");
+  const mandateWiring = mandate.locator("summary");
+  const feedback = mandate.getByRole("list", { name: "Feedback bindings" });
+  await expect(mandateWiring).toHaveText("Wiring · 3 feedback bindings");
+  await expect(feedback).toHaveCount(0);
+  await expect(mandate.getByRole("list", { name: "Previous control steps" })).toHaveCount(0);
+  const listBox = (await plan.boundingBox())!;
+  const judgmentBox = (await judgment
+    .getByRole("button", { name: /^Edit Weigh the thesis/ })
+    .boundingBox())!;
+  expect(judgmentBox.y + judgmentBox.height).toBeLessThanOrEqual(listBox.y + listBox.height);
+  await mandateWiring.press("Enter");
+  await expect(feedback.getByRole("listitem")).toHaveText([
     "Estimate what markets price · feedback",
     "Run the discriminating test · feedback",
     "Challenge the transmission story · feedback",
   ]);
-  await expect(rowFor("Weigh the thesis and the dissent")).toContainText(
+  await mandateWiring.press("Enter");
+  await expect(feedback).toHaveCount(0);
+  await judgment.locator("summary").press("Enter");
+  await expect(judgment.getByRole("list", { name: "Feedback bindings" })).toContainText(
     "Build catalyst and risk scenarios · feedback",
   );
-  await expect(rowFor("Decide whether the view is ready")).toContainText(
-    "No step inputs or conditions are wired to this feedback.",
+  await expect(rowFor("Decide whether the view is ready").locator("summary")).toHaveText(
+    "Wiring · No feedback bindings",
   );
   await expect(rowFor("Decide on a second pass")).toContainText(
     "Continue this workflow? · Default question",
@@ -88,6 +100,8 @@ test("Review plan shows macro questions and feedback in pinned nested graphs", a
   const nested = rowFor(review.label);
   await expect(nested).toContainText(review.instructions);
   await expect(nested).toContainText("Transmission check · v1");
+  await expect(nested.locator("summary")).toHaveText("Wiring · 2 feedback bindings");
+  await nested.locator("summary").press("Enter");
   await expect(
     nested.getByRole("list", { name: "Feedback bindings" }).getByRole("listitem"),
   ).toHaveText(["Record the owner’s judgment · text", "Look for a policy surprise · condition"]);
