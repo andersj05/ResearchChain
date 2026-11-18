@@ -63,7 +63,7 @@ export const researchDefaults = {
 };
 export const admissionTimeout = 30000;
 
-export type ValidationIssue = { path: string; message: string };
+export type ValidationIssue = { location: (string | number)[]; path: string; message: string };
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -93,6 +93,7 @@ export async function api<T>(path: string, body?: unknown, timeout = 15000): Pro
         : "The local API is unavailable. Start the local services with pnpm dev.";
     const issues: ValidationIssue[] = Array.isArray(detail)
       ? detail.map((item: { loc?: (string | number)[]; msg: string }) => ({
+          location: item.loc ?? [],
           path: (item.loc ?? []).filter((part) => part !== "body").join("."),
           message: item.msg,
         }))
