@@ -12,6 +12,7 @@ import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
+import { DraftChangesPreview } from "@/components/draft-changes-preview";
 import { readPendingRun, retainPendingRun, forgetPendingRun } from "@/lib/run-requests";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
@@ -814,6 +815,13 @@ export function Workbench() {
                         : `Revision ${revision.number}`
                       : "Unsaved draft"}
                   </span>
+                  {edited && revision && (
+                    <DraftChangesPreview
+                      revision={revision}
+                      draft={workflow}
+                      disabled={!loaded || busy}
+                    />
+                  )}
                   <Button
                     className="button"
                     disabled={!loaded || busy}

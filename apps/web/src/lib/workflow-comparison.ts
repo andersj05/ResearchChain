@@ -22,6 +22,10 @@ function orderedValue(value: unknown): unknown {
   );
 }
 
+export function sameWorkflowDocument(before: unknown, after: unknown): boolean {
+  return JSON.stringify(orderedValue(before)) === JSON.stringify(orderedValue(after));
+}
+
 function showValue(value: unknown): string | undefined {
   if (value == null) return undefined;
   if (typeof value === "string") return value;
