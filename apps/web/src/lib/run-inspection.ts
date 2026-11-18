@@ -5,9 +5,14 @@ type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 
-export function comparisonUrl(location: string, run: string, compare: string) {
+export function runInspectionUrl(
+  location: string,
+  run: string,
+  key: "compare" | "attempt",
+  id: string,
+) {
   const url = new URL(location);
-  url.search = new URLSearchParams({ view: "runs", run, compare }).toString();
+  url.search = new URLSearchParams({ view: "runs", run, [key]: id }).toString();
   url.hash = "";
   return url;
 }

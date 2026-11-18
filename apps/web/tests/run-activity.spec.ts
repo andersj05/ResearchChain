@@ -48,7 +48,7 @@ test("sort model activity by measured work and remember the preference", async (
       {
         ...attempt,
         id: crypto.randomUUID(),
-        path: "root/pricing",
+        path: "root/map/analyst-pass-2",
         status: "completed",
         model: "fast-metered-model",
         input_tokens: 12,
@@ -104,5 +104,20 @@ test("sort model activity by measured work and remember the preference", async (
   await page.getByRole("searchbox", { name: "Filter model activity" }).fill("partial");
   await expect(rows).toHaveCount(2);
   await expect(rows.nth(1)).toContainText("slow-partial-model");
+  await rows.nth(1).getByRole("button").click();
+  const step = page.getByRole("region", { name: "Selected step" });
+  const expanded = step.locator(".research-attempt[open] > summary");
+  await expect(expanded).toContainText("Pass 1");
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await step.getByRole("button", { name: "Copy attempt link", exact: true }).click();
+  await expect(step.getByText("Attempt link copied.")).toBeVisible();
+  const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+  expect(link.searchParams.get("run")).toBe(snapshot.id);
+  expect(link.searchParams.get("attempt")).toBe(snapshot.model_attempts![0]!.id);
+  expect([...link.searchParams.keys()]).toEqual(["view", "run", "attempt"]);
+  await page.goto(link.href);
+  await expect(expanded).toContainText("Pass 1");
+  await expect(step).toContainText("slow-partial-model");
+  await expect(page.getByRole("group", { name: "Latest workflow activity" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
