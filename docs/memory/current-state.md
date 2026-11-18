@@ -4,6 +4,16 @@ Updated 2026-11-17. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Review inbox
+
+**Runs → Review inbox** lists pending questions across agents, including runs
+older than the recent history. It checks both checkpoint and interrupt identity
+when opening a review. Browser checks covered parallel questions, draft feedback,
+and a cancelled run. A synthetic check found an open question behind 20 later
+completed runs. Desktop at `b8f09d3` served the inbox, required owner access for
+its API, and read the pending-review query successfully with a connected worker.
+[PR #72](https://github.com/andersj05/ResearchChain/pull/72).
+
 ## Run comparison and live progress
 
 Desktop at `c45ce60` served same-agent run comparison, the saved workflow map

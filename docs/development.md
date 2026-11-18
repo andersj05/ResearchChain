@@ -149,7 +149,8 @@ The full-height desktop workbench uses a step library and outline on the left,
 a canvas in the center, and a selected-step inspector on the right. Collapse
 either panel from the canvas header. The outline selects and reveals offscreen
 nodes. **Find a step** searches names, instructions, and assigned models in the
-entire workflow. Select a match to open its step editor and subgraph version.
+draft and its referenced subgraphs. Select a match to focus its step editor.
+Enter opens the first match and Escape clears the search.
 Zoom controls and Fit view change only the viewport; Reset view restores
 100% zoom. Workflow settings expand beneath the outline. On smaller screens,
 the library and inspector move below the canvas.
