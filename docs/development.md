@@ -222,10 +222,13 @@ that share a definition within the original share the corresponding definition
 within the copy. Follow **Control connections** and input bindings to route the
 copy’s output where you need it. One Undo removes the new step and its definitions.
 
-When editing a saved workflow, open **Draft changes** next to **Save revision**
-to compare the draft with its saved revision. The preview lists changes to
-instructions, inputs, routing, and workflow settings. It also identifies a
-matching draft or a change limited to canvas positions.
+When editing a saved workflow, open **Draft changes** next to **Save revision**.
+It starts with the current saved revision. For a named agent, **Compare with**
+can select one of its earlier versions while keeping the current draft. The
+preview lists changes to instructions, inputs, routing, and workflow settings.
+Input sources and control destinations show step names and IDs.
+Use **Open draft step** to inspect a changed or added step in its current graph.
+The preview also identifies a matching draft or a change limited to canvas positions.
 Expand a changed or added step and choose **Open draft step** to open its
 current editor. **Return to step** takes you back to the step you were editing.
 
