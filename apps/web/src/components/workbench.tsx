@@ -300,6 +300,7 @@ export function Workbench() {
     url.searchParams.delete("revision");
     url.searchParams.delete("run");
     url.searchParams.delete("compare");
+    url.searchParams.delete("passes");
     url.searchParams.delete("attempt");
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
@@ -471,6 +472,7 @@ export function Workbench() {
     const url = new URL(window.location.href);
     if (url.searchParams.get("run") !== id) {
       url.searchParams.delete("compare");
+      url.searchParams.delete("passes");
       url.searchParams.delete("attempt");
     }
     if (fromInbox) {

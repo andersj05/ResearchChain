@@ -244,10 +244,15 @@ silently interpreting old checkpoints through changed code.
 
 In **Runs → Compare runs**, select another run for the same
 agent to inspect its pinned revision, models, usage, sources, brief, and feedback
-alongside the open run. **Model outputs by step** compares the latest saved
-output at the same step and iteration, shows when only one run has output, and
-links to the exact model attempts. The comparison reads a saved
-snapshot when you select it. Open its own run view to follow active work.
+alongside the open run. The comparison picker labels runs with brief excerpts.
+**Model outputs by step** compares the same step and
+iteration. Each side opens the latest saved conclusion, or the latest saved
+output if there is no conclusion yet. Use **Saved pass** to inspect a different
+conclusion, research lead, or workspace activity independently on each side.
+The saved input preview and attempt link follow the selected pass. **Copy pass
+comparison link** reopens the selected step and both saved passes. The
+comparison loads a snapshot when you select it. Open its own run view to follow
+active work.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
 routing, limits and judgments. It follows the referenced subgraph versions and
 compares pinned source identities and order.
