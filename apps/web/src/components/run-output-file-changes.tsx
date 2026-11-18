@@ -3,15 +3,7 @@ import { contentDownloadUrl } from "@/lib/evidence";
 import { graphLocation } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { canPreviewWorkspaceFile, WorkspaceFilePreview } from "./research-workspace";
-import { workspaceFileReceipts, workspaceFileSources, type SavedFile } from "./run-files";
-
-function latestFiles(run: RunSnapshot) {
-  const files = new Map<string, SavedFile>();
-  for (const receipt of workspaceFileReceipts(run)) {
-    files.set(JSON.stringify([receipt.path, receipt.file.name]), receipt);
-  }
-  return files;
-}
+import { latestWorkspaceFiles, workspaceFileSources, type SavedFile } from "./run-files";
 
 function FileVersion({
   entry,
@@ -65,8 +57,8 @@ export function RunOutputFileChanges({
   before: RunSnapshot;
   after: RunSnapshot;
 }) {
-  const earlier = latestFiles(before);
-  const later = latestFiles(after);
+  const earlier = latestWorkspaceFiles(before);
+  const later = latestWorkspaceFiles(after);
   if (!earlier.size && !later.size) return null;
   const changes = [...new Set([...earlier.keys(), ...later.keys()])].flatMap((key) => {
     const old = earlier.get(key);

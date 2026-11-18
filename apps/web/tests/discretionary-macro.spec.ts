@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "./fixtures";
 import { contentUrl } from "../src/lib/evidence";
 import type { RunSnapshot } from "../src/lib/workflow";
@@ -39,13 +40,51 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(judgment).toContainText("Feedback goes to Build catalyst and risk scenarios", {
     timeout: 30000,
   });
+  const runId = new URL(page.url()).searchParams.get("run");
+  expect(runId).toBeTruthy();
+  const runRoute = `**/api/runs/${runId}`;
+  const csv = "series,change\n2-year,12.00";
+  const artifactId = `sha256:${createHash("sha256").update(csv).digest("hex")}`;
+  await page.route(`**${contentUrl(artifactId)}*`, (route) =>
+    route.fulfill({ body: csv, contentType: "text/csv" }),
+  );
+  await page.route(runRoute, async (route) => {
+    const response = await route.fetch();
+    const snapshot: RunSnapshot = await response.json();
+    const receipt = snapshot.model_attempts!.find((attempt) => attempt.path === "root/test")!;
+    receipt.result!.workspace_files = [
+      {
+        name: "macro-observations.csv",
+        artifact_id: artifactId,
+        byte_size: Buffer.byteLength(csv),
+        media_type: "text/csv",
+      },
+    ];
+    await route.fulfill({ response, json: snapshot });
+  });
+  const desktopViewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 950 });
+  await page.getByRole("button", { name: "Refresh run", exact: true }).click();
+  await judgment.getByLabel("Reviewer feedback").fill(view);
+  await page.getByText("Files for this review (1)", { exact: true }).click();
+  const reviewFiles = page.getByRole("region", { name: "Saved workspace files" });
+  await reviewFiles
+    .getByRole("button", {
+      name: "Preview macro-observations.csv from Run the discriminating test, pass 1",
+    })
+    .click();
+  await expect(reviewFiles.getByRole("cell", { name: "12.00", exact: true })).toBeVisible();
+  await expect(judgment.getByLabel("Reviewer feedback")).toHaveValue(view);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.unroute(runRoute);
+  if (desktopViewport) await page.setViewportSize(desktopViewport);
   await page.getByRole("button", { name: "Decisions (1)", exact: true }).click();
   const needed = page.getByRole("region", { name: "Decisions needed", exact: true });
   await expect(needed).toContainText("Weigh the thesis and the dissent");
   const recorded = page.getByRole("region", { name: "Recorded decisions", exact: true });
   await expect(recorded).toContainText(question);
   await needed.getByRole("button", { name: "Open review", exact: true }).press("Enter");
-  await judgment.getByLabel("Reviewer feedback").fill(view);
+  await expect(judgment.getByLabel("Reviewer feedback")).toHaveValue(view);
   await page.getByText("Earlier evidence and analysis", { exact: true }).click();
   await page.getByRole("button", { name: "Run the discriminating test", exact: true }).click();
   await expect(page.getByRole("region", { name: "Selected step" })).toContainText(
@@ -59,7 +98,6 @@ test("macro starter asks for judgment and records it in downstream model request
   await judgment.getByRole("button", { name: "Approve and continue" }).click();
   await expect(editorial).toBeVisible({ timeout: 30000 });
 
-  const runId = new URL(page.url()).searchParams.get("run");
   const run: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
   const checks = [
     ["root/pricing", question],
