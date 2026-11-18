@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Inspect and repair Build branch paths
+
+**Branch paths** shows the steps before the paired join for each declared branch
+and flags unresolved wiring. Validation can open the affected **Condition** or
+**Join step** setting. Eleven focused browser cases covered navigation, edits,
+and repairs. CI passed 550 backend tests with 2 skips and all 144 browser cases.
+Desktop at `4331722` served the new controls and verified the owner-gated route,
+synthetic join diagnostic, and repaired workflow.
+[PR #114](https://github.com/andersj05/ResearchChain/pull/114).
+
 ## Follow and repair Build data bindings
 
 **Output bindings** opens the step input that consumes an output in the current
