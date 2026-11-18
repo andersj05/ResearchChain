@@ -1844,6 +1844,31 @@ td time {
   font-weight: 500;
   padding-right: 10px;
 }
+.evidence-selected {
+  margin-block: 0 12px;
+  font-size: 13px;
+}
+.evidence-selected ul {
+  display: grid;
+  max-height: 160px;
+  overflow: auto;
+  margin: 6px 0;
+  padding: 0;
+  list-style: none;
+}
+.evidence-selected li {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--line);
+}
+.evidence-selected small {
+  display: block;
+  color: var(--muted);
+}
 .evidence-options {
   max-height: 190px;
   overflow: auto;
@@ -1863,6 +1888,10 @@ td time {
   height: 15px;
   margin: 3px 0 0;
   flex-shrink: 0;
+}
+.evidence-option-copy {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .evidence-option strong {
   display: block;

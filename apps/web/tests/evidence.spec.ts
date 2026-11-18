@@ -221,28 +221,52 @@ test("run setup retains selected evidence outside the first library page", async
       kind: "text",
       text: "Synthetic earlier source",
       rights: "owned",
+      as_of_date: "2026-11-11",
     },
   });
   const record: EvidenceRecord = await response.json();
+  const recent = Array.from({ length: 6 }, (_, index) => ({
+    ...record,
+    id: randomUUID(),
+    title: `Recent source ${index + 1}`,
+    as_of_date: "2026-11-18",
+  }));
   await page.route("**/api/evidence?limit=50*", async (route) => {
     const offset = new URL(route.request().url()).searchParams.get("offset");
     await route.fulfill({
       json:
         offset === "50"
           ? { items: [record], total: 51, next_offset: null }
-          : { items: [], total: 51, next_offset: 50 },
+          : { items: recent, total: 51, next_offset: 50 },
     });
   });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Load more sources", exact: true }).click();
   await page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }).check();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const recordUrl = `**/api/evidence/${record.id}`;
+  await page.route(recordUrl, (route) =>
+    route.fulfill({ status: 404, json: { detail: "Unavailable" } }),
+  );
   await page.getByRole("button", { name: "Run workflow" }).click();
-  await expect(
-    page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }),
-  ).toBeChecked();
-  await page
-    .getByRole("checkbox", { name: "Older selected source Captured", exact: true })
-    .uncheck();
+  await page.getByText("Selected sources (1)", { exact: true }).click();
+  await expect(page.getByText("Source details unavailable", { exact: true })).toBeVisible();
+  const current = page.getByRole("checkbox", { name: "Recent source 1 Captured", exact: true });
+  await expect(current).toHaveAccessibleDescription("Original source · As of 2026-11-18");
+  await page.unroute(recordUrl);
+  await page.getByRole("button", { name: "Retry selected source details" }).click();
+  const old = page.getByRole("checkbox", { name: "Older selected source Captured", exact: true });
+  await expect(old).toBeChecked();
+  await page.getByRole("searchbox", { name: "Filter loaded evidence" }).fill("Recent");
+  await expect(old).toHaveCount(0);
+  const selection = page.locator(".evidence-selected");
+  const pinned = selection.getByRole("link", { name: "Older selected source", exact: true });
+  await expect(pinned).toHaveAttribute("href", `/?view=evidence&evidence=${record.id}`);
+  await expect(pinned).toHaveAttribute("target", "_blank");
+  await expect(selection).toContainText("As of 2026-11-11");
+  await selection.getByRole("button", { name: "Remove Older selected source" }).click();
+  await expect(selection).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
