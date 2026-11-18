@@ -133,6 +133,7 @@
   gap: 5px;
 }
 .run-step-panel button.text-link,
+.decision-feedback-inputs .text-link,
 .run-graph-path button.text-link {
   border: 0;
   padding: 0;
@@ -143,6 +144,7 @@
   overflow-wrap: anywhere;
 }
 .run-step-panel button.text-link:hover,
+.decision-feedback-inputs .text-link:hover,
 .run-graph-path button.text-link:hover {
   text-decoration: underline;
 }
@@ -522,6 +524,25 @@
 }
 .run-decisions .actions {
   margin-top: 6px;
+}
+.decision-feedback-inputs {
+  margin-block: 8px 10px;
+  font-size: 13px;
+}
+.decision-feedback-inputs summary {
+  cursor: pointer;
+  color: var(--blue);
+}
+.decision-feedback-inputs ul {
+  margin: 4px 0 0 10px;
+}
+.decision-feedback-inputs li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  border: 0;
+  padding: 4px 0;
 }
 .run-workspace .run-reading-pane {
   flex: 1 1 auto;
