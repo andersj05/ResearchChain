@@ -269,9 +269,10 @@
 }
 .run-section-switch {
   display: flex;
+  flex-wrap: wrap;
   border-bottom: 1px solid var(--line);
   padding-inline: 24px;
-  gap: 20px;
+  column-gap: 20px;
 }
 .run-section-switch button {
   background: transparent;
@@ -339,6 +340,45 @@
 }
 .run-model-activity time {
   white-space: nowrap;
+}
+.run-decisions section + section {
+  margin-top: 24px;
+}
+.run-decisions h3 {
+  margin-block: 0 6px;
+  font-size: 15px;
+}
+.run-decisions h4 {
+  margin: 0;
+  font-size: 14px;
+}
+.run-decisions ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.run-decisions li {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.run-decisions p {
+  margin: 6px 0;
+  white-space: pre-wrap;
+}
+.run-decisions small,
+.decision-title span {
+  color: var(--muted);
+  font-size: 12px;
+}
+.decision-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.run-decisions .actions {
+  margin-top: 6px;
 }
 .run-workspace .run-reading-pane {
   flex: 1 1 auto;
@@ -571,6 +611,9 @@
   }
   .run-graph-line {
     gap: 3px;
+  }
+  .run-section-switch {
+    column-gap: 14px;
   }
   .run-workspace .run-head {
     padding-block: 12px;

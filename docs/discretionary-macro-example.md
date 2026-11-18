@@ -21,3 +21,7 @@ asks for independent corroboration. The final memo receives the scenario analysi
 your recorded judgment. The sequence and checkpoint wording are an interpretation of
 the owner's rough framework. Edit them in **Build**, save a new version, and start a
 fresh run to try a different research process.
+
+**Runs → Decisions** shows open reviews and saved judgments. **Iterate with this
+feedback** copies the saved version and appends the selected judgment to the next
+editable brief.

@@ -1110,16 +1110,18 @@ export function Workbench() {
                     }
                   })
                 }
-                onIterate={() =>
+                onIterate={(brief) =>
                   action(async () => {
                     if (!run) return;
                     await loadRevision(run.revision_id, run.agent_id ?? null);
-                    setBrief(run.brief);
+                    setBrief(brief ?? run.brief);
                     setEvidenceIds(run.evidence_ids ?? []);
                     setArtifacts(run.artifacts);
                     setProviderAccount(run.research_manifest?.account_id ?? null);
                     setMessage(
-                      "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment. The original run is unchanged.",
+                      brief
+                        ? "Run copied to the editor with the selected reviewer feedback appended to the brief."
+                        : "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment.",
                     );
                   })
                 }

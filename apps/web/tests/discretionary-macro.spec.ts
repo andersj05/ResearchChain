@@ -39,6 +39,12 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(judgment).toContainText("Feedback goes to Build catalyst and risk scenarios", {
     timeout: 30000,
   });
+  await page.getByRole("button", { name: "Decisions (1)", exact: true }).click();
+  const needed = page.getByRole("region", { name: "Decisions needed", exact: true });
+  await expect(needed).toContainText("Weigh the thesis and the dissent");
+  const recorded = page.getByRole("region", { name: "Recorded decisions", exact: true });
+  await expect(recorded).toContainText(question);
+  await needed.getByRole("button", { name: "Open review", exact: true }).press("Enter");
   await judgment.getByLabel("Reviewer feedback").fill(view);
   await page.getByText("Earlier evidence and analysis", { exact: true }).click();
   await page.getByRole("button", { name: "Run the discriminating test", exact: true }).click();
@@ -72,5 +78,17 @@ test("macro starter asks for judgment and records it in downstream model request
   await editorial.getByRole("button", { name: "Approve and continue" }).click();
   await expect(page.getByRole("status", { name: "Run status", exact: true })).toHaveText(
     "Completed",
+  );
+  await page.getByRole("button", { name: "Decisions", exact: true }).click();
+  await expect(needed).toHaveCount(0);
+  await expect(recorded.getByRole("listitem")).toHaveCount(3);
+  await recorded
+    .getByRole("listitem")
+    .filter({ hasText: view })
+    .getByRole("button", { name: "Iterate with this feedback", exact: true })
+    .click();
+  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Research brief", exact: true })).toHaveValue(
+    `${run.brief}\n\nReviewer feedback from Weigh the thesis and the dissent (${run.id.slice(0, 8)}):\n${view}`,
   );
 });

@@ -7,6 +7,7 @@ import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity } from "./run-model-activity";
+import { RunDecisions } from "./run-decisions";
 import {
   graphLocation,
   pendingReviews,
@@ -67,7 +68,7 @@ type Actions = {
   onRefresh: () => Promise<void>;
   onCancel: () => Promise<void>;
   onOpenRevision: () => Promise<void>;
-  onIterate: () => Promise<void>;
+  onIterate: (brief?: string) => Promise<void>;
 };
 
 export function RunInspector({ run, ...actions }: Actions & { run: RunSnapshot | null }) {
@@ -96,7 +97,7 @@ function RunWorkspace({
   onIterate,
 }: Actions & { run: RunSnapshot }) {
   const [manual, setManual] = useState<string | null>(null);
-  const [view, setView] = useState<"step" | "activity" | "context">("step");
+  const [view, setView] = useState<"step" | "activity" | "decisions" | "context">("step");
   const [showGraph, setShowGraph] = useState(true);
   const [attemptId, setAttemptId] = useState<string>();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
@@ -104,15 +105,26 @@ function RunWorkspace({
   const current = preferredPath(run);
   const path = manual ?? current;
   const readingPane = useRef<HTMLDivElement>(null);
+  const focusOnInspect = useRef(false);
   useLayoutEffect(() => {
-    if (readingPane.current) readingPane.current.scrollTop = 0;
+    const pane = readingPane.current;
+    if (!pane) return;
+    pane.scrollTop = 0;
+    if (focusOnInspect.current) {
+      focusOnInspect.current = false;
+      pane.focus();
+    }
   }, [path, view, attemptId]);
   const { node, graph, parents, prefix } = graphLocation(run, path);
   const reviews = pendingReviews(run);
-  const select = (value: string) => {
+  const select = (value: string, id?: string) => {
     setManual(value);
-    setAttemptId(undefined);
+    setAttemptId(id);
     setView("step");
+  };
+  const inspectFromPanel = (step: string, id?: string) => {
+    focusOnInspect.current = true;
+    select(step, id);
   };
   const follow = () => {
     setManual(null);
@@ -137,7 +149,7 @@ function RunWorkspace({
           <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
         </div>
         <div className="actions run-actions">
-          <Button className="button small" disabled={busy} onClick={onIterate}>
+          <Button className="button small" disabled={busy} onClick={() => onIterate()}>
             Iterate from this run
             <ArrowRight size={14} aria-hidden />
           </Button>
@@ -290,19 +302,21 @@ function RunWorkspace({
         >
           Model activity
         </button>
+        <button
+          type="button"
+          aria-pressed={view === "decisions"}
+          onClick={() => setView("decisions")}
+        >
+          Decisions{reviews.length > 0 && ` (${reviews.length})`}
+        </button>
         <button type="button" aria-pressed={view === "context"} onClick={() => setView("context")}>
           Run context
         </button>
       </div>
-      <div className="run-reading-pane" ref={readingPane}>
-        {view === "activity" && (
-          <RunModelActivity
-            run={run}
-            inspect={(step, id) => {
-              select(step);
-              setAttemptId(id);
-            }}
-          />
+      <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
+        {view === "activity" && <RunModelActivity run={run} inspect={inspectFromPanel} />}
+        {view === "decisions" && (
+          <RunDecisions run={run} busy={busy} inspect={inspectFromPanel} iterate={onIterate} />
         )}
         {view === "context" && (
           <div className="run-context-panel">
