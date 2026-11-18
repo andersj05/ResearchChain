@@ -62,23 +62,16 @@ function TokenBudget({
   );
 }
 
-export function ResearchSettingsEditor({
-  workflow,
-  onChange,
+export function ResearchRequestLimitFields({
+  settings,
+  onSettings,
 }: {
-  workflow: Workflow;
-  onChange: (value: Workflow, group?: string) => void;
+  settings: ResearchSettings;
+  onSettings: (settings: ResearchSettings, group: string) => void;
 }) {
-  if (!workflow.research) return null;
-  const settings = workflow.research;
   const limits = { ...researchDefaults.limits, ...settings.limits };
   return (
-    <details className="workflow-settings" id="workflow-research-limits">
-      <summary>Research limits</summary>
-      <TokenBudget
-        settings={settings}
-        onChange={(research) => onChange({ ...workflow, research }, "research/max_total_tokens")}
-      />
+    <>
       {(
         [
           ["max_model_calls", "Maximum model attempts", 0, 100],
@@ -97,17 +90,14 @@ export function ResearchSettingsEditor({
             step={1}
             value={limits[key]}
             onChange={(event) =>
-              onChange(
+              onSettings(
                 {
-                  ...workflow,
-                  research: {
-                    ...settings,
-                    limits: {
-                      ...limits,
-                      [key]: Number.isFinite(event.target.valueAsNumber)
-                        ? event.target.valueAsNumber
-                        : min,
-                    },
+                  ...settings,
+                  limits: {
+                    ...limits,
+                    [key]: Number.isFinite(event.target.valueAsNumber)
+                      ? event.target.valueAsNumber
+                      : min,
                   },
                 },
                 `research/${key}`,
@@ -117,6 +107,29 @@ export function ResearchSettingsEditor({
         </label>
       ))}
       <p className="field-hint">Cancellation closes the connection; provider usage may continue.</p>
+    </>
+  );
+}
+
+export function ResearchSettingsEditor({
+  workflow,
+  onChange,
+}: {
+  workflow: Workflow;
+  onChange: (value: Workflow, group?: string) => void;
+}) {
+  if (!workflow.research) return null;
+  return (
+    <details className="workflow-settings" id="workflow-research-limits">
+      <summary>Research limits</summary>
+      <TokenBudget
+        settings={workflow.research}
+        onChange={(research) => onChange({ ...workflow, research }, "research/max_total_tokens")}
+      />
+      <ResearchRequestLimitFields
+        settings={workflow.research}
+        onSettings={(research, group) => onChange({ ...workflow, research }, group)}
+      />
     </details>
   );
 }
