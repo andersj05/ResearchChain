@@ -9,6 +9,7 @@ import { Focus, Maximize, Minus, Plus, RotateCcw } from "lucide-react";
 import { nodePresentation } from "@/components/node-kind";
 
 const nodeWidth = 230;
+type ConnectionView = "all" | "control" | "data";
 
 const parts = createParts(workflowCanvas, {
   root: "div",
@@ -47,6 +48,7 @@ export function WorkflowCanvas({
   onOpen?: (node: WorkflowNode, child?: string) => void;
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
+  const [connectionView, setConnectionView] = useState<ConnectionView>("all");
   const toggle = useCallback(
     (id: string) =>
       setExpanded((previous) =>
@@ -56,6 +58,10 @@ export function WorkflowCanvas({
   );
   const positions = Object.fromEntries(workflow.nodes.map((node) => [node.id, node.position]));
   const connections = connectionsFor(workflow);
+  const visibleConnections = connections.filter(
+    ({ type }) =>
+      connectionView === "all" || connectionView === (type === "control" ? "control" : "data"),
+  );
   const nodes = workflow.nodes.map((node) => {
     const ports = portsFor(node);
     const ref = referenceOf(node);
@@ -134,7 +140,7 @@ export function WorkflowCanvas({
               <path d="M 0 0 L 10 5 L 0 10 z" fill="context-stroke" />
             </marker>
           </defs>
-          {connections.map((connection) => (
+          {visibleConnections.map((connection) => (
             <CanvasEdge
               key={`${connection.from}/${connection.to}`}
               value={`${connection.from}/${connection.to}`}
@@ -174,7 +180,7 @@ export function WorkflowCanvas({
           );
         })}
       </parts.World>
-      <div className="canvas-toolbar" role="group" aria-label="Canvas view">
+      <div className="canvas-toolbar build-canvas-tools" role="group" aria-label="Canvas view">
         <parts.ZoomOut className="button icon-button" aria-label="Zoom out" title="Zoom out">
           <Minus size={16} aria-hidden="true" />
         </parts.ZoomOut>
@@ -193,9 +199,30 @@ export function WorkflowCanvas({
         >
           <Focus size={16} aria-hidden="true" />
         </parts.FocusStep>
-        <parts.Reset className="button icon-button" aria-label="Reset view" title="Reset to 100%">
+        <parts.Reset
+          className="button icon-button"
+          aria-label="Reset view"
+          title="Reset zoom and show all connections"
+          onClick={() => setConnectionView("all")}
+        >
           <RotateCcw size={15} aria-hidden="true" />
         </parts.Reset>
+        <select
+          className="canvas-connection-view"
+          aria-label="Visible connections"
+          value={connectionView}
+          onChange={(event) => setConnectionView(event.target.value as ConnectionView)}
+          onKeyDown={(event) => {
+            // Let the picker handle arrows and activation even during a keyboard wiring draft.
+            if (event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {
+              event.stopPropagation();
+            }
+          }}
+        >
+          <option value="all">All connections</option>
+          <option value="control">Control flow</option>
+          <option value="data">Data bindings</option>
+        </select>
       </div>
     </parts.Root>
   );
