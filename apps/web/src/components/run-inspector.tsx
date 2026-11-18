@@ -8,6 +8,8 @@ import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity } from "./run-model-activity";
 import { RunDecisions } from "./run-decisions";
+import { RunComparison } from "./run-comparison";
+import { formatTime, RunStatus } from "./run-status";
 import {
   graphLocation,
   pendingReviews,
@@ -16,53 +18,15 @@ import {
   stepStates,
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
+import { useOwner } from "@/components/access-context";
+import { ownerStoragePrefix } from "@/lib/access";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
-export const runStatusLabels = {
-  queued: "Queued",
-  paused: "Needs review",
-  running: "Running",
-  completed: "Completed",
-  rejected: "Rejected",
-  interrupted: "Needs recovery",
-  cancelled: "Cancelled",
-  limited: "Limit reached",
-  failed: "Needs attention",
-};
-
-export function RunStatus({
-  status,
-  announce = false,
-}: {
-  status: RunSummary["status"];
-  announce?: boolean;
-}) {
-  const label = runStatusLabels[status];
-  return (
-    <span
-      className={`run-status status-${status}`}
-      role={announce ? "status" : undefined}
-      aria-label={announce ? "Run status" : undefined}
-    >
-      <i aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
-
-export function formatTime(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 type Actions = {
   busy: boolean;
+  recentRuns: RunSummary[];
   onResume: ResumeReview;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -88,6 +52,7 @@ export function RunInspector({ run, ...actions }: Actions & { run: RunSnapshot |
 
 function RunWorkspace({
   run,
+  recentRuns,
   busy,
   onResume,
   onRecover,
@@ -96,9 +61,17 @@ function RunWorkspace({
   onOpenRevision,
   onIterate,
 }: Actions & { run: RunSnapshot }) {
+  const { owner } = useOwner();
+  const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
   const [manual, setManual] = useState<string | null>(null);
   const [view, setView] = useState<"step" | "activity" | "decisions" | "context">("step");
-  const [showGraph, setShowGraph] = useState(true);
+  const [showGraph, setShowGraph] = useState(() => {
+    try {
+      return localStorage.getItem(mapPreference) !== "false";
+    } catch {
+      return true;
+    }
+  });
   const [attemptId, setAttemptId] = useState<string>();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const states = stepStates(run);
@@ -131,10 +104,21 @@ function RunWorkspace({
     setAttemptId(undefined);
     setView("step");
   };
+  const toggleGraph = () => {
+    setShowGraph(!showGraph);
+    try {
+      localStorage.setItem(mapPreference, String(!showGraph));
+    } catch {
+      // The map remains usable if browser storage is disabled.
+    }
+  };
   const limits = run.research_manifest?.settings.limits ?? run.workflow.research?.limits;
   const tokens = (run.usage?.input_tokens ?? 0) + (run.usage?.output_tokens ?? 0);
   const tokenLimit = limits?.max_total_tokens;
   const live = ["paused", "running", "queued", "interrupted"].includes(run.status);
+  const currentStatus = states.get(current);
+  const reviewingHistory = current !== path || view !== "step" || Boolean(attemptId);
+  const showActivity = reviewingHistory && (live || Boolean(run.stop_reason));
   return (
     <>
       <header className="run-head">
@@ -194,10 +178,6 @@ function RunWorkspace({
       <div className="run-graph-shell">
         <div className="run-graph-line">
           <h3>Workflow progress</h3>
-          <span className="sr-only" aria-live="polite" aria-atomic="true">
-            {states.has(current) &&
-              `${graphLocation(run, current).node.label}. ${states.get(current)}.`}
-          </span>
           <div className="run-metrics" aria-label="Run usage">
             <span>{run.events.length.toLocaleString()} recorded steps</span>
             {limits && (
@@ -219,10 +199,25 @@ function RunWorkspace({
             className="button small"
             type="button"
             aria-expanded={showGraph}
-            onClick={() => setShowGraph(!showGraph)}
+            onClick={toggleGraph}
           >
             {showGraph ? "Hide workflow map" : "Show workflow map"}
           </button>
+        </div>
+        <div aria-live="polite" aria-atomic="true">
+          {currentStatus && (
+            <div
+              className={showActivity ? "run-current-step" : "sr-only"}
+              role={showActivity ? "group" : undefined}
+              aria-label={showActivity ? "Latest workflow activity" : undefined}
+            >
+              {showActivity && <span className="muted">Latest activity</span>}
+              <strong>{graphLocation(run, current).node.label}</strong>
+              <span className="step-status" data-status={currentStatus}>
+                {currentStatus}
+              </span>
+            </div>
+          )}
         </div>
         {parents.length > 0 && (
           <nav className="run-graph-path" aria-label="Nested graph path">
@@ -325,6 +320,7 @@ function RunWorkspace({
               <p>{run.brief}</p>
             </details>
             <PinnedEvidence ids={run.evidence_ids ?? []} />
+            <RunComparison run={run} recentRuns={recentRuns} />
             <ResearchManifest run={run} />
             {!run.research_manifest && (
               <p className="field-hint" aria-label="Run model">
@@ -371,7 +367,7 @@ function RunWorkspace({
               await onResume(...args);
               follow();
             }}
-            select={select}
+            select={inspectFromPanel}
           />
         )}
       </div>

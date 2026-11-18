@@ -35,3 +35,18 @@ The owner asked on 2026-11-17 to use these essays as expert judgment for Researc
 
 These are product choices derived from the essays. The project's existing evidence,
 provider, and run-isolation rules govern implementation.
+
+## Run inspection references
+
+- Braintrust uses an ordered trace and shared time axis to expose overlap, retries,
+  and gaps. ResearchChain should show the latest recorded activity while a researcher
+  reads an earlier output, and use recorded durations when accounting for latency.
+  [Braintrust trace design](https://www.braintrust.dev/articles/what-does-a-good-ai-agent-trace-look-like).
+- Temporal separates history for an individual execution from the list used to find
+  executions that need attention. ResearchChain should surface the pending decision
+  in run discovery while keeping the pinned review and supporting evidence in the run.
+  [Temporal visibility](https://docs.temporal.io/visibility).
+- LangSmith compares results on controlled inputs. ResearchChain's first comparisons
+  should expose differences in briefs, evidence, settings, and reviewer feedback so
+  the owner can judge whether the experiment is comparable.
+  [LangSmith evaluation types](https://docs.langchain.com/langsmith/evaluation-types).

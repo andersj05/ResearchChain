@@ -153,6 +153,9 @@ test("configure a research workspace and inspect saved files during the next pas
   await page.getByRole("button", { name: "Hide workflow map" }).click();
   await expect(page.getByRole("button", { name: "Inspect Research workspace" })).toHaveCount(0);
   await page.getByRole("button", { name: "Model activity", exact: true }).click();
+  await expect(page.getByLabel("Latest workflow activity", { exact: true })).toContainText(
+    "Requesting",
+  );
   const attempts = page.getByRole("region", { name: "Model attempts", exact: true });
   await expect(attempts.getByRole("row")).toHaveCount(3);
   const filter = attempts.getByRole("searchbox", { name: "Filter model activity" });
