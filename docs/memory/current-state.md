@@ -4,6 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Recover workspace startup and preserve drafts
+
+A transient local API failure during workspace startup retries the affected
+read once. The requested view still opens, and a failed read for a named agent
+preserves its saved browser draft. Browser tests verified the recovered
+revision and draft, and exercised the mobile review inbox and saved run links.
+CI passed 517 backend tests with 2 skips and all 123 browser cases. Desktop at
+`1f6481e` opened Reports after a simulated gateway failure with every API
+response mocked and writes blocked. API health, worker connection, and the
+owner-gated read-only checks also passed.
+[PR #100](https://github.com/andersj05/ResearchChain/pull/100).
+
 ## Compare runs directly and retain inspection filters
 
 **Runs → Compare runs** opens setup, output, and file comparisons directly.
