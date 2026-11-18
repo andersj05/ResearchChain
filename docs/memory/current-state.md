@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Review drafts in the current tab
+
+Unsent reviewer feedback stays with its run and interrupt across run switches and
+refreshes in the same tab. The phone-width check proved two independent drafts,
+pruning one after its decision, and cleanup after cancellation. Full CI passed
+516 backend tests with 2 skips and 118 browser tests. Desktop at `4d6c85d`
+served the draft handling with a healthy API and connected worker.
+[PR #85](https://github.com/andersj05/ResearchChain/pull/85).
+
 ## Exact model attempt links
 
 **Attempt details → Copy attempt link** reopens the specific saved model pass.
