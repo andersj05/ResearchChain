@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@ui-sdk/react/button";
-import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
+import { useEffect, useId, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { ArrowLeft, Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { WorkspacePanels } from "@/components/workspace-panels";
@@ -132,6 +132,7 @@ export function WorkflowEditor({
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [notice, setNotice] = useState("");
+  const breadcrumbId = useId();
   // Undo/import can remove a parent or change its reference. Discard stale navigation.
   const { graph, validPath } = resolveGraphPath(workflow, path);
   const scope: GraphScope = validPath.at(-1)?.ref ?? null;
@@ -271,37 +272,42 @@ export function WorkflowEditor({
           {scope && (
             <nav aria-label="Graph breadcrumbs">
               <ol>
-                <li>
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    aria-current={!scope ? "page" : undefined}
-                    onClick={() => {
-                      setPath([]);
-                      selectNode(validPath[0]?.via ?? workflow.start_node);
-                    }}
-                  >
-                    {workflow.name || "Root workflow"}
-                  </button>
-                </li>
-                {validPath.map((crumb, index) => (
-                  <li key={`${index}/${scopeKey(crumb.ref)}`}>
-                    <span aria-hidden="true">/</span>
-                    <button
-                      type="button"
-                      disabled={disabled}
-                      aria-current={index === validPath.length - 1 ? "page" : undefined}
-                      onClick={() => {
-                        setPath(validPath.slice(0, index + 1));
-                        selectNode(
-                          validPath[index + 1]?.via ?? graphAt(workflow, crumb.ref)!.start_node,
-                        );
-                      }}
-                    >
-                      {graphAt(workflow, crumb.ref)?.name} <small>v{crumb.ref.version}</small>
-                    </button>
-                  </li>
-                ))}
+                {[null, ...validPath.map(({ ref }) => ref)].map((ref, depth) => {
+                  const destinationGraph = graphAt(workflow, ref);
+                  if (!destinationGraph) return null;
+                  const isCurrent = depth === validPath.length;
+                  const id = validPath[depth]?.via ?? destinationGraph.start_node;
+                  const step = destinationGraph.nodes.find((node) => node.id === id);
+                  const label = step?.label || id;
+                  const action = isCurrent
+                    ? `Go to the first step, ${label}`
+                    : `Return to ${label}`;
+                  const descriptionId = `${breadcrumbId}-${depth}`;
+                  return (
+                    <li key={`${depth}/${scopeKey(ref)}`}>
+                      {ref && <span aria-hidden="true">/</span>}
+                      <button
+                        type="button"
+                        disabled={disabled || !step}
+                        aria-current={isCurrent ? "page" : undefined}
+                        aria-describedby={descriptionId}
+                        title={action}
+                        onClick={() => focusStep(id, validPath.slice(0, depth))}
+                      >
+                        {destinationGraph.name || (ref ? ref.id : "Root workflow")}
+                        {ref && (
+                          <>
+                            {" "}
+                            <small>v{ref.version}</small>
+                          </>
+                        )}
+                      </button>
+                      <span id={descriptionId} className="sr-only">
+                        {action}
+                      </span>
+                    </li>
+                  );
+                })}
               </ol>
             </nav>
           )}

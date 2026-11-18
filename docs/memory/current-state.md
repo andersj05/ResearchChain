@@ -4,7 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
-## Compare a Build draft with an earlier version
+## Review and revise a Build draft
+
+**Find a step** appears before insertion controls and puts matching steps first.
+**Review plan** and **Review handoff** open the preceding control step. An author
+can duplicate a review and set the copied question independently, or use
+**Draft changes** to restore one saved instruction or review question with Undo.
+Long search result labels still truncate in the desktop Steps panel. Desktop
+at `540cefe` served the controls, API, and worker. CI passed 559 backend tests
+with 2 skips and all 165 browser cases on the first attempt. The isolated macro
+run verified all three checkpoints and the effect of their feedback on later
+model requests. [PR #119](https://github.com/andersj05/ResearchChain/pull/119).
 
 **Draft changes** can compare the draft against an earlier saved version and
 open changed or added steps in their root or pinned editors. Wiring changes show

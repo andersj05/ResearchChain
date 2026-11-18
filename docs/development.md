@@ -153,6 +153,8 @@ assigned models in the draft and referenced subgraphs. Choose **Reviews** or
 **Model steps** to list that type with or without search text. **All steps**
 with an empty search restores the current graph's outline. Select a match to
 focus its step editor. Enter opens the first match and Escape clears the text.
+Long names wrap in the outline and search results. A result in a referenced
+subgraph shows its pinned version.
 Zoom controls and Fit view change only the viewport. In **Visible connections**,
 choose all connections, control flow, or data bindings to inspect the canvas.
 Build remembers that choice for the current owner in this browser, including
@@ -164,9 +166,10 @@ the canvas.
 On a human review, **Review handoff** shows the steps that lead into the review
 and the inputs and conditions wired to its feedback. Follow a previous step to
 inspect what prepares the decision, or a binding to focus the receiving field.
-Open **Review plan** to read the questions and feedback bindings for reachable
-reviews across the workflow and its pinned subgraphs. Select a review or one of
-its previous control steps to inspect the editor.
+Open **Review plan** to scan the questions for reachable reviews across the
+workflow and its pinned subgraphs. Each review shows its feedback binding count.
+Open **Wiring** to inspect the previous control steps and feedback bindings.
+Select a review or a previous control step to open its editor.
 
 For other steps with data outputs, **Output bindings** shows the inputs and
 conditions that read each output in the current graph. Select a binding to focus
@@ -190,6 +193,8 @@ step. For a loop stop condition, it opens the source in that loop’s pinned bod
 While editing a pinned subgraph, **Used by** lists the draft steps that reference
 that version. Select a reachable caller to open it, then use **Return to step**
 to resume editing the body.
+Choose an ancestor breadcrumb to focus the exact step that called the next graph
+in the current path. The current graph's breadcrumb focuses its first step.
 
 Open **Model and tool plan** to see each reachable research step’s effective
 model and enabled tools. The plan shows which steps inherit the workflow model
@@ -232,12 +237,13 @@ It starts with the current saved revision. For a named agent, **Compare with**
 can select one of its earlier versions while keeping the current draft. The
 preview lists changes to instructions, inputs, routing, and workflow settings.
 Input sources and control destinations show step names and IDs.
-Use **Open draft step** to inspect a changed or added step in its current graph.
+Use **Find changes** to filter by step name or ID, graph, or changed setting.
+Matching steps open automatically, and the search stays active when you switch
+baselines or restore text. **Open draft step** opens the step's current editor.
 Choose **Use saved instructions** or **Use saved review question** to bring back
 only that text from the selected baseline. Undo reverses one restore at a time.
 The preview also identifies a matching draft or a change limited to canvas positions.
-Expand a changed or added step and choose **Open draft step** to open its
-current editor. **Return to step** takes you back to the step you were editing.
+**Return to step** takes you back to the step you were editing.
 
 Edit a step in the inspector; use its Next step field to connect or disconnect it.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
