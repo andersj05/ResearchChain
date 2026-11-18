@@ -56,7 +56,13 @@ from researchchain.research_prompt import (
     validate_result,
     web_prompt_hash,
 )
-from researchchain.research_workspace import generated_files, load_files, save_files, staged_files
+from researchchain.research_workspace import (
+    attach_chart,
+    generated_files,
+    load_files,
+    save_files,
+    staged_files,
+)
 from researchchain.sec_financials import SEC_TOOL_VERSION, lookup_sec_financials
 from researchchain.usage_models import UsageError
 from researchchain.usage_store import admit_request
@@ -507,6 +513,13 @@ class ResearchExecutor:
                 if node.config.analyst:
                     assert body is not None
                     prepare_analyst_pass(prepared, node.config.analyst, history, body, list(inputs))
+                    if workspace:
+                        attach_chart(
+                            self.conn,
+                            prepared,
+                            history,
+                            self.manifest.settings.limits.max_input_bytes,
+                        )
                 payload = json_bytes(prepared.request_body())
                 if (
                     node.config.analyst

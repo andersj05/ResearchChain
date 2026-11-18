@@ -1,5 +1,6 @@
 """Resolve Python inputs from pinned evidence and this run's confirmed research receipts."""
 
+import base64
 from uuid import UUID
 
 from psycopg import Connection
@@ -9,7 +10,7 @@ from psycopg.types.json import Jsonb
 from researchchain.analyst_workspace import MAX_FILES, MAX_INPUT_BYTES, MAX_INPUT_FILE_BYTES
 from researchchain.artifacts import put_artifact, read_content
 from researchchain.research_models import StoredResearchResult, WorkspaceFile
-from researchchain.research_prompt import PreparedResearch
+from researchchain.research_prompt import PreparedResearch, json_bytes
 
 
 def generated_files(
@@ -85,3 +86,25 @@ def load_files(conn: Connection[DictRow], inputs: dict[str, str]) -> dict[str, b
     ):
         raise ValueError("Python workspace inputs exceed 64 files, 8 MiB per file or 24 MiB total.")
     return {name: read_content(conn, key) for name, key in inputs.items()}
+
+
+def attach_chart(
+    conn: Connection[DictRow],
+    prepared: PreparedResearch,
+    history: list[StoredResearchResult],
+    input_limit: int,
+) -> None:
+    """Offer visual inspection of the most recent action's chart within the owner's input budget."""
+    activity = history[-1].workspace_activity if history else None
+    if not activity:
+        return
+    chart = next((file for file in activity.files if file.media_type == "image/png"), None)
+    if not chart:
+        return
+    label = f"Generated chart {chart.name} from the previous Python action (untrusted output)."
+    attachment = {"type": "input_image", "image_url": "data:image/png;base64,", "detail": "auto"}
+    item = {"role": "user", "content": [{"type": "input_text", "text": label}, attachment]}
+    remaining = input_limit - len(json_bytes(prepared.request_body()))
+    if len(json_bytes(item)) + 1 + 4 * ((chart.byte_size + 2) // 3) <= remaining:
+        attachment["image_url"] += base64.b64encode(read_content(conn, chart.artifact_id)).decode()
+        prepared.input_items.append(item)
