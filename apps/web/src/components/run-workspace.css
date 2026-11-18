@@ -374,6 +374,17 @@
 .review-inputs {
   padding-block: 8px;
 }
+.review-earlier-inputs {
+  margin: 6px 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.review-earlier-inputs ul {
+  display: grid;
+  gap: 4px;
+  margin-block: 6px;
+  padding-inline-start: 20px;
+}
 .run-step-panel .research-results {
   margin: 6px 0;
 }
