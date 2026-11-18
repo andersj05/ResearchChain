@@ -78,6 +78,7 @@ function Preview({ id }: { id: string }) {
   const [preview, setPreview] = useState<
     ReturnType<typeof parseRequest> | "failed" | "large" | undefined
   >();
+  const [generation, setGeneration] = useState(0);
   useEffect(() => {
     const controller = new AbortController();
     async function load() {
@@ -99,10 +100,25 @@ function Preview({ id }: { id: string }) {
     }
     void load();
     return () => controller.abort();
-  }, [id]);
+  }, [generation, id]);
 
   if (preview === undefined) return <p role="status">Loading saved inputs…</p>;
-  if (preview === "failed") return <p role="alert">The saved request could not be previewed.</p>;
+  if (preview === "failed")
+    return (
+      <div>
+        <p role="alert">The saved request could not be previewed.</p>
+        <button
+          type="button"
+          className="button small"
+          onClick={() => {
+            setPreview(undefined);
+            setGeneration((value) => value + 1);
+          }}
+        >
+          Retry saved input preview
+        </button>
+      </div>
+    );
   if (preview === "large" || preview === null)
     return <p className="field-hint">Open the saved request to inspect these inputs.</p>;
 

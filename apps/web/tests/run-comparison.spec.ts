@@ -209,10 +209,14 @@ test("compare two saved research runs without switching the open run", async ({ 
       route.fulfill({ body, contentType: "text/csv" }),
     );
   }
+  let allowBaselinePreview = false;
   for (const [id, body] of savedInputs) {
-    await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) =>
-      route.fulfill({ body, contentType: "application/json" }),
-    );
+    await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) => {
+      if (id === baselinePass.input_artifact_id && !allowBaselinePreview) {
+        return route.fulfill({ status: 503 });
+      }
+      return route.fulfill({ body, contentType: "application/json" });
+    });
   }
   const revision: WorkflowRevision = {
     id: current.revision_id,
@@ -334,8 +338,13 @@ test("compare two saved research runs without switching the open run", async ({ 
   );
   await beforeOutput.getByText("Inspect saved inputs", { exact: true }).click();
   await openOutput.getByText("Inspect saved inputs", { exact: true }).click();
-  await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toBeVisible();
   await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toBeVisible();
+  await expect(beforeOutput.getByRole("alert")).toHaveText(
+    "The saved request could not be previewed.",
+  );
+  allowBaselinePreview = true;
+  await beforeOutput.getByRole("button", { name: "Retry saved input preview" }).click();
+  await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toBeVisible();
   await step.selectOption(iterationPath(2));
   await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toHaveCount(0);
   await expect(beforeOutput).toContainText("No saved model output for this step.");
