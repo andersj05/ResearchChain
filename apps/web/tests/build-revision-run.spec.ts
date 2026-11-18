@@ -66,7 +66,7 @@ test("Build opens the recent run for the exact agent and saved revision", async 
   await page.setViewportSize({ width: 390, height: 950 });
   await page.goto(`/?agent=${current.agent.id}&view=workflow`);
   const runButton = page.getByRole("button", {
-    name: `Recent run · saved revision ${current.revision.number}`,
+    name: `Recent run · saved version ${current.agent.version}`,
     exact: true,
   });
   const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });

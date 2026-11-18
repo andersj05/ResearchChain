@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Trace review decisions and edit long prompts
+
+**Expand** opens a larger editor for instructions and review questions.
+**Apply to draft** records one undoable edit. **Review plan** opens the exact
+receiving input or condition, and **Return to step** retraces linked visits in
+reverse. **Model and tool plan** flags unlisted choices when the account catalog
+is confirmed. Desktop at `74cfe86` served the controls, API, and worker. CI
+passed 559 backend tests with 2 skips and all 177 browser cases on the first
+attempt. The synthetic macro run verified downstream model receipt of all three
+checkpoint judgments. [PR #121](https://github.com/andersj05/ResearchChain/pull/121).
+
 ## Navigate longer Build drafts
 
 Long step names wrap in the outline and search. **Review plan** leads with the

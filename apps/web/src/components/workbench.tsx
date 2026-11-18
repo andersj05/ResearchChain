@@ -127,6 +127,10 @@ export function Workbench() {
           item.revision_id === revision.id && (item.agent_id ?? null) === (activeAgent?.id ?? null),
       )
     : undefined;
+  const recentAgentVersion =
+    activeAgent && recentRevisionRun
+      ? revisions.find((item) => item.id === recentRevisionRun.revision_id)?.agent_version
+      : undefined;
 
   useEffect(() => {
     let active = true;
@@ -863,7 +867,10 @@ export function Workbench() {
                         })
                       }
                     >
-                      Recent run · saved revision {recentRevisionRun.revision_number}
+                      Recent run · saved{" "}
+                      {recentAgentVersion === undefined
+                        ? `revision ${recentRevisionRun.revision_number}`
+                        : `version ${recentAgentVersion}`}
                     </Button>
                   )}
                 </>
