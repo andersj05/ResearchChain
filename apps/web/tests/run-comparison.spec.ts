@@ -145,14 +145,20 @@ test("compare two saved research runs without switching the open run", async ({ 
     return { input_artifact_id, input_bytes: Buffer.byteLength(body) };
   };
   const baselinePass = {
-    ...modelOutput(iterationPath(1), "**Comparison first iteration.**"),
+    ...modelOutput(`${iterationPath(1)}/analyst-pass-2`, "**Comparison first iteration.**"),
     ...requestFor("Use five sessions."),
   };
   const openPass = {
-    ...modelOutput(iterationPath(1), "**Open first iteration.**"),
+    ...modelOutput(`${iterationPath(1)}/analyst-pass-2`, "**Open first iteration.**"),
     ...requestFor("Use twenty sessions."),
   };
-  base.model_attempts!.unshift(baselinePass);
+  const leadPass = (conclusion: string, next_lead: string) => {
+    const attempt = modelOutput(iterationPath(1), conclusion);
+    return { ...attempt, result: { ...attempt.result, next_lead } };
+  };
+  const baselineLead = leadPass("**Comparison initial view.**", "Check five-session pricing.");
+  const openLead = leadPass("**Open initial view.**", "Check twenty-session pricing.");
+  base.model_attempts!.unshift(baselineLead, baselinePass);
   const outputAttempt = (files: (typeof oldTable)[], path: string) => ({
     ...original,
     id: crypto.randomUUID(),
@@ -168,6 +174,8 @@ test("compare two saved research runs without switching the open run", async ({ 
       } as const,
     },
   });
+  const workspaceStart = outputAttempt([newTable, intermediate], "root/memo");
+  const workspaceEnd = outputAttempt([newTable, stable], "root/memo/analyst-pass-2");
   const current: RunSnapshot = {
     ...base,
     id: crypto.randomUUID(),
@@ -186,10 +194,11 @@ test("compare two saved research runs without switching the open run", async ({ 
       },
     ],
     model_attempts: [
+      openLead,
       openPass,
       modelOutput(iterationPath(2), "**Open second iteration.**"),
-      outputAttempt([newTable, intermediate], "root/memo"),
-      outputAttempt([newTable, stable], "root/memo/analyst-pass-2"),
+      workspaceStart,
+      workspaceEnd,
     ],
   };
   const otherAgent = { ...base, id: crypto.randomUUID(), agent_id: crypto.randomUUID() };
@@ -344,13 +353,36 @@ test("compare two saved research runs without switching the open run", async ({ 
   allowBaselinePreview = true;
   await beforeOutput.getByRole("button", { name: "Retry saved input preview" }).click();
   await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toBeVisible();
+  const beforePass = beforeOutput.getByRole("combobox", { name: "Saved pass" });
+  const currentPass = openOutput.getByRole("combobox", { name: "Saved pass" });
+  await expect(beforePass).toHaveValue(baselinePass.id);
+  await expect(currentPass).toHaveValue(openPass.id);
+  await beforePass.selectOption(baselineLead.id);
+  await expect(beforePass.locator("option:checked")).toHaveText("Pass 1 · Research lead");
+  await expect(beforeOutput.getByText("Check five-session pricing.")).toBeVisible();
+  await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toHaveCount(0);
+  await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toBeVisible();
+  await expect(beforeOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
+    "href",
+    `?view=runs&run=${base.id}&attempt=${baselineLead.id}`,
+  );
+  await currentPass.selectOption(openLead.id);
+  await expect(openOutput.getByText("Check twenty-session pricing.")).toBeVisible();
+  await expect(beforePass).toHaveValue(baselineLead.id);
   await step.selectOption(iterationPath(2));
   await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toHaveCount(0);
   await expect(beforeOutput).toContainText("No saved model output for this step.");
   await expect(openOutput.locator("strong")).toHaveText("Open second iteration.");
   await step.selectOption("root/memo");
   await expect(beforeOutput.locator("strong")).toHaveText("The rival mechanism survived.");
-  await expect(openOutput).toContainText("No saved model output for this step.");
+  const workspacePass = openOutput.getByRole("combobox", { name: "Saved pass" });
+  await expect(workspacePass.locator("option:checked")).toHaveText("Pass 2 · Workspace activity");
+  await expect(openOutput.getByText("Saved tables", { exact: true })).toBeVisible();
+  await workspacePass.selectOption(workspaceStart.id);
+  await expect(openOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
+    "href",
+    `?view=runs&run=${current.id}&attempt=${workspaceStart.id}`,
+  );
   await expect(page).toHaveURL(new RegExp(`run=${current.id}`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await compare.selectOption(matchingOutputs.id);

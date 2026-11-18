@@ -6,21 +6,29 @@ import { ModelRequestPreview } from "./model-request-preview";
 import { researchToolUrls } from "./research-tool-receipts";
 
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
+type SavedPass = {
+  attempt: Attempt;
+  number: number;
+  kind: "Conclusion" | "Research lead" | "Workspace activity";
+};
 
-function latestOutputs(run: RunSnapshot) {
-  const outputs = new Map<string, Attempt>();
-  for (const attempt of (run.model_attempts ?? []).toReversed()) {
-    const result = attempt.result;
-    if (
-      attempt.status !== "completed" ||
-      !result ||
-      result.next_lead ||
-      result.workspace_activity
-    ) {
-      continue;
-    }
+function savedOutputs(run: RunSnapshot) {
+  const outputs = new Map<string, SavedPass[]>();
+  const counts = new Map<string, number>();
+  for (const attempt of run.model_attempts ?? []) {
     const path = attemptPath(attempt);
-    if (!outputs.has(path)) outputs.set(path, attempt);
+    const number = (counts.get(path) ?? 0) + 1;
+    counts.set(path, number);
+    const result = attempt.result;
+    if (attempt.status !== "completed" || !result) continue;
+    const passes = outputs.get(path) ?? [];
+    const kind = result.workspace_activity
+      ? "Workspace activity"
+      : result.next_lead
+        ? "Research lead"
+        : "Conclusion";
+    passes.push({ attempt, number, kind });
+    outputs.set(path, passes);
   }
   return outputs;
 }
@@ -38,37 +46,64 @@ function SavedOutput({
   run,
   title,
   path,
-  attempt,
+  passes,
 }: {
   run: RunSnapshot;
   title: string;
   path: string;
-  attempt?: Attempt;
+  passes: SavedPass[];
 }) {
+  const [selected, setSelected] = useState<string>();
+  const pass =
+    passes.find((item) => item.attempt.id === selected) ??
+    passes.findLast((item) => item.kind === "Conclusion") ??
+    passes.at(-1);
+  const attempt = pass?.attempt;
+  const result = attempt?.result;
   const sources = new Set<string>();
-  let pass = 0;
   if (attempt) {
     for (const item of run.model_attempts ?? []) {
       for (const source of item.result?.web_research?.sources ?? []) sources.add(source.url);
       for (const url of researchToolUrls(item.result)) sources.add(url);
-      if (attemptPath(item) === path) pass += 1;
       if (item.id === attempt.id) break;
     }
   }
   return (
     <section aria-label={title}>
       <h4>{title}</h4>
-      {attempt?.result ? (
+      {pass && attempt && result ? (
         <>
+          {passes.length > 1 && (
+            <label>
+              Saved pass
+              <select value={attempt.id} onChange={(event) => setSelected(event.target.value)}>
+                {passes.map((item) => (
+                  <option key={item.attempt.id} value={item.attempt.id}>
+                    Pass {item.number} · {item.kind}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <p className="field-hint">
-            {graphLocation(run, path).node.label} · Pass {pass} · {attempt.model}
+            {graphLocation(run, path).node.label}
+            {passes.length === 1 && ` · Pass ${pass.number} · ${pass.kind}`} · {attempt.model}
             {attempt.returned_model &&
               attempt.returned_model !== attempt.model &&
               ` · Returned ${attempt.returned_model}`}
           </p>
           <div className="research-conclusion">
-            <ResearchMarkdown text={attempt.result.conclusion} sources={sources} />
+            <ResearchMarkdown text={result.conclusion} sources={sources} />
           </div>
+          {result.next_lead && (
+            <>
+              <h5>Next research lead</h5>
+              <ResearchMarkdown text={result.next_lead} sources={sources} />
+            </>
+          )}
+          {result.workspace_activity && result.workspace_activity.summary !== result.conclusion && (
+            <p className="step-record">{result.workspace_activity.summary}</p>
+          )}
           {attempt.input_artifact_id && (
             <ModelRequestPreview
               key={attempt.id}
@@ -99,11 +134,17 @@ export function RunStepOutputComparison({
   run: RunSnapshot;
   baseline: RunSnapshot;
 }) {
-  const current = latestOutputs(run);
-  const earlier = latestOutputs(baseline);
+  const current = savedOutputs(run);
+  const earlier = savedOutputs(baseline);
   const paths = new Set([...current.keys(), ...earlier.keys()]);
   const defaultPath =
-    [...current.keys()].find((path) => earlier.has(path)) ?? paths.values().next().value;
+    [...current.keys()].find(
+      (path) =>
+        current.get(path)?.some((item) => item.kind === "Conclusion") &&
+        earlier.get(path)?.some((item) => item.kind === "Conclusion"),
+    ) ??
+    [...current.keys()].find((path) => earlier.has(path)) ??
+    paths.values().next().value;
   const [selected, setSelected] = useState<string>();
   const [open, setOpen] = useState(false);
   const path = selected && paths.has(selected) ? selected : defaultPath;
@@ -140,12 +181,19 @@ export function RunStepOutputComparison({
           </label>
           <div className="comparison-output-versions">
             <SavedOutput
+              key={`baseline/${path}`}
               run={baseline}
               title="Comparison run"
               path={path}
-              attempt={earlier.get(path)}
+              passes={earlier.get(path) ?? []}
             />
-            <SavedOutput run={run} title="Open run" path={path} attempt={current.get(path)} />
+            <SavedOutput
+              key={`current/${path}`}
+              run={run}
+              title="Open run"
+              path={path}
+              passes={current.get(path) ?? []}
+            />
           </div>
         </>
       )}
