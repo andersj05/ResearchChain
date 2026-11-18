@@ -3,6 +3,7 @@ import type { components } from "@researchchain/contracts";
 import { apiFetch } from "@/lib/access";
 import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
+import { CsvPreview } from "./csv-preview";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 type WorkspaceFile = components["schemas"]["WorkspaceFile"];
@@ -41,6 +42,8 @@ function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<stri
   }, [file.artifact_id]);
   if (error) return <p role="alert">The saved file could not be loaded.</p>;
   if (text === null) return <p role="status">Loading preview…</p>;
+  if (file.media_type === "text/csv" || /\.csv$/i.test(file.name))
+    return <CsvPreview text={text} />;
   return file.name.toLowerCase().endsWith(".md") ? (
     <ResearchMarkdown text={text} sources={sources} />
   ) : (
