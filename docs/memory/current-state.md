@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## See feedback wiring while authoring a review
+
+**Review handoff** in Build shows previous control steps and the inputs wired
+to a review’s feedback. Selecting a receiver focuses its input. The synthetic
+macro test opened a wired input by keyboard, removed and restored the binding,
+and validated the draft. CI passed 519 backend tests with 2 skips and all 124
+browser cases. Desktop at `344bc3d` served the controls with the API and worker
+ready.
+[PR #107](https://github.com/andersj05/ResearchChain/pull/107).
+
 ## Finish the run inspection and checkpoint release
 
 Review inbox shows the saved brief excerpt. Model activity can open a specific
