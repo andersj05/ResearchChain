@@ -2,22 +2,17 @@ import { useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { nodePresentation } from "@/components/node-kind";
 import {
-  graphAt,
-  referenceOf,
+  reachableWorkflowGraphs,
   scopeKey,
   type GraphCrumb,
   type GraphScope,
 } from "@/lib/workflow-editing";
-import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
+import type { Workflow, WorkflowNode } from "@/lib/workflow";
 
 function findSteps(workflow: Workflow, query: string) {
-  // A shared definition needs one editable destination. Visit the shortest valid
-  // path first, even when several draft nodes reference the same definition.
-  const graphs: { graph: Graph; path: GraphCrumb[] }[] = [{ graph: workflow, path: [] }];
-  const visited = new Set<string>();
   const results: { node: WorkflowNode; path: GraphCrumb[]; location: string; relevance: number }[] =
     [];
-  for (const { graph, path } of graphs) {
+  for (const { graph, path } of reachableWorkflowGraphs(workflow)) {
     const version = path.at(-1)?.ref.version;
     const location = version ? `${graph.name} · v${version}` : graph.name;
     for (const node of graph.nodes) {
@@ -38,13 +33,6 @@ function findSteps(workflow: Workflow, query: string) {
         const label = node.label.toLowerCase();
         const relevance = label === query || node.id === query ? 0 : label.includes(query) ? 1 : 2;
         results.push({ node, path, location, relevance });
-      }
-      const ref = referenceOf(node);
-      if (!ref || path.length >= 8 || visited.has(scopeKey(ref))) continue;
-      const body = graphAt(workflow, ref);
-      if (body) {
-        visited.add(scopeKey(ref));
-        graphs.push({ graph: body, path: [...path, { ref, via: node.id }] });
       }
     }
   }

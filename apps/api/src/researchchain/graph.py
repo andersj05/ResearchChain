@@ -3,7 +3,7 @@
 from collections import deque
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
 class StrictModel(BaseModel):
@@ -238,7 +238,9 @@ def validate_predicate(
         raise ValueError("Numeric comparisons require a number port.")
 
 
-def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
+def validate_graph(
+    graph: GraphDefinition, *, legacy: bool = False, location: tuple[str | int, ...] = ()
+) -> None:
     nodes = {node.id: node for node in graph.nodes}
     if len(nodes) != len(graph.nodes):
         raise ValueError("Node IDs must be unique.")
@@ -259,7 +261,7 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
     if len(finishes) != 1:
         raise ValueError("A workflow must contain exactly one finish node.")
     owners: dict[str, WorkflowNode] = {}
-    for node in graph.nodes:
+    for index, node in enumerate(graph.nodes):
         if legacy:
             if node.kind not in ("note", "review", "finish") or node.config or node.inputs:
                 raise ValueError("Version 0.1 only supports note, review, and finish nodes.")
@@ -271,10 +273,21 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
         elif node.config is not None:
             raise ValueError(f"Node {node.id} does not accept that configuration.")
         if set(outgoing[node.id]) != set(control_ports(node)):
-            if legacy:
-                raise ValueError("Version 0.1 supports one connected chain ending at finish.")
-            raise ValueError(
-                f"Node {node.id} must connect each declared control output exactly once."
+            message = (
+                "Version 0.1 supports one connected chain ending at finish."
+                if legacy
+                else f"Node {node.id} must connect each declared control output exactly once."
+            )
+            raise ValidationError.from_exception_data(
+                "Workflow",
+                [
+                    {
+                        "type": "value_error",
+                        "loc": (*location, "nodes", index),
+                        "input": node.model_dump(mode="json"),
+                        "ctx": {"error": ValueError(message)},
+                    }
+                ],
             )
         if node.id == graph.start_node:
             if incoming[node.id]:
@@ -390,8 +403,8 @@ class Workflow(GraphDefinition):
         definitions = {(item.id, item.version): item for item in self.subgraphs}
         if len(definitions) != len(self.subgraphs):
             raise ValueError("Subgraph id/version pairs must be unique within the revision.")
-        for definition in self.subgraphs:
-            validate_graph(definition)
+        for index, definition in enumerate(self.subgraphs):
+            validate_graph(definition, location=("subgraphs", index))
         visiting: set[tuple[str, int]] = set()
         costs: dict[tuple[str, int], int] = {}
 

@@ -96,6 +96,32 @@ export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
 
 export type GraphCrumb = { ref: SubgraphRef; via: string };
 
+export function* reachableWorkflowGraphs(workflow: Workflow) {
+  // A shared definition needs one editable destination. Prefer its shortest valid path.
+  const pending: { graph: Graph; path: GraphCrumb[] }[] = [{ graph: workflow, path: [] }];
+  const visited = new Set<string>();
+  for (const entry of pending) {
+    yield entry;
+    const { graph, path } = entry;
+    if (path.length >= 8) continue;
+    for (const node of graph.nodes) {
+      const ref = referenceOf(node);
+      if (
+        !ref ||
+        visited.has(scopeKey(ref)) ||
+        graph.nodes.filter((candidate) => candidate.id === node.id).length !== 1
+      )
+        continue;
+      const bodies = workflow.subgraphs?.filter(
+        (definition) => scopeKey(definition) === scopeKey(ref),
+      );
+      if (bodies?.length !== 1) continue;
+      visited.add(scopeKey(ref));
+      pending.push({ graph: bodies[0]!, path: [...path, { ref, via: node.id }] });
+    }
+  }
+}
+
 export function workflowStepAtRunPath(workflow: Workflow, executionPath: string) {
   const parts = executionPath.split("/");
   if (parts[0] !== "root" || parts.length < 2 || parts.length % 2 !== 0) return;

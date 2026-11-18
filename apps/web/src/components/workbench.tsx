@@ -17,7 +17,8 @@ import { readPendingRun, retainPendingRun, forgetPendingRun } from "@/lib/run-re
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
-import { WorkflowEditor } from "@/components/workflow-editor";
+import { WorkflowEditor, type WorkflowEditorNavigation } from "@/components/workflow-editor";
+import { workflowStepAtValidationLocation } from "@/lib/workflow-validation";
 import { useModelCatalog } from "@/components/model-picker";
 import {
   pruneDefinitions,
@@ -89,7 +90,8 @@ export function Workbench() {
     setEditorDocument((previous) => ({ epoch: previous.epoch + 1, path }));
   }
   const importInput = useRef<HTMLInputElement>(null);
-  const [diagnostics, setDiagnostics] = useState<ValidationIssue[]>([]);
+  const editorNavigation = useRef<WorkflowEditorNavigation>(null);
+  const [diagnostics, setDiagnostics] = useState<{ issues: ValidationIssue[]; draft?: Workflow }>();
   const [revision, setRevision] = useState<WorkflowRevision | null>(null);
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [selected, setSelected] = useState(initialWorkflow.start_node);
@@ -442,24 +444,25 @@ export function Workbench() {
   function change(next: Workflow, group?: string) {
     setEdited(true);
     recordChange(next, group);
-    setDiagnostics([]);
+    setDiagnostics(undefined);
     setError("");
     setMessage("");
   }
 
-  async function action(work: () => Promise<void>) {
+  async function action(work: () => Promise<void>, validationDraft?: Workflow) {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     seal();
     setMessage("");
     setError("");
-    setDiagnostics([]);
+    setDiagnostics(undefined);
     try {
       await work();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The action failed.");
-      setDiagnostics(cause instanceof ApiError ? cause.issues : []);
+      if (cause instanceof ApiError && cause.issues.length)
+        setDiagnostics({ issues: cause.issues, draft: validationDraft });
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -709,7 +712,7 @@ export function Workbench() {
     if (travel(direction)) {
       setEdited(true);
       setError("");
-      setDiagnostics([]);
+      setDiagnostics(undefined);
       setMessage("");
     }
   }
@@ -828,7 +831,7 @@ export function Workbench() {
                     onClick={() =>
                       action(async () => {
                         await saveRevision();
-                      })
+                      }, workflow)
                     }
                   >
                     Save revision
@@ -890,16 +893,37 @@ export function Workbench() {
         </div>
         {error && !setupOpen && (
           <div className="error workspace-error" role="alert">
-            {diagnostics.length ? (
+            {diagnostics ? (
               <>
                 <strong>Workflow needs attention</strong>
                 <ul className="validation-issues">
-                  {diagnostics.map((issue, index) => (
-                    <li key={index}>
-                      {issue.path && <code>{issue.path}: </code>}
-                      {issue.message}
-                    </li>
-                  ))}
+                  {diagnostics.issues.map((issue, index) => {
+                    const target =
+                      tab === "workflow" && diagnostics.draft === workflow
+                        ? workflowStepAtValidationLocation(workflow, issue.location)
+                        : undefined;
+                    return (
+                      <li key={index}>
+                        {issue.path && <code>{issue.path}: </code>}
+                        {issue.message}
+                        {target && (
+                          <>
+                            {" "}
+                            <Button
+                              className="text-link"
+                              disabled={busy}
+                              aria-label={`Open step ${target.step.label || target.step.id}`}
+                              onClick={() =>
+                                editorNavigation.current?.openStep(target.step.id, target.path)
+                              }
+                            >
+                              Open step
+                            </Button>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             ) : (
@@ -962,6 +986,7 @@ export function Workbench() {
               catalog={catalog}
               key={editorDocument.epoch}
               initialPath={editorDocument.path}
+              navigationRef={editorNavigation}
               onSeal={seal}
               workflow={workflow}
               selected={selected}
@@ -1056,7 +1081,7 @@ export function Workbench() {
                     action(async () => {
                       await api("workflows/validate", workflow);
                       setMessage("Workflow valid. Ready to run.");
-                    })
+                    }, workflow)
                   }
                 >
                   <CheckCheck size={14} aria-hidden="true" /> Validate workflow

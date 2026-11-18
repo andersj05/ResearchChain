@@ -20,6 +20,26 @@ def test_nested_contract_round_trips(kind: str) -> None:
     assert Workflow.model_validate_json(parsed.model_dump_json()) == parsed
 
 
+@pytest.mark.parametrize("in_subgraph", [False, True])
+def test_disconnected_control_output_identifies_the_invalid_step(in_subgraph: bool) -> None:
+    document = nested()
+    graph = document["subgraphs"][0] if in_subgraph else document
+    graph["edges"] = []
+    with pytest.raises(ValidationError, match="connect each declared control output") as raised:
+        Workflow.model_validate(document)
+    assert raised.value.errors()[0]["loc"] == (
+        ("subgraphs", 0, "nodes", 0) if in_subgraph else ("nodes", 0)
+    )
+
+
+def test_graph_wide_validation_has_no_step_location() -> None:
+    document = nested()
+    document["start_node"] = "missing"
+    with pytest.raises(ValidationError, match="Start node must exist") as raised:
+        Workflow.model_validate(document)
+    assert raised.value.errors()[0]["loc"] == ()
+
+
 @pytest.mark.parametrize(
     "case",
     [
