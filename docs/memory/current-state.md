@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Saved workspace files across a run
+
+**Runs → Files** finds saved charts, scripts, and methods files by filename, type,
+or step. It links to the exact producing model pass and download. The 390 px
+browser check verified separate downloads for two versions of a script and one
+entry for an unchanged chart. CI passed 516 backend tests with 2 skips and 117
+browser tests. Desktop at `4d0683f` served the Files view with a healthy API and
+connected worker. [PR #79](https://github.com/andersj05/ResearchChain/pull/79).
+
 ## Saved run archive
 
 **Runs → Search saved runs** searches the archive by brief, agent, workflow, or
