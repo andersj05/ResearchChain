@@ -9,6 +9,16 @@ type WorkspaceFile = components["schemas"]["WorkspaceFile"];
 const imageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const previewLimit = 128 * 1024;
 
+export function canPreviewWorkspaceFile(file: WorkspaceFile) {
+  return (
+    imageTypes.has(file.media_type) ||
+    (file.byte_size <= previewLimit &&
+      (file.media_type.startsWith("text/") ||
+        file.media_type === "application/json" ||
+        /\.(py|md|csv|txt|json)$/i.test(file.name)))
+  );
+}
+
 function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<string> }) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -38,6 +48,32 @@ function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<stri
   );
 }
 
+export function WorkspaceFilePreview({
+  file,
+  sources,
+}: {
+  file: WorkspaceFile;
+  sources: Set<string>;
+}) {
+  return (
+    <div className="workspace-file-preview">
+      {imageTypes.has(file.media_type) ? (
+        // The authenticated artifact URL serves the original chart at its own aspect ratio.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`${contentUrl(file.artifact_id)}?preview=true`}
+          alt={`Generated chart, ${file.name}`}
+          loading="lazy"
+        />
+      ) : canPreviewWorkspaceFile(file) ? (
+        <TextPreview key={file.artifact_id} file={file} sources={sources} />
+      ) : (
+        <p className="muted">Download this file to inspect it in full.</p>
+      )}
+    </div>
+  );
+}
+
 function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: Set<string> }) {
   const [selected, setSelected] = useState<string | null>(null);
   const file =
@@ -45,7 +81,6 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
     files.find((item) => imageTypes.has(item.media_type)) ??
     files[0];
   if (!file) return null;
-  const url = contentUrl(file.artifact_id);
   return (
     <section className="workspace-files" aria-label="Workspace files">
       <div className="workspace-files-heading">
@@ -75,20 +110,7 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
       <p className="field-hint">
         {file.name} · {file.byte_size.toLocaleString()} bytes
       </p>
-      <div className="workspace-file-preview">
-        {imageTypes.has(file.media_type) ? (
-          // The authenticated artifact URL serves the original chart at its own aspect ratio.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={url + "?preview=true"} alt={`Generated chart, ${file.name}`} loading="lazy" />
-        ) : file.byte_size <= previewLimit &&
-          (file.media_type.startsWith("text/") ||
-            file.media_type === "application/json" ||
-            /\.(py|md|csv|txt|json)$/i.test(file.name)) ? (
-          <TextPreview key={file.artifact_id} file={file} sources={sources} />
-        ) : (
-          <p className="muted">Download this file to inspect it in full.</p>
-        )}
-      </div>
+      <WorkspaceFilePreview file={file} sources={sources} />
     </section>
   );
 }
