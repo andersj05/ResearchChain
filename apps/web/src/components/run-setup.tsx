@@ -23,6 +23,7 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import { Play, X } from "lucide-react";
+import { useRef } from "react";
 
 function RunTools({ workflow }: { workflow: Workflow }) {
   const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
@@ -95,6 +96,8 @@ export function RunSetup({
   onOpenChange,
   brief,
   onBriefChange,
+  baselineRunId,
+  onClearBaseline,
   evidenceIds,
   onEvidenceChange,
   name,
@@ -124,6 +127,8 @@ export function RunSetup({
   onOpenChange: (open: boolean) => void;
   brief: string;
   onBriefChange: (value: string) => void;
+  baselineRunId: string | null;
+  onClearBaseline: () => void;
   evidenceIds: string[];
   onEvidenceChange: (ids: string[]) => void;
   name: string;
@@ -133,6 +138,7 @@ export function RunSetup({
   error: string;
   onStart: () => Promise<void>;
 }) {
+  const briefInput = useRef<HTMLTextAreaElement>(null);
   const available = new Set(catalog.status?.models?.map((model) => model.slug));
   const stepModels =
     open && research
@@ -201,9 +207,27 @@ export function RunSetup({
             <strong>{name || "Untitled workflow"}</strong>
             <span>{revision ? `Revision ${revision}` : "New revision on start"}</span>
           </div>
+          {baselineRunId && (
+            <div className="actions">
+              <a href={`?view=runs&run=${baselineRunId}`} target="_blank" rel="noopener">
+                Baseline run · {baselineRunId.slice(0, 8)}
+              </a>
+              <Button
+                className="button small"
+                disabled={busy}
+                onClick={() => {
+                  onClearBaseline();
+                  briefInput.current?.focus();
+                }}
+              >
+                Clear baseline
+              </Button>
+            </div>
+          )}
           <label htmlFor="brief">Research brief</label>
           <textarea
             id="brief"
+            ref={briefInput}
             required
             rows={5}
             maxLength={10000}

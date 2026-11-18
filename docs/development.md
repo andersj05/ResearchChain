@@ -224,6 +224,9 @@ pass, including an earlier pass of the same step.
 **Iterate from this step** loads the pinned revision, copied brief, and sources
 and opens the corresponding step in Build. For a loop iteration, Build opens
 the versioned body and selects the step that ran.
+When you iterate from a saved run, Run setup shows its baseline. You can clear
+the association before starting. After you start the revised experiment,
+**Compare with baseline** opens the original run alongside the new one.
 
 Unsent feedback stays in the current browser tab when you switch runs or refresh.
 Drafts clear when the app observes a resolved checkpoint or a terminal run.

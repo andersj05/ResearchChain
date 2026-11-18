@@ -209,6 +209,18 @@ function RunWorkspace({
             Iterate from this run
             <ArrowRight size={14} aria-hidden />
           </Button>
+          {run.baseline_run_id && (
+            <button
+              className="button small"
+              type="button"
+              onClick={() => {
+                selectComparison(run.baseline_run_id ?? undefined);
+                changeView("comparison");
+              }}
+            >
+              Compare with baseline
+            </button>
+          )}
           {live && (
             <Button className="button small" onClick={onCancel}>
               Cancel run

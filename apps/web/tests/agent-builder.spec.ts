@@ -101,6 +101,9 @@ for (const width of [1440, 390]) {
       "My independent experiment",
     );
     await expect(page.getByRole("checkbox", { name: new RegExp(sourceTitle) })).toBeChecked();
+    await expect(
+      page.getByRole("link", { name: `Baseline run · ${runId.slice(0, 8)}` }),
+    ).toHaveAttribute("href", `?view=runs&run=${runId}`);
     await expect(page.getByRole("combobox", { name: "Research model", exact: true })).toHaveValue(
       "test-model",
     );
@@ -112,10 +115,17 @@ for (const width of [1440, 390]) {
     expect(nextId).not.toBe(runId);
     const second: RunSnapshot = await (await request.get(`/api/runs/${nextId}`)).json();
     expect(second.revision_id).not.toBe(first.revision_id);
+    expect(second.baseline_run_id).toBe(runId);
     expect(second.evidence_ids).toEqual([evidenceId]);
     expect((await (await request.get(`/api/runs/${runId}`)).json()).workflow).toEqual(
       first.workflow,
     );
+    await page.getByRole("button", { name: "Compare with baseline", exact: true }).click();
+    const compare = page.getByRole("combobox", { name: "Comparison run", exact: true });
+    await expect(compare).toHaveValue(runId);
+    await expect(page.getByRole("region", { name: "Run comparison table" })).toBeVisible();
+    await page.reload();
+    await expect(compare).toHaveValue(runId);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

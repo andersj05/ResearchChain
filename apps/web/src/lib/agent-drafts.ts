@@ -5,6 +5,7 @@ export type AgentDraft = {
   revision: WorkflowRevision | null;
   workflow: Workflow;
   brief: string;
+  baselineRunId?: string | null;
   evidenceIds: string[];
   artifacts: RunRequest["artifacts"];
   providerAccount: string | null;
@@ -24,6 +25,7 @@ export function readAgentDraft(prefix: string, id: string): AgentDraft | null {
       !Array.isArray(value.workflow.nodes) ||
       !Array.isArray(value.workflow.edges) ||
       typeof value.brief !== "string" ||
+      (value.baselineRunId != null && typeof value.baselineRunId !== "string") ||
       !Array.isArray(value.evidenceIds)
     )
       return null;
