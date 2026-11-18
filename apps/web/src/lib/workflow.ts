@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/access";
 import type { components } from "@researchchain/contracts";
+import chartSignalExample from "../../../../examples/chart-signal.json";
+import chartSignalBriefLines from "../../../../examples/chart-signal-brief.json";
 import discretionaryMacroExample from "../../../../examples/discretionary-macro.json";
 import discretionaryMacroBriefLines from "../../../../examples/discretionary-macro-brief.json";
 import ideaGenerationExample from "../../../../examples/idea-generation.json";
@@ -54,6 +56,8 @@ export const ideaGenerationWorkflow = ideaGenerationExample as Workflow;
 export const ideaGenerationBrief = ideaGenerationBriefLines.join("\n");
 export const discretionaryMacroWorkflow = discretionaryMacroExample as Workflow;
 export const discretionaryMacroBrief = discretionaryMacroBriefLines.join("\n");
+export const chartSignalWorkflow = chartSignalExample as Workflow;
+export const chartSignalBrief = chartSignalBriefLines.join("\n");
 export const researchWorkflow = researchExample as Workflow;
 export type ResearchSettings = components["schemas"]["ResearchSettings"];
 export type ResearchLimits = components["schemas"]["ResearchLimits"];

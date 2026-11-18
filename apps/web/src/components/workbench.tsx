@@ -42,6 +42,8 @@ import {
   ideaGenerationWorkflow,
   ideaGenerationBrief,
   discretionaryMacroWorkflow,
+  chartSignalWorkflow,
+  chartSignalBrief,
   discretionaryMacroBrief,
   exampleWorkflow,
   admissionTimeout,
@@ -372,6 +374,7 @@ export function Workbench() {
       current: workflow,
       ideas: ideaGenerationWorkflow,
       macro: discretionaryMacroWorkflow,
+      chart: chartSignalWorkflow,
     };
     const document = { ...structuredClone(starters[starter]), name };
     const created = await api<AgentDetail>("agents", { id, workflow: document });
@@ -383,6 +386,11 @@ export function Workbench() {
     } else if (starter === "macro") {
       setBrief(discretionaryMacroBrief);
       setMessage(`Agent “${name}” created. Open Run workflow to edit the example macro brief.`);
+    } else if (starter === "chart") {
+      setBrief(chartSignalBrief);
+      setMessage(
+        `Agent “${name}” created. Open Run workflow to attach your chart and describe your idea.`,
+      );
     } else setMessage(`Agent “${name}” created. Add your steps and save a version.`);
   }
   async function loadLatestAgent() {

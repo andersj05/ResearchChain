@@ -12,18 +12,20 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import {
+  chartSignalWorkflow,
   discretionaryMacroWorkflow,
   ideaGenerationWorkflow,
   type AgentSummary,
 } from "@/lib/workflow";
 
-export type StartingWorkflow = "blank" | "current" | "ideas" | "macro";
+export type StartingWorkflow = "blank" | "current" | "ideas" | "macro" | "chart";
 
 const starterNames = {
   blank: "",
   current: "",
   ideas: ideaGenerationWorkflow.name,
   macro: discretionaryMacroWorkflow.name,
+  chart: chartSignalWorkflow.name,
 };
 
 export function AgentSwitcher({
@@ -142,6 +144,7 @@ export function AgentSwitcher({
               <option value="current">Copy the current workflow</option>
               <option value="ideas">Idea generation demo</option>
               <option value="macro">Discretionary macro research</option>
+              <option value="chart">{chartSignalWorkflow.name}</option>
             </select>
             {error && (
               <p className="error" role="alert">

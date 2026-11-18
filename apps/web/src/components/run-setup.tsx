@@ -13,6 +13,8 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { scopeKey, type StepModelChange } from "@/lib/workflow-editing";
 import { researchToolLabels } from "@/lib/workflow-model-plan";
 import { EvidencePicker } from "@/components/evidence-picker";
+import { EvidenceForm } from "@/components/evidence-form";
+import type { EvidenceRecord } from "@/lib/evidence";
 import { Button } from "@ui-sdk/react/button";
 import {
   Dialog,
@@ -24,7 +26,7 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import { Play, X } from "lucide-react";
-import { useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
 function RunTools({ workflow }: { workflow: Workflow }) {
   const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
@@ -129,6 +131,19 @@ export function RunSetup({
   onStart: () => Promise<void>;
 }) {
   const briefInput = useRef<HTMLTextAreaElement>(null);
+  const [chartSources, setChartSources] = useState<EvidenceRecord[] | null>(null);
+  const [savingChart, setSavingChart] = useState(false);
+  const [attachedCharts, setAttachedCharts] = useState<EvidenceRecord[]>([]);
+  const uploadTrigger = useRef<HTMLElement | null>(null);
+  const chartEditor = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    if (chartSources)
+      chartEditor.current?.querySelector<HTMLInputElement>('input[type="file"]')?.focus();
+    else if (open && uploadTrigger.current) {
+      uploadTrigger.current.focus();
+      uploadTrigger.current = null;
+    }
+  }, [chartSources, open]);
   const available = new Set(catalog.status?.models?.map((model) => model.slug));
   const stepModels =
     open && research
@@ -167,8 +182,15 @@ export function RunSetup({
     <Dialog
       open={open}
       onOpenChange={(value, details) => {
-        if (busy) details.cancel();
-        else onOpenChange(value);
+        if (busy || savingChart) details.cancel();
+        else {
+          if (!value) {
+            uploadTrigger.current = null;
+            setChartSources(null);
+            setAttachedCharts([]);
+          }
+          onOpenChange(value);
+        }
       }}
     >
       <DialogTrigger className="button primary" disabled={!loaded || busy}>
@@ -181,16 +203,32 @@ export function RunSetup({
           <DialogClose
             className="button icon-button ghost"
             aria-label="Close run setup"
-            disabled={busy}
+            disabled={busy || savingChart}
           >
             <X size={18} aria-hidden="true" />
           </DialogClose>
         </div>
         <DialogDescription>Give this workflow a question to explore.</DialogDescription>
+        {open && chartSources && (
+          <div ref={chartEditor}>
+            <EvidenceForm
+              attachChart
+              sources={chartSources}
+              onSavingChange={setSavingChart}
+              onCancel={() => setChartSources(null)}
+              onSaved={(source) => {
+                setAttachedCharts((previous) => [source, ...previous]);
+                onEvidenceChange([...evidenceIds, source.id]);
+                setChartSources(null);
+              }}
+            />
+          </div>
+        )}
         <form
+          hidden={!!chartSources}
           onSubmit={(event) => {
             event.preventDefault();
-            if (brief.trim() && !busy && ready) void onStart();
+            if (!chartSources && brief.trim() && !busy && ready) void onStart();
           }}
         >
           <div className="run-context">
@@ -307,7 +345,16 @@ export function RunSetup({
             </details>
           )}
           {open && (
-            <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />
+            <EvidencePicker
+              selected={evidenceIds}
+              onChange={onEvidenceChange}
+              disabled={busy}
+              attachedCharts={attachedCharts}
+              onAttachChart={(sources) => {
+                uploadTrigger.current = document.activeElement as HTMLElement;
+                setChartSources(sources);
+              }}
+            />
           )}
           {open && <RunTools workflow={workflow} />}
           {error && (
