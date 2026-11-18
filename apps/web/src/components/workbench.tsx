@@ -46,7 +46,7 @@ import {
   type CommandReceipt,
   type RunRequest,
   type RunSnapshot,
-  type RunSummary,
+  type RecentRunSummary,
   type Workflow,
   type WorkflowRevision,
   type RevisionSummary,
@@ -96,7 +96,7 @@ export function Workbench() {
     "What evidence would distinguish sector rotation from a broad increase in correlation?",
   );
   const [run, setRun] = useState<RunSnapshot | null>(null);
-  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [runs, setRuns] = useState<RecentRunSummary[]>([]);
   const [tab, setTab] = useState("workflow");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -156,7 +156,7 @@ export function Workbench() {
         }
         const [savedRevisions, recentRuns, agentList] = await Promise.all([
           read<RevisionSummary[]>("revisions"),
-          read<RunSummary[]>("runs"),
+          read<RecentRunSummary[]>("runs"),
           read<AgentSummary[]>("agents?limit=1000"),
         ]);
         if (!active) return;
@@ -199,7 +199,7 @@ export function Workbench() {
           ? await read<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
           : null;
         const agentRuns = detail
-          ? await read<RunSummary[]>(`runs?agent_id=${detail.agent.id}`)
+          ? await read<RecentRunSummary[]>(`runs?agent_id=${detail.agent.id}`)
           : recentRuns;
         let draft = detail && !runId ? readAgentDraft(storagePrefix, detail.agent.id) : null;
         if (parameters.has("revision") && draft?.revision?.id !== revisionId) draft = null;
@@ -316,7 +316,7 @@ export function Workbench() {
     const cached = drafts.current.get(id) ?? (id ? readAgentDraft(storagePrefix, id) : null);
     const next = cached?.workflow ?? detail?.revision.workflow ?? structuredClone(initialWorkflow);
     const versions = id ? await api<AgentVersion[]>(`agents/${id}/revisions?limit=1000`) : null;
-    const history = await api<RunSummary[]>(id ? `runs?agent_id=${id}` : "runs");
+    const history = await api<RecentRunSummary[]>(id ? `runs?agent_id=${id}` : "runs");
     setActiveAgent(cached?.agent ?? detail?.agent ?? null);
     setRevision(cached?.revision ?? detail?.revision ?? null);
     initialize(next);
@@ -460,7 +460,7 @@ export function Workbench() {
             items.map((item) => ({ ...item.revision, agent_version: item.version })),
           )
         : api<RevisionSummary[]>("revisions"),
-      api<RunSummary[]>(activeAgent ? `runs?agent_id=${activeAgent.id}` : "runs"),
+      api<RecentRunSummary[]>(activeAgent ? `runs?agent_id=${activeAgent.id}` : "runs"),
     ]);
     setRevisions(savedRevisions);
     setRuns(recentRuns);
@@ -582,7 +582,7 @@ export function Workbench() {
       const cached =
         drafts.current.get(agentId ?? "") ??
         (agentId ? readAgentDraft(storagePrefix, agentId) : null);
-      const history = await api<RunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
+      const history = await api<RecentRunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
       const savedRevisions = versions
         ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
         : await api<RevisionSummary[]>("revisions");

@@ -2670,6 +2670,48 @@ export interface components {
       /** Oldest Pending Seconds */
       oldest_pending_seconds?: number | null;
     };
+    /** RecentRunSummary */
+    RecentRunSummary: {
+      /** Agent Id */
+      agent_id?: string | null;
+      /** Agent Name */
+      agent_name?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
+      /** Revision Number */
+      revision_number: number;
+      /** Workflow Name */
+      workflow_name: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | "queued"
+        | "paused"
+        | "completed"
+        | "rejected"
+        | "interrupted"
+        | "cancelled"
+        | "limited"
+        | "running"
+        | "failed";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Brief Excerpt */
+      brief_excerpt: string;
+    };
     /** RecordedEvaluationOutput */
     RecordedEvaluationOutput: {
       /**
@@ -6085,7 +6127,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSummary"][];
+          "application/json": components["schemas"]["RecentRunSummary"][];
         };
       };
       /** @description Validation Error */

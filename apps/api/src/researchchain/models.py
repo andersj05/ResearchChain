@@ -131,6 +131,10 @@ class RunSummary(StrictModel):
     created_at: datetime
 
 
+class RecentRunSummary(RunSummary):
+    brief_excerpt: str
+
+
 class RunArchiveQuery(StrictModel):
     limit: int = Field(default=20, ge=1, le=50)
     search: str = Field(default="", max_length=200, pattern=r"^[^\x00]*$")

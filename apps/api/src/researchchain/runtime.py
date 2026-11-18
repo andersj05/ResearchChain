@@ -30,6 +30,7 @@ from researchchain.models import (
     CheckpointStep,
     PendingReviewRun,
     PendingReviewsPage,
+    RecentRunSummary,
     ResumeRequest,
     ReviewPrompt,
     RunArchiveItem,
@@ -575,9 +576,10 @@ class RunStore:
                 for row in rows
             ]
 
-    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RunSummary]:
+    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RecentRunSummary]:
         return [
-            item.run for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
+            RecentRunSummary(**item.run.model_dump(), brief_excerpt=item.brief_excerpt)
+            for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
         ]
 
     def pending_reviews(

@@ -2535,7 +2535,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RunSummary"
+                    "$ref": "#/components/schemas/RecentRunSummary"
                   },
                   "title": "Response List Runs"
                 }
@@ -6597,6 +6597,87 @@
         "type": "object",
         "required": ["queued", "executing", "awaiting_takeover", "interrupted", "finished_24h"],
         "title": "QueueOperations"
+      },
+      "RecentRunSummary": {
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "paused",
+              "completed",
+              "rejected",
+              "interrupted",
+              "cancelled",
+              "limited",
+              "running",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "brief_excerpt": {
+            "type": "string",
+            "title": "Brief Excerpt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision_id",
+          "revision_number",
+          "workflow_name",
+          "status",
+          "created_at",
+          "brief_excerpt"
+        ],
+        "title": "RecentRunSummary"
       },
       "RecordedEvaluationOutput": {
         "properties": {
