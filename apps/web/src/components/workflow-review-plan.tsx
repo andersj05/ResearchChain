@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   conditionBindings,
   outputBindings,
+  portsFor,
   previousControlSteps,
   reachableWorkflowGraphs,
   scopeKey,
@@ -16,13 +17,28 @@ function reviewPlan(workflow: Workflow) {
       const version = path.at(-1)?.ref.version;
       const name = graph.name || (version ? "Subgraph" : "Workflow");
       const location = version ? `${name} · v${version}` : name;
+      const uniqueStep = (id: string) => graph.nodes.filter((step) => step.id === id).length === 1;
       const feedback = [
-        ...outputBindings(graph).map(({ input, ...binding }) => ({ ...binding, field: input })),
-        ...conditionBindings(graph).map((binding) => ({ ...binding, field: "condition" })),
+        ...outputBindings(graph).map(({ input, target, ...binding }) => ({
+          ...binding,
+          target,
+          field: input,
+          canOpen:
+            uniqueStep(target.id) &&
+            (target.kind === "note" || target.config?.type === target.kind) &&
+            portsFor(target).some(
+              (port) =>
+                port.name === input && port.direction === "input" && port.type !== "control",
+            ),
+        })),
+        ...conditionBindings(graph).map((binding) => ({
+          ...binding,
+          field: "condition",
+          canOpen: uniqueStep(binding.target.id),
+        })),
       ].filter((binding) => binding.output === "feedback");
       return nodes.flatMap((node) =>
-        node.kind === "review" &&
-        graph.nodes.filter((candidate) => candidate.id === node.id).length === 1
+        node.kind === "review" && uniqueStep(node.id)
           ? [
               {
                 node,
@@ -43,13 +59,13 @@ export function WorkflowReviewPlan({
   onSelect,
 }: {
   workflow: Workflow;
-  onSelect: (id: string, path: GraphCrumb[]) => void;
+  onSelect: (id: string, path: GraphCrumb[], field?: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const reviews = open ? reviewPlan(workflow) : [];
-  function openStep(id: string, path: GraphCrumb[]) {
+  function openStep(id: string, path: GraphCrumb[], field?: string) {
     setOpen(false);
-    onSelect(id, path);
+    onSelect(id, path, field);
   }
   return (
     <details
@@ -119,11 +135,25 @@ export function WorkflowReviewPlan({
                         <>
                           <p className="muted">Feedback bindings</p>
                           <ul className={styles.bindings} aria-label="Feedback bindings">
-                            {bindings.map(({ target, field }, index) => (
-                              <li key={`${target.id}/${field}/${index}`}>
-                                {target.label || target.id} · {field}
-                              </li>
-                            ))}
+                            {bindings.map(({ target, field, canOpen }, index) => {
+                              const label = `${target.label || target.id} · ${field}`;
+                              return (
+                                <li key={`${target.id}/${field}/${index}`}>
+                                  {canOpen ? (
+                                    <button
+                                      className={styles.step}
+                                      type="button"
+                                      aria-label={`Open ${label} in ${location}`}
+                                      onClick={() => openStep(target.id, path, field)}
+                                    >
+                                      {label}
+                                    </button>
+                                  ) : (
+                                    label
+                                  )}
+                                </li>
+                              );
+                            })}
                           </ul>
                         </>
                       )}
