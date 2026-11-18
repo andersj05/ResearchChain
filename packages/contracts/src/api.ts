@@ -6185,6 +6185,7 @@ export interface operations {
       query?: {
         limit?: number;
         offset?: number;
+        agent_id?: string | null;
       };
       header?: never;
       path?: never;

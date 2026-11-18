@@ -9,11 +9,13 @@ const pageSize = 20;
 
 function InboxPage({
   offset,
+  agentId,
   busy,
   onOpen,
   changePage,
 }: {
   offset: number;
+  agentId?: string;
   busy: boolean;
   onOpen: (target: ReviewTarget) => Promise<boolean>;
   changePage: (offset: number) => void;
@@ -25,11 +27,11 @@ function InboxPage({
   useEffect(() => {
     let active = true;
     let timer: ReturnType<typeof setTimeout>;
+    const params = new URLSearchParams({ limit: String(pageSize), offset: String(offset) });
+    if (agentId) params.set("agent_id", agentId);
     async function load() {
       try {
-        const result = await api<PendingReviewsPage>(
-          `runs/reviews?limit=${pageSize}&offset=${offset}`,
-        );
+        const result = await api<PendingReviewsPage>(`runs/reviews?${params}`);
         if (active) {
           setPage(result);
           setError(false);
@@ -45,12 +47,12 @@ function InboxPage({
       active = false;
       clearTimeout(timer);
     };
-  }, [offset, refresh]);
+  }, [agentId, offset, refresh]);
 
   return (
     <div className="review-inbox-content">
       <div className="review-inbox-toolbar">
-        <span className="muted">All agents · oldest runs first</span>
+        <span className="muted">Oldest runs first</span>
         <button className="button small" type="button" onClick={() => setRefresh(refresh + 1)}>
           Refresh inbox
         </button>
@@ -127,14 +129,20 @@ function InboxPage({
 }
 
 export function ReviewInbox({
+  activeAgentId,
+  activeAgentName,
   busy,
   onOpen,
 }: {
+  activeAgentId?: string;
+  activeAgentName?: string;
   busy: boolean;
   onOpen: (target: ReviewTarget) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [scope, setScope] = useState("all");
+  const agentId = scope === "agent" ? activeAgentId : undefined;
   return (
     <details
       className="review-inbox"
@@ -143,17 +151,35 @@ export function ReviewInbox({
     >
       <summary>Review inbox</summary>
       {open && (
-        <InboxPage
-          key={offset}
-          offset={offset}
-          busy={busy}
-          changePage={setOffset}
-          onOpen={async (target) => {
-            const opened = await onOpen(target);
-            if (opened) setOpen(false);
-            return opened;
-          }}
-        />
+        <>
+          {activeAgentId && (
+            <label className="review-inbox-scope">
+              Show reviews for
+              <select
+                value={agentId ? "agent" : "all"}
+                onChange={(event) => {
+                  setScope(event.target.value);
+                  setOffset(0);
+                }}
+              >
+                <option value="all">All agents</option>
+                <option value="agent">{activeAgentName ?? "Current agent"}</option>
+              </select>
+            </label>
+          )}
+          <InboxPage
+            key={`${agentId ?? "all"}:${offset}`}
+            offset={offset}
+            agentId={agentId}
+            busy={busy}
+            changePage={setOffset}
+            onOpen={async (target) => {
+              const opened = await onOpen(target);
+              if (opened) setOpen(false);
+              return opened;
+            }}
+          />
+        </>
       )}
     </details>
   );

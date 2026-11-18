@@ -580,7 +580,9 @@ class RunStore:
             item.run for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
         ]
 
-    def pending_reviews(self, limit: int, offset: int) -> PendingReviewsPage:
+    def pending_reviews(
+        self, limit: int, offset: int, agent_id: UUID | None = None
+    ) -> PendingReviewsPage:
         # Read the most recent command receipt. An admitted resume has no response
         # yet and hides the old questions until the worker records its next pause.
         with self.database.connection() as conn:
@@ -599,8 +601,9 @@ class RunStore:
                 "AND command.response->>'checkpoint_id' IS NOT NULL "
                 "AND (command.response->>'review' IS NOT NULL "
                 "OR command.response->'reviews'->0 IS NOT NULL) "
-                "ORDER BY r.created_at, r.id LIMIT %s OFFSET %s",
-                (limit + 1, offset),
+                "AND (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "ORDER BY r.created_at, r.id LIMIT %(limit)s OFFSET %(offset)s",
+                {"agent_id": agent_id, "limit": limit + 1, "offset": offset},
             ).fetchall()
             return PendingReviewsPage(
                 items=[PendingReviewRun.model_validate(row) for row in rows[:limit]],

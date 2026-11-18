@@ -70,7 +70,12 @@ export function RunHistory({
           Refresh history
         </Button>
       </div>
-      <ReviewInbox busy={busy} onOpen={onOpenReview} />
+      <ReviewInbox
+        activeAgentId={agentId}
+        activeAgentName={agentName}
+        busy={busy}
+        onOpen={onOpenReview}
+      />
       <div id="recent-run-list">
         <RunArchive
           agentId={agentId}
