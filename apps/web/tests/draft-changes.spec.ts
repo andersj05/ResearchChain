@@ -1,6 +1,9 @@
 import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
+import advanced from "../../../examples/advanced-workflow.json";
+import { compareWorkflowGraphs } from "../src/lib/workflow-comparison";
 import { compareWorkflowDraft } from "../src/lib/workflow-draft-comparison";
+import { addTemplate } from "../src/lib/workflow-editing";
 import type { Workflow } from "../src/lib/workflow";
 
 test("Build previews draft changes and distinguishes reverted edits from layout changes", async ({
@@ -83,4 +86,152 @@ test("draft changes separate unknown document edits from canvas positions", () =
   expect(compareWorkflowDraft(saved, draft).kind).toBe("layout");
   draft.subgraphs![0]!.nodes[0]!.instructions = "Compare a different input.";
   expect(compareWorkflowDraft(saved, draft).kind).toBe("other");
+});
+
+test("readable draft wiring keeps stable step IDs and the saved-run comparison", () => {
+  const { workflow: saved, selected } = addTemplate(
+    structuredClone(advanced) as Workflow,
+    null,
+    "note",
+    "split",
+  );
+  saved.nodes.find((step) => step.id === selected)!.inputs = {
+    text: { source: "output", node_id: "support", port: "text" },
+  };
+  saved.nodes.find((step) => step.id === "challenge")!.label = "Support";
+  const renamed = structuredClone(saved);
+  renamed.nodes.find((step) => step.id === "support")!.label = "Supporting evidence";
+  renamed.nodes.find((step) => step.id === "split")!.label = "Split evidence";
+  const renames = compareWorkflowDraft(saved, renamed);
+  if (renames.kind !== "settings") throw new Error("Expected step name changes.");
+  expect(renames.graphs[0]!.settings).toEqual([]);
+  expect(
+    renames.graphs[0]!.steps.flatMap((step) => step.settings.map((setting) => setting.name)),
+  ).toEqual(["Step name", "Step name"]);
+
+  const draft = structuredClone(saved);
+  draft.nodes.find((step) => step.id === selected)!.inputs!.text = {
+    source: "output",
+    node_id: "challenge",
+    port: "text",
+  };
+  draft.edges.find((edge) => edge.source === "split" && edge.source_port === "support")!.target =
+    "challenge";
+  draft.start_node = "support";
+  const result = compareWorkflowDraft(saved, draft);
+  if (result.kind !== "settings") throw new Error("Expected wiring changes.");
+  const root = result.graphs[0]!;
+  expect(root.settings).toEqual([
+    { name: "First step", before: "Split (split)", after: "Support (support)" },
+  ]);
+  expect(root.steps.find((step) => step.id === "split")!.settings).toEqual([
+    { name: "Next · support", before: "Support (support)", after: "Support (challenge)" },
+  ]);
+  expect(root.steps.find((step) => step.id === selected)!.settings).toEqual([
+    {
+      name: "Input · text",
+      before: "Support (support) · text",
+      after: "Support (challenge) · text",
+    },
+  ]);
+  const runSetup = compareWorkflowGraphs(saved, draft)[0]!;
+  expect(runSetup.settings).toEqual([{ name: "First step", before: "split", after: "support" }]);
+  expect(runSetup.steps.find((step) => step.id === selected)!.settings).toEqual([
+    { name: "Input · text", before: "support · text", after: "challenge · text" },
+  ]);
+});
+
+test("readable draft wiring uses pinned scopes, built-ins, and unresolved IDs", () => {
+  const ref = { id: "critique", version: 1 };
+  const { workflow: saved, selected } = addTemplate(
+    structuredClone(advanced) as Workflow,
+    ref,
+    "note",
+    "review",
+  );
+  const body = saved.subgraphs![0]!;
+  body.nodes.find((step) => step.id === selected)!.inputs = {
+    text: { source: "brief" },
+  };
+  const draft = structuredClone(saved);
+  const loop = draft.nodes.find((step) => step.id === "review_loop")!;
+  if (loop.config?.type !== "loop") throw new Error("Expected a pinned loop body.");
+  const newBody = structuredClone(body);
+  newBody.version = 2;
+  newBody.nodes.find((step) => step.id === "review")!.label = "Version two reviewer";
+  newBody.nodes.find((step) => step.id === selected)!.inputs = {
+    text: { source: "output", node_id: "review", port: "decision" },
+  };
+  loop.config.ref.version = newBody.version;
+  draft.subgraphs!.push(newBody);
+  const result = compareWorkflowDraft(saved, draft);
+  if (result.kind !== "settings") throw new Error("Expected pinned body changes.");
+  expect(result.graphs.find((graph) => graph.key === "critique@1/critique@2")?.steps).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({
+        id: selected,
+        settings: [
+          {
+            name: "Input · text",
+            before: "Research brief",
+            after: "Version two reviewer (review) · decision",
+          },
+        ],
+      }),
+    ]),
+  );
+
+  const broken = structuredClone(draft);
+  const brokenBody = broken.subgraphs!.find((graph) => graph.version === 2)!;
+  brokenBody.nodes.find((step) => step.id === selected)!.inputs!.text = {
+    source: "output",
+    node_id: "missing",
+    port: "decision",
+  };
+  brokenBody.edges.find((edge) => edge.source === selected)!.target = "missing-finish";
+  const unresolved = compareWorkflowDraft(draft, broken);
+  if (unresolved.kind !== "settings") throw new Error("Expected unresolved wiring changes.");
+  expect(unresolved.graphs[0]!.steps[0]!.settings).toEqual([
+    {
+      name: "Input · text",
+      before: "Version two reviewer (review) · decision",
+      after: "missing · decision",
+    },
+    { name: "Next · next", before: "Done (done)", after: "missing-finish" },
+  ]);
+});
+
+test("Build previews rewiring between equally named sources", async ({ page, request }) => {
+  const { workflow, selected } = addTemplate(
+    structuredClone(advanced) as Workflow,
+    null,
+    "note",
+    "split",
+  );
+  const consumer = workflow.nodes.find((step) => step.id === selected)!;
+  consumer.label = "Write the conclusion";
+  consumer.inputs = { text: { source: "output", node_id: "support", port: "text" } };
+  workflow.nodes.find((step) => step.id === "support")!.label = "Regional signal";
+  workflow.nodes.find((step) => step.id === "challenge")!.label = "Regional signal";
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 1040 });
+  await page.goto(`/?revision=${revision.id}&view=workflow`);
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: /Write the conclusion/ })
+    .click();
+  await page
+    .getByRole("combobox", { name: "Text input", exact: true })
+    .selectOption("challenge:text");
+  await page.getByRole("button", { name: "Draft changes", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Draft changes" });
+  await expect(dialog.getByText("Input · text", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Regional signal (support) · text", { exact: true })).toBeVisible();
+  await expect(
+    dialog.getByText("Regional signal (challenge) · text", { exact: true }),
+  ).toBeVisible();
+  await expect(dialog.getByText(`Compared with saved revision ${revision.number}.`)).toBeVisible();
+  await expect(page.locator(".save-state")).toHaveText("Unsaved draft");
 });

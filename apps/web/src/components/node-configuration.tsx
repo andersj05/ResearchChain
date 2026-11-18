@@ -4,7 +4,7 @@ import { Fragment } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { researchDefaults } from "@/lib/workflow";
 import type { Graph, Predicate, ValueSource, Workflow, WorkflowNode } from "@/lib/workflow";
-import { availableOutputSteps } from "@/lib/workflow-input-sources";
+import { availableOutputSteps, builtInSourceLabels } from "@/lib/workflow-input-sources";
 import {
   addBranch,
   bindInput,
@@ -21,16 +21,16 @@ import {
 type SourceChoice = { value: string; label: string; type: "text" | "number"; source: ValueSource };
 function sources(graph: Graph, exclude?: string): SourceChoice[] {
   return [
-    { value: "brief", label: "Research brief", type: "text", source: { source: "brief" } },
+    { value: "brief", label: builtInSourceLabels.brief, type: "text", source: { source: "brief" } },
     {
       value: "artifact_count",
-      label: "Artifact count",
+      label: builtInSourceLabels.artifact_count,
       type: "number",
       source: { source: "artifact_count" },
     },
     {
       value: "iteration",
-      label: "Current iteration",
+      label: builtInSourceLabels.iteration,
       type: "number",
       source: { source: "iteration" },
     },
