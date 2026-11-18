@@ -40,3 +40,7 @@ combined text before opening the revised experiment in Build.
 **Runs → Files** finds saved charts, CSVs, and methods files across the run. Open
 the listed pass to inspect the calculation. Preview charts and supported text
 files in the list or download the exact saved version.
+
+When an attempt surfaces a useful web reference, open **Web sources** and use
+**Save source link**. Review its title and URL before adding it to Sources.
+The saved record is Link only and identifies the attempt that reported it.
