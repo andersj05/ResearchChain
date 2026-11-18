@@ -165,6 +165,12 @@ For other steps with data outputs, **Output bindings** shows each explicit
 binding to a step input in the current graph. Select a binding to focus the
 receiving input, then use **Return to step** to reopen the source.
 
+On a condition or parallel split, open **Branch paths** to see the first step,
+other steps in the current graph, and the paired join. Follow a step to inspect
+its settings. The disclosure updates as you rewire the draft and flags paths it
+cannot resolve. Validation links can open the **Condition** or **Join step**
+setting when the server identifies it.
+
 Input pickers group step outputs by availability when the control wiring is
 complete. Outputs from every branch can be available after a parallel join.
 After a conditional join, an output must be available whichever branch runs.

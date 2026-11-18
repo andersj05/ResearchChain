@@ -1,6 +1,11 @@
 import type { Graph, ValidationIssue, Workflow, WorkflowNode } from "./workflow";
 import { portsFor, reachableWorkflowGraphs, type GraphCrumb } from "./workflow-editing";
 
+const branchSettings = {
+  condition: "Open condition",
+  join: "Open join setting",
+} as const;
+
 function stepAt(graph: Graph, segment: string | number | undefined) {
   if (typeof segment !== "number" || !Number.isInteger(segment)) return;
   const node = graph.nodes[segment];
@@ -24,7 +29,14 @@ function destination(
     )
       ? port
       : undefined;
-  return { step, path, input };
+  const config = step.config?.type;
+  const setting =
+    field === "config" &&
+    ((port === "condition" && config === "route") ||
+      (port === "join" && (config === "route" || config === "fork")))
+      ? { control: port, action: branchSettings[port] }
+      : undefined;
+  return { step, path, input, setting };
 }
 
 export function workflowStepAtValidationLocation(
