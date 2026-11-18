@@ -3,6 +3,7 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
+from access_fixtures import owner_client
 from fastapi.testclient import TestClient
 
 from researchchain.agent_models import AgentCreate, AgentSave
@@ -56,6 +57,51 @@ def test_agent_versions_revert_and_conflicts_preserve_pinned_documents(
     )
 
 
+def test_run_archive_filters_and_cursor_stay_in_scope(
+    database: Database, workflow: dict[str, Any]
+) -> None:
+    with owner_client(create_app(database), workers=False) as client:
+        first = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        second = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        agent_id = first["agent"]["id"]
+        revision_id = first["revision"]["id"]
+
+        def start(brief: str, agent: str | None = agent_id) -> str:
+            run_id = str(uuid4())
+            response = client.post(
+                "/api/runs",
+                json={"id": run_id, "agent_id": agent, "revision_id": revision_id, "brief": brief},
+            )
+            assert response.status_code == 202
+            return run_id
+
+        old = start("Compare inflation breakevens")
+        recent = start("Inspect inflation swaps")
+        unassigned = start("Inflation prints", None)
+        start("Inflation surprise", second["agent"]["id"])
+        cancelled = start("Inflation scenario")
+        assert client.post(f"/api/runs/{cancelled}/cancel").status_code == 200
+        filters = {"search": "INFLATION", "limit": "1", "agent_id": agent_id, "status": "queued"}
+
+        page = client.get("/api/runs/search", params=filters).json()
+        assert page["has_more"] is True
+        row = page["items"][0]
+        assert row["run"]["id"] == recent and row["brief_excerpt"] == "Inspect inflation swaps"
+        start("Inflation futures")
+        remaining = client.get(
+            "/api/runs/search",
+            params={**filters, "before_created_at": row["run"]["created_at"], "before_id": recent},
+        ).json()
+        assert remaining["has_more"] is False
+        assert [item["run"]["id"] for item in remaining["items"]] == [old]
+        legacy = client.get("/api/runs/search", params={"unassigned": "true"}).json()
+        assert [item["run"]["id"] for item in legacy["items"]] == [unassigned]
+        excluded = client.get("/api/runs/search", params={"search": old, "exclude_id": old}).json()
+        assert excluded == {"items": [], "has_more": False}
+        assert client.get("/api/runs/search", params={"before_id": recent}).status_code == 422
+        assert client.get("/api/runs/search", params={"search": "\x00"}).status_code == 422
+
+
 def test_concurrent_agent_saves_accept_one_version(
     database: Database, workflow: dict[str, Any]
 ) -> None:
@@ -76,6 +122,42 @@ def test_concurrent_agent_saves_accept_one_version(
         assert sorted(pool.map(save, ["Version A", "Version B"])) == ["conflict", "saved"]
     assert store.get(agent.id).agent.version == 2
     assert len(store.versions(agent.id)) == 2
+
+
+def test_run_baseline_stays_pinned_to_the_same_agent(
+    database: Database, workflow: dict[str, Any]
+) -> None:
+    with owner_client(create_app(database), workers=False) as client:
+        first = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        second = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        baseline = str(uuid4())
+        request = {
+            "id": baseline,
+            "agent_id": first["agent"]["id"],
+            "revision_id": first["revision"]["id"],
+            "brief": "Price the next policy meeting",
+        }
+        assert client.post("/api/runs", json=request).status_code == 202
+        assert "baseline_run_id" not in client.get(f"/api/runs/{baseline}").json()
+        child_id = str(uuid4())
+        child = {
+            **request,
+            "id": child_id,
+            "baseline_run_id": baseline,
+            "brief": "Compare with the updated curve",
+        }
+        accepted = client.post("/api/runs", json=child)
+        assert accepted.status_code == 202
+        assert client.post("/api/runs", json=child).json() == accepted.json()
+        assert client.get(f"/api/runs/{child_id}").json()["baseline_run_id"] == baseline
+        assert client.post("/api/runs", json={**child, "baseline_run_id": None}).status_code == 409
+        foreign = {**child, "id": str(uuid4()), "agent_id": second["agent"]["id"]}
+        assert client.post("/api/runs", json=foreign).status_code == 404
+        missing = {**child, "id": str(uuid4()), "baseline_run_id": str(uuid4())}
+        assert client.post("/api/runs", json=missing).status_code == 404
+        self_reference = {**child, "id": str(uuid4())}
+        self_reference["baseline_run_id"] = self_reference["id"]
+        assert client.post("/api/runs", json=self_reference).status_code == 422
 
 
 def test_runs_pin_exact_agent_even_when_revisions_are_shared(

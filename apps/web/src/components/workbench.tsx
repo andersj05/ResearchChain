@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Undo2, Redo2, CheckCheck, X } from "lucide-react";
 import { useOwner } from "@/components/access-context";
-import { AgentSwitcher } from "@/components/agent-switcher";
+import { AgentSwitcher, type StartingWorkflow } from "@/components/agent-switcher";
 import { agentDraftKey, readAgentDraft, type AgentDraft } from "@/lib/agent-drafts";
 import { AccessControls } from "@/components/access-controls";
 import { importLegacyDraft, legacyDraftAvailable, ownerStoragePrefix } from "@/lib/access";
@@ -12,16 +12,26 @@ import { ReportDesk } from "@/components/report-desk";
 import { EvaluationDesk } from "@/components/evaluation-desk";
 import { EvidenceDesk } from "@/components/evidence-desk";
 import { RunSetup } from "@/components/run-setup";
+import { DraftChangesPreview } from "@/components/draft-changes-preview";
 import { readPendingRun, retainPendingRun, forgetPendingRun } from "@/lib/run-requests";
 import { Button } from "@ui-sdk/react/button";
 import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
-import { WorkflowEditor } from "@/components/workflow-editor";
+import { WorkflowEditor, type WorkflowEditorNavigation } from "@/components/workflow-editor";
+import { workflowStepAtValidationLocation } from "@/lib/workflow-validation";
 import { useModelCatalog } from "@/components/model-picker";
-import { pruneDefinitions } from "@/lib/workflow-editing";
+import {
+  pruneDefinitions,
+  updateStepModels,
+  workflowStepAtRunPath,
+  type GraphCrumb,
+} from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
-import { formatTime, RunInspector } from "@/components/run-inspector";
+import { RunInspector, type ReviewFocus } from "@/components/run-inspector";
+import type { ReviewTarget } from "@/components/review-inbox";
+import { bookmarkedReview, reviewPath } from "@/lib/run-inspection";
+import { formatTime } from "@/components/run-status";
 import {
   api,
   ApiError,
@@ -29,12 +39,16 @@ import {
   initialWorkflow,
   researchWorkflow,
   ideaWorkflow,
+  ideaGenerationWorkflow,
+  ideaGenerationBrief,
+  discretionaryMacroWorkflow,
+  discretionaryMacroBrief,
   exampleWorkflow,
   admissionTimeout,
   type CommandReceipt,
   type RunRequest,
   type RunSnapshot,
-  type RunSummary,
+  type RecentRunSummary,
   type Workflow,
   type WorkflowRevision,
   type RevisionSummary,
@@ -68,17 +82,25 @@ export function Workbench() {
     canRedo,
     seal,
   } = useWorkflowHistory(initialWorkflow);
-  const [documentEpoch, setDocumentEpoch] = useState(0);
+  const [editorDocument, setEditorDocument] = useState<{ epoch: number; path: GraphCrumb[] }>({
+    epoch: 0,
+    path: [],
+  });
+  function resetEditor(path: GraphCrumb[] = []) {
+    setEditorDocument((previous) => ({ epoch: previous.epoch + 1, path }));
+  }
   const importInput = useRef<HTMLInputElement>(null);
-  const [diagnostics, setDiagnostics] = useState<ValidationIssue[]>([]);
+  const editorNavigation = useRef<WorkflowEditorNavigation>(null);
+  const [diagnostics, setDiagnostics] = useState<{ issues: ValidationIssue[]; draft?: Workflow }>();
   const [revision, setRevision] = useState<WorkflowRevision | null>(null);
   const [revisions, setRevisions] = useState<RevisionSummary[]>([]);
   const [selected, setSelected] = useState(initialWorkflow.start_node);
   const [brief, setBrief] = useState(
     "What evidence would distinguish sector rotation from a broad increase in correlation?",
   );
+  const [baselineRunId, setBaselineRunId] = useState<string | null>(null);
   const [run, setRun] = useState<RunSnapshot | null>(null);
-  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [runs, setRuns] = useState<RecentRunSummary[]>([]);
   const [tab, setTab] = useState("workflow");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -96,14 +118,48 @@ export function Workbench() {
   const pendingStart = useRef<RunRequest | null>(null);
   const runReadEpoch = useRef(0);
   const selectedRunId = useRef<string | null>(null);
+  const [reviewFocus, setReviewFocus] = useState<ReviewFocus>();
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
+  const recentRevisionRun = revision
+    ? runs.find(
+        (item) =>
+          item.revision_id === revision.id && (item.agent_id ?? null) === (activeAgent?.id ?? null),
+      )
+    : undefined;
+  const recentAgentVersion =
+    activeAgent && recentRevisionRun
+      ? revisions.find((item) => item.id === recentRevisionRun.revision_id)?.agent_version
+      : undefined;
 
   useEffect(() => {
     let active = true;
-    async function load() {
+    async function read<T>(path: string): Promise<T> {
       try {
-        const parameters = new URL(window.location.href).searchParams;
+        return await api<T>(path);
+      } catch (cause) {
+        const transient =
+          cause instanceof TypeError ||
+          (cause instanceof DOMException && cause.name === "TimeoutError") ||
+          (cause instanceof ApiError && (cause.status ?? 0) >= 500);
+        if (!active || !transient) throw cause;
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        if (!active) throw cause;
+        return api<T>(path);
+      }
+    }
+    async function load() {
+      const parameters = new URL(window.location.href).searchParams;
+      const view = [
+        "workflow",
+        "runs",
+        "revisions",
+        "evidence",
+        "evaluations",
+        "reports",
+        "operations",
+      ].find((value) => value === parameters.get("view"));
+      try {
         const pending = readPendingRun(pendingKey);
         if (pending) {
           pendingStart.current = pending;
@@ -113,15 +169,15 @@ export function Workbench() {
           setProviderAccount(pending.provider_account_id ?? null);
         }
         const [savedRevisions, recentRuns, agentList] = await Promise.all([
-          api<RevisionSummary[]>("revisions"),
-          api<RunSummary[]>("runs"),
-          api<AgentSummary[]>("agents?limit=1000"),
+          read<RevisionSummary[]>("revisions"),
+          read<RecentRunSummary[]>("runs"),
+          read<AgentSummary[]>("agents?limit=1000"),
         ]);
         if (!active) return;
         setAgents(agentList);
         const runId = parameters.get("run");
         const restored = runId
-          ? await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`).catch((cause) => {
+          ? await read<RunSnapshot>(`runs/${encodeURIComponent(runId)}`).catch((cause) => {
               // An unconfirmed admission may not exist yet. Restore its pinned
               // workflow and inputs so retry keeps the exact request identity.
               if (cause instanceof ApiError && cause.status === 404 && pending?.id === runId)
@@ -140,10 +196,10 @@ export function Workbench() {
           }
         }
         const detail = agentId
-          ? await api<AgentDetail>(`agents/${encodeURIComponent(agentId)}`)
+          ? await read<AgentDetail>(`agents/${encodeURIComponent(agentId)}`)
           : null;
         const versions = detail
-          ? await api<AgentVersion[]>(`agents/${detail.agent.id}/revisions?limit=1000`)
+          ? await read<AgentVersion[]>(`agents/${detail.agent.id}/revisions?limit=1000`)
           : null;
         const revisionId =
           parameters.get("revision") ??
@@ -154,9 +210,14 @@ export function Workbench() {
         if (detail && revisionId && !versions?.some((item) => item.revision.id === revisionId))
           throw new Error("This revision does not belong to the selected agent.");
         const latest = revisionId
-          ? await api<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
+          ? await read<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
           : null;
-        let draft = detail && !runId ? readAgentDraft(storagePrefix, detail.agent.id) : null;
+        const agentRuns = detail
+          ? await read<RecentRunSummary[]>(`runs?agent_id=${detail.agent.id}`)
+          : recentRuns;
+        const reopenBuild = view === "workflow" && parameters.has("revision");
+        let draft =
+          detail && (!runId || reopenBuild) ? readAgentDraft(storagePrefix, detail.agent.id) : null;
         if (parameters.has("revision") && draft?.revision?.id !== revisionId) draft = null;
         if (!active) return;
         setAgents(agentList);
@@ -166,8 +227,7 @@ export function Workbench() {
             ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
             : savedRevisions,
         );
-        setRuns(detail ? await api<RunSummary[]>(`runs?agent_id=${detail.agent.id}`) : recentRuns);
-        if (!active) return;
+        setRuns(agentRuns);
         if (latest) {
           setRevision(draft?.revision ?? latest);
           initialize(draft?.workflow ?? latest.workflow);
@@ -175,6 +235,7 @@ export function Workbench() {
         }
         if (draft) {
           setBrief(draft.brief);
+          setBaselineRunId(draft.baselineRunId ?? null);
           setEvidenceIds(draft.evidenceIds);
           setArtifacts(draft.artifacts);
           setProviderAccount(draft.providerAccount);
@@ -185,33 +246,23 @@ export function Workbench() {
           setRun(restored);
           forgetPendingRun(pendingKey, restored.id);
           if (pendingStart.current?.id === restored.id) pendingStart.current = null;
-          setTab("runs");
+          if (!view) setTab("runs");
         } else if (unconfirmed) {
+          setBaselineRunId(unconfirmed.baseline_run_id ?? null);
           setMessage(
             "Unconfirmed run restored. Start again with the same inputs to retry this request.",
           );
         }
-        const view = parameters.get("view");
-        if (
-          view &&
-          [
-            "workflow",
-            "runs",
-            "revisions",
-            "evidence",
-            "evaluations",
-            "reports",
-            "operations",
-          ].includes(view)
-        )
-          setTab(view);
       } catch (cause) {
         if (active) {
           const detail = cause instanceof Error ? cause.message : "Unable to load the workspace.";
           setError(`${detail} The draft is editable. Refresh history when the API is available.`);
         }
       } finally {
-        if (active) setLoaded(true);
+        if (active) {
+          if (view) setTab(view);
+          setLoaded(true);
+        }
       }
     }
     void load();
@@ -227,6 +278,7 @@ export function Workbench() {
       revision,
       workflow,
       brief,
+      baselineRunId,
       evidenceIds,
       artifacts,
       providerAccount,
@@ -243,6 +295,7 @@ export function Workbench() {
     revision,
     workflow,
     brief,
+    baselineRunId,
     evidenceIds,
     artifacts,
     providerAccount,
@@ -255,6 +308,7 @@ export function Workbench() {
       revision,
       workflow,
       brief,
+      baselineRunId,
       evidenceIds,
       artifacts,
       providerAccount,
@@ -266,6 +320,11 @@ export function Workbench() {
     else url.searchParams.delete("agent");
     url.searchParams.delete("revision");
     url.searchParams.delete("run");
+    url.searchParams.delete("compare");
+    url.searchParams.delete("passes");
+    url.searchParams.delete("attempt");
+    url.searchParams.delete("review");
+    url.searchParams.delete("checkpoint");
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
     try {
@@ -281,14 +340,15 @@ export function Workbench() {
     const cached = drafts.current.get(id) ?? (id ? readAgentDraft(storagePrefix, id) : null);
     const next = cached?.workflow ?? detail?.revision.workflow ?? structuredClone(initialWorkflow);
     const versions = id ? await api<AgentVersion[]>(`agents/${id}/revisions?limit=1000`) : null;
-    const history = await api<RunSummary[]>(id ? `runs?agent_id=${id}` : "runs");
+    const history = await api<RecentRunSummary[]>(id ? `runs?agent_id=${id}` : "runs");
     setActiveAgent(cached?.agent ?? detail?.agent ?? null);
     setRevision(cached?.revision ?? detail?.revision ?? null);
     initialize(next);
     setEdited(Boolean(cached));
-    setDocumentEpoch((value) => value + 1);
+    resetEditor();
     setSelected(next.start_node);
     setBrief(cached?.brief ?? "");
+    setBaselineRunId(cached?.baselineRunId ?? null);
     setEvidenceIds(cached?.evidenceIds ?? []);
     setArtifacts(cached?.artifacts ?? []);
     setProviderAccount(cached?.providerAccount ?? null);
@@ -306,12 +366,24 @@ export function Workbench() {
     rememberAgent(id || null);
     setMessage("");
   }
-  async function createAgent(id: string, name: string, copy: boolean) {
-    const document = { ...structuredClone(copy ? workflow : initialWorkflow), name };
+  async function createAgent(id: string, name: string, starter: StartingWorkflow) {
+    const starters = {
+      blank: initialWorkflow,
+      current: workflow,
+      ideas: ideaGenerationWorkflow,
+      macro: discretionaryMacroWorkflow,
+    };
+    const document = { ...structuredClone(starters[starter]), name };
     const created = await api<AgentDetail>("agents", { id, workflow: document });
     setAgents((previous) => [created.agent, ...previous.filter((item) => item.id !== id)]);
     await switchAgent(created.agent.id);
-    setMessage(`Agent “${name}” created. Add your steps and save a version.`);
+    if (starter === "ideas") {
+      setBrief(ideaGenerationBrief);
+      setMessage(`Agent “${name}” created. Open Run workflow to try the synthetic rotation brief.`);
+    } else if (starter === "macro") {
+      setBrief(discretionaryMacroBrief);
+      setMessage(`Agent “${name}” created. Open Run workflow to edit the example macro brief.`);
+    } else setMessage(`Agent “${name}” created. Add your steps and save a version.`);
   }
   async function loadLatestAgent() {
     if (!activeAgent) return;
@@ -323,7 +395,7 @@ export function Workbench() {
     change(detail.revision.workflow);
     setRevision(detail.revision);
     setActiveAgent(detail.agent);
-    setDocumentEpoch((value) => value + 1);
+    resetEditor();
     setSelected(detail.revision.workflow.start_node);
     rememberAgent(detail.agent.id);
     setMessage("Latest saved agent loaded. Undo restores your draft.");
@@ -382,24 +454,25 @@ export function Workbench() {
   function change(next: Workflow, group?: string) {
     setEdited(true);
     recordChange(next, group);
-    setDiagnostics([]);
+    setDiagnostics(undefined);
     setError("");
     setMessage("");
   }
 
-  async function action(work: () => Promise<void>) {
+  async function action(work: () => Promise<void>, validationDraft?: Workflow) {
     if (busyRef.current) return;
     busyRef.current = true;
     setBusy(true);
     seal();
     setMessage("");
     setError("");
-    setDiagnostics([]);
+    setDiagnostics(undefined);
     try {
       await work();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "The action failed.");
-      setDiagnostics(cause instanceof ApiError ? cause.issues : []);
+      if (cause instanceof ApiError && cause.issues.length)
+        setDiagnostics({ issues: cause.issues, draft: validationDraft });
     } finally {
       busyRef.current = false;
       setBusy(false);
@@ -413,15 +486,29 @@ export function Workbench() {
             items.map((item) => ({ ...item.revision, agent_version: item.version })),
           )
         : api<RevisionSummary[]>("revisions"),
-      api<RunSummary[]>(activeAgent ? `runs?agent_id=${activeAgent.id}` : "runs"),
+      api<RecentRunSummary[]>(activeAgent ? `runs?agent_id=${activeAgent.id}` : "runs"),
     ]);
     setRevisions(savedRevisions);
     setRuns(recentRuns);
   }
 
-  function rememberRun(id: string) {
+  function rememberRun(id: string, fromInbox = false) {
     selectedRunId.current = id;
     const url = new URL(window.location.href);
+    const changedRun = url.searchParams.get("run") !== id;
+    if (changedRun) {
+      url.searchParams.delete("compare");
+      url.searchParams.delete("passes");
+      url.searchParams.delete("attempt");
+    }
+    if (changedRun || fromInbox) {
+      url.searchParams.delete("review");
+      url.searchParams.delete("checkpoint");
+    }
+    if (fromInbox) {
+      url.searchParams.delete("agent");
+      url.searchParams.delete("revision");
+    }
     url.searchParams.set("run", id);
     url.searchParams.set("view", "runs");
     window.history.replaceState(null, "", url);
@@ -442,19 +529,38 @@ export function Workbench() {
     window.history.replaceState(null, "", url);
   }
 
-  async function openRun(id: string) {
-    selectedRunId.current = id;
+  async function openRun(id: string, target?: ReviewTarget) {
+    if (!target) selectedRunId.current = id;
     const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
-    if (epoch === runReadEpoch.current && selectedRunId.current === id) {
+    if (epoch === runReadEpoch.current && (target || selectedRunId.current === id)) {
+      if (target) {
+        const review = bookmarkedReview(result, target);
+        if (!review) {
+          if (selectedRunId.current === id) setRun(result);
+          throw new Error("That checkpoint changed. Select a current review from the inbox.");
+        }
+        setReviewFocus({ runId: id, path: reviewPath(review) });
+      } else {
+        setReviewFocus((previous) => (previous?.runId === id ? previous : undefined));
+      }
       setRun(result);
       setSetupOpen(false);
       setTab("runs");
-      rememberRun(id);
+      rememberRun(id, Boolean(target));
       forgetPendingRun(pendingKey, id);
       if (pendingStart.current?.id === id) pendingStart.current = null;
+      return true;
     }
-    return result;
+    return false;
+  }
+
+  async function openInboxReview(target: ReviewTarget) {
+    let opened = false;
+    await action(async () => {
+      opened = await openRun(target.runId, target);
+    });
+    return opened;
   }
 
   async function saveRevision() {
@@ -487,8 +593,15 @@ export function Workbench() {
     return result;
   }
 
-  async function loadRevision(id: string, agentId: string | null = activeAgent?.id ?? null) {
+  async function loadRevision(
+    id: string,
+    agentId: string | null = activeAgent?.id ?? null,
+    stepPath?: string,
+  ) {
     const result = await api<WorkflowRevision>(`revisions/${id}`);
+    const destination = stepPath ? workflowStepAtRunPath(result.workflow, stepPath) : undefined;
+    if (stepPath && !destination)
+      throw new Error("This step is unavailable in the saved revision.");
     const detail = agentId ? await api<AgentDetail>(`agents/${agentId}`) : null;
     const versions = agentId
       ? await api<AgentVersion[]>(`agents/${agentId}/revisions?limit=1000`)
@@ -499,7 +612,7 @@ export function Workbench() {
       const cached =
         drafts.current.get(agentId ?? "") ??
         (agentId ? readAgentDraft(storagePrefix, agentId) : null);
-      const history = await api<RunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
+      const history = await api<RecentRunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
       const savedRevisions = versions
         ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
         : await api<RevisionSummary[]>("revisions");
@@ -509,6 +622,7 @@ export function Workbench() {
       setRevisions(savedRevisions);
       setRuns(history);
       setBrief(cached?.brief ?? "");
+      setBaselineRunId(cached?.baselineRunId ?? null);
       setEvidenceIds(cached?.evidenceIds ?? []);
       setArtifacts(cached?.artifacts ?? []);
       setProviderAccount(cached?.providerAccount ?? null);
@@ -519,9 +633,9 @@ export function Workbench() {
       rememberAgent(agentId);
     } else change(result.workflow);
     setActiveAgent(detail?.agent ?? null);
-    setDocumentEpoch((value) => value + 1);
+    resetEditor(destination?.path);
     setRevision(result);
-    setSelected(result.workflow.start_node);
+    setSelected(destination?.step.id ?? result.workflow.start_node);
     rememberRevision(result.id);
     switchTab("workflow");
     setMessage(`Loaded revision ${result.number}. Undo restores your previous draft.`);
@@ -539,6 +653,7 @@ export function Workbench() {
       pendingStart.current.revision_id !== pinned.id ||
       (pendingStart.current.agent_id ?? null) !== (activeAgent?.id ?? null) ||
       pendingStart.current.brief !== brief ||
+      (pendingStart.current.baseline_run_id ?? null) !== baselineRunId ||
       JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds) ||
       JSON.stringify(pendingStart.current.artifacts) !== JSON.stringify(artifacts) ||
       pendingStart.current.provider_account_id !== (workflow.research ? providerAccount : null)
@@ -548,6 +663,7 @@ export function Workbench() {
         revision_id: pinned.id,
         agent_id: activeAgent?.id ?? null,
         brief,
+        ...(baselineRunId ? { baseline_run_id: baselineRunId } : {}),
         artifacts,
         evidence_ids: evidenceIds,
         provider_account_id: workflow.research ? providerAccount : null,
@@ -606,7 +722,7 @@ export function Workbench() {
     if (travel(direction)) {
       setEdited(true);
       setError("");
-      setDiagnostics([]);
+      setDiagnostics(undefined);
       setMessage("");
     }
   }
@@ -621,7 +737,7 @@ export function Workbench() {
     }
     const validated = await api<ValidationResult>("workflows/validate", document);
     change(validated.workflow);
-    setDocumentEpoch((value) => value + 1);
+    resetEditor();
     setSelected(validated.workflow.start_node);
     setMessage("Workflow imported and validated. Undo restores your previous draft.");
   }
@@ -648,7 +764,6 @@ export function Workbench() {
   }
 
   const showFeedback = !!message && !error && !setupOpen && !busy;
-  const runAnnouncement = tab === "runs" && run ? `Run ${run.status}.` : "";
   return (
     <main
       className="studio"
@@ -713,17 +828,51 @@ export function Workbench() {
                         : `Revision ${revision.number}`
                       : "Unsaved draft"}
                   </span>
+                  {edited && revision && (
+                    <DraftChangesPreview
+                      key={`${activeAgent?.id ?? "unassigned"}/${revision.id}`}
+                      revision={revision}
+                      history={activeAgent ? revisions : undefined}
+                      draft={workflow}
+                      disabled={!loaded || busy}
+                      onOpenStep={(id, path) => editorNavigation.current?.openStep(id, path)}
+                      onRestoreDraft={(expected, next) => {
+                        if (workflow !== expected || !loaded || busyRef.current) return false;
+                        seal();
+                        change(next);
+                        return true;
+                      }}
+                    />
+                  )}
                   <Button
                     className="button"
                     disabled={!loaded || busy}
                     onClick={() =>
                       action(async () => {
                         await saveRevision();
-                      })
+                      }, workflow)
                     }
                   >
                     Save revision
                   </Button>
+                  {recentRevisionRun && (
+                    <Button
+                      className="button small"
+                      disabled={!loaded || busy}
+                      title={recentRevisionRun.brief_excerpt || undefined}
+                      onClick={() =>
+                        action(async () => {
+                          if (await openRun(recentRevisionRun.id))
+                            rememberRevision(recentRevisionRun.revision_id);
+                        })
+                      }
+                    >
+                      Recent run · saved{" "}
+                      {recentAgentVersion === undefined
+                        ? `revision ${recentRevisionRun.revision_number}`
+                        : `version ${recentAgentVersion}`}
+                    </Button>
+                  )}
                 </>
               )}
               <RunSetup
@@ -735,11 +884,24 @@ export function Workbench() {
                 }}
                 brief={brief}
                 onBriefChange={setBrief}
+                baselineRunId={baselineRunId}
+                onClearBaseline={() => setBaselineRunId(null)}
                 evidenceIds={evidenceIds}
                 onEvidenceChange={setEvidenceIds}
                 research={workflow.research}
                 catalog={catalog}
-                onResearch={(research) => change({ ...workflow, research })}
+                onResearch={(research, group) => change({ ...workflow, research }, group)}
+                onStepModels={(changes) => change(updateStepModels(workflow, changes))}
+                onExecutionLimits={(budgets, group) =>
+                  change(
+                    {
+                      ...workflow,
+                      schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
+                      budgets,
+                    },
+                    group,
+                  )
+                }
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
                 name={workflow.name}
@@ -754,7 +916,7 @@ export function Workbench() {
         </div>
         <div className={showFeedback ? "workspace-feedback" : "sr-only"}>
           <p role="status" aria-label="Workspace status">
-            {busy ? "Working…" : error ? "" : message || runAnnouncement}
+            {busy ? "Working…" : error ? "" : message}
           </p>
           {showFeedback && (
             <button
@@ -768,16 +930,49 @@ export function Workbench() {
         </div>
         {error && !setupOpen && (
           <div className="error workspace-error" role="alert">
-            {diagnostics.length ? (
+            {diagnostics ? (
               <>
                 <strong>Workflow needs attention</strong>
                 <ul className="validation-issues">
-                  {diagnostics.map((issue, index) => (
-                    <li key={index}>
-                      {issue.path && <code>{issue.path}: </code>}
-                      {issue.message}
-                    </li>
-                  ))}
+                  {diagnostics.issues.map((issue, index) => {
+                    const target =
+                      tab === "workflow" && diagnostics.draft === workflow
+                        ? workflowStepAtValidationLocation(workflow, issue.location)
+                        : undefined;
+                    const action =
+                      target?.setting?.action ?? (target?.input ? "Open input" : "Open step");
+                    const stepName = target?.step.label || target?.step.id;
+                    const description = target?.input
+                      ? `${target.input} on ${stepName}`
+                      : target?.setting
+                        ? `on ${stepName}`
+                        : stepName;
+                    return (
+                      <li key={index}>
+                        {issue.path && <code>{issue.path}: </code>}
+                        {issue.message}
+                        {target && (
+                          <>
+                            {" "}
+                            <Button
+                              className="text-link"
+                              disabled={busy}
+                              aria-label={`${action} ${description}`}
+                              onClick={() =>
+                                editorNavigation.current?.openStep(
+                                  target.step.id,
+                                  target.path,
+                                  target.input ?? target.setting?.control,
+                                )
+                              }
+                            >
+                              {action}
+                            </Button>
+                          </>
+                        )}
+                      </li>
+                    );
+                  })}
                 </ul>
               </>
             ) : (
@@ -785,7 +980,12 @@ export function Workbench() {
             )}
           </div>
         )}
-        <TabsPanel className="workflow-view" value="workflow" keepMounted>
+        <TabsPanel
+          className="workflow-view"
+          value="workflow"
+          keepMounted
+          hidden={tab !== "workflow"}
+        >
           <h1 className="sr-only">Agent builder</h1>
           <section className="workspace" aria-label="Workflow editor">
             <details className="builder-guide">
@@ -833,7 +1033,9 @@ export function Workbench() {
             </details>
             <WorkflowEditor
               catalog={catalog}
-              key={documentEpoch}
+              key={editorDocument.epoch}
+              initialPath={editorDocument.path}
+              navigationRef={editorNavigation}
               onSeal={seal}
               workflow={workflow}
               selected={selected}
@@ -852,9 +1054,10 @@ export function Workbench() {
                       setActiveAgent(null);
                       rememberAgent(null);
                       change(structuredClone(initialWorkflow));
-                      setDocumentEpoch((value) => value + 1);
+                      resetEditor();
                       setSelected(initialWorkflow.start_node);
                       setBrief("");
+                      setBaselineRunId(null);
                       setEvidenceIds([]);
                       setArtifacts([]);
                       setProviderAccount(null);
@@ -871,7 +1074,7 @@ export function Workbench() {
                   disabled={!loaded || busy}
                   onClick={() => {
                     change(structuredClone(exampleWorkflow));
-                    setDocumentEpoch((value) => value + 1);
+                    resetEditor();
                     setSelected(exampleWorkflow.start_node);
                     setMessage(
                       "Demo loaded. Notes do not call a model. Undo restores your previous draft.",
@@ -885,7 +1088,7 @@ export function Workbench() {
                   disabled={!loaded || busy}
                   onClick={() => {
                     change(structuredClone(researchWorkflow));
-                    setDocumentEpoch((value) => value + 1);
+                    resetEditor();
                     setSelected(researchWorkflow.start_node);
                     setMessage("Research template loaded. Undo restores your previous draft.");
                   }}
@@ -897,7 +1100,7 @@ export function Workbench() {
                   disabled={!loaded || busy}
                   onClick={() => {
                     change(structuredClone(ideaWorkflow));
-                    setDocumentEpoch((value) => value + 1);
+                    resetEditor();
                     setSelected(ideaWorkflow.start_node);
                     setMessage("Idea research example loaded. Undo to restore your draft.");
                   }}
@@ -927,7 +1130,7 @@ export function Workbench() {
                     action(async () => {
                       await api("workflows/validate", workflow);
                       setMessage("Workflow valid. Ready to run.");
-                    })
+                    }, workflow)
                   }
                 >
                   <CheckCheck size={14} aria-hidden="true" /> Validate workflow
@@ -951,7 +1154,7 @@ export function Workbench() {
                           JSON.parse(stored),
                         );
                         change(validated.workflow);
-                        setDocumentEpoch((value) => value + 1);
+                        resetEditor();
                         setSelected(validated.workflow.start_node);
                         setMessage("Saved draft loaded and validated.");
                       })
@@ -972,7 +1175,7 @@ export function Workbench() {
                           );
                           localStorage.setItem(storageKey, JSON.stringify(validated.workflow));
                           change(validated.workflow);
-                          setDocumentEpoch((value) => value + 1);
+                          resetEditor();
                           setSelected(validated.workflow.start_node);
                           setLegacyAvailable(false);
                           setMessage(
@@ -1034,7 +1237,9 @@ export function Workbench() {
                 runs={runs}
                 selected={run?.id}
                 agentName={activeAgent?.name}
+                agentId={activeAgent?.id}
                 busy={busy}
+                onOpenReview={openInboxReview}
                 loaded={loaded}
                 onRefresh={() =>
                   void action(async () => {
@@ -1052,6 +1257,8 @@ export function Workbench() {
             detail={
               <RunInspector
                 run={run}
+                reviewFocus={reviewFocus}
+                recentRuns={runs}
                 busy={busy}
                 onResume={(value, interruptId, feedback) =>
                   action(() => resumeRun(value, interruptId, feedback))
@@ -1090,16 +1297,19 @@ export function Workbench() {
                     }
                   })
                 }
-                onIterate={() =>
+                onIterate={(brief, stepPath) =>
                   action(async () => {
                     if (!run) return;
-                    await loadRevision(run.revision_id, run.agent_id ?? null);
-                    setBrief(run.brief);
+                    await loadRevision(run.revision_id, run.agent_id ?? null, stepPath);
+                    setBrief(brief ?? run.brief);
+                    setBaselineRunId(run.id);
                     setEvidenceIds(run.evidence_ids ?? []);
                     setArtifacts(run.artifacts);
                     setProviderAccount(run.research_manifest?.account_id ?? null);
                     setMessage(
-                      "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment. The original run is unchanged.",
+                      brief
+                        ? "Run copied to the editor with the selected reviewer feedback appended to the brief."
+                        : `Run copied to ${stepPath ? "the selected step" : "the editor"} with its brief and sources. Edit, then Run workflow to start a separate experiment.`,
                     );
                   })
                 }

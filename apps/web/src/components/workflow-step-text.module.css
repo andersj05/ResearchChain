@@ -1,0 +1,26 @@
+.fieldHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.fieldHeading label {
+  margin: 0;
+}
+
+.dialog {
+  width: min(780px, calc(100vw - 32px));
+}
+
+.dialog > p {
+  overflow-wrap: anywhere;
+}
+
+.editor {
+  height: min(56dvh, 32rem);
+  min-height: 0;
+  margin-top: 16px;
+  line-height: 1.55;
+}

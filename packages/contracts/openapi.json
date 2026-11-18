@@ -383,6 +383,24 @@
               "default": false,
               "title": "Preview"
             }
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 96,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filename"
+            }
           }
         ],
         "responses": {
@@ -469,6 +487,35 @@
               "minimum": 0,
               "default": 0,
               "title": "Offset"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 240,
+              "pattern": "^[^\\x00]*$",
+              "default": "",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "availability",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["available", "reference_only", "missing", "paywalled"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Availability"
             }
           }
         ],
@@ -2488,9 +2535,239 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/RunSummary"
+                    "$ref": "#/components/schemas/RecentRunSummary"
                   },
                   "title": "Response List Runs"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/search": {
+      "get": {
+        "summary": "Search Runs",
+        "operationId": "search_runs",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "^[^\\x00]*$",
+              "default": "",
+              "title": "Search"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "queued",
+                    "paused",
+                    "completed",
+                    "rejected",
+                    "interrupted",
+                    "cancelled",
+                    "limited",
+                    "running",
+                    "failed"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "unassigned",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Unassigned"
+            }
+          },
+          {
+            "name": "exclude_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Exclude Id"
+            }
+          },
+          {
+            "name": "before_created_at",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date-time"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Created At"
+            }
+          },
+          {
+            "name": "before_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunArchivePage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/runs/reviews": {
+      "get": {
+        "summary": "List Pending Reviews",
+        "operationId": "list_pending_reviews",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 2147483647,
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PendingReviewsPage"
                 }
               }
             }
@@ -2804,6 +3081,32 @@
         "required": ["version", "revision"],
         "title": "AgentVersion"
       },
+      "AnalystConfig": {
+        "properties": {
+          "max_passes": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Max Passes",
+            "default": 4
+          },
+          "skill": {
+            "type": "string",
+            "maxLength": 32000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Skill",
+            "default": ""
+          },
+          "workspace": {
+            "type": "boolean",
+            "title": "Workspace",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "AnalystConfig"
+      },
       "ArtifactInfo": {
         "properties": {
           "id": {
@@ -2883,6 +3186,23 @@
         "type": "object",
         "required": ["id", "status"],
         "title": "CancelResult"
+      },
+      "CheckpointStep": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["scheduled", "stopped"],
+            "title": "Status"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["path", "status"],
+        "title": "CheckpointStep"
       },
       "ClaimCreate": {
         "properties": {
@@ -5653,6 +5973,18 @@
       },
       "ModelAttempt": {
         "properties": {
+          "web_actions_completed": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Web Actions Completed"
+          },
           "admission_policy_revision": {
             "anyOf": [
               {
@@ -5994,6 +6326,81 @@
         "required": ["password"],
         "title": "PasswordLogin"
       },
+      "PendingReviewRun": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          },
+          "brief_excerpt": {
+            "type": "string",
+            "title": "Brief Excerpt"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "checkpoint_id": {
+            "type": "string",
+            "title": "Checkpoint Id"
+          },
+          "reviews": {
+            "items": {
+              "$ref": "#/components/schemas/ReviewPrompt"
+            },
+            "type": "array",
+            "title": "Reviews"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "agent_name",
+          "workflow_name",
+          "brief_excerpt",
+          "created_at",
+          "checkpoint_id",
+          "reviews"
+        ],
+        "title": "PendingReviewRun"
+      },
+      "PendingReviewsPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PendingReviewRun"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items", "has_more"],
+        "title": "PendingReviewsPage"
+      },
       "PortSpec": {
         "properties": {
           "name": {
@@ -6202,6 +6609,87 @@
         "type": "object",
         "required": ["queued", "executing", "awaiting_takeover", "interrupted", "finished_24h"],
         "title": "QueueOperations"
+      },
+      "RecentRunSummary": {
+        "properties": {
+          "agent_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Id"
+          },
+          "agent_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Agent Name"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "revision_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Revision Id"
+          },
+          "revision_number": {
+            "type": "integer",
+            "title": "Revision Number"
+          },
+          "workflow_name": {
+            "type": "string",
+            "title": "Workflow Name"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "paused",
+              "completed",
+              "rejected",
+              "interrupted",
+              "cancelled",
+              "limited",
+              "running",
+              "failed"
+            ],
+            "title": "Status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "brief_excerpt": {
+            "type": "string",
+            "title": "Brief Excerpt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "revision_id",
+          "revision_number",
+          "workflow_name",
+          "status",
+          "created_at",
+          "brief_excerpt"
+        ],
+        "title": "RecentRunSummary"
       },
       "RecordedEvaluationOutput": {
         "properties": {
@@ -6976,6 +7464,16 @@
             "type": "boolean",
             "title": "Sec Financials",
             "default": false
+          },
+          "analyst": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AnalystConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7014,17 +7512,25 @@
           },
           "max_response_seconds": {
             "type": "number",
-            "maximum": 120.0,
+            "maximum": 600.0,
             "exclusiveMinimum": 0.0,
             "title": "Max Response Seconds",
             "default": 90
           },
           "max_total_tokens": {
-            "type": "integer",
-            "maximum": 1000000.0,
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 9007199254740991.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "string",
+                "const": "as_needed"
+              }
+            ],
             "title": "Max Total Tokens",
-            "default": 24000
+            "default": 1000000
           }
         },
         "additionalProperties": false,
@@ -7448,6 +7954,24 @@
         "required": ["interrupt_id", "node_id", "question"],
         "title": "ReviewPrompt"
       },
+      "ReviewResponse": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"],
+            "title": "Decision"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["decision"],
+        "title": "ReviewResponse"
+      },
       "RevisionSummary": {
         "properties": {
           "id": {
@@ -7499,6 +8023,40 @@
         "required": ["condition", "join"],
         "title": "RouteConfig"
       },
+      "RunArchiveItem": {
+        "properties": {
+          "run": {
+            "$ref": "#/components/schemas/RunSummary"
+          },
+          "brief_excerpt": {
+            "type": "string",
+            "title": "Brief Excerpt"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["run", "brief_excerpt"],
+        "title": "RunArchiveItem"
+      },
+      "RunArchivePage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RunArchiveItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "has_more": {
+            "type": "boolean",
+            "title": "Has More"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["items", "has_more"],
+        "title": "RunArchivePage"
+      },
       "RunEvent": {
         "properties": {
           "node_id": {
@@ -7549,6 +8107,16 @@
                 "type": "null"
               }
             ]
+          },
+          "review_response": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReviewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7579,6 +8147,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Revision Id"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
           },
           "brief": {
             "type": "string",
@@ -7697,6 +8277,18 @@
             "type": "string",
             "title": "Brief"
           },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
           "artifacts": {
             "items": {
               "$ref": "#/components/schemas/ArtifactRef"
@@ -7726,6 +8318,13 @@
               }
             ],
             "title": "Checkpoint Id"
+          },
+          "checkpoint_steps": {
+            "items": {
+              "$ref": "#/components/schemas/CheckpointStep"
+            },
+            "type": "array",
+            "title": "Checkpoint Steps"
           },
           "events": {
             "items": {
@@ -8314,6 +8913,35 @@
                 "type": "null"
               }
             ]
+          },
+          "next_lead": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1500
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Lead"
+          },
+          "workspace_activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceActivity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace_files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFile"
+            },
+            "type": "array",
+            "title": "Workspace Files"
           }
         },
         "additionalProperties": false,
@@ -9213,6 +9841,67 @@
         "type": "object",
         "required": ["id", "number", "content_hash", "created_at", "name", "workflow"],
         "title": "WorkflowRevision"
+      },
+      "WorkspaceActivity": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "const": "run_python",
+            "title": "Tool",
+            "default": "run_python"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["requested", "completed", "failed"],
+            "title": "Status"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output",
+            "default": ""
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFile"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["summary", "status"],
+        "title": "WorkspaceActivity"
+      },
+      "WorkspaceFile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Artifact Id"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Byte Size"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "artifact_id", "media_type", "byte_size"],
+        "title": "WorkspaceFile"
       }
     }
   }

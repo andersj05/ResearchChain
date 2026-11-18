@@ -4,6 +4,7 @@ import type { components } from "@researchchain/contracts";
 export type EvidenceCreate = components["schemas"]["EvidenceCreate"];
 export type EvidenceRecord = components["schemas"]["EvidenceRecord"];
 export type EvidencePage = components["schemas"]["EvidencePage"];
+export type EvidenceSnapshot = components["schemas"]["EvidenceSnapshot"];
 export type ArtifactInfo = components["schemas"]["ArtifactInfo"];
 export type ClaimCreate = components["schemas"]["ClaimCreate"];
 export type ClaimRecord = components["schemas"]["ClaimRecord"];
@@ -23,6 +24,30 @@ export const availabilityLabels = {
   missing: "Missing",
   paywalled: "Paywalled",
 } as const;
+export function evidenceAvailabilityLabel(value = "available") {
+  return Object.hasOwn(availabilityLabels, value)
+    ? availabilityLabels[value as keyof typeof availabilityLabels]
+    : value;
+}
+
+export function sourceMetadata(source: {
+  representation?: string;
+  as_of_date?: string | null;
+  published_date?: string | null;
+}) {
+  const representation = source.representation ?? "original";
+  const name = Object.hasOwn(representationLabels, representation)
+    ? representationLabels[representation as keyof typeof representationLabels]
+    : representation;
+  return [
+    name,
+    source.as_of_date
+      ? `As of ${source.as_of_date}`
+      : source.published_date && `Published ${source.published_date}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 export const rightsLabels = {
   unknown: "Unknown",
   owned: "I own this content",
@@ -33,6 +58,8 @@ export const rightsLabels = {
 } as const;
 export const evidenceUrl = (id: string) => `/?view=evidence&evidence=${encodeURIComponent(id)}`;
 export const contentUrl = (id: string) => `/api/artifacts/${encodeURIComponent(id)}/content`;
+export const contentDownloadUrl = (id: string, name: string) =>
+  `${contentUrl(id)}?filename=${encodeURIComponent(name)}`;
 
 export async function uploadOriginal(file: File, rights: string): Promise<ArtifactInfo> {
   if (!file.size || file.size > 20 * 1024 * 1024)

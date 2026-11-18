@@ -1,0 +1,391 @@
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+  DialogTrigger,
+} from "@ui-sdk/react/dialog";
+import { X } from "lucide-react";
+import { historyShortcut } from "@/components/canvas/use-workflow-history";
+import {
+  applyDraftTextRestoration,
+  compareWorkflowDraft,
+  draftTextRestoration,
+  type DraftTextRestoration,
+} from "@/lib/workflow-draft-comparison";
+import type { SettingChange } from "@/lib/workflow-comparison";
+import { reachableWorkflowGraphs, scopeKey, type GraphCrumb } from "@/lib/workflow-editing";
+import { api, type RevisionSummary, type Workflow, type WorkflowRevision } from "@/lib/workflow";
+import styles from "./draft-changes-preview.module.css";
+
+function ChangeRows({
+  changes,
+  action,
+}: {
+  changes: SettingChange[];
+  action?: { field: string; control: ReactNode };
+}) {
+  if (!changes.length) return null;
+  return (
+    <dl className={styles.rows}>
+      {changes.map(({ name, before, after }) => (
+        <div className={styles.row} key={name}>
+          <dt>{name}</dt>
+          <dd>
+            <span>Saved</span>
+            <p>{before === undefined ? "Not set" : before || "Empty"}</p>
+            {action?.field === name && action.control}
+          </dd>
+          <dd>
+            <span>Draft</span>
+            <p>{after === undefined ? "Not set" : after || "Empty"}</p>
+          </dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+type DraftStep = { id: string; path: GraphCrumb[] };
+
+function DraftChanges({
+  saved,
+  draft,
+  search,
+  onSearchChange,
+  onOpenStep,
+  onRestoreText,
+}: {
+  saved: Workflow;
+  draft: Workflow;
+  search: string;
+  onSearchChange: (value: string) => void;
+  onOpenStep: (step: DraftStep) => void;
+  onRestoreText: (restoration: DraftTextRestoration) => void;
+}) {
+  const comparison = useMemo(() => compareWorkflowDraft(saved, draft), [saved, draft]);
+  const finder = (
+    <label className={styles.find}>
+      <span>Find changes</span>
+      <input
+        type="search"
+        placeholder="Step, graph, or setting"
+        value={search}
+        onChange={(event) => onSearchChange(event.target.value)}
+      />
+    </label>
+  );
+  if (comparison.kind !== "settings") {
+    const messages = {
+      matched: "The draft matches the saved revision.",
+      layout: "Only canvas positions changed.",
+      other: "The draft changes document details outside this preview.",
+    };
+    return (
+      <>
+        {search && finder}
+        <p className={styles.message}>{messages[comparison.kind]}</p>
+      </>
+    );
+  }
+
+  const query = search.trim().toLowerCase();
+  const words = query.split(/\s+/).filter(Boolean);
+  function matches(...values: string[]) {
+    const text = values.join(" ").toLowerCase();
+    return words.every((word) => text.includes(word));
+  }
+  const settings = comparison.settings.filter(({ name }) => matches("Workflow settings", name));
+  const graphs = comparison.graphs.flatMap((graph) => {
+    const graphTerms = [graph.label, graph.key];
+    const settings = graph.settings.filter(({ name }) => matches(...graphTerms, name));
+    const steps = graph.steps.filter((step) =>
+      matches(
+        ...graphTerms,
+        step.label,
+        step.id,
+        step.status,
+        ...step.settings.map(({ name }) => name),
+      ),
+    );
+    return settings.length || steps.length ? [{ ...graph, settings, steps }] : [];
+  });
+  const stepCount = graphs.reduce((count, graph) => count + graph.steps.length, 0);
+  const settingCount = graphs.reduce(
+    (count, graph) => count + graph.settings.length,
+    settings.length,
+  );
+  const result = [
+    stepCount ? `${stepCount} matching ${stepCount === 1 ? "step" : "steps"}` : "",
+    settingCount ? `${settingCount} matching ${settingCount === 1 ? "setting" : "settings"}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  const scopes = new Map(
+    [...reachableWorkflowGraphs(draft)].map(({ graph, path }) => [
+      scopeKey(path.at(-1)?.ref ?? null),
+      { graph, path },
+    ]),
+  );
+  return (
+    <>
+      {finder}
+      <p className={styles.findResult} aria-live="polite" aria-atomic="true">
+        {query ? result || "No matching changes." : ""}
+      </p>
+      <div className={styles.groups} key={query}>
+        {settings.length > 0 && (
+          <details open>
+            <summary>Workflow settings</summary>
+            <ChangeRows changes={settings} />
+          </details>
+        )}
+        {graphs.map((graph) => {
+          const scope =
+            graph.afterScope === undefined ? undefined : scopes.get(scopeKey(graph.afterScope));
+          return (
+            <details key={graph.key} open>
+              <summary>{graph.label}</summary>
+              <ChangeRows changes={graph.settings} />
+              {graph.steps.map((step) => {
+                const destination =
+                  step.status !== "Removed" &&
+                  scope?.graph.nodes.filter((node) => node.id === step.id).length === 1
+                    ? scope.path
+                    : undefined;
+                const restoration =
+                  step.status === "Changed" &&
+                  scope &&
+                  destination &&
+                  graph.beforeScope !== undefined
+                    ? draftTextRestoration(saved, graph.beforeScope, scope.graph, step.id)
+                    : undefined;
+                const useSaved = restoration && `Use saved ${restoration.field.toLowerCase()}`;
+                return (
+                  <details key={step.id} open={!!query || graph.steps.length === 1}>
+                    <summary>
+                      {step.label} · {step.status}
+                    </summary>
+                    {destination && (
+                      <button
+                        className={`button small ${styles.openStep}`}
+                        type="button"
+                        aria-label={`Open draft step ${step.label || step.id} in ${graph.label}`}
+                        onClick={() => onOpenStep({ id: step.id, path: destination })}
+                      >
+                        Open draft step
+                      </button>
+                    )}
+                    <ChangeRows
+                      changes={step.settings}
+                      action={
+                        restoration && {
+                          field: restoration.field,
+                          control: (
+                            <button
+                              className={`button small ${styles.restoreText}`}
+                              type="button"
+                              aria-label={`${useSaved} for ${step.label || step.id} in ${graph.label}`}
+                              onClick={() => onRestoreText(restoration)}
+                            >
+                              {useSaved}
+                            </button>
+                          ),
+                        }
+                      }
+                    />
+                  </details>
+                );
+              })}
+            </details>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function earlierRevisions(revision: WorkflowRevision, history: RevisionSummary[]) {
+  const currentVersion = history.find((item) => item.id === revision.id)?.agent_version;
+  if (currentVersion === undefined) return [];
+
+  const seen = new Set([revision.id]);
+  const options: RevisionSummary[] = [];
+  for (const item of history) {
+    if (
+      item.agent_version === undefined ||
+      item.agent_version >= currentVersion ||
+      seen.has(item.id)
+    )
+      continue;
+    seen.add(item.id);
+    options.push(item);
+  }
+  return options;
+}
+
+export function DraftChangesPreview({
+  revision,
+  history = [],
+  draft,
+  disabled,
+  onOpenStep,
+  onRestoreDraft,
+}: {
+  revision: WorkflowRevision;
+  history?: RevisionSummary[];
+  draft: Workflow;
+  disabled: boolean;
+  onOpenStep: (id: string, path: GraphCrumb[]) => void;
+  onRestoreDraft: (expected: Workflow, next: Workflow) => boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [restored, setRestored] = useState("");
+  const [search, setSearch] = useState("");
+  const close = useRef<HTMLButtonElement>(null);
+  const [pending, setPending] = useState<{ step: DraftStep; draft: Workflow }>();
+  const destination = pending?.draft === draft ? pending.step : undefined;
+  const [historical, setHistorical] = useState<{ id: string; saved?: Workflow | "error" }>();
+  const requestSequence = useRef(0);
+  useEffect(
+    () => () => {
+      requestSequence.current += 1;
+    },
+    [],
+  );
+  const options = earlierRevisions(revision, history);
+  const comparison = options.find((item) => item.id === historical?.id);
+  const saved = comparison ? historical?.saved : revision.workflow;
+
+  async function selectBaseline(id: string) {
+    setRestored("");
+    const request = ++requestSequence.current;
+    if (!options.some((item) => item.id === id)) {
+      setHistorical(undefined);
+      return;
+    }
+    setHistorical({ id });
+    let saved: Workflow | "error" = "error";
+    try {
+      const result = await api<WorkflowRevision>(`revisions/${encodeURIComponent(id)}`);
+      if (result.id === id) saved = result.workflow;
+    } catch {
+      // The same selection can be retried without changing the draft or its saved revision.
+    }
+    if (request === requestSequence.current) setHistorical({ id, saved });
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          setPending(undefined);
+          setHistorical(undefined);
+          setRestored("");
+          setSearch("");
+        } else {
+          requestSequence.current += 1;
+        }
+        setOpen(next);
+      }}
+      onOpenChangeComplete={(next) => {
+        if (next) return;
+        setPending(undefined);
+        if (destination) onOpenStep(destination.id, destination.path);
+      }}
+    >
+      <DialogTrigger className="button" disabled={disabled}>
+        Draft changes
+      </DialogTrigger>
+      <DialogBackdrop className="dialog-backdrop" />
+      <DialogContent
+        className={`run-dialog ${styles.dialog}`}
+        finalFocus={destination ? "none" : undefined}
+        onKeyDown={(event) => {
+          if (historyShortcut(event.nativeEvent)) event.stopPropagation();
+        }}
+      >
+        <div className="dialog-heading">
+          <DialogTitle>Draft changes</DialogTitle>
+          <DialogClose
+            ref={close}
+            className="button icon-button ghost"
+            aria-label="Close draft changes"
+          >
+            <X size={16} aria-hidden="true" />
+          </DialogClose>
+        </div>
+        <DialogDescription className={options.length ? "sr-only" : undefined}>
+          Compared with saved revision {(comparison ?? revision).number}.
+        </DialogDescription>
+        {open && (
+          <p className={styles.restored} aria-live="polite" aria-atomic="true">
+            {restored}
+          </p>
+        )}
+        {open && options.length > 0 && (
+          <label className={styles.baseline}>
+            <span>Compare with</span>
+            <select
+              value={comparison?.id ?? revision.id}
+              onChange={(event) => void selectBaseline(event.target.value)}
+            >
+              <option value={revision.id}>Current saved revision {revision.number}</option>
+              {options.map((item) => (
+                <option key={item.id} value={item.id}>
+                  Version {item.agent_version} · Revision {item.number}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {open && comparison && saved === undefined && (
+          <p className={styles.message} role="status">
+            Loading saved revision…
+          </p>
+        )}
+        {open && comparison && saved === "error" && (
+          <div className={styles.message}>
+            <p className="error" role="alert">
+              Could not load the selected saved revision.
+            </p>
+            <button
+              className="button small"
+              type="button"
+              onClick={() => void selectBaseline(comparison.id)}
+            >
+              Retry comparison
+            </button>
+          </div>
+        )}
+        {open && saved && saved !== "error" && (
+          <DraftChanges
+            key={comparison?.id ?? revision.id}
+            saved={saved}
+            draft={draft}
+            search={search}
+            onSearchChange={setSearch}
+            onRestoreText={(restoration) => {
+              const next = applyDraftTextRestoration(draft, restoration);
+              if (!next || !onRestoreDraft(draft, next)) return;
+              setRestored(
+                `Restored saved ${restoration.field.toLowerCase()} for ${restoration.step.label || restoration.step.id}.`,
+              );
+              close.current?.focus();
+            }}
+            onOpenStep={(step) => {
+              setPending({ step, draft });
+              requestSequence.current += 1;
+              setOpen(false);
+            }}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

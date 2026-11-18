@@ -936,6 +936,40 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/runs/search": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Search Runs */
+    get: operations["search_runs"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/runs/reviews": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Pending Reviews */
+    get: operations["list_pending_reviews"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/runs/{run_id}": {
     parameters: {
       query?: never;
@@ -1069,6 +1103,24 @@ export interface components {
       version: number;
       revision: components["schemas"]["RevisionSummary"];
     };
+    /** AnalystConfig */
+    AnalystConfig: {
+      /**
+       * Max Passes
+       * @default 4
+       */
+      max_passes: number;
+      /**
+       * Skill
+       * @default
+       */
+      skill: string;
+      /**
+       * Workspace
+       * @default false
+       */
+      workspace: boolean;
+    };
     /** ArtifactInfo */
     ArtifactInfo: {
       /** Id */
@@ -1109,6 +1161,16 @@ export interface components {
        * @enum {string}
        */
       status: "cancelled" | "completed" | "rejected" | "limited" | "failed";
+    };
+    /** CheckpointStep */
+    CheckpointStep: {
+      /** Path */
+      path: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "scheduled" | "stopped";
     };
     /** ClaimCreate */
     ClaimCreate: {
@@ -2346,6 +2408,8 @@ export interface components {
     };
     /** ModelAttempt */
     ModelAttempt: {
+      /** Web Actions Completed */
+      web_actions_completed?: number | null;
       /** Admission Policy Revision */
       admission_policy_revision?: number | null;
       /**
@@ -2492,6 +2556,36 @@ export interface components {
        */
       password: string;
     };
+    /** PendingReviewRun */
+    PendingReviewRun: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Agent Name */
+      agent_name: string | null;
+      /** Workflow Name */
+      workflow_name: string;
+      /** Brief Excerpt */
+      brief_excerpt: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Checkpoint Id */
+      checkpoint_id: string;
+      /** Reviews */
+      reviews: components["schemas"]["ReviewPrompt"][];
+    };
+    /** PendingReviewsPage */
+    PendingReviewsPage: {
+      /** Items */
+      items: components["schemas"]["PendingReviewRun"][];
+      /** Has More */
+      has_more: boolean;
+    };
     /** PortSpec */
     PortSpec: {
       /** Name */
@@ -2577,6 +2671,48 @@ export interface components {
       finished_24h: number;
       /** Oldest Pending Seconds */
       oldest_pending_seconds?: number | null;
+    };
+    /** RecentRunSummary */
+    RecentRunSummary: {
+      /** Agent Id */
+      agent_id?: string | null;
+      /** Agent Name */
+      agent_name?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Revision Id
+       * Format: uuid
+       */
+      revision_id: string;
+      /** Revision Number */
+      revision_number: number;
+      /** Workflow Name */
+      workflow_name: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status:
+        | "queued"
+        | "paused"
+        | "completed"
+        | "rejected"
+        | "interrupted"
+        | "cancelled"
+        | "limited"
+        | "running"
+        | "failed";
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+      /** Brief Excerpt */
+      brief_excerpt: string;
     };
     /** RecordedEvaluationOutput */
     RecordedEvaluationOutput: {
@@ -2950,6 +3086,7 @@ export interface components {
        * @default false
        */
       sec_financials: boolean;
+      analyst?: components["schemas"]["AnalystConfig"] | null;
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -2980,9 +3117,9 @@ export interface components {
       max_response_seconds: number;
       /**
        * Max Total Tokens
-       * @default 24000
+       * @default 1000000
        */
-      max_total_tokens: number;
+      max_total_tokens: number | "as_needed";
     };
     /** ResearchManifest */
     ResearchManifest: {
@@ -3199,6 +3336,19 @@ export interface components {
       /** Question */
       question: string;
     };
+    /** ReviewResponse */
+    ReviewResponse: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "reject";
+      /**
+       * Feedback
+       * @default
+       */
+      feedback: string;
+    };
     /** RevisionSummary */
     RevisionSummary: {
       /**
@@ -3229,6 +3379,19 @@ export interface components {
       /** Join */
       join: string;
     };
+    /** RunArchiveItem */
+    RunArchiveItem: {
+      run: components["schemas"]["RunSummary"];
+      /** Brief Excerpt */
+      brief_excerpt: string;
+    };
+    /** RunArchivePage */
+    RunArchivePage: {
+      /** Items */
+      items: components["schemas"]["RunArchiveItem"][];
+      /** Has More */
+      has_more: boolean;
+    };
     /** RunEvent */
     RunEvent: {
       /** Node Id */
@@ -3255,6 +3418,7 @@ export interface components {
       /** Detail */
       detail: string;
       code?: components["schemas"]["CodeExecution"] | null;
+      review_response?: components["schemas"]["ReviewResponse"] | null;
     };
     /** RunRequest */
     RunRequest: {
@@ -3270,6 +3434,8 @@ export interface components {
        * Format: uuid
        */
       revision_id: string;
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
       /** Brief */
       brief: string;
       /** Artifacts */
@@ -3327,6 +3493,8 @@ export interface components {
       workflow: components["schemas"]["Workflow"];
       /** Brief */
       brief: string;
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
       /** Artifacts */
       artifacts: components["schemas"]["ArtifactRef"][];
       /** Evidence Ids */
@@ -3335,6 +3503,8 @@ export interface components {
       compiler_version: string;
       /** Checkpoint Id */
       checkpoint_id: string | null;
+      /** Checkpoint Steps */
+      checkpoint_steps?: components["schemas"]["CheckpointStep"][];
       /** Events */
       events: components["schemas"]["RunEvent"][];
       review?: components["schemas"]["ReviewPrompt"] | null;
@@ -3604,6 +3774,11 @@ export interface components {
       limitations: string[];
       web_research?: components["schemas"]["WebResearch"] | null;
       sec_financials?: components["schemas"]["SecFinancials"] | null;
+      /** Next Lead */
+      next_lead?: string | null;
+      workspace_activity?: components["schemas"]["WorkspaceActivity"] | null;
+      /** Workspace Files */
+      workspace_files?: components["schemas"]["WorkspaceFile"][];
     };
     /** StyleExample */
     StyleExample: {
@@ -3976,6 +4151,40 @@ export interface components {
       name: string;
       workflow: components["schemas"]["Workflow"];
     };
+    /** WorkspaceActivity */
+    WorkspaceActivity: {
+      /**
+       * Tool
+       * @default run_python
+       * @constant
+       */
+      tool: "run_python";
+      /** Summary */
+      summary: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "requested" | "completed" | "failed";
+      /**
+       * Output
+       * @default
+       */
+      output: string;
+      /** Files */
+      files?: components["schemas"]["WorkspaceFile"][];
+    };
+    /** WorkspaceFile */
+    WorkspaceFile: {
+      /** Name */
+      name: string;
+      /** Artifact Id */
+      artifact_id: string;
+      /** Media Type */
+      media_type: string;
+      /** Byte Size */
+      byte_size: number;
+    };
   };
   responses: never;
   parameters: never;
@@ -4286,6 +4495,7 @@ export interface operations {
     parameters: {
       query?: {
         preview?: boolean;
+        filename?: string | null;
       };
       header?: never;
       path: {
@@ -4320,6 +4530,8 @@ export interface operations {
       query?: {
         limit?: number;
         offset?: number;
+        search?: string;
+        availability?: ("available" | "reference_only" | "missing" | "paywalled") | null;
       };
       header?: never;
       path?: never;
@@ -5921,7 +6133,7 @@ export interface operations {
           [name: string]: unknown;
         };
         content: {
-          "application/json": components["schemas"]["RunSummary"][];
+          "application/json": components["schemas"]["RecentRunSummary"][];
         };
       };
       /** @description Validation Error */
@@ -5955,6 +6167,89 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CommandReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  search_runs: {
+    parameters: {
+      query?: {
+        limit?: number;
+        search?: string;
+        status?:
+          | (
+              | "queued"
+              | "paused"
+              | "completed"
+              | "rejected"
+              | "interrupted"
+              | "cancelled"
+              | "limited"
+              | "running"
+              | "failed"
+            )
+          | null;
+        agent_id?: string | null;
+        unassigned?: boolean;
+        exclude_id?: string | null;
+        before_created_at?: string | null;
+        before_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RunArchivePage"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_pending_reviews: {
+    parameters: {
+      query?: {
+        limit?: number;
+        offset?: number;
+        agent_id?: string | null;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["PendingReviewsPage"];
         };
       };
       /** @description Validation Error */

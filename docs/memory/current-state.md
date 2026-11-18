@@ -1,8 +1,507 @@
 # Current state
 
-Updated 2026-11-17. The owner authorized consolidating completed changes, promoting
-dev to main through a merge PR, pushing the remote and cleaning up merged branches.
-Public deployment remains a separate follow-up.
+Updated 2026-11-18. The owner requested better visibility into model runs, more
+control over workflow iteration, and an editable discretionary macro agent.
+[Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
+
+## Open a saved-version run from Build
+
+**Recent run** opens the newest known run for the exact saved version and agent
+and keeps the Build draft available on return. The shortcut uses the recent
+20-run history. **Find a step** shows stable IDs when results would otherwise
+look identical. Desktop at `d46e56b` served the controls, API, and worker. CI
+passed 559 backend tests with 2 skips and all 181 browser cases on the first
+attempt. [PR #122](https://github.com/andersj05/ResearchChain/pull/122).
+
+## Trace review decisions and edit long prompts
+
+**Expand** opens a larger editor for instructions and review questions.
+**Apply to draft** records one undoable edit. **Review plan** opens the exact
+receiving input or condition, and **Return to step** retraces linked visits in
+reverse. **Model and tool plan** flags unlisted choices when the account catalog
+is confirmed. Desktop at `74cfe86` served the controls, API, and worker. CI
+passed 559 backend tests with 2 skips and all 177 browser cases on the first
+attempt. The synthetic macro run verified downstream model receipt of all three
+checkpoint judgments. [PR #121](https://github.com/andersj05/ResearchChain/pull/121).
+
+## Navigate longer Build drafts
+
+Long step names wrap in the outline and search. **Review plan** leads with the
+question while **Wiring** shows the preceding steps and feedback bindings.
+Ancestor breadcrumbs focus the exact caller. **Find changes** filters the draft
+comparison by step, graph, or setting. Desktop at `1c23b72` served the controls,
+API, and worker. CI passed 559 backend tests with 2 skips and all 167 browser
+cases. The revoked report-save case timed out once and passed on retry.
+[PR #120](https://github.com/andersj05/ResearchChain/pull/120).
+
+## Review and revise a Build draft
+
+**Find a step** appears before insertion controls and puts matching steps first.
+**Review plan** and **Review handoff** open the preceding control step. An author
+can duplicate a review and set the copied question independently, or use
+**Draft changes** to restore one saved instruction or review question with Undo.
+Desktop at `540cefe` served the controls, API, and worker. CI passed 559 backend tests
+with 2 skips and all 165 browser cases on the first attempt. The isolated macro
+run verified all three checkpoints and the effect of their feedback on later
+model requests. [PR #119](https://github.com/andersj05/ResearchChain/pull/119).
+
+**Draft changes** can compare the draft against an earlier saved version and
+open changed or added steps in their root or pinned editors. Wiring changes show
+readable step names and their stable IDs. Reviews have a dedicated **Review
+question**. Desktop at `3716c89` served the controls with the API and worker
+ready and passed the read-only review and run checks. CI passed 559 backend
+tests with 2 skips, and all 158 browser cases passed, 2 on retry.
+[PR #118](https://github.com/andersj05/ResearchChain/pull/118).
+
+## Trace input sources and pinned definition callers
+
+**Open source** opens the producing step for a configured input or predicate.
+**Used by** lists the callers of the pinned definition being edited. Build
+remembers **Visible connections** for the current owner and browser, including
+through subgraph navigation. Desktop at `7ec62a5` served the controls with the
+API and worker ready. CI passed 559 backend tests with 2 skips and all 153
+browser cases. [PR #117](https://github.com/andersj05/ResearchChain/pull/117).
+
+## Inspect review questions and condition inputs
+
+**Review plan** lists reachable review questions and the step inputs and
+conditions wired to their feedback. Output and review links open the receiving
+condition, and validation can focus a loop’s **Stop condition**. Desktop at
+`dc41f70` served the controls and verified the synthetic loop repair. CI passed
+559 backend tests with 2 skips and all 149 browser cases.
+[PR #116](https://github.com/andersj05/ResearchChain/pull/116).
+
+## Find Build reviews and model steps
+
+**Find a step** can list **Reviews** or **Model steps** across pinned subgraphs
+with or without a search query. Tests covered the macro checkpoints, versioned
+navigation, pagination, and the phone layout. CI passed 550 backend tests with
+2 skips and all 146 browser cases. Desktop at `496ce67` served the filter with
+the API and worker ready. [PR #115](https://github.com/andersj05/ResearchChain/pull/115).
+
+## Build authoring and inspection
+
+- **Trace routing and inputs.** Branch paths shows the steps before each paired
+  join and flags unresolved wiring. Validation can open the affected input,
+  condition, or join setting. Output bindings opens a receiving input. Input
+  pickers group sources by availability when the control wiring is complete.
+  [PR #114](https://github.com/andersj05/ResearchChain/pull/114) ·
+  [PR #113](https://github.com/andersj05/ResearchChain/pull/113) ·
+  [PR #109](https://github.com/andersj05/ResearchChain/pull/109).
+- **Iterate on the graph.** Insert position can add before the graph entry or a
+  step with one incoming connection. Return to step restores the previous edit
+  location. Visible connections filters control flow and data bindings. Nested
+  duplication copies the definitions it uses, and Draft changes compares with
+  the saved revision, including canvas-only edits.
+  [PR #112](https://github.com/andersj05/ResearchChain/pull/112) ·
+  [PR #111](https://github.com/andersj05/ResearchChain/pull/111) ·
+  [PR #108](https://github.com/andersj05/ResearchChain/pull/108).
+- **Inspect decisions and model work.** Model and tool plan shows the effective
+  model and tools per reachable research step. Review handoff shows preceding
+  control steps and opens inputs wired to the review’s feedback.
+  [PR #110](https://github.com/andersj05/ResearchChain/pull/110) ·
+  [PR #107](https://github.com/andersj05/ResearchChain/pull/107).
+
+## Finish the run inspection and checkpoint release
+
+Review inbox shows the saved brief excerpt. Model activity can open a specific
+step and iteration. Saved-pass comparison exposes changes in the actual requests,
+including reviewer feedback and supplied evidence. **Copy review link** opens the
+exact pending question and falls back to Decisions when stale. CI passed 519
+backend tests with 2 skips and all 123 browser cases. Desktop at `1878369` served
+the new controls, with the API, worker and review projection verified read-only.
+The owner directed the next work to Build, with parallel implementation for
+independent authoring tasks.
+[PR #106](https://github.com/andersj05/ResearchChain/pull/106).
+
+## Compare web sources recorded on selected passes
+
+**Recorded web sources** groups the shared URLs and sources recorded on only
+one selected pass. It updates when the pass changes and flags missing or
+incomplete records. The phone comparison test verified the source groups and
+earlier pass selection. CI passed 519 backend tests with 2 skips and all 123
+browser cases. Desktop at `e4ffa16` served the controls with the API and worker
+ready.
+[PR #105](https://github.com/andersj05/ResearchChain/pull/105).
+
+## Keep the baseline attached to an experiment
+
+**Iterate** keeps the original run as a baseline through draft reload and start
+retry. Run setup shows the baseline and lets the owner clear it. **Compare with
+baseline** reopens that exact pair from the revised run. The backend validates
+the shared agent on admission and preserves the revised run if retention later
+removes its baseline. CI passed 519 backend tests with 2 skips and all 123
+browser cases. Desktop at `91a2d64` restored and migrated a private rehearsal,
+then verified the live migration preserved saved data and the app restarted.
+[PR #104](https://github.com/andersj05/ResearchChain/pull/104).
+
+## Follow the bindings behind a saved step
+
+**Data bindings** shows the saved step’s upstream sources and where its output
+goes. Each link opens the attached step in the same pinned graph and iteration.
+The synthetic macro test followed a binding from the discriminating test to the
+challenge step and back, then returned to the pending decision. CI passed 517
+backend tests with 2 skips and all 123 browser cases. Desktop at `3c5f5db`
+served the new controls with a healthy API and connected worker.
+[PR #103](https://github.com/andersj05/ResearchChain/pull/103).
+
+## Compare the saved model passes you choose
+
+Run comparison lets you choose a saved conclusion, research lead, or
+workspace action independently on each side. A copied pass comparison link
+reopens the same saved pair and step. The phone browser test verified an
+earlier workspace pass, its exact model request, and an unavailable pass link.
+CI passed 517 backend tests with 2 skips and all 123 browser cases. Desktop at
+`bd5b558` served the comparison controls with a healthy API and connected
+worker. The owner-gated read-only checks also passed.
+[PR #102](https://github.com/andersj05/ResearchChain/pull/102).
+
+## Search Recent runs by their saved brief
+
+Recent runs shows a brief excerpt and includes it in the filter. The full
+archive still searches the complete brief. The first CI run exposed a race
+where a submitted review’s history refresh reset the inspection panel. The
+macro test now delays that response and verifies that Decisions and its
+saved request links stay open. CI passed 517 backend tests with 2 skips and
+all 123 browser cases on the corrected commit. Desktop at `85a8043` served
+the new list with a healthy API and connected worker. The owner-gated recent
+run route and read-only brief query passed.
+[PR #101](https://github.com/andersj05/ResearchChain/pull/101).
+
+## Recover workspace startup and preserve drafts
+
+A transient local API failure during workspace startup retries the affected
+read once. The requested view still opens, and a failed read for a named agent
+preserves its saved browser draft. Browser tests verified the recovered
+revision and draft, and exercised the mobile review inbox and saved run links.
+CI passed 517 backend tests with 2 skips and all 123 browser cases. Desktop at
+`1f6481e` opened Reports after a simulated gateway failure with every API
+response mocked and writes blocked. API health, worker connection, and the
+owner-gated read-only checks also passed.
+[PR #100](https://github.com/andersj05/ResearchChain/pull/100).
+
+## Compare runs directly and retain inspection filters
+
+**Runs → Compare runs** opens setup, output, and file comparisons directly.
+Archived baseline search and copied links still select the exact pair.
+Model activity and Files retain their filters when you open a saved attempt
+and return. The fitted timeline range also persists within the open run. CI
+passed 517 backend tests with 2 skips and all 121 browser cases. Desktop at
+`11c320f` served the view with a healthy API and connected worker.
+Read-only checks passed for evidence search, run archive and review inbox.
+[PR #99](https://github.com/andersj05/ResearchChain/pull/99).
+
+## Duplicate configured research steps
+
+**Duplicate research step** in Build inserts a copy with the same instructions,
+model, tools, and input bindings and focuses its name. The browser test verified
+Undo and the exact saved copy, original step, and successor connections. CI
+passed 517 backend tests with 2 skips and 121 browser cases, including one
+access test that passed on retry. Desktop at `50ee743` served the control with
+a healthy API and connected worker. Read-only evidence search, run archive
+and review inbox checks passed. [PR #98](https://github.com/andersj05/ResearchChain/pull/98).
+
+## Save a web reference from an attempt
+
+**Web sources → Save source link** lets the owner review the title and URL
+before adding a Link only record to Sources. The record includes the provider
+observation time and exact run and attempt IDs. The phone test verified that
+retrying an interrupted response returns the record already created. CI passed
+517 backend tests with 2 skips and all 120 browser tests. Desktop at `25e2bd5`
+served the controls with a healthy API and connected worker. Read-only checks
+passed for evidence search, run archive and review inbox.
+[PR #97](https://github.com/andersj05/ResearchChain/pull/97).
+
+## Combine recorded judgments
+
+**Runs → Decisions → Combine feedback for next run** stages several judgments
+in the recorded order. The preview shows the exact brief and identifies the
+source run and checkpoint for each entry. Shorten the prior brief or deselect
+an entry if the result exceeds the run brief limit. Build opens the saved
+workflow with the revised brief and original evidence selections. CI passed
+517 backend tests with 2 skips and all 120 browser tests. Desktop at `0055410`
+served the controls with a healthy API and connected worker. Read-only checks
+passed for evidence search, run archive and review inbox.
+[PR #96](https://github.com/andersj05/ResearchChain/pull/96).
+
+## Inspect saved inputs and iterate from a step
+
+**Inspect saved inputs** shows the text supplied for a recorded model attempt,
+including prior conclusions, selected evidence, and reviewer feedback. The
+comparison view can open each request independently. **Iterate from this step**
+opens the exact saved step in Build. **Timeline range** fits filtered attempts
+on request. CI passed 517 backend tests with 2 skips and all 120 browser tests.
+Desktop at `0794cd7` served the controls with a healthy API and connected
+worker. Read-only checks passed for evidence search, run archive and review
+inbox. [PR #95](https://github.com/andersj05/ResearchChain/pull/95).
+
+## Search and verify saved evidence
+
+**Sources** searches the entire library and applies availability before paging.
+Filtering keeps the open source and its claims visible. **Pinned evidence**
+shows saved dates and uses the research manifest when a source cannot load.
+**Pinned source order** shows both full sequences when shared evidence moved.
+CI passed 517 backend tests with 2 skips and all 120 browser tests on retry
+after the first runner timed out. Desktop at `d31061e` served the controls with a
+healthy API and connected worker. The owner-gated search and read-only query
+passed on Desktop. [PR #94](https://github.com/andersj05/ResearchChain/pull/94).
+
+## Prepare evidence in Run setup
+
+**Evidence for this run** searches the full library by title, author, publisher,
+or saved date. **Selected sources** shows exact versions in the order they will
+be pinned. Inspect, move, remove, or retry individual source details while
+browsing. The phone-width tests verified keyboard focus, saved order, older
+provenance after correction, and protection from a delayed search response. CI
+passed 517 backend tests with 2 skips and all 119 browser tests. Desktop at
+`ca73827` served the controls with a healthy API and connected worker. The
+owner-gated search route and a read-only library query passed on Desktop.
+[PR #93](https://github.com/andersj05/ResearchChain/pull/93).
+
+## Review inbox agent filter
+
+**Review inbox → Show reviews for** switches between all agents and the active
+agent. The phone-width test verified filtering before pagination, restoring the
+full queue, and opening the exact review from a parallel branch. CI passed 516
+backend tests with 2 skips and all 119 browser tests. Desktop at `9e30067` served
+the filter with a healthy API and connected worker.
+[PR #92](https://github.com/andersj05/ResearchChain/pull/92).
+
+## Model activity timeline
+
+**Model activity → Timeline** shows the recorded overlap and gaps between model
+attempts. A hollow point marks a start with an unreported duration. The
+phone-width test verified overlap, a measured zero, the fixed axis through
+filtering, display preference restoration, and exact attempt links. CI passed
+516 backend tests with 2 skips and all 119 browser tests. Desktop at `67cc28a`
+served the timeline with a healthy API and connected worker.
+[PR #91](https://github.com/andersj05/ResearchChain/pull/91).
+
+## Run limits in setup
+
+**Run workflow → Run limits** shows and edits execution, request, and evidence
+limits in the draft. The synthetic check pinned 270 active seconds, verified a
+zero-attempt run, and reopened a collapsed section with an invalid value. CI
+passed 516 backend tests with 2 skips and all 119 browser tests. Desktop at
+`172778e` served the controls with a healthy API and connected worker.
+[PR #90](https://github.com/andersj05/ResearchChain/pull/90).
+
+## Compare matching model outputs
+
+**Runs → Run context → Compare a saved run → Model outputs by step** pairs the
+latest saved conclusions at the same step and loop iteration. It shows when only
+one run has an output and links to the exact producing attempts. The phone-width
+test compared a shared iteration and two steps with output on one side. CI passed
+516 backend tests with 2 skips and all 119 browser tests. Desktop at `2b58e37`
+served the comparison with a healthy API and connected worker.
+[PR #89](https://github.com/andersj05/ResearchChain/pull/89).
+
+## Step models in Run setup
+
+**Run workflow → Step models** edits model assignments for the reachable
+research steps, including versioned subgraphs. An unavailable override can be
+replaced or cleared in setup. The synthetic checks verified the requested model
+on the new run and preserved an unused subgraph version when clearing overrides.
+CI passed 516 backend tests with 2 skips and all 119 browser tests. Desktop at
+`253bcf5` served the controls with a healthy API and connected worker.
+[PR #88](https://github.com/andersj05/ResearchChain/pull/88).
+
+## Workspace files at a review checkpoint
+
+**Files for this review** shows saved files from the work under review and the
+earlier steps that supplied its context. The phone-width macro test opened a CSV,
+kept its draft judgment, and verified that the saved judgment reached the
+downstream model request. CI passed 516 backend tests with 2 skips and all 118
+browser tests. Desktop at `58adbc6` served the controls with a healthy API and
+connected worker. [PR #87](https://github.com/andersj05/ResearchChain/pull/87).
+
+## Saved CSV table previews
+
+Open a saved CSV from **Runs → Files** or **Output file changes** to read its
+headers and first 50 rows and 20 columns. **Show raw CSV** displays the original
+text, and download returns the full file. Synthetic checks covered quoted commas,
+line breaks, leading zeros, clipping, and phone-width scrolling. CI passed 516
+backend tests with 2 skips. Of 118 browser cases, 117 passed on the first attempt
+and the expired-session case passed on retry. Desktop at `68cfb4d` served the
+table control with a healthy API and connected worker.
+[PR #86](https://github.com/andersj05/ResearchChain/pull/86).
+
+## Review drafts in the current tab
+
+Unsent reviewer feedback stays with its run and interrupt across run switches and
+refreshes in the same tab. The phone-width check proved two independent drafts,
+pruning one after its decision, and cleanup after cancellation. Full CI passed
+516 backend tests with 2 skips and 118 browser tests. Desktop at `4d6c85d`
+served the draft handling with a healthy API and connected worker.
+[PR #85](https://github.com/andersj05/ResearchChain/pull/85).
+
+## Exact model attempt links
+
+**Attempt details → Copy attempt link** reopens the specific saved model pass.
+The phone-width check copied and reopened an earlier pass of the same step while
+the latest workflow activity remained visible. CI passed 516 backend tests with
+2 skips and 118 browser tests. Desktop at `3806710` served the control with a
+healthy API and connected worker.
+[PR #84](https://github.com/andersj05/ResearchChain/pull/84).
+
+## Saved output comparisons
+
+**Run context → Compare a saved run → Output file changes** pairs the last
+recorded file for each step path and filename. Preview or download either version
+and see its producing pass. The browser check covered two different CSVs, a
+removed file, and a file that reverted to identical bytes. CI passed 516 backend
+tests with 2 skips and 118 browser tests. Desktop at `2c1c8b5` served the controls
+with a healthy API and connected worker.
+[PR #83](https://github.com/andersj05/ResearchChain/pull/83).
+
+## Inline workspace file previews
+
+**Runs → Files → Preview** opens a saved chart or supported text file directly
+in the list. The phone-width check decoded the chart and opened two separate
+versions of the same script. CI passed 516 backend tests with 2 skips and 118
+browser tests. Desktop at `382245c` served the previews with a healthy API and
+connected worker. [PR #82](https://github.com/andersj05/ResearchChain/pull/82).
+
+## Comparison links
+
+**Copy comparison link** bookmarks both run IDs. Opening it restores the exact
+pair in Run context, including a baseline from the archive. The phone-width
+browser check covered older runs, panel switching, and rejecting cross-agent
+pairs. Full CI passed 516 backend tests with 2 skips and 118 browser tests.
+Desktop at `6fdaade` served the control with a healthy API and connected worker.
+[PR #81](https://github.com/andersj05/ResearchChain/pull/81).
+
+## Model activity ordering
+
+**Runs → Model activity** sorts attempts by time, elapsed duration, or complete
+reported token totals. Attempts with missing measurements follow measured rows.
+The phone-width browser check covered measured zero and preference restoration
+after reload. Full CI passed 516 backend tests with 2 skips and 118 browser tests.
+Desktop at `f3a2438` served the controls with a healthy API and connected worker.
+[PR #80](https://github.com/andersj05/ResearchChain/pull/80).
+
+## Saved workspace files across a run
+
+**Runs → Files** finds saved charts, scripts, and methods files by filename, type,
+or step. It links to the exact producing model pass and download. The 390 px
+browser check verified separate downloads for two versions of a script and one
+entry for an unchanged chart. CI passed 516 backend tests with 2 skips and 117
+browser tests. Desktop at `4d0683f` served the Files view with a healthy API and
+connected worker. [PR #79](https://github.com/andersj05/ResearchChain/pull/79).
+
+## Saved run archive
+
+**Runs → Search saved runs** searches the archive by brief, agent, workflow, or
+run ID. The comparison picker searches the open run's agent scope. The synthetic
+phone-width browser check found and compared a run outside the latest 20, then
+opened it from page two. Full CI passed 516 backend tests with 2 skips and 117
+browser tests. Desktop at `d1ec286` served the archive and verified the owner
+gate, read-only cursor query, and connected worker.
+[PR #78](https://github.com/andersj05/ResearchChain/pull/78).
+
+## Downstream use of recorded judgments
+
+**Runs → Decisions → Steps wired to this feedback** lists direct recipients and
+opens the most recent saved model request for the exact step and iteration. The
+synthetic macro test verified the request contains the recorded judgment. Full CI
+passed 515 backend tests with 2 skips and 116 browser tests. Desktop at `f8a79e7`
+served the links with a healthy API and connected worker.
+[PR #77](https://github.com/andersj05/ResearchChain/pull/77).
+
+## Pinned setup comparison
+
+**Runs → Run context → Compare a saved run → Setup changes** shows before and
+after values for the brief, models, limits, pinned inputs, workflow wiring, and
+recorded judgments. It follows versioned subgraphs and ignores canvas positioning.
+The synthetic comparison verified a changed model, source order, and nested
+review question. Full CI passed 515 backend tests with 2 skips and 116 browser
+tests. Desktop at `686b8a3` served the comparison with a healthy API and connected
+worker. [PR #75](https://github.com/andersj05/ResearchChain/pull/75).
+
+## Workflow step search
+
+**Build → Find a step** searches names, instructions, and assigned models across
+the draft and its referenced subgraphs. Selecting a result focuses the step editor.
+Browser checks covered nested navigation, phone widths, and all 128 matches in a
+large workflow. Desktop at `8758ba5` served the finder and review inbox with a
+healthy API and connected worker. [PR #73](https://github.com/andersj05/ResearchChain/pull/73).
+
+## Review inbox
+
+**Runs → Review inbox** lists pending questions across agents, including runs
+older than the recent history. It checks both checkpoint and interrupt identity
+when opening a review. Browser checks covered parallel questions, draft feedback,
+and a cancelled run. A synthetic check found an open question behind 20 later
+completed runs. Desktop at `b8f09d3` served the inbox, required owner access for
+its API, and read the pending-review query successfully with a connected worker.
+[PR #72](https://github.com/andersj05/ResearchChain/pull/72).
+
+## Run comparison and live progress
+
+Desktop at `c45ce60` served same-agent run comparison, the saved workflow map
+preference, and latest activity while reading older outputs. The API was healthy,
+the worker connected, and the saved macro agent was present.
+[PR #70](https://github.com/andersj05/ResearchChain/pull/70).
+
+## Discretionary macro and decisions
+
+The [editable discretionary macro starter](../discretionary-macro-example.md) has
+ten steps. It frames a cross-asset tension, estimates what markets price, tests
+competing mechanisms in the Python workspace, challenges the thesis, and drafts
+scenarios and a memo. The owner chooses the scope, weighs the dissent, and
+decides whether the view is ready. **Runs → Decisions** shows open reviews and
+recorded judgments. A selected judgment can be appended to a fresh editable brief.
+
+[PR #68](https://github.com/andersj05/ResearchChain/pull/68) passed full CI and browser
+checks. The synthetic browser run confirmed the saved feedback in downstream model
+requests and completed all three checkpoints. Desktop at `5af9c3a` served the macro
+starter and decision controls, the API was healthy, and the worker reconnected.
+An editable version 1 macro agent was saved locally. A separate synthetic run of
+that graph used the local Python runner and saved a chart, CSV, and methods note.
+The owner can try a real question and judge whether the checkpoints ask for the
+decisions that matter.
+
+## Model activity and interface guidance
+
+**Runs → Model activity** lists attempts across the pinned workflow. Filter by step,
+model, or status and open a pass directly. The workflow map can be hidden to give
+the reader more space. The [research interface principles](../research-interface.md)
+record the product choices taken from the owner's two EquityCats essays.
+[PR #67](https://github.com/andersj05/ResearchChain/pull/67) passed the full CI and
+browser gate. Desktop at `920b77d` served the new controls, the proxied API reported
+healthy, and the worker reconnected with an idle queue.
+
+## Python research workspaces
+
+The builder offers an opt-in research workspace with owner-set pass and execution
+limits. Codex can use hosted search, write and run Python, read the numerical
+output and inspect its chart on the next pass. Each action retains its script
+and exports. The run graph shows activity, charts, datasets and full Markdown
+reports. A synthetic run through the installed Codex CLI and local Docker image
+reached the demo's final review with a saved chart, script and report. Recovery
+tests replayed a confirmed action before the next calculation.
+[Delivery criteria](https://github.com/andersj05/ResearchChain/issues/64).
+
+The owner's next step is to try the [idea generation demo](../idea-generation-demo.md)
+with the synthetic rotation brief or a real question and give feedback on the
+research and review experience. [Workspace architecture](../decisions/0022-research-python-workspaces.md).
+
+## Research run workbench
+
+New research workflows default to one million cumulative tokens. Run setup can
+pin a larger fixed total or **As needed** for a fresh experiment. The inspector
+uses the pinned graph, shows the stopped step when a checkpoint records an error
+and keeps earlier decisions and pass-level source receipts accessible. The
+Idea Research example enables an editable, multi-pass Codex analyst after the
+direction checkpoint. [Owner guide](../idea-research-example.md).
+
+The analyst needs the local Codex executable on the worker PATH. On 2026-11-17
+the Desktop installation moved to `dev` and took schema 13 after a verified
+backup restore and migration rehearsal. The live web and API checks passed,
+the worker connected, and the served app included the review navigation, analyst
+settings and token-budget controls from [PR #62](https://github.com/andersj05/ResearchChain/pull/62).
+The owner's next step is to try the revised example or adjust a saved agent
+and assess the resulting research.
 
 ## Scope and next step
 
@@ -69,8 +568,10 @@ submitted for this pass. Existing private research and original files were retai
 
 ## Verified checkout and runtime
 
-Use **C:/Users/jense/Desktop/ResearchChain**. The empty Documents/ChatGPT directory
-is not the checkout; use explicit working directories. The delivery branch is main after the authorized promotion.
+The owner's Desktop runtime tracks `dev` in **C:/Users/jense/Desktop/ResearchChain**.
+Development also uses **C:/Users/jense/Documents/ChatGPT/ResearchChain**.
+The owner wants each merged implementation installed and verified in the Desktop
+runtime before handoff. See [Desktop delivery](../development.md#desktop-delivery).
 The local app is http://127.0.0.1:3000 with its API on port 8000 and Postgres on 5433.
 Use pnpm dev to restart web/API/worker and the existing owner sign-in. Owner access
 is managed in Settings; the ChatGPT connection is managed in run setup.

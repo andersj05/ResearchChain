@@ -4,12 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { api } from "@/lib/workflow";
 import {
+  listSources,
+  mergeSources,
+  useEvidenceLibrary,
+  type EvidenceAvailability,
+} from "@/lib/use-evidence-library";
+import {
   availabilityLabels,
   evidenceUrl,
   representationLabels,
   type ClaimPage,
   type ClaimRecord,
-  type EvidencePage,
   type EvidenceRecord,
 } from "@/lib/evidence";
 import { CollectionLayout } from "@/components/collection-layout";
@@ -29,18 +34,21 @@ export function EvidenceDesk() {
   const [correcting, setCorrecting] = useState<EvidenceRecord>();
   const [revising, setRevising] = useState<ClaimRecord>();
   const [search, setSearch] = useState("");
-  const [availability, setAvailability] = useState("all");
+  const [availability, setAvailability] = useState<EvidenceAvailability>();
   const [selectedClaims, setSelectedClaims] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadEpoch, setLoadEpoch] = useState(0);
+  const query = search.trim();
+  const filtered = Boolean(query || availability);
+  const library = useEvidenceLibrary(query, availability, filtered);
   useEffect(() => {
     let active = true;
     async function load() {
       try {
         const [page, claimPage] = await Promise.all([
-          api<EvidencePage>("evidence?limit=50"),
+          listSources(),
           api<ClaimPage>("claims?limit=50"),
         ]);
         const id = new URL(window.location.href).searchParams.get("evidence");
@@ -88,6 +96,7 @@ export function EvidenceDesk() {
     setSources((previous) => [record, ...previous.filter((item) => item.id !== record.id)]);
     setTotal((previous) => previous + (sources.some((item) => item.id === record.id) ? 0 : 1));
     if (nextSource !== null) setNextSource(nextSource + 1);
+    if (filtered) library.refresh();
     select(record);
     setMessage("Source saved. Original content and provenance are preserved.");
   }
@@ -95,10 +104,8 @@ export function EvidenceDesk() {
     setError("");
     try {
       if (kind === "evidence") {
-        const page = await api<EvidencePage>(`evidence?limit=50&offset=${nextSource}`);
-        setSources((previous) => [
-          ...new Map([...previous, ...page.items].map((item) => [item.id, item])).values(),
-        ]);
+        const page = await listSources("", undefined, nextSource ?? 0);
+        setSources((previous) => mergeSources(previous, page.items));
         setNextSource(page.next_offset ?? null);
         setTotal(page.total);
       } else {
@@ -112,12 +119,10 @@ export function EvidenceDesk() {
       setError(cause instanceof Error ? cause.message : "Unable to load more records.");
     }
   }
-  const visible = sources.filter(
-    (source) =>
-      `${source.title} ${source.author ?? ""} ${source.publisher ?? ""}`
-        .toLowerCase()
-        .includes(search.trim().toLowerCase()) &&
-      (availability === "all" || (source.availability ?? "available") === availability),
+  const visible = filtered ? library.items : sources;
+  const formSources = mergeSources(
+    mergeSources(sources, library.items),
+    selected ? [selected] : [],
   );
   const visibleClaims =
     selectedClaims && selected
@@ -184,19 +189,26 @@ export function EvidenceDesk() {
           id="sources"
           list={
             <aside className="source-list" aria-label="Sources">
-              <label htmlFor="source-search">Find a loaded source</label>
+              <label htmlFor="source-search">Find a source</label>
               <input
                 id="source-search"
                 type="search"
-                placeholder="Title, author, publisher…"
+                maxLength={240}
+                placeholder="Title, author, publisher, or date"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
               <label htmlFor="source-availability-filter">Availability</label>
               <select
                 id="source-availability-filter"
-                value={availability}
-                onChange={(event) => setAvailability(event.target.value)}
+                value={availability ?? "all"}
+                onChange={(event) =>
+                  setAvailability(
+                    event.target.value === "all"
+                      ? undefined
+                      : (event.target.value as EvidenceAvailability),
+                  )
+                }
               >
                 <option value="all">All sources</option>
                 {Object.entries(availabilityLabels).map(([value, label]) => (
@@ -205,9 +217,19 @@ export function EvidenceDesk() {
                   </option>
                 ))}
               </select>
-              <p className="collection-count">
-                {visible.length} shown · {sources.length} of {total} loaded
-              </p>
+              {library.loading ? (
+                <p className="collection-count" role="status">
+                  Finding sources…
+                </p>
+              ) : (
+                !library.error && (
+                  <p className="collection-count">
+                    {filtered
+                      ? `${visible.length} of ${library.total} matches loaded`
+                      : `${sources.length} of ${total} sources loaded`}
+                  </p>
+                )
+              )}
               <div className="source-list-items">
                 {visible.map((source) => (
                   <button
@@ -228,17 +250,26 @@ export function EvidenceDesk() {
                   </button>
                 ))}
               </div>
-              {!sources.length && (
+              {!filtered && !sources.length && (
                 <p className="muted">
                   No sources yet. Add a permitted report, chart, dataset, discussion, or link.
                 </p>
               )}
-              {sources.length > 0 && !visible.length && (
-                <p className="muted">No matching loaded sources.</p>
+              {filtered && !library.loading && !library.error && !visible.length && (
+                <p className="muted">No matching sources.</p>
               )}
-              {nextSource !== null && (
-                <Button className="button small" onClick={() => more("evidence")}>
-                  Load more sources
+              {library.error && (
+                <p className="error" role="alert">
+                  {library.error}
+                </p>
+              )}
+              {(filtered ? library.hasMore || library.error : nextSource !== null) && (
+                <Button
+                  className="button small"
+                  disabled={library.loading}
+                  onClick={filtered ? library.more : () => more("evidence")}
+                >
+                  {library.error ? "Retry source search" : "Load more sources"}
                 </Button>
               )}
             </aside>
@@ -248,7 +279,7 @@ export function EvidenceDesk() {
               {form === "source" ? (
                 <EvidenceForm
                   key={correcting?.id ?? "new"}
-                  sources={sources}
+                  sources={formSources}
                   original={correcting}
                   onSaved={sourceSaved}
                   onCancel={() => setForm(null)}
@@ -256,7 +287,7 @@ export function EvidenceDesk() {
               ) : form === "claim" ? (
                 <ClaimForm
                   key={revising?.id ?? "new"}
-                  sources={sources}
+                  sources={formSources}
                   original={revising}
                   selected={selected?.id}
                   onSaved={(claim) => {

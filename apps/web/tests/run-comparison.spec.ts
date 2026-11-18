@@ -1,0 +1,510 @@
+import { createHash } from "node:crypto";
+import { expect, test } from "./fixtures";
+import {
+  discretionaryMacroWorkflow,
+  type RunSnapshot,
+  type Workflow,
+  type WorkflowRevision,
+} from "../src/lib/workflow";
+import { compareWorkflowGraphs } from "../src/lib/workflow-comparison";
+import { addTemplate, referenceOf } from "../src/lib/workflow-editing";
+import nested from "../../../examples/advanced-workflow.json";
+
+test("workflow deltas follow pinned subgraph versions and ignore presentation changes", () => {
+  const before = nested as Workflow;
+  const after = structuredClone(before);
+  after.edges.reverse();
+  after.nodes[0]!.position.x += 80;
+  expect(compareWorkflowGraphs(before, after)).toEqual([]);
+
+  const loop = after.nodes.find((node) => node.config?.type === "loop");
+  if (loop?.config?.type !== "loop") throw new Error("Expected the review loop fixture.");
+  loop.config.ref.version = 2;
+  const replacement = structuredClone(after.subgraphs![0]!);
+  replacement.version = 2;
+  replacement.nodes[0]!.instructions = "Which observation would invalidate the new thesis?";
+  after.subgraphs!.push(replacement);
+
+  const graphs = compareWorkflowGraphs(before, after);
+  expect(graphs.map((graph) => graph.key)).toEqual(["root", "critique@1/critique@2"]);
+  expect(graphs[1]!.steps).toEqual([
+    {
+      id: "review",
+      label: "Review",
+      status: "Changed",
+      settings: [
+        {
+          name: "Review question",
+          before: "Is this reasoning ready for the next pass?",
+          after: "Which observation would invalidate the new thesis?",
+        },
+      ],
+    },
+  ]);
+});
+
+test("compare two saved research runs without switching the open run", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const bodies = new Map<string, string>();
+  const csv = (name: string, body: string) => {
+    const artifact_id = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    bodies.set(artifact_id, body);
+    return { name, artifact_id, byte_size: Buffer.byteLength(body), media_type: "text/csv" };
+  };
+  const oldTable = csv("pricing.csv", 'horizon,change,note\r\n5,0.000,"basis, ""roll"""\r\n');
+  const extraHeaders = Array.from({ length: 18 }, (_, index) => `measure_${index + 1}`);
+  const extraValues = ",0".repeat(extraHeaders.length);
+  const newTable = csv(
+    "pricing.csv",
+    `horizon,change,note,${extraHeaders.join(",")}\r\n` +
+      `20,018.000,"first line\r\nsecond line"${extraValues}\r\n` +
+      Array.from(
+        { length: 50 },
+        (_, index) => `${index + 21},1.00,observed${extraValues}\r\n`,
+      ).join(""),
+  );
+  const stable = csv("controls.csv", "control,base\npolicy,1");
+  const intermediate = csv("controls.csv", "control,base\npolicy,2");
+  const oldOnly = csv("old-test.csv", "sample,estimate\nrest,5,ragged");
+  const now = new Date().toISOString();
+  const priorSource = crypto.randomUUID();
+  const newSource = crypto.randomUUID();
+  const sharedSources = [crypto.randomUUID(), crypto.randomUUID()];
+  const loop = addTemplate(structuredClone(discretionaryMacroWorkflow), null, "loop", "test");
+  const loopRef = referenceOf(loop.workflow.nodes.find((node) => node.id === loop.selected)!)!;
+  const body = addTemplate(loop.workflow, loopRef, "model", "step");
+  const iterationPath = (number: number) =>
+    `root/${loop.selected}/iteration-${number}/${body.selected}`;
+  const base: RunSnapshot = {
+    id: crypto.randomUUID(),
+    workflow: body.workflow,
+    workflow_name: discretionaryMacroWorkflow.name,
+    revision_id: crypto.randomUUID(),
+    revision_number: 12,
+    status: "completed",
+    execution_pending: false,
+    compiler_version: "research-0.3.0",
+    checkpoint_id: null,
+    created_at: now,
+    brief: "Five sessions around the synthetic central bank event.",
+    artifacts: [],
+    evidence_ids: [...sharedSources, priorSource],
+    events: [],
+    model_attempts: [
+      {
+        id: crypto.randomUUID(),
+        created_at: now,
+        path: "root/memo",
+        stage: "custom",
+        status: "completed",
+        model: "analysis-model",
+        returned_model: "analysis-model-snapshot",
+        input_bytes: 100,
+        output_characters: 100,
+        result: {
+          schema_version: "research-result-1",
+          stage: "custom",
+          conclusion: "**The rival mechanism survived.**",
+          hypotheses: [],
+          limitations: [],
+          revision_summary: "First comparison.",
+          evidence_requests: [],
+          unresolved_questions: [],
+          workspace_files: [oldTable, stable, oldOnly],
+        },
+      },
+    ],
+  };
+  const adjusted = structuredClone(base.workflow);
+  const first = adjusted.nodes.find((node) => node.id === "map")!;
+  first.instructions = "Compare front-end and belly pricing over twenty sessions.";
+  if (first.config?.type !== "research") throw new Error("Expected the macro research fixture.");
+  first.config.model = "analysis-model";
+  first.config.web_search = false;
+  adjusted.research!.limits!.max_total_tokens = 65000;
+  const original = base.model_attempts![0]!;
+  const recordWeb = (sources: [string, string][], truncated = false) => ({
+    version: "web-research-1" as const,
+    observed_at: now,
+    actions: [],
+    sources: sources.map(([url, title]) => ({ url, title, cited: false })),
+    truncated,
+  });
+  const sharedWeb: [string, string] = ["https://example.org/policy", "Synthetic policy release"];
+  const modelOutput = (
+    path: string,
+    conclusion: string,
+    web_research?: ReturnType<typeof recordWeb>,
+  ) => ({
+    ...original,
+    id: crypto.randomUUID(),
+    path,
+    result: { ...original.result!, conclusion, workspace_files: [], web_research },
+  });
+  const savedInputs = new Map<string, string>();
+  const requestFor = (feedback: string, instructions: string, id: string, title: string) => {
+    const packet = JSON.stringify({
+      brief: "Check policy repricing",
+      human_feedback: feedback,
+      additional_context: "",
+      sources: [
+        { id, title, delivery: "complete UTF-8 text", text: `Synthetic data for ${title}` },
+      ],
+    });
+    const body = JSON.stringify({
+      instructions,
+      input: [{ role: "user", content: [{ type: "input_text", text: packet }] }],
+    });
+    const input_artifact_id = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    savedInputs.set(input_artifact_id, body);
+    return { input_artifact_id, input_bytes: Buffer.byteLength(body) };
+  };
+  const baselinePass = {
+    ...modelOutput(
+      `${iterationPath(1)}/analyst-pass-2`,
+      "**Comparison first iteration.**",
+      recordWeb([
+        sharedWeb,
+        ["https://example.org/five-sessions", "Synthetic five-session data"],
+        ["https://example.org/five-sessions", "Synthetic five-session data"],
+      ]),
+    ),
+    ...requestFor(
+      "Use five sessions.",
+      "Check the front-end spread.",
+      priorSource,
+      "Original curves",
+    ),
+  };
+  const openPass = {
+    ...modelOutput(
+      `${iterationPath(1)}/analyst-pass-2`,
+      "**Open first iteration.**",
+      recordWeb([
+        sharedWeb,
+        ["https://example.org/twenty-sessions", "Synthetic twenty-session data"],
+      ]),
+    ),
+    ...requestFor("Use twenty sessions.", "Check the belly spread.", newSource, "Updated curves"),
+  };
+  const leadPass = (conclusion: string, next_lead: string, web?: ReturnType<typeof recordWeb>) => {
+    const attempt = modelOutput(iterationPath(1), conclusion, web);
+    return { ...attempt, result: { ...attempt.result, next_lead } };
+  };
+  const baselineLead = leadPass(
+    "**Comparison initial view.**",
+    "Check five-session pricing.",
+    recordWeb([["https://example.org/policy-calendar", "Synthetic policy calendar"]], true),
+  );
+  const openLead = leadPass("**Open initial view.**", "Check twenty-session pricing.");
+  base.model_attempts!.unshift(baselineLead, baselinePass);
+  const outputAttempt = (files: (typeof oldTable)[], path: string) => ({
+    ...original,
+    id: crypto.randomUUID(),
+    path,
+    result: {
+      ...original.result!,
+      workspace_files: files,
+      workspace_activity: {
+        tool: "run_python",
+        status: "completed",
+        summary: "Saved tables",
+        output: "",
+      } as const,
+    },
+  });
+  const workspaceStart = outputAttempt([newTable, intermediate], "root/memo");
+  const workspaceEnd = outputAttempt([newTable, stable], "root/memo/analyst-pass-2");
+  const current: RunSnapshot = {
+    ...base,
+    id: crypto.randomUUID(),
+    revision_id: crypto.randomUUID(),
+    revision_number: 13,
+    workflow: adjusted,
+    brief: "Check whether it survives a month-long window.",
+    evidence_ids: [...sharedSources.toReversed(), newSource],
+    events: [
+      {
+        node_id: "judgment",
+        kind: "review",
+        label: "Weigh the thesis and the dissent",
+        detail: "Approved by reviewer",
+        review_response: { decision: "approve", feedback: "Check the curve against the dollar." },
+      },
+    ],
+    model_attempts: [
+      openLead,
+      openPass,
+      modelOutput(iterationPath(2), "**Open second iteration.**"),
+      workspaceStart,
+      workspaceEnd,
+    ],
+  };
+  const otherAgent = { ...base, id: crypto.randomUUID(), agent_id: crypto.randomUUID() };
+  const matchingOutputs = { ...current, id: crypto.randomUUID() };
+  await page.route("**/api/runs", (route) =>
+    route.fulfill({
+      json: [current, base, otherAgent, matchingOutputs].map((item) => ({
+        ...item,
+        brief_excerpt: item.brief,
+      })),
+    }),
+  );
+  await page.route("**/api/evidence/*", (route) => {
+    const id = new URL(route.request().url()).pathname.split("/").at(-1);
+    return route.fulfill({ json: { id, title: `Synthetic source ${id?.slice(0, 8)}` } });
+  });
+  for (const run of [current, base, matchingOutputs]) {
+    await page.route(`**/api/runs/${run.id}`, (route) => route.fulfill({ json: run }));
+  }
+  for (const [id, body] of bodies) {
+    await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) =>
+      route.fulfill({ body, contentType: "text/csv" }),
+    );
+  }
+  let allowBaselinePreview = false;
+  for (const [id, body] of savedInputs) {
+    await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) => {
+      if (id === baselinePass.input_artifact_id && !allowBaselinePreview) {
+        return route.fulfill({ status: 503 });
+      }
+      return route.fulfill({ body, contentType: "application/json" });
+    });
+  }
+  const revision: WorkflowRevision = {
+    id: current.revision_id,
+    number: current.revision_number,
+    content_hash: "0123456789abcdef",
+    created_at: now,
+    name: current.workflow_name,
+    workflow: current.workflow,
+  };
+  await page.route(`**/api/revisions/${revision.id}`, (route) => route.fulfill({ json: revision }));
+  await page.goto(`/?run=${current.id}`);
+  await page.getByRole("button", { name: "Compare runs", exact: true }).click();
+  const compare = page.getByRole("combobox", { name: "Comparison run", exact: true });
+  await expect(compare.locator("option")).toHaveCount(3);
+  await expect(compare.locator(`option[value="${base.id}"]`)).toContainText(base.brief);
+  await compare.selectOption(base.id);
+  const setup = page.locator(".comparison-setup");
+  await setup.getByText("Setup changes · 1 step", { exact: true }).click();
+  const budgetChange = setup
+    .locator(".comparison-changes > div")
+    .filter({ hasText: "Total tokens allowed" });
+  await expect(budgetChange).toContainText(/65(?:\D)?000/);
+  await expect(
+    setup.getByRole("link", { name: `Pinned source · ${priorSource.slice(0, 8)}` }),
+  ).toBeVisible();
+  await expect(
+    setup.getByRole("link", { name: `Pinned source · ${newSource.slice(0, 8)}` }),
+  ).toBeVisible();
+  await setup.getByText("Pinned source order", { exact: true }).click();
+  const orderedTitles = (ids: string[]) => ids.map((id) => `Synthetic source ${id.slice(0, 8)}`);
+  await expect(
+    setup.getByRole("region", { name: "Comparison run source order" }).getByRole("link"),
+  ).toHaveText(orderedTitles([...sharedSources, priorSource]));
+  await expect(
+    setup.getByRole("region", { name: "Open run source order" }).getByRole("link"),
+  ).toHaveText(orderedTitles([...sharedSources.toReversed(), newSource]));
+  await setup.getByText(`${first.label} · Changed`, { exact: true }).click();
+  await expect(
+    setup.getByText("Compare front-end and belly pricing over twenty sessions.", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    setup.locator(".comparison-changes > div").filter({ hasText: "Model override" }),
+  ).toContainText("analysis-model");
+  await expect(
+    setup.locator(".comparison-changes > div").filter({ hasText: "Web and market search" }),
+  ).toContainText("Disabled");
+  await page.getByText("Output file changes (2)", { exact: true }).click();
+  const outputs = page.locator(".comparison-output-changes");
+  const price = outputs.getByRole("listitem").filter({ hasText: "pricing.csv" });
+  const before = price.getByRole("region", { name: "Comparison run", exact: true });
+  const after = price.getByRole("region", { name: "Open run", exact: true });
+  await before.getByText("Preview", { exact: true }).click();
+  await after.getByText("Preview", { exact: true }).click();
+  await expect(before.getByRole("columnheader", { name: "change" })).toBeVisible();
+  await expect(before.getByRole("cell", { name: "0.000", exact: true })).toBeVisible();
+  await expect(before.getByRole("cell", { name: 'basis, "roll"', exact: true })).toBeVisible();
+  await expect(after.getByRole("cell", { name: "018.000", exact: true })).toBeVisible();
+  await expect(
+    after.getByRole("cell", { name: "first line second line", exact: true }),
+  ).toBeVisible();
+  await expect(after.getByText("Showing 50 of 51 data rows and 20 of 21 columns.")).toBeVisible();
+  await expect(after.getByRole("columnheader", { name: "measure_17", exact: true })).toHaveCount(1);
+  await expect(after.getByRole("columnheader", { name: "measure_18", exact: true })).toHaveCount(0);
+  const csvTable = after.getByRole("region", { name: "CSV preview table" });
+  expect(await csvTable.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+    true,
+  );
+  const visibleArea = (await csvTable.boundingBox())!;
+  const changeHeader = (await after
+    .getByRole("columnheader", { name: "change", exact: true })
+    .boundingBox())!;
+  expect(changeHeader.x + changeHeader.width).toBeLessThanOrEqual(
+    visibleArea.x + visibleArea.width,
+  );
+  await expect(after.getByRole("cell", { name: "70", exact: true })).toHaveCount(0);
+  await after.getByText("Show raw CSV", { exact: true }).click();
+  await expect(after.locator("pre")).toHaveText(bodies.get(newTable.artifact_id)!);
+  await after.getByText("Show raw CSV", { exact: true }).click();
+  await expect(after).toContainText("Pass 2");
+  const mobileBefore = (await before.boundingBox())!;
+  expect((await after.boundingBox())!.y).toBeGreaterThanOrEqual(
+    mobileBefore.y + mobileBefore.height,
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const wideBefore = (await before.boundingBox())!;
+  const wideAfter = (await after.boundingBox())!;
+  expect(wideAfter.y).toBeCloseTo(wideBefore.y, 0);
+  expect(wideAfter.x).toBeGreaterThanOrEqual(wideBefore.x + wideBefore.width);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(outputs.getByRole("heading", { name: "controls.csv" })).toHaveCount(0);
+  const removed = outputs.getByRole("listitem").filter({ hasText: "old-test.csv" });
+  await expect(removed.getByRole("region", { name: "Open run" })).toContainText("No saved file");
+  const raggedPreview = removed.getByRole("region", { name: "Comparison run" });
+  await raggedPreview.getByText("Preview", { exact: true }).click();
+  await expect(raggedPreview.getByText("Showing raw CSV.")).toBeVisible();
+  await expect(raggedPreview.locator("pre")).toHaveText(bodies.get(oldOnly.artifact_id)!);
+  const table = page.getByRole("region", { name: "Run comparison table" }).getByRole("table");
+  const revisionsRow = table.getByRole("row", { name: "Workflow revision" });
+  await expect(revisionsRow.getByRole("cell")).toHaveText(["13", "12"]);
+  await expect(table.getByRole("row", { name: "Provider-reported models" })).toContainText(
+    "analysis-model-snapshot",
+  );
+  await table.getByText("Reviewer feedback (1)", { exact: true }).click();
+  await expect(table.getByText("Check the curve against the dollar.")).toBeVisible();
+  await page.getByText("Model outputs by step (3)", { exact: true }).click();
+  const comparisons = page.locator(".comparison-step-outputs");
+  const step = comparisons.getByRole("combobox", { name: "Comparison step" });
+  const beforeOutput = comparisons.getByRole("region", { name: "Comparison run" });
+  const openOutput = comparisons.getByRole("region", { name: "Open run" });
+  await expect(step).toHaveValue(iterationPath(1));
+  await expect(step.locator("option:checked")).toHaveText(
+    "Model prompt · Iteration 1 · New bounded loop",
+  );
+  await expect(beforeOutput.locator("strong")).toHaveText("Comparison first iteration.");
+  await expect(openOutput.locator("strong")).toHaveText("Open first iteration.");
+  await expect(openOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
+    "href",
+    `?view=runs&run=${current.id}&attempt=${openPass.id}`,
+  );
+  await beforeOutput.getByText("Inspect saved inputs", { exact: true }).click();
+  await openOutput.getByText("Inspect saved inputs", { exact: true }).click();
+  await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toBeVisible();
+  await expect(beforeOutput.getByRole("alert")).toHaveText(
+    "The saved request could not be previewed.",
+  );
+  allowBaselinePreview = true;
+  await beforeOutput.getByRole("button", { name: "Retry saved input preview" }).click();
+  await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toBeVisible();
+  const inputChanges = comparisons.locator("details.saved-model-inputs");
+  allowBaselinePreview = false;
+  await comparisons.getByText("Saved research input changes", { exact: true }).click();
+  await expect(inputChanges.getByRole("alert")).toHaveText(
+    "Comparison pass · Saved request could not be loaded.",
+  );
+  allowBaselinePreview = true;
+  await inputChanges.getByRole("button", { name: "Retry comparison pass request" }).click();
+  await inputChanges.getByText("Reviewer feedback", { exact: true }).click();
+  await expect(
+    inputChanges.getByRole("region", { name: "Comparison pass input" }).locator("pre"),
+  ).toHaveText("Use five sessions.");
+  await expect(inputChanges.getByRole("region", { name: "Open run pass input" })).toContainText(
+    "Use twenty sessions.",
+  );
+  await expect(inputChanges.getByText("Research brief", { exact: true })).toHaveCount(0);
+  await inputChanges.getByText("Saved instructions", { exact: true }).click();
+  await expect(inputChanges.getByText("Check the belly spread.", { exact: true })).toBeVisible();
+  await inputChanges.getByText("Evidence selection and order", { exact: true }).click();
+  await expect(inputChanges.getByText(/^Updated curves · /)).toBeVisible();
+  await inputChanges.getByText("Evidence records changed (2)", { exact: true }).click();
+  await inputChanges.getByText(/^Evidence · Original curves/).click();
+  await expect(inputChanges.getByText(/Synthetic data for Original curves/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const beforePass = beforeOutput.getByRole("combobox", { name: "Saved pass" });
+  const currentPass = openOutput.getByRole("combobox", { name: "Saved pass" });
+  await expect(beforePass).toHaveValue(baselinePass.id);
+  await expect(currentPass).toHaveValue(openPass.id);
+  const sources = comparisons.locator("details", { has: page.getByText(/^Recorded web sources/) });
+  await comparisons.getByText("Recorded web sources · 1 shared", { exact: true }).click();
+  const beforeSources = sources.getByRole("region", { name: "Comparison pass web sources" });
+  const openSources = sources.getByRole("region", { name: "Open run pass web sources" });
+  await expect(beforeSources.getByRole("link")).toHaveText(["Synthetic five-session data"]);
+  await expect(openSources.getByRole("link")).toHaveText(["Synthetic twenty-session data"]);
+  await sources.getByText("Shared web sources (1)", { exact: true }).click();
+  await expect(sources.getByRole("link", { name: "Synthetic policy release" })).toHaveAttribute(
+    "href",
+    "https://example.org/policy",
+  );
+  await beforePass.selectOption(baselineLead.id);
+  await expect(comparisons.getByText("Saved research input changes", { exact: true })).toHaveCount(
+    0,
+  );
+  await expect(beforePass.locator("option:checked")).toHaveText("Pass 1 · Research lead");
+  await expect(beforeOutput.getByText("Check five-session pricing.")).toBeVisible();
+  await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toHaveCount(0);
+  await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toBeVisible();
+  await expect(sources.getByText("Recorded web sources · 0 shared")).toBeVisible();
+  await expect(beforeSources.getByRole("link")).toHaveText(["Synthetic policy calendar"]);
+  await expect(beforeSources).toContainText("The saved source record is incomplete.");
+  await expect(openSources.getByRole("link")).toHaveText([
+    "Synthetic policy release",
+    "Synthetic twenty-session data",
+  ]);
+  await expect(beforeOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
+    "href",
+    `?view=runs&run=${base.id}&attempt=${baselineLead.id}`,
+  );
+  await currentPass.selectOption(openLead.id);
+  await expect(openOutput.getByText("Check twenty-session pricing.")).toBeVisible();
+  await expect(beforePass).toHaveValue(baselineLead.id);
+  await expect(openSources).toContainText("No web source record saved.");
+  await step.selectOption(iterationPath(2));
+  await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toHaveCount(0);
+  await expect(beforeOutput).toContainText("No saved model output for this step.");
+  await expect(openOutput.locator("strong")).toHaveText("Open second iteration.");
+  await expect(comparisons.getByText(/^Recorded web sources/)).toHaveCount(0);
+  await step.selectOption("root/memo");
+  await expect(beforeOutput.locator("strong")).toHaveText("The rival mechanism survived.");
+  const workspacePass = openOutput.getByRole("combobox", { name: "Saved pass" });
+  await expect(workspacePass.locator("option:checked")).toHaveText("Pass 2 · Workspace activity");
+  await expect(openOutput.getByText("Saved tables", { exact: true })).toBeVisible();
+  await workspacePass.selectOption(workspaceStart.id);
+  await expect(openOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
+    "href",
+    `?view=runs&run=${current.id}&attempt=${workspaceStart.id}`,
+  );
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await comparisons.getByRole("button", { name: "Copy pass comparison link" }).click();
+  await expect(comparisons.getByText("Pass comparison link copied.")).toBeVisible();
+  const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+  expect(link.searchParams.get("run")).toBe(current.id);
+  expect(link.searchParams.get("compare")).toBe(base.id);
+  expect(link.searchParams.get("passes")).toBe(`${original.id},${workspaceStart.id}`);
+  await page.goto(link.href);
+  await expect(step).toHaveValue("root/memo");
+  await expect(workspacePass).toHaveValue(workspaceStart.id);
+  await expect(beforeOutput.locator("strong")).toHaveText("The rival mechanism survived.");
+  const mismatched = new URL(link);
+  mismatched.searchParams.set("passes", `${baselineLead.id},${workspaceStart.id}`);
+  await page.goto(mismatched.href);
+  await expect(comparisons.getByRole("status")).toHaveText(
+    "This link points to a saved pass comparison that is unavailable.",
+  );
+  await expect(page).toHaveURL(new RegExp(`run=${current.id}`));
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await compare.selectOption(matchingOutputs.id);
+  expect(new URL(page.url()).searchParams.has("passes")).toBe(false);
+  await page.getByText("Output file changes", { exact: true }).click();
+  await expect(page.getByText("The latest saved files match.")).toBeVisible();
+  await page.getByText("Model outputs by step (3)", { exact: true }).click();
+  await comparisons.getByText("Saved research input changes", { exact: true }).click();
+  await expect(inputChanges.getByText("Both passes have the same saved request.")).toBeVisible();
+  await page.getByRole("button", { name: "Hide workflow map", exact: true }).click();
+  await page.reload();
+  await expect(page.getByRole("button", { name: "Show workflow map", exact: true })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Run workflow graph", exact: true })).toHaveCount(
+    0,
+  );
+});

@@ -38,6 +38,11 @@ def test_node_budget_is_global_across_parallel_branches_and_recovery(client: Tes
     assert result["status"] == "limited"
     assert result["stop_reason"] == "Node execution limit reached."
     assert result["usage"]["node_executions"] == 2
+    assert result["checkpoint_steps"]
+    assert all(
+        step["status"] == "stopped" and step["path"] in {"root/left", "root/right"}
+        for step in result["checkpoint_steps"]
+    )
     assert all(event["path"] != "root/finish" for event in result["events"])
     assert run_request(client, f"/api/runs/{result['id']}/recover").json() == result
 
@@ -47,17 +52,27 @@ def test_loop_exhaustion_is_a_durable_terminal_outcome(client: TestClient) -> No
     document["nodes"][0]["config"]["until"]["value"] = 100
     result = start(client, document)
     assert result["status"] == "limited" and "exhausted 3" in result["stop_reason"]
+    assert result["checkpoint_steps"] == [{"path": "root/nested", "status": "stopped"}]
     assert run_request(client, f"/api/runs/{result['id']}/recover").json() == result
 
 
 def test_cancellation_is_idempotent_and_cannot_resume(client: TestClient) -> None:
     paused = start(client, nested(review=True))
     path = f"/api/runs/{paused['id']}"
+    inbox = "/api/runs/reviews?limit=1"
+    later = start(client, nested(review=True))
+    first_page = client.get(inbox).json()
+    assert first_page["has_more"] is True
+    assert first_page["items"][0]["id"] == paused["id"]
+    second_page = client.get(f"{inbox}&offset=1").json()
+    assert second_page["has_more"] is False
+    assert second_page["items"][0]["id"] == later["id"]
     first = client.post(f"{path}/cancel")
     assert first.json()["status"] == "cancelled"
     assert client.post(f"{path}/cancel").json() == first.json()
     cancelled = client.get(path).json()
     assert cancelled["status"] == "cancelled" and not cancelled["reviews"]
+    assert client.get(inbox).json() == second_page
     assert run_request(client, f"{path}/resume", json=decision(paused)).status_code == 409
     assert run_request(client, f"{path}/recover").json() == cancelled
 
@@ -94,6 +109,10 @@ def test_cancellation_reaches_an_executing_worker_without_its_lock(
         try:
             assert entered.wait(5)
             assert RunStore(database).list()[0].status == "running"
+            progress = RunStore(database).get(request.id)
+            assert [(step.path, step.status) for step in progress.checkpoint_steps] == [
+                ("root/slow", "scheduled")
+            ]
             assert not future.done()
             assert RunStore(database).cancel(request.id).status == "cancelled"
         finally:

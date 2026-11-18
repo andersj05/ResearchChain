@@ -1,5 +1,9 @@
 import { apiFetch } from "@/lib/access";
 import type { components } from "@researchchain/contracts";
+import discretionaryMacroExample from "../../../../examples/discretionary-macro.json";
+import discretionaryMacroBriefLines from "../../../../examples/discretionary-macro-brief.json";
+import ideaGenerationExample from "../../../../examples/idea-generation.json";
+import ideaGenerationBriefLines from "../../../../examples/idea-generation-brief.json";
 import ideaExample from "../../../../examples/idea-research.json";
 import researchExample from "../../../../examples/hypothesis-research.json";
 import example from "../../../../examples/research-workflow.json";
@@ -16,6 +20,9 @@ export type NodeTypeSpec = components["schemas"]["NodeTypeSpec"];
 export type ExecutionBudgets = components["schemas"]["ExecutionBudgets"];
 export type RunSnapshot = components["schemas"]["RunSnapshot"];
 export type RunSummary = components["schemas"]["RunSummary"];
+export type RecentRunSummary = components["schemas"]["RecentRunSummary"];
+export type RunArchivePage = components["schemas"]["RunArchivePage"];
+export type PendingReviewsPage = components["schemas"]["PendingReviewsPage"];
 export type RunRequest = components["schemas"]["RunRequest"];
 export type CommandReceipt = components["schemas"]["CommandReceipt"];
 export type RevisionSummary = components["schemas"]["RevisionSummary"] & { agent_version?: number };
@@ -25,6 +32,7 @@ export type AgentVersion = components["schemas"]["AgentVersion"];
 export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
 
+export const defaultReviewQuestion = "Continue this workflow?";
 export const exampleWorkflow = example as Workflow;
 export const initialWorkflow: Workflow = {
   schema_version: "0.2",
@@ -42,6 +50,10 @@ export const initialWorkflow: Workflow = {
   edges: [],
 };
 export const ideaWorkflow = ideaExample as Workflow;
+export const ideaGenerationWorkflow = ideaGenerationExample as Workflow;
+export const ideaGenerationBrief = ideaGenerationBriefLines.join("\n");
+export const discretionaryMacroWorkflow = discretionaryMacroExample as Workflow;
+export const discretionaryMacroBrief = discretionaryMacroBriefLines.join("\n");
 export const researchWorkflow = researchExample as Workflow;
 export type ResearchSettings = components["schemas"]["ResearchSettings"];
 export type ResearchLimits = components["schemas"]["ResearchLimits"];
@@ -52,7 +64,7 @@ export const researchDefaults = {
 };
 export const admissionTimeout = 30000;
 
-export type ValidationIssue = { path: string; message: string };
+export type ValidationIssue = { location: (string | number)[]; path: string; message: string };
 export class ApiError extends Error {
   constructor(
     message: string,
@@ -82,6 +94,7 @@ export async function api<T>(path: string, body?: unknown, timeout = 15000): Pro
         : "The local API is unavailable. Start the local services with pnpm dev.";
     const issues: ValidationIssue[] = Array.isArray(detail)
       ? detail.map((item: { loc?: (string | number)[]; msg: string }) => ({
+          location: item.loc ?? [],
           path: (item.loc ?? []).filter((part) => part !== "body").join("."),
           message: item.msg,
         }))

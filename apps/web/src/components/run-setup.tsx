@@ -1,8 +1,17 @@
 "use client";
 
-import { ResearchConnection } from "@/components/research-settings";
-import type { ResearchSettings, Workflow } from "@/lib/workflow";
-import type { ModelCatalog } from "@/components/model-picker";
+import { ResearchConnection, ResearchRequestLimitFields } from "@/components/research-settings";
+import { ExecutionLimitFields, executionDefaults } from "@/components/execution-limits";
+import {
+  ideaGenerationBrief,
+  researchDefaults,
+  type ExecutionBudgets,
+  type ResearchSettings,
+  type Workflow,
+} from "@/lib/workflow";
+import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
+import { scopeKey, type StepModelChange } from "@/lib/workflow-editing";
+import { researchToolLabels } from "@/lib/workflow-model-plan";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
 import {
@@ -15,28 +24,26 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import { Play, X } from "lucide-react";
+import { useRef } from "react";
 
 function RunTools({ workflow }: { workflow: Workflow }) {
   const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
     graph.nodes.flatMap((node) => {
       const config = node.config;
-      if (config?.type !== "research" || (!config.web_search && !config.sec_financials)) return [];
-      const tools = [
-        config.web_search === "auto"
-          ? "optional web search"
-          : config.web_search
-            ? "required web search"
-            : "",
-        config.sec_financials ? "optional SEC lookup" : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
+      if (
+        config?.type !== "research" ||
+        (!config.web_search && !config.sec_financials && !config.analyst)
+      )
+        return [];
+      const tools = researchToolLabels(config).join(", ");
       return [
         {
           key: `${"id" in graph ? graph.id + "/" + graph.version : "root"}/${node.id}`,
           label: node.label,
           tools,
           sec: config.sec_financials,
+          web: config.web_search,
+          workspace: config.analyst?.workspace,
         },
       ];
     }),
@@ -54,7 +61,16 @@ function RunTools({ workflow }: { workflow: Workflow }) {
           </li>
         ))}
       </ul>
-      <p className="field-hint">Web queries can include your brief and selected evidence.</p>
+      {steps.some((step) => step.web) && (
+        <p className="field-hint">Web queries can include your brief and selected evidence.</p>
+      )}
+      {steps.some((step) => step.workspace) && (
+        <p className="field-hint">
+          Active time across the run is limited to{" "}
+          {(workflow.budgets ?? executionDefaults).max_active_seconds} seconds. Review pauses are
+          excluded.
+        </p>
+      )}
       {steps.some((step) => step.sec) && (
         <p className="field-hint">
           SEC lookups send the selected company and metric. Set RESEARCHCHAIN_SEC_USER_AGENT with an
@@ -70,6 +86,8 @@ export function RunSetup({
   onOpenChange,
   brief,
   onBriefChange,
+  baselineRunId,
+  onClearBaseline,
   evidenceIds,
   onEvidenceChange,
   name,
@@ -82,19 +100,25 @@ export function RunSetup({
   catalog,
   workflow,
   onResearch,
+  onStepModels,
+  onExecutionLimits,
   accountId,
   onAccount,
 }: {
   research?: ResearchSettings | null;
   catalog: ModelCatalog;
   workflow: Workflow;
-  onResearch: (settings: ResearchSettings) => void;
+  onResearch: (settings: ResearchSettings, group?: string) => void;
+  onStepModels: (changes: StepModelChange[]) => void;
+  onExecutionLimits: (budgets: ExecutionBudgets, group: string) => void;
   accountId: string | null;
   onAccount: (id: string | null) => void;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   brief: string;
   onBriefChange: (value: string) => void;
+  baselineRunId: string | null;
+  onClearBaseline: () => void;
   evidenceIds: string[];
   onEvidenceChange: (ids: string[]) => void;
   name: string;
@@ -104,17 +128,34 @@ export function RunSetup({
   error: string;
   onStart: () => Promise<void>;
 }) {
+  const briefInput = useRef<HTMLTextAreaElement>(null);
   const available = new Set(catalog.status?.models?.map((model) => model.slug));
-  const stepModels = open
-    ? [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
-        graph.nodes.flatMap((node) =>
-          node.config?.type === "research" && node.config.model
-            ? [{ label: node.label, model: node.config.model }]
-            : [],
-        ),
-      )
-    : [];
-  const unavailable = stepModels.filter((step) => !available.has(step.model));
+  const stepModels =
+    open && research
+      ? [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) => {
+          const scope = "id" in graph ? { id: graph.id, version: graph.version } : null;
+          return graph.nodes.flatMap((node) =>
+            node.config?.type === "research"
+              ? [
+                  {
+                    scope,
+                    nodeId: node.id,
+                    label: scope ? `${node.label} · ${graph.name} v${scope.version}` : node.label,
+                    model: node.config.model ?? "",
+                  },
+                ]
+              : [],
+          );
+        })
+      : [];
+  const overrides = stepModels.filter((step) => step.model);
+  const unavailable = overrides.filter((step) => !available.has(step.model));
+  const activeSeconds = (workflow.budgets ?? executionDefaults).max_active_seconds;
+  const attempts = research?.limits?.max_model_calls ?? researchDefaults.limits.max_model_calls;
+  const sampleBrief = [brief.trimEnd(), ideaGenerationBrief].filter(Boolean).join("\n\n");
+  const hasWorkspace = [workflow, ...(workflow.subgraphs ?? [])].some((graph) =>
+    graph.nodes.some((node) => node.config?.type === "research" && node.config.analyst?.workspace),
+  );
   const ready =
     !research ||
     (!!accountId &&
@@ -156,9 +197,27 @@ export function RunSetup({
             <strong>{name || "Untitled workflow"}</strong>
             <span>{revision ? `Revision ${revision}` : "New revision on start"}</span>
           </div>
+          {baselineRunId && (
+            <div className="actions">
+              <a href={`?view=runs&run=${baselineRunId}`} target="_blank" rel="noopener">
+                Baseline run · {baselineRunId.slice(0, 8)}
+              </a>
+              <Button
+                className="button small"
+                disabled={busy}
+                onClick={() => {
+                  onClearBaseline();
+                  briefInput.current?.focus();
+                }}
+              >
+                Clear baseline
+              </Button>
+            </div>
+          )}
           <label htmlFor="brief">Research brief</label>
           <textarea
             id="brief"
+            ref={briefInput}
             required
             rows={5}
             maxLength={10000}
@@ -167,6 +226,15 @@ export function RunSetup({
             onChange={(event) => onBriefChange(event.target.value)}
             placeholder="What question should this run explore?"
           />
+          {hasWorkspace && !brief.includes(ideaGenerationBrief) && sampleBrief.length <= 10000 && (
+            <Button
+              className="button small"
+              disabled={busy}
+              onClick={() => onBriefChange(sampleBrief)}
+            >
+              {brief.trim() ? "Append synthetic rotation brief" : "Use synthetic rotation brief"}
+            </Button>
+          )}
           {open && research && (
             <ResearchConnection
               settings={research}
@@ -177,24 +245,66 @@ export function RunSetup({
               disabled={busy}
             />
           )}
-          {!!stepModels.length && (
+          {research && !!stepModels.length && (
             <details className="step-model-list">
-              <summary>Step model overrides ({stepModels.length})</summary>
-              <ul>
-                {stepModels.map((step, index) => (
-                  <li key={index}>
-                    {step.label} · {step.model}
-                  </li>
+              <summary>
+                Step models ({overrides.length} {overrides.length === 1 ? "override" : "overrides"})
+              </summary>
+              <p className="field-hint">Model changes edit the workflow draft.</p>
+              <Button
+                className="button small"
+                disabled={busy || !overrides.length}
+                focusableWhenDisabled
+                onClick={() =>
+                  onStepModels(overrides.map(({ scope, nodeId }) => ({ scope, nodeId, model: "" })))
+                }
+              >
+                Use workflow default for all steps
+              </Button>
+              <div className="step-model-fields">
+                {stepModels.map(({ scope, nodeId, label, model }) => (
+                  <ModelPicker
+                    key={`${scopeKey(scope)}/${nodeId}`}
+                    label={label}
+                    catalog={catalog}
+                    value={model}
+                    inherited={research.model}
+                    onChange={(model) => onStepModels([{ scope, nodeId, model }])}
+                    disabled={busy}
+                  />
                 ))}
-              </ul>
+              </div>
             </details>
           )}
           {research && accountId && !catalog.loading && !catalog.error && !ready && (
             <p role="alert" className="error">
               {!available.has(research.model) && "Choose an available research model. "}
               {!!unavailable.length &&
-                `Change the unavailable step models in Build: ${unavailable.map((step) => step.label).join(", ")}.`}
+                `In Step models, choose a replacement or use the workflow default for ${unavailable.map((step) => step.label).join(", ")}.`}
             </p>
+          )}
+          {open && (
+            <details
+              className="run-details run-limits"
+              onInvalidCapture={(event) => {
+                event.currentTarget.open = true;
+              }}
+            >
+              <summary>
+                Run limits · {activeSeconds}s active
+                {research && ` · ${attempts} model ${attempts === 1 ? "attempt" : "attempts"}`}
+              </summary>
+              <fieldset disabled={busy}>
+                <legend>Workflow execution</legend>
+                <ExecutionLimitFields budgets={workflow.budgets} onChange={onExecutionLimits} />
+              </fieldset>
+              {research && (
+                <fieldset disabled={busy}>
+                  <legend>Model requests and evidence</legend>
+                  <ResearchRequestLimitFields settings={research} onSettings={onResearch} />
+                </fieldset>
+              )}
+            </details>
           )}
           {open && (
             <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />

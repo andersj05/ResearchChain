@@ -57,6 +57,30 @@ class FakeProvider:
         assert account_id == self.account.id and models <= {"test-model", "analysis-model"}
         return self.account
 
+    def run_analyst(
+        self, model: str, passes: int, step: Any, guard: Any, *, workspace: bool = False
+    ) -> Any:
+        history = []
+        transcript: list[dict[str, Any]] = []
+        for _ in range(passes):
+            guard()
+            result, response = step(history, {"model": model, "input": transcript})
+            history.append(result)
+            if not result.next_lead:
+                return result
+            call = response["output"][-1]
+            transcript.extend(
+                [
+                    call,
+                    {
+                        "type": "function_call_output",
+                        "call_id": call["call_id"],
+                        "output": result.model_dump_json(),
+                    },
+                ]
+            )
+        raise AssertionError("Synthetic analyst exceeded the configured passes.")
+
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
         self.calls.append(prepared)
         on_delta('{"schema_version":')
@@ -86,12 +110,54 @@ class FakeProvider:
             result["hypotheses"][0]["assessment"] = "supported"
         if prepared.sec_financials:
             result["sec_lookup"] = None
+        analyst_response = None
+        if prepared.analyst_options is not None:
+            text = json.dumps(result)
+            call_id = f"fixture_{len(self.calls)}"
+            follow = "Inspect Markdown output" in str(
+                prepared.input_items
+            ) or "Follow an analyst lead" in str(prepared.input_items)
+            continued = any(
+                item.get("type") == "function_call_output" for item in prepared.input_items
+            )
+            item = (
+                {
+                    "type": "function_call",
+                    "namespace": "research",
+                    "name": "pursue_lead",
+                    "id": call_id,
+                    "call_id": call_id,
+                    "status": "completed",
+                    "arguments": json.dumps(
+                        {"lead": "Check contrary evidence", "findings": "Synthetic findings."}
+                    ),
+                }
+                if follow
+                and not continued
+                and any(t.get("type") == "namespace" for t in prepared.analyst_options["tools"])
+                else {
+                    "type": "message",
+                    "id": call_id,
+                    "role": "assistant",
+                    "status": "completed",
+                    "content": [{"type": "output_text", "text": text, "annotations": []}],
+                }
+            )
+            analyst_response = {
+                "id": call_id,
+                "status": "completed",
+                "model": prepared.model,
+                "output": [item],
+                "usage": {**self.usage, "total_tokens": sum(self.usage.values())},
+                "object": "response",
+            }
         return Completion(
             prepared.model,
             json.dumps(result),
             "response_fixture",
             self.usage,
             prepared.model + "-snapshot",
+            analyst_response=analyst_response,
         )
 
 
@@ -135,6 +201,10 @@ def test_research_flow_pins_records_and_review_feedback(database: Database) -> N
     review = approve(first, "Please investigate the alternative explanation.")
     revised = store.resume(request.id, review)
     assert revised.status == "paused" and revised.review.node_id == "final_review"
+    inspected = store.get(request.id)
+    decided = next(event for event in inspected.events if event.kind == "review")
+    assert decided.review_response and decided.review_response.decision == "approve"
+    assert decided.review_response.feedback == "Please investigate the alternative explanation."
     assert [attempt.stage for attempt in revised.model_attempts] == [
         "hypothesize",
         "challenge",
@@ -209,6 +279,33 @@ def test_token_admission_stops_next_call(database: Database, usage: Any) -> None
     assert next_result.status == "limited" and "token budget" in next_result.stop_reason
     assert len(provider.calls) == 1
     assert next_result.usage.usage_complete == bool(provider.usage)
+
+
+def test_default_run_budget_allows_large_research_steps(database: Database) -> None:
+    store, request, provider = setup_run(database)
+    provider.usage = {"input_tokens": 290_000, "output_tokens": 10_000}
+    first = store.start(request)
+    assert first.research_manifest
+    assert first.research_manifest.settings.limits.max_total_tokens == 1_000_000
+    revised = store.resume(request.id, approve(first))
+    assert revised.status == "paused" and len(provider.calls) == 3
+    assert revised.usage.input_tokens + revised.usage.output_tokens == 900_000
+
+
+@pytest.mark.parametrize("usage", [{"input_tokens": 1_100_000, "output_tokens": 30}, {}])
+def test_as_needed_tokens_preserve_request_limits(
+    database: Database, usage: dict[str, int]
+) -> None:
+    store, request, provider = setup_run(database, max_total_tokens="as_needed", max_model_calls=2)
+    provider.usage = usage
+    first = store.start(request)
+    assert first.research_manifest
+    assert first.research_manifest.settings.limits.max_total_tokens == "as_needed"
+    revised = store.resume(request.id, approve(first))
+    assert revised.status == "limited" and revised.stop_reason == "Model-call budget reached."
+    assert len(provider.calls) == 2
+    assert revised.usage.input_tokens == 2 * usage.get("input_tokens", 0)
+    assert revised.usage.usage_complete == bool(usage)
 
 
 def test_input_budget_and_invalid_output_are_not_successes(database: Database) -> None:

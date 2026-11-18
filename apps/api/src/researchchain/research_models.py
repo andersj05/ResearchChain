@@ -101,6 +101,21 @@ class ResearchWithLookup(ResearchResult):
     sec_lookup: SecLookup | None
 
 
+class WorkspaceFile(StrictModel):
+    name: str
+    artifact_id: Address
+    media_type: str
+    byte_size: int = Field(ge=1)
+
+
+class WorkspaceActivity(StrictModel):
+    tool: Literal["run_python"] = "run_python"
+    summary: str
+    status: Literal["requested", "completed", "failed"]
+    output: str = ""
+    files: list[WorkspaceFile] = Field(default_factory=list)
+
+
 class StoredResearchResult(ResearchResult):
     """Metadata added by the server; never part of the model output schema."""
 
@@ -108,6 +123,11 @@ class StoredResearchResult(ResearchResult):
     sec_financials: SecFinancials | None = Field(
         default=None, exclude_if=lambda value: value is None
     )
+    next_lead: str | None = Field(default=None, max_length=1500, exclude_if=lambda x: x is None)
+    workspace_activity: WorkspaceActivity | None = Field(
+        default=None, exclude_if=lambda x: x is None
+    )
+    workspace_files: list[WorkspaceFile] = Field(default_factory=list, exclude_if=lambda x: not x)
 
 
 class EvidenceSnapshot(StrictModel):
@@ -135,6 +155,7 @@ class ResearchManifest(StrictModel):
 
 
 class ModelAttempt(StrictModel):
+    web_actions_completed: int | None = Field(default=None, ge=0)
     admission_policy_revision: int | None = Field(default=None, ge=1)
     id: UUID
     path: str

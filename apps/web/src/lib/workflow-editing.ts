@@ -10,8 +10,18 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
+export type StepModelChange = { scope: GraphScope; nodeId: string; model: string };
 export type TemplateKind =
-  "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research" | "model" | "code";
+  | "note"
+  | "review"
+  | "route"
+  | "fork"
+  | "loop"
+  | "subgraph"
+  | "research"
+  | "model"
+  | "code"
+  | "workspace";
 export type Port = {
   key: string;
   node: string;
@@ -55,10 +65,102 @@ export function updateGraph(workflow: Workflow, scope: GraphScope, graph: Graph)
   };
 }
 
+export function updateStepModels(workflow: Workflow, changes: StepModelChange[]): Workflow {
+  const byScope = new Map<string, { scope: GraphScope; models: Map<string, string> }>();
+  for (const { scope, nodeId, model } of changes) {
+    const key = scopeKey(scope);
+    const group = byScope.get(key) ?? { scope, models: new Map<string, string>() };
+    group.models.set(nodeId, model);
+    byScope.set(key, group);
+  }
+
+  let next = workflow;
+  for (const { scope, models } of byScope.values()) {
+    const graph = graphAt(next, scope);
+    if (!graph) continue;
+    const nodes = graph.nodes.map((node) => {
+      const model = models.get(node.id);
+      if (node.config?.type !== "research" || model === undefined) return node;
+      return { ...node, config: { ...node.config, model: model || undefined } };
+    });
+    next = updateGraph(next, scope, { ...graph, nodes });
+  }
+  return next;
+}
+
 export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
   return node.config?.type === "subgraph" || node.config?.type === "loop"
     ? node.config.ref
     : undefined;
+}
+
+export type GraphCrumb = { ref: SubgraphRef; via: string };
+
+export function reachableControlNodes(graph: Graph) {
+  const nodes = new Set(graph.nodes.map(({ id }) => id));
+  if (!nodes.has(graph.start_node)) return [];
+  const connections = new Map<string, string[]>();
+  for (const { source, target } of graph.edges) {
+    if (!nodes.has(target)) continue;
+    const targets = connections.get(source) ?? [];
+    targets.push(target);
+    connections.set(source, targets);
+  }
+  const visited = new Set([graph.start_node]);
+  for (const id of visited) {
+    for (const target of connections.get(id) ?? []) visited.add(target);
+  }
+  return graph.nodes.filter(({ id }) => visited.has(id));
+}
+
+export function* reachableWorkflowGraphs(workflow: Workflow, { controlOnly = false } = {}) {
+  // A shared definition needs one editable destination. Prefer its shortest valid path.
+  const pending: { graph: Graph; path: GraphCrumb[] }[] = [{ graph: workflow, path: [] }];
+  const visited = new Set<string>();
+  for (const entry of pending) {
+    const { graph, path } = entry;
+    const nodes = controlOnly ? reachableControlNodes(graph) : graph.nodes;
+    yield { ...entry, nodes };
+    if (path.length >= 8) continue;
+    for (const node of nodes) {
+      const ref = referenceOf(node);
+      if (
+        !ref ||
+        visited.has(scopeKey(ref)) ||
+        graph.nodes.filter((candidate) => candidate.id === node.id).length !== 1
+      )
+        continue;
+      const bodies = workflow.subgraphs?.filter(
+        (definition) => scopeKey(definition) === scopeKey(ref),
+      );
+      if (bodies?.length !== 1) continue;
+      visited.add(scopeKey(ref));
+      pending.push({ graph: bodies[0]!, path: [...path, { ref, via: node.id }] });
+    }
+  }
+}
+
+export function workflowStepAtRunPath(workflow: Workflow, executionPath: string) {
+  const parts = executionPath.split("/");
+  if (parts[0] !== "root" || parts.length < 2 || parts.length % 2 !== 0) return;
+  const path: GraphCrumb[] = [];
+  let graph: Graph = workflow;
+  for (let index = 1; index < parts.length - 1; index += 2) {
+    const via = graph.nodes.find((node) => node.id === parts[index]);
+    const slot = parts[index + 1]!;
+    if (
+      !via ||
+      (via.config?.type === "loop" ? !/^iteration-[1-9]\d*$/.test(slot) : slot !== "body")
+    )
+      return;
+    const ref = referenceOf(via);
+    const child = ref && graphAt(workflow, ref);
+    if (!ref || !child) return;
+    path.push({ via: via.id, ref });
+    graph = child;
+  }
+  const step = graph.nodes.find((node) => node.id === parts.at(-1));
+  return step ? { step, path } : undefined;
 }
 
 export function controlOutputs(node: WorkflowNode): string[] {
@@ -108,6 +210,42 @@ export function compatiblePorts(a?: Port, b?: Port): boolean {
   return !!a && !!b && a.node !== b.node && a.direction !== b.direction && a.type === b.type;
 }
 
+function outputReference(value: ValueSource) {
+  if (value.source === "output" && value.node_id && value.port) {
+    return { sourceId: value.node_id, output: value.port };
+  }
+}
+
+export function outputBindings(graph: Graph) {
+  return graph.nodes.flatMap((target) =>
+    Object.entries(target.inputs ?? {}).flatMap(([input, value]) => {
+      const reference = outputReference(value);
+      return reference ? [{ target, input, ...reference }] : [];
+    }),
+  );
+}
+
+export function previousControlSteps(graph: Graph, stepId: string) {
+  const predecessors = new Set(
+    graph.edges
+      .filter((edge) => edge.target === stepId && edge.source !== stepId)
+      .map((edge) => edge.source),
+  );
+  return graph.nodes.filter(
+    (step) =>
+      predecessors.has(step.id) &&
+      graph.nodes.filter((candidate) => candidate.id === step.id).length === 1,
+  );
+}
+
+export function conditionBindings(graph: Graph) {
+  return graph.nodes.flatMap((target) => {
+    if (target.kind !== "route" || target.config?.type !== "route") return [];
+    const reference = outputReference(target.config.condition.left);
+    return reference ? [{ target, ...reference }] : [];
+  });
+}
+
 export function connectionsFor(graph: Graph): Connection[] {
   return [
     ...graph.edges.map((edge) => ({
@@ -115,21 +253,13 @@ export function connectionsFor(graph: Graph): Connection[] {
       to: portKey(edge.target, "input", edge.target_port ?? "in"),
       type: "control" as const,
     })),
-    ...graph.nodes.flatMap((node) =>
-      Object.entries(node.inputs ?? {}).flatMap(([name, value]) =>
-        value.source === "output" && value.node_id && value.port
-          ? [
-              {
-                from: portKey(value.node_id, "output", value.port),
-                to: portKey(node.id, "input", name),
-                type:
-                  portsFor(node).find((port) => port.direction === "input" && port.name === name)
-                    ?.type ?? "text",
-              },
-            ]
-          : [],
-      ),
-    ),
+    ...outputBindings(graph).map(({ target, input, sourceId, output }) => ({
+      from: portKey(sourceId, "output", output),
+      to: portKey(target.id, "input", input),
+      type:
+        portsFor(target).find((port) => port.direction === "input" && port.name === input)?.type ??
+        "text",
+    })),
   ];
 }
 
@@ -197,13 +327,29 @@ const makeNode = (
   position: { x: Math.min(x, 9700), y: Math.min(y, 9700) },
 });
 
-function insertionAnchor(graph: Graph, selected: string) {
+type InsertionPlacement = "default" | "before";
+type InsertionPoint = { anchor: WorkflowNode | undefined; before: boolean };
+
+export function insertionPoint(
+  graph: Graph,
+  selected: string,
+  placement: InsertionPlacement = "default",
+): InsertionPoint | undefined {
   const candidate = graph.nodes.find((node) => node.id === selected);
-  if (candidate?.config?.type === "route" || candidate?.config?.type === "fork") {
-    const join = candidate.config.join;
-    return graph.nodes.find((node) => node.id === join);
+  if (placement === "before") {
+    if (!candidate || candidate.kind === "finish") return;
+    const incoming = graph.edges.filter((item) => item.target === candidate.id);
+    if (incoming.length !== (candidate.id === graph.start_node ? 0 : 1)) return;
+    return { anchor: candidate, before: true };
   }
-  return candidate ?? graph.nodes.find((node) => node.kind === "finish");
+  const config = candidate?.config;
+  const anchor =
+    config?.type === "route" || config?.type === "fork"
+      ? graph.nodes.find((node) => node.id === config.join)
+      : (candidate ?? graph.nodes.find((node) => node.kind === "finish"));
+  const before = anchor?.kind === "finish";
+  if (before && graph.edges.filter((item) => item.target === anchor.id).length > 1) return;
+  return { anchor, before };
 }
 
 function insertFragment<G extends Graph>(
@@ -212,12 +358,10 @@ function insertFragment<G extends Graph>(
   edges: WorkflowEdge[],
   entry: string,
   exit: string,
-  selected: string,
+  { anchor, before }: InsertionPoint,
 ): G {
-  const anchor = insertionAnchor(graph, selected);
   if (!anchor)
     return { ...graph, nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges] };
-  const before = anchor.kind === "finish";
   const adjacent = graph.edges.filter((item) =>
     before ? item.target === anchor.id : item.source === anchor.id,
   );
@@ -227,7 +371,7 @@ function insertFragment<G extends Graph>(
   } else {
     remaining.push(edge(anchor.id, entry), ...adjacent.map((item) => ({ ...item, source: exit })));
   }
-  const index = graph.nodes.indexOf(anchor) + (before ? 0 : 1);
+  const index = graph.nodes.findIndex((node) => node.id === anchor.id) + (before ? 0 : 1);
   return {
     ...graph,
     nodes: [...graph.nodes.slice(0, index), ...nodes, ...graph.nodes.slice(index)],
@@ -236,12 +380,18 @@ function insertFragment<G extends Graph>(
   };
 }
 
-export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, selected: string): G {
-  const anchor = insertionAnchor(graph, selected);
-  const nextId =
-    anchor?.kind === "finish"
-      ? anchor.id
-      : graph.edges.find((item) => item.source === anchor?.id)?.target;
+export function insertStep<G extends Graph>(
+  graph: G,
+  step: WorkflowNode,
+  selected: string,
+  placement: InsertionPlacement = "default",
+): G {
+  const point = insertionPoint(graph, selected, placement);
+  if (!point) return graph;
+  const { anchor, before } = point;
+  const nextId = before
+    ? anchor?.id
+    : graph.edges.find((item) => item.source === anchor?.id)?.target;
   const finish = graph.nodes.find((node) => node.id === nextId && node.kind === "finish");
   const positioned = {
     ...step,
@@ -262,7 +412,96 @@ export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, select
         ),
       }
     : graph;
-  return insertFragment(layout, [positioned], [], step.id, step.id, selected);
+  return insertFragment(layout, [positioned], [], step.id, step.id, point);
+}
+
+function copyName(name: string, limit: number) {
+  return Array.from(`Copy of ${name}`).slice(0, limit).join("");
+}
+
+export function duplicateStep(graph: Graph, step: WorkflowNode) {
+  let id = makeId(step.kind);
+  while (graph.nodes.some((node) => node.id === id)) id = makeId(step.kind);
+  const label = copyName(step.label, 100);
+  const duplicate = { ...structuredClone(step), id, label };
+  return { graph: insertStep(graph, duplicate, step.id), id };
+}
+
+export function prepareNestedStepCopy(workflow: Workflow, scope: GraphScope, step: WorkflowNode) {
+  const graph = graphAt(workflow, scope);
+  const config = step.config;
+  if (
+    !graph ||
+    (config?.type !== "loop" && config?.type !== "subgraph") ||
+    config.type !== step.kind
+  ) {
+    return "Choose a configured loop or subgraph to duplicate.";
+  }
+  if (graph.nodes.length >= 128 || graph.edges.length >= 256) {
+    return "This graph has reached its step or connection limit.";
+  }
+
+  const definitions = workflow.subgraphs ?? [];
+  const byRef = new Map(definitions.map((definition) => [scopeKey(definition), definition]));
+  const reachable = new Map<string, SubgraphDefinition>();
+  const visiting = new Set<string>();
+  function visit(ref: SubgraphRef): string | undefined {
+    const key = scopeKey(ref);
+    if (visiting.has(key)) return "Resolve recursive subgraph references before duplicating.";
+    if (reachable.has(key)) return;
+    const body = byRef.get(key);
+    if (!body) return "Choose an existing definition for every nested step before duplicating.";
+
+    visiting.add(key);
+    for (const node of body.nodes) {
+      const child = referenceOf(node);
+      if (!child) continue;
+      const reason = visit(child);
+      if (reason) return reason;
+    }
+    visiting.delete(key);
+    reachable.set(key, body);
+  }
+  const reason = visit(config.ref);
+  if (reason) return reason;
+  if (definitions.length + reachable.size > 32) {
+    return "This copy would exceed the workflow’s 32-definition limit.";
+  }
+
+  return () => {
+    // Clone each pinned definition once so references that shared a body still
+    // share one within the copy. Body node IDs keep local inputs and predicates valid.
+    const copies = new Map(
+      Array.from(reachable.keys(), (key) => [
+        key,
+        { id: `body-${crypto.randomUUID()}`, version: 1 },
+      ]),
+    );
+    const copiedBodies = Array.from(reachable, ([key, body]) => {
+      const copy = structuredClone(body);
+      for (const node of copy.nodes) {
+        if (node.config?.type === "loop" || node.config?.type === "subgraph") {
+          node.config.ref = copies.get(scopeKey(node.config.ref))!;
+        }
+      }
+      return { ...copy, ...copies.get(key)!, name: copyName(copy.name, 120) };
+    });
+    const id = makeId(step.kind);
+    const duplicate = {
+      ...structuredClone(step),
+      id,
+      label: copyName(step.label, 100),
+      config: { ...structuredClone(config), ref: copies.get(scopeKey(config.ref))! },
+    };
+    return {
+      id,
+      workflow: updateGraph(
+        { ...workflow, subgraphs: [...definitions, ...copiedBodies] },
+        scope,
+        insertStep(graph, duplicate, step.id),
+      ),
+    };
+  };
 }
 
 export function addTemplate(
@@ -270,12 +509,14 @@ export function addTemplate(
   scope: GraphScope,
   kind: TemplateKind,
   selected: string,
+  placement: InsertionPlacement = "default",
 ): { workflow: Workflow; selected: string } {
   const graph = graphAt(workflow, scope);
   if (!graph) return { workflow, selected };
+  const point = insertionPoint(graph, selected, placement);
+  if (!point) return { workflow, selected };
   const id = makeId(kind);
-  const anchor = insertionAnchor(graph, selected);
-  const x = Math.min(anchor?.position.x ?? 60, 8800);
+  const x = Math.min(point.anchor?.position.x ?? 60, 8800);
   const y = Math.min(Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 180, 9400);
   let next =
     workflow.schema_version === "0.1" && graph.nodes.length >= 32
@@ -294,25 +535,56 @@ export function addTemplate(
       inputs: { text: { source: "brief" } },
     };
     next = { ...next, schema_version: next.schema_version === "0.3" ? "0.3" : "0.2" };
-    return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
+    return {
+      workflow: updateGraph(next, scope, insertStep(graph, step, selected, placement)),
+      selected: id,
+    };
   }
-  if (kind === "research" || kind === "model") {
-    const step = {
-      ...makeNode(id, "research", kind === "model" ? "Model prompt" : "Form hypotheses"),
+  if (kind === "research" || kind === "model" || kind === "workspace") {
+    const label = {
+      model: "Model prompt",
+      research: "Form hypotheses",
+      workspace: "Research workspace",
+    }[kind];
+    const step: WorkflowNode = {
+      ...makeNode(id, "research", label),
       config: {
-        type: "research" as const,
-        stage: kind === "model" ? ("custom" as const) : ("hypothesize" as const),
-        prompt_version: kind === "model" ? ("custom-1" as const) : ("research-1" as const),
-        web_search: false,
+        type: "research",
+        stage: kind === "research" ? "hypothesize" : "custom",
+        prompt_version: kind === "research" ? "research-1" : "custom-1",
+        web_search: kind === "workspace" ? "auto" : false,
         sec_financials: false,
+        ...(kind === "workspace" && { analyst: { workspace: true, max_passes: 12, skill: "" } }),
       },
     };
+    const newWorkspace = kind === "workspace" && !next.research;
+    const research = next.research ?? structuredClone(researchDefaults);
+    if (newWorkspace) {
+      research.limits = {
+        ...researchDefaults.limits,
+        max_model_calls: 12,
+        max_tool_calls: 12,
+        max_input_bytes: 8000000,
+        max_response_seconds: 300,
+      };
+    }
+    if (kind === "workspace") {
+      step.instructions =
+        "Investigate the question in the brief. Look for dated primary sources and competing explanations. Use Python to test claims against the data. Save the analysis, useful charts and a report with sources and limitations.";
+    }
     next = {
       ...next,
       schema_version: "0.3",
-      research: next.research ?? structuredClone(researchDefaults),
+      research,
+      ...(newWorkspace &&
+        !next.budgets && {
+          budgets: { max_active_seconds: 1800, max_node_executions: 256, max_concurrency: 4 },
+        }),
     };
-    return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
+    return {
+      workflow: updateGraph(next, scope, insertStep(graph, step, selected, placement)),
+      selected: id,
+    };
   }
   if (kind === "note" || kind === "review") {
     return {
@@ -323,6 +595,7 @@ export function addTemplate(
           graph,
           makeNode(id, kind, kind === "note" ? "New research note" : "New human review"),
           selected,
+          placement,
         ),
       ),
       selected: id,
@@ -358,7 +631,7 @@ export function addTemplate(
       branches.flatMap((branch, i) => [edge(id, branch.id, names[i]), edge(branch.id, join.id)]),
       id,
       join.id,
-      selected,
+      point,
     );
     return { workflow: updateGraph(next, scope, updated), selected: id };
   }
@@ -383,7 +656,7 @@ export function addTemplate(
   };
   next.subgraphs = [...(next.subgraphs ?? []), definition];
   return {
-    workflow: updateGraph(next, scope, insertFragment(graph, [node], [], id, id, selected)),
+    workflow: updateGraph(next, scope, insertFragment(graph, [node], [], id, id, point)),
     selected: id,
   };
 }

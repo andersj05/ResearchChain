@@ -37,6 +37,42 @@ command applies LangGraph's checkpoint migrations under a database lock. Back up
 the database before upgrades; volumes and checkpoints are not backups. Use the
 [backup, verified restore and migration recovery procedure](backups.md).
 
+## Desktop delivery
+
+Workspace-enabled research nodes use the installed Codex CLI and a local Python
+runner image. Build the image from this checkout when installing or updating
+the runner. The build downloads the pinned Python environment. Running a
+research script uses the local image with networking disabled.
+
+```text
+docker build -t researchchain/analyst-python:1 docker/analyst-python
+```
+
+The owner's Windows app runs from `C:/Users/jense/Desktop/ResearchChain` and
+tracks `origin/dev`. Complete these steps on the owner's machine after merging
+an implementation, even when development and tests ran in a different checkout.
+
+1. In the Desktop clone, run `git status --short --branch` and `git fetch origin dev`.
+   Record the installed and target commits. Compare them for dependency,
+   migration and runtime changes. Preserve local edits, commits, the ignored
+   environment and owner data. If changes conflict with the update, report the
+   conflict with both revisions.
+2. Before restarting services, use `pnpm operations` to check the worker and
+   active requests. Let active work reach a safe pause. For a schema change,
+   follow [Upgrade and rollback](backups.md#upgrade-and-rollback) using the old
+   code for backup and restore verification, then rehearse the new migration.
+3. In the Desktop clone, switch to `dev` and run `git merge --ff-only origin/dev`.
+   Rebuild the Python image when files under `docker/analyst-python` change.
+   Sync changed dependencies with `pnpm install --frozen-lockfile` or
+   `uv sync --project apps/api --locked` as applicable. Apply rehearsed schema
+   changes with `pnpm db:migrate`. Restart the affected services from this clone.
+   The standard `pnpm dev` launcher runs the web app, API and worker together.
+4. Verify the Desktop `HEAD` matches the fetched `origin/dev`. Open the workbench
+   at `http://127.0.0.1:3000`, check `/api/health` through the web app, and
+   confirm a connected worker with `pnpm operations`. Check an observable part
+   of the delivered change without starting a research run. Include the deployed
+   commit and verification result in the handoff.
+
 ## Optional ChatGPT plan connection
 
 Use **Run workflow → ChatGPT plan usage → Connect ChatGPT** in a research
@@ -112,21 +148,117 @@ acceptance concerns owner control, not pilot quality or production hosting.
 The full-height desktop workbench uses a step library and outline on the left,
 a canvas in the center, and a selected-step inspector on the right. Collapse
 either panel from the canvas header. The outline selects and reveals offscreen
-nodes. Zoom controls and Fit view change only the viewport; Reset view restores
-100% zoom. Workflow settings expand beneath the outline. On smaller screens,
-the library and inspector move below the canvas.
+nodes. **Find a step** at the top of **Steps** searches names, instructions, and
+assigned models in the draft and referenced subgraphs. Choose **Reviews** or
+**Model steps** to list that type with or without search text. **All steps**
+with an empty search restores the current graph's outline. Select a match to
+focus its step editor. Enter opens the first match and Escape clears the text.
+Long names wrap in the outline and search results. A result in a referenced
+subgraph shows its pinned version. When results have the same visible title,
+type, and location, the search shows the step or definition ID needed to tell
+them apart.
+Zoom controls and Fit view change only the viewport. In **Visible connections**,
+choose all connections, control flow, or data bindings to inspect the canvas.
+Build remembers that choice for the current owner in this browser, including
+when opening a subgraph. Ports stay available for editing in every view.
+**Reset view** restores 100% zoom and all connections. Workflow settings expand
+beneath the outline. On smaller screens, the library and inspector move below
+the canvas.
+
+On a human review, **Review handoff** shows the steps that lead into the review
+and the inputs and conditions wired to its feedback. Follow a previous step to
+inspect what prepares the decision, or a binding to focus the receiving field.
+Open **Review plan** to scan the questions for reachable reviews across the
+workflow and its pinned subgraphs. Each review shows its feedback binding count.
+Open **Wiring** to inspect the previous control steps and feedback bindings.
+Select a review or a previous control step to open its editor. Select a feedback
+binding to focus the receiving input or condition in its pinned graph.
+
+For other steps with data outputs, **Output bindings** shows the inputs and
+conditions that read each output in the current graph. Select a binding to focus
+the receiving field, then use **Return to step** to reopen the source.
+
+On a condition or parallel split, open **Branch paths** to see the first step,
+other steps in the current graph, and the paired join. Follow a step to inspect
+its settings. The disclosure updates as you rewire the draft and flags paths it
+cannot resolve. Validation links can open the **Condition**, **Join step**, or
+**Stop condition** setting when the server identifies it. A loop's stop condition
+opens on the loop that owns it, where you can choose an output available at the
+end of every iteration of its body.
+
+Input pickers group step outputs by availability when the control wiring is
+complete. Outputs from every branch can be available after a parallel join.
+After a conditional join, an output must be available whichever branch runs.
+The picker keeps existing selections and shows the full source list while
+control connections are incomplete.
+Use **Open source** beside a configured output binding to inspect the producing
+step. For a loop stop condition, it opens the source in that loop’s pinned body.
+While editing a pinned subgraph, **Used by** lists the draft steps that reference
+that version. Select a reachable caller to open it, then use **Return to step**
+to resume editing the body.
+Choose an ancestor breadcrumb to focus the exact step that called the next graph
+in the current path. The current graph's breadcrumb focuses its first step.
+
+Open **Model and tool plan** to see each reachable research step’s effective
+model and enabled tools. The plan shows which steps inherit the workflow model
+and which override it. A confirmed account catalog flags steps using an unlisted
+model. Select a step to edit its override or use **Workflow model** for inherited
+choices. **Run workflow** can refresh or connect the account catalog.
+When validation locates an issue in the current draft, use **Open input** to
+focus the affected input or **Open step** to open the step.
+Following a step link from search, a plan, Review handoff, or validation records
+the step you were editing. Use **Return to step** repeatedly to retrace those
+links in reverse, including the exact callers and versions of pinned subgraphs.
+Undo continues to track draft edits.
 
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
 validation failures remain visible in the dialog. Visual conventions and the
 Vercel reference audit are recorded in [design.md](design.md).
 
-Add a step after the selection, or before a selected Finish; its connections are
-created automatically and its name is focused for editing. Removing a middle step
-reconnects its neighbors, and removing the first advances the workflow entry.
-These operations are undoable and still require server validation before saving.
+**Recent run** opens the newest known run for the exact saved version and agent
+from Build's recent history. Return to **Build** to continue your draft. Use
+**Runs** to search beyond the recent history window.
 
-Edit a step in the inspector; use its Next step field to connect or disconnect it.
+The **Steps** palette adds after the selected step by default. It uses the paired
+join for a selected split and adds before a selected Finish. Use **Insert position**
+to add before the selected entry or a step with one incoming connection. The choice
+applies to the next addition and resets when you select a step. Build reconnects
+control wires and focuses the new name. Removing a middle step reconnects its
+neighbors, and removing the first advances the workflow entry. These operations
+are undoable and still require server validation before saving.
+
+**Duplicate research step** inserts a copy after the selected research step and
+focuses its name. The copy starts with the same instructions, model, tools and
+input bindings. Edit the copy to try a different model or research approach.
+
+**Duplicate review** inserts a separate checkpoint after the selected review.
+Edit its question, then use the receiving step’s input picker to route feedback
+from the copy.
+
+**Duplicate loop** and **Duplicate subgraph** insert an editable copy after the
+selected step, including separate copies of the definitions it uses. References
+that share a definition within the original share the corresponding definition
+within the copy. Follow **Control connections** and input bindings to route the
+copy’s output where you need it. One Undo removes the new step and its definitions.
+
+When editing a saved workflow, open **Draft changes** next to **Save revision**.
+It starts with the current saved revision. For a named agent, **Compare with**
+can select one of its earlier versions while keeping the current draft. The
+preview lists changes to instructions, inputs, routing, and workflow settings.
+Input sources and control destinations show step names and IDs.
+Use **Find changes** to filter by step name or ID, graph, or changed setting.
+Matching steps open automatically, and the search stays active when you switch
+baselines or restore text. **Open draft step** opens the step's current editor.
+Choose **Use saved instructions** or **Use saved review question** to bring back
+only that text from the selected baseline. Undo reverses one restore at a time.
+The preview also identifies a matching draft or a change limited to canvas positions.
+**Return to step** takes you back to the step you were editing.
+
+Edit a step in the inspector. Use **Expand** on Instructions or Review question
+to open a larger editor. **Apply to draft** adds one undoable edit, while **Cancel**
+or Escape returns to the inspector with the original text. Use the **Next step**
+field to connect or disconnect the step.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
 Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loading
 a saved draft validates it through the local API before rendering it. Undo keeps
@@ -137,8 +269,62 @@ automatically saves and pins the current revision plus the brief. Revisions are
 immutable, and loading an older revision is undoable. Revision numbers are database
 sequence values, so concurrent saves can leave gaps.
 
-The Runs view lists recent runs and their original briefs, revisions, completed
-steps, and review questions. Run links survive browser refresh and API restart.
+The Runs view lists recent runs with a searchable excerpt of each research
+brief. Open a run for its full brief, revision, completed steps, and review
+questions. Run links survive browser refresh and API restart.
+
+In **Run workflow → Step models**, assign a model to any research step in the
+draft, including a step in a referenced subgraph. **Use workflow default for all
+steps** clears the displayed overrides in one undoable edit. Starting the run
+saves the draft if needed and pins the saved model assignments to that run.
+**Run limits** shows the active-time and model-attempt budgets before start.
+Expand it to edit execution, response, and evidence limits in the same draft.
+**Selected sources** shows exact evidence versions in the order they will be
+pinned. Inspect the source in a separate tab, check its as-of date when available,
+or move or remove it while browsing the rest of the library.
+**Run context → Pinned evidence** shows the saved source dates and can use the
+research manifest when a source record takes longer to load or is unavailable.
+In a saved step, **Data bindings** shows the explicit input and output port
+connections. Select a connected step to open it in the same graph and iteration.
+In a model attempt, **Inspect saved inputs** reads the stored request to show the
+brief, reviewer feedback, prior conclusion, and delivery status of each source.
+**Saved request** in **Attempt details** opens the complete receipt.
+The two cards in **Model outputs by step** can each show their saved inputs,
+making it possible to check whether a changed result followed changed feedback.
+When shared sources changed order, **Setup changes → Pinned source order** shows
+both runs’ full saved order.
+Search the entire evidence library by title, author, publisher, or saved date
+while keeping the selected records in view.
+The **Sources** workspace uses the same library search and applies availability
+before paging. Filtering the list keeps the open source and its linked claims
+in view.
+
+**Model activity** can sort attempts by elapsed time or total reported tokens.
+Rows with missing measurements follow measured rows. Switch to **Timeline** to
+see when recorded model attempts started and overlapped. A hollow point marks a
+start whose duration is unreported. Select any attempt to inspect its exact
+request and output. The browser remembers the display and sort preferences.
+When the timeline is filtered, **Timeline range** can fit the matching attempts
+or keep the original scale for the entire run. Model activity and Files keep
+their filters as you inspect a step and return within the same open run.
+Use **Workflow step** to scope activity to a saved step and loop iteration.
+**Model activity for this step** opens that scope directly from Step details.
+
+Use **Copy attempt link** in **Attempt details** to reopen the specific saved
+pass, including an earlier pass of the same step.
+**Iterate from this step** loads the pinned revision, copied brief, and sources
+and opens the corresponding step in Build. For a loop iteration, Build opens
+the versioned body and selects the step that ran.
+When you iterate from a saved run, Run setup shows its baseline. You can clear
+the association before starting. After you start the revised experiment,
+**Compare with baseline** opens the original run alongside the new one.
+
+Unsent feedback stays in the current browser tab when you switch runs or refresh.
+Drafts clear when the app observes a resolved checkpoint or a terminal run.
+**Copy review link** opens the same pending question in another tab. When the
+question has been answered or the checkpoint changes, the link opens Decisions
+with the saved decisions and current questions.
+
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
@@ -154,6 +340,58 @@ The UI shows the latest 20 runs and 50 revisions. The API accepts bounded `limit
 parameters and direct UUID lookups; there is no automatic data deletion. A run
 also pins a compiler version. Incompatible executors refuse recovery instead of
 silently interpreting old checkpoints through changed code.
+
+In **Runs → Compare runs**, select another run for the same
+agent to inspect its pinned revision, models, usage, sources, brief, and feedback
+alongside the open run. The comparison picker labels runs with brief excerpts.
+**Model outputs by step** compares the same step and
+iteration. Each side opens the latest saved conclusion, or the latest saved
+output if there is no conclusion yet. Use **Saved pass** to inspect a different
+conclusion, research lead, or workspace activity independently on each side.
+The saved input preview and attempt link follow the selected pass. **Copy pass
+comparison link** reopens the selected step and both saved passes. The
+comparison loads a snapshot when you select it. Open its own run view to follow
+active work.
+**Recorded web sources** shows shared and unique provider-recorded URLs for the
+two selected passes and flags incomplete receipts. The saved input preview shows
+the material each pass received from earlier work.
+**Saved research input changes** compares the brief, feedback, instructions,
+prior result, and evidence records supplied in the two requests. Open an
+individual saved request for the complete payload.
+**Setup changes** shows before and after values for changed prompts, tools, inputs,
+routing, limits and judgments. It follows the referenced subgraph versions and
+compares pinned source identities and order.
+
+**Output file changes** pairs the latest saved file at each step and filename.
+Open each side to preview or download the saved versions. File contents are
+matched by their stored artifact hashes.
+CSV previews use the first row as column headers and keep the cell text as saved.
+Use **Show raw CSV** for the full text when the table preview shows only the first
+50 data rows or 20 columns.
+
+Open **Search saved runs** in Runs for the full archive, or **Search comparison
+runs** in the comparison picker for the current agent's archive. Search by brief,
+agent, workflow, or run ID and filter by saved status. The recent run list still
+provides a quick view of the latest 20 runs.
+
+Selecting a comparison run puts both run IDs in the address bar. Use **Copy
+comparison link** to bookmark the pair, including a baseline from the archive.
+
+Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
+including runs outside Recent runs. Each row includes a brief excerpt to identify
+the experiment. It lists the oldest runs first, 20 per page, and
+refreshes while open. Opening a question checks the current checkpoint and takes
+you to its evidence and decision controls. An expired entry refreshes the inbox.
+
+In the review inbox, **Show reviews for** can limit the queue to the active agent.
+
+In **Runs → Decisions**, expand **Steps wired to this feedback** on a recorded
+judgment to inspect steps with a direct input binding. A model step links to the
+latest saved request for that exact step and iteration when one exists.
+When multiple reviews include written feedback, **Combine feedback for next
+run** appends the selected judgments in recorded order. The composer previews
+the next brief with the original run and checkpoint identified for each entry.
+**Open next experiment in Build** loads the saved workflow and the composed brief.
 
 To manually verify restart: run the sample until it pauses, restart `pnpm dev:api`,
 refresh the run's URL, and approve. Editing/saving a newer workflow before the

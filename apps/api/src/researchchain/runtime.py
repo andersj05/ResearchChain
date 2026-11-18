@@ -2,13 +2,13 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Any, TypedDict
+from typing import Any, Literal, TypedDict
 from uuid import UUID, uuid4
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.postgres import PostgresSaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import Command, StateSnapshot, interrupt
 from psycopg import Connection
 from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
@@ -27,8 +27,15 @@ from researchchain.database import Database
 from researchchain.evidence import read_evidence
 from researchchain.models import (
     CancelResult,
+    CheckpointStep,
+    PendingReviewRun,
+    PendingReviewsPage,
+    RecentRunSummary,
     ResumeRequest,
     ReviewPrompt,
+    RunArchiveItem,
+    RunArchivePage,
+    RunArchiveQuery,
     RunEvent,
     RunRequest,
     RunSnapshot,
@@ -51,6 +58,39 @@ from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
 CODE_COMPILER_VERSION = "code-0.1.0"
+
+
+def checkpoint_steps(state: StateSnapshot, status: str) -> list[CheckpointStep]:
+    steps = []
+    for task in state.tasks:
+        step_status: Literal["scheduled", "stopped"]
+        if task.name.startswith("__"):
+            continue
+        if task.error is not None:
+            step_status = "stopped"
+        elif status in {"running", "queued", "interrupted"} and task.name in state.next:
+            step_status = "scheduled"
+        else:
+            continue
+        path = task.name if "/" in task.name else f"root/{task.name}"
+        # A loop check or subgraph exit belongs to its enclosing workflow node.
+        # User steps have an even number of components (root/node[/body/node]).
+        if len(path.split("/")) % 2:
+            path = path.rsplit("/", 1)[0]
+        steps.append(CheckpointStep(path=path, status=step_status))
+    return steps
+
+
+def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
+    if workflow.schema_version == "0.1":
+        return [RunEvent.model_validate(event) for event in state.values.get("events", [])]
+    outputs = state.values.get("outputs", {})
+    events = []
+    for path, event in state.values.get("records", {}).items():
+        if event["kind"] == "review" and "decision" in outputs.get(path, {}):
+            event = {**event, "review_response": outputs[path]}
+        events.append(RunEvent.model_validate(event))
+    return events
 
 
 def compiler_version(workflow: Workflow) -> str:
@@ -225,15 +265,15 @@ class RunStore:
             created_at=manifest["created_at"],
             workflow=revision.workflow,
             brief=manifest["brief"],
+            baseline_run_id=manifest["baseline_run_id"],
             artifacts=manifest["artifacts"],
             evidence_ids=self._evidence_ids(conn, manifest["id"]),
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
+            checkpoint_steps=checkpoint_steps(state, status),
             status=status,
             execution_pending=running or queued,
-            events=list(state.values.get("records", {}).values())
-            if revision.workflow.schema_version != "0.1"
-            else state.values.get("events", []),
+            events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
             reviews=reviews,
             stop_reason=control["reason"] or worker_error,
@@ -354,6 +394,7 @@ class RunStore:
         if existing and (
             run_agent(conn, request.id)["agent_id"] != request.agent_id
             or existing["revision_id"] != request.revision_id
+            or existing["baseline_run_id"] != request.baseline_run_id
             or existing["brief"] != request.brief
             or self._evidence_ids(conn, request.id) != request.evidence_ids
         ):
@@ -370,6 +411,14 @@ class RunStore:
         )
         artifacts = [item.model_dump() for item in request.artifacts]
         if existing is None:
+            if request.baseline_run_id is not None:
+                baseline = conn.execute(
+                    "SELECT a.agent_id FROM runs r LEFT JOIN agent_runs a ON a.run_id = r.id "
+                    "WHERE r.id = %s",
+                    (request.baseline_run_id,),
+                ).fetchone()
+                if baseline is None or baseline["agent_id"] != request.agent_id:
+                    raise NotFoundError("Baseline run not found for this agent.")
             if len({item.id for item in request.artifacts}) != len(request.artifacts):
                 raise EvidenceError("Select each original only once.")
             for item in request.artifacts:
@@ -402,14 +451,16 @@ class RunStore:
                 raise EvidenceError("Provider selection is only valid for a research workflow.")
             with conn.transaction():
                 conn.execute(
-                    "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
-                    "VALUES (%s, %s, %s, %s, %s)",
+                    "INSERT INTO runs "
+                    "(id, revision_id, compiler_version, brief, artifacts, baseline_run_id) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
                     (
                         request.id,
                         request.revision_id,
                         compiler_version(workflow),
                         request.brief,
                         Jsonb(artifacts),
+                        request.baseline_run_id,
                     ),
                 )
                 if selected_agent:
@@ -483,14 +534,21 @@ class RunStore:
                 worker_error=job["last_error"] if job else None,
             )
 
-    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RunSummary]:
+    def search(self, query: RunArchiveQuery) -> RunArchivePage:
+        matches = self._search_runs(query, look_ahead=True)
+        return RunArchivePage(items=matches[: query.limit], has_more=len(matches) > query.limit)
+
+    def _search_runs(
+        self, query: RunArchiveQuery, *, look_ahead: bool = False
+    ) -> list[RunArchiveItem]:
         # History reads journaled summaries, not every graph/checkpoint. A live
         # advisory lock distinguishes executing commands from abandoned ones.
         with self.database.connection() as conn:
             rows = conn.execute(
-                "SELECT r.id, a.agent_id, a.agent_name, r.revision_id, "
+                "SELECT * FROM (SELECT r.id, a.agent_id, a.agent_name, r.revision_id, "
                 "w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
+                "LEFT(r.brief, 240) AS brief_excerpt, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
                 "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
                 "WHEN EXISTS ("
@@ -508,11 +566,64 @@ class RunStore:
                 "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
-                "WHERE (%s::uuid IS NULL OR a.agent_id = %s) "
-                "ORDER BY r.created_at DESC, r.id DESC LIMIT %s",
-                (agent_id, agent_id, limit),
+                "WHERE (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(unassigned)s OR a.agent_id IS NULL) "
+                "AND (%(exclude_id)s::uuid IS NULL OR r.id <> %(exclude_id)s) "
+                "AND (%(before_created_at)s::timestamptz IS NULL "
+                "OR (r.created_at, r.id) < (%(before_created_at)s, %(before_id)s)) "
+                "AND (%(search)s = '' OR strpos(lower(concat_ws(' ', "
+                "w.workflow->>'name', a.agent_name, r.id::text, r.brief)), lower(%(search)s)) > 0)"
+                ") summary WHERE (%(status)s::text IS NULL OR status = %(status)s) "
+                "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
+                {
+                    **query.model_dump(),
+                    "search": query.search.strip(),
+                    "limit": query.limit + int(look_ahead),
+                },
             )
-            return [RunSummary.model_validate(row) for row in rows]
+            return [
+                RunArchiveItem(
+                    brief_excerpt=row.pop("brief_excerpt"), run=RunSummary.model_validate(row)
+                )
+                for row in rows
+            ]
+
+    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RecentRunSummary]:
+        return [
+            RecentRunSummary(**item.run.model_dump(), brief_excerpt=item.brief_excerpt)
+            for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
+        ]
+
+    def pending_reviews(
+        self, limit: int, offset: int, agent_id: UUID | None = None
+    ) -> PendingReviewsPage:
+        # Read the most recent command receipt. An admitted resume has no response
+        # yet and hides the old questions until the worker records its next pause.
+        with self.database.connection() as conn:
+            rows = conn.execute(
+                "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
+                "LEFT(r.brief, 240) AS brief_excerpt, "
+                "command.response->>'checkpoint_id' AS checkpoint_id, "
+                "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
+                "THEN command.response->'reviews' "
+                "ELSE jsonb_build_array(command.response->'review') END AS reviews "
+                "FROM runs r JOIN run_controls c ON c.run_id = r.id "
+                "JOIN workflow_revisions w ON w.id = r.revision_id "
+                "LEFT JOIN agent_runs a ON a.run_id = r.id "
+                "JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
+                "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
+                "WHERE c.terminal_status IS NULL AND command.response->>'status' = 'paused' "
+                "AND command.response->>'checkpoint_id' IS NOT NULL "
+                "AND (command.response->>'review' IS NOT NULL "
+                "OR command.response->'reviews'->0 IS NOT NULL) "
+                "AND (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "ORDER BY r.created_at, r.id LIMIT %(limit)s OFFSET %(offset)s",
+                {"agent_id": agent_id, "limit": limit + 1, "offset": offset},
+            ).fetchall()
+            return PendingReviewsPage(
+                items=[PendingReviewRun.model_validate(row) for row in rows[:limit]],
+                has_more=len(rows) > limit,
+            )
 
     def resume_command(
         self, conn: Connection[DictRow], run_id: UUID, request: ResumeRequest

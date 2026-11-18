@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import type { EvidenceRecord } from "../src/lib/evidence";
+import { researchDefaults, type RunSnapshot, type WorkflowRevision } from "../src/lib/workflow";
 
 async function addText(page: Page, title: string, text: string) {
   await page.getByRole("button", { name: "Add source", exact: true }).click();
@@ -82,18 +83,46 @@ test("capture untrusted source text and preserve conflicting claim links", async
 
 test("pin evidence to a run and retain the earlier source after correction", async ({
   page,
+  request,
 }, testInfo) => {
   const title = `Pinned source ${randomUUID().slice(0, 8)}`;
+  const companionTitle = `${title} comparison`;
+  const companionResponse = await request.post("/api/evidence", {
+    data: {
+      id: randomUUID(),
+      title: companionTitle,
+      kind: "text",
+      text: "Synthetic comparison observation.",
+      rights: "owned",
+    },
+  });
+  expect(companionResponse.status()).toBe(201);
+  const companion: EvidenceRecord = await companionResponse.json();
   await addText(page, title, "Synthetic immutable original.");
   const first = await saveSource(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("checkbox", { name: `${title} Captured`, exact: true }).check();
+  await page.getByRole("checkbox", { name: `${companionTitle} Captured`, exact: true }).check();
+  await page.getByText("Selected sources (2)", { exact: true }).click();
+  const selection = page.locator(".evidence-selected");
+  await expect(selection.getByRole("link")).toHaveText([title, companionTitle]);
+  const down = selection.getByRole("button", { name: `Move ${title} down`, exact: true });
+  await down.focus();
+  await page.keyboard.press("Enter");
+  await expect(down).toBeFocused();
+  await expect(selection.getByRole("link")).toHaveText([companionTitle, title]);
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused" })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
+  const context = page.getByRole("button", { name: "Run context", exact: true });
+  await context.click();
   const pinned = page.getByRole("region", { name: "Pinned evidence" });
-  await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
+  await expect(pinned.getByRole("link")).toHaveText([companionTitle, title]);
   const runId = new URL(page.url()).searchParams.get("run");
+  const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
+  expect(snapshot.evidence_ids).toEqual([companion.id, first.id]);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole("tab", { name: "Sources", exact: true }).click();
   await page.getByRole("button", { name: "Correct provenance" }).click();
   await page.getByLabel("Source title", { exact: true }).fill(`${title} corrected`);
@@ -101,11 +130,101 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   expect(corrected.replaces_id).toBe(first.id);
   expect(corrected.content_hash).toBe(first.content_hash);
   await page.getByRole("tab", { name: "Runs", exact: true }).click();
+  await context.click();
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   await page.reload();
   expect(new URL(page.url()).searchParams.get("run")).toBe(runId);
+  await context.click();
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("pinned-evidence-run.png"), fullPage: true });
+});
+
+test("pinned evidence keeps saved provenance when one source cannot load", async ({
+  page,
+  request,
+}) => {
+  const revisionId = new URL(page.url()).searchParams.get("revision");
+  const revision: WorkflowRevision = await (
+    await request.get(`/api/revisions/${revisionId}`)
+  ).json();
+  const evidence: EvidenceRecord[] = await Promise.all(
+    ["Synthetic policy release", "Synthetic pricing snapshot"].map(async (title, index) => {
+      const response = await request.post("/api/evidence", {
+        data: {
+          id: randomUUID(),
+          title,
+          kind: "text",
+          text: "Synthetic time-series observation.",
+          rights: "owned",
+          publisher: "Fixture Desk",
+          ...(index === 0 ? { published_date: "2026-11-16" } : { as_of_date: "2026-11-17" }),
+        },
+      });
+      expect(response.status()).toBe(201);
+      return response.json();
+    }),
+  );
+  const now = new Date().toISOString();
+  const run: RunSnapshot = {
+    id: randomUUID(),
+    revision_id: revision.id,
+    revision_number: revision.number,
+    workflow: revision.workflow,
+    workflow_name: revision.name,
+    brief: "Synthetic pinned input check",
+    status: "completed",
+    execution_pending: false,
+    checkpoint_id: null,
+    compiler_version: "research-0.3.0",
+    created_at: now,
+    artifacts: [],
+    events: [],
+    evidence_ids: evidence.map((item) => item.id),
+    research_manifest: {
+      version: "research-manifest-1",
+      settings: researchDefaults,
+      account_id: "fixture",
+      account_label: "Synthetic",
+      workflow_revision_id: revision.id,
+      compiler_version: "research-0.3.0",
+      created_at: now,
+      prompt_versions: {},
+      prompt_hashes: {},
+      tool_config: {},
+      evidence: evidence.map((item) => ({
+        evidence_id: item.id,
+        original: item.content_hash ?? null,
+        representation: item.representation ?? "original",
+        availability: item.availability ?? "available",
+        publisher: item.publisher ?? "",
+        source_url: null,
+        as_of_date: item.as_of_date ?? null,
+      })),
+    },
+  };
+  const unavailable = evidence[1]!;
+  const recordUrl = `**/api/evidence/${unavailable.id}`;
+  await page.route(recordUrl, (route) =>
+    route.fulfill({ status: 404, json: { detail: "Unavailable" } }),
+  );
+  await page.route(`**/api/runs/${run.id}`, (route) => route.fulfill({ json: run }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?run=${run.id}&view=runs`);
+  await page.getByRole("button", { name: "Run context" }).click();
+  const pinned = page.getByRole("region", { name: "Pinned evidence" });
+  await expect(pinned.getByText("Source details unavailable", { exact: true })).toBeVisible();
+  await expect(pinned.getByRole("listitem").first()).toContainText("Published 2026-11-16");
+  const older = pinned.getByRole("listitem").nth(1);
+  await expect(older).toContainText("As of 2026-11-17");
+  await expect(older).toContainText("Saved with this run");
+  await expect(older.getByRole("link")).toHaveAttribute(
+    "href",
+    `/?view=evidence&evidence=${unavailable.id}`,
+  );
+  await page.unroute(recordUrl);
+  await pinned.getByRole("button", { name: "Retry unavailable sources" }).click();
+  await expect(older.getByRole("link")).toHaveText(unavailable.title);
+  await expect(pinned.getByText("Source details unavailable", { exact: true })).toHaveCount(0);
 });
 
 test("inspect a screenshot and distinguish derived estimates from numeric source data", async ({
@@ -217,28 +336,96 @@ test("run setup retains selected evidence outside the first library page", async
       kind: "text",
       text: "Synthetic earlier source",
       rights: "owned",
+      as_of_date: "2026-11-11",
     },
   });
   const record: EvidenceRecord = await response.json();
+  const recent = Array.from({ length: 6 }, (_, index) => ({
+    ...record,
+    id: randomUUID(),
+    title: `Recent source ${index + 1}`,
+    as_of_date: "2026-11-18",
+  }));
+  let releaseSlowSearch = () => {};
+  const slowSearch = new Promise<void>((resolve) => {
+    releaseSlowSearch = resolve;
+  });
   await page.route("**/api/evidence?limit=50*", async (route) => {
-    const offset = new URL(route.request().url()).searchParams.get("offset");
+    const params = new URL(route.request().url()).searchParams;
+    const query = params.get("search");
+    if (query === "Recent") {
+      await route.fulfill({ json: { items: recent, total: recent.length, next_offset: null } });
+      return;
+    }
+    if (query === "Slow fixture") {
+      await slowSearch;
+      await route.fulfill({ json: { items: recent, total: recent.length, next_offset: null } });
+      return;
+    }
+    if (query) {
+      await route.fallback();
+      return;
+    }
+    const offset = params.get("offset");
     await route.fulfill({
       json:
         offset === "50"
           ? { items: [record], total: 51, next_offset: null }
-          : { items: [], total: 51, next_offset: 50 },
+          : { items: recent, total: 51, next_offset: 50 },
     });
   });
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Load more sources", exact: true }).click();
   await page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }).check();
   await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  const recordUrl = `**/api/evidence/${record.id}`;
+  await page.route(recordUrl, (route) =>
+    route.fulfill({ status: 404, json: { detail: "Unavailable" } }),
+  );
   await page.getByRole("button", { name: "Run workflow" }).click();
-  await expect(
-    page.getByRole("checkbox", { name: "Older selected source Captured", exact: true }),
-  ).toBeChecked();
-  await page
-    .getByRole("checkbox", { name: "Older selected source Captured", exact: true })
-    .uncheck();
+  await page.getByText("Selected sources (1)", { exact: true }).click();
+  await expect(page.getByText("Source details unavailable", { exact: true })).toBeVisible();
+  const current = page.getByRole("checkbox", { name: "Recent source 1 Captured", exact: true });
+  await expect(current).toHaveAccessibleDescription("Original source · As of 2026-11-18");
+  await page.unroute(recordUrl);
+  await page.getByRole("button", { name: "Retry selected source details" }).click();
+  const old = page.getByRole("checkbox", { name: "Older selected source Captured", exact: true });
+  await expect(old).toBeChecked();
+  const search = page.getByRole("searchbox", { name: "Search evidence library" });
+  await search.fill("Recent");
+  await expect(current).toBeVisible();
+  await expect(old).toHaveCount(0);
+  const selection = page.locator(".evidence-selected");
+  const pinned = selection.getByRole("link", { name: "Older selected source", exact: true });
+  await expect(pinned).toHaveAttribute("href", `/?view=evidence&evidence=${record.id}`);
+  await expect(pinned).toHaveAttribute("target", "_blank");
+  await expect(selection).toContainText("As of 2026-11-11");
+  await selection.getByRole("button", { name: "Remove Older selected source" }).click();
+  await expect(selection).toHaveCount(0);
+  const isSlowSearch = (url: string) => new URL(url).searchParams.get("search") === "Slow fixture";
+  try {
+    const requested = page.waitForRequest((request) => isSlowSearch(request.url()));
+    await search.fill("Slow fixture");
+    await requested;
+    await search.fill("2026-11-11");
+    await search.press("Enter");
+    await expect(old).toBeVisible();
+    await expect(old).not.toBeChecked();
+    const responded = page.waitForResponse((response) => isSlowSearch(response.url()));
+    releaseSlowSearch();
+    await (await responded).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
+    await expect(old).toBeVisible();
+    await expect(current).toHaveCount(0);
+  } finally {
+    releaseSlowSearch();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

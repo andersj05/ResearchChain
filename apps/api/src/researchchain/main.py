@@ -32,11 +32,14 @@ from researchchain.evidence_api import evidence_router
 from researchchain.models import (
     CancelResult,
     Health,
+    PendingReviewsPage,
+    RecentRunSummary,
     ResumeRequest,
     RevisionSummary,
+    RunArchivePage,
+    RunArchiveQuery,
     RunRequest,
     RunSnapshot,
-    RunSummary,
     ValidationResult,
     Workflow,
     WorkflowRevision,
@@ -257,11 +260,25 @@ def create_app(
     def start_run(request: RunRequest) -> CommandReceipt:
         return queue.start(request)
 
-    @app.get("/api/runs", response_model=list[RunSummary], operation_id="list_runs")
+    @app.get("/api/runs", response_model=list[RecentRunSummary], operation_id="list_runs")
     def list_runs(
         limit: Annotated[int, Query(ge=1, le=50)] = 20, agent_id: UUID | None = None
-    ) -> list[RunSummary]:
+    ) -> list[RecentRunSummary]:
         return runs.list(limit, agent_id)
+
+    @app.get("/api/runs/search", response_model=RunArchivePage, operation_id="search_runs")
+    def search_runs(query: Annotated[RunArchiveQuery, Query()]) -> RunArchivePage:
+        return runs.search(query)
+
+    @app.get(
+        "/api/runs/reviews", response_model=PendingReviewsPage, operation_id="list_pending_reviews"
+    )
+    def list_pending_reviews(
+        limit: Annotated[int, Query(ge=1, le=50)] = 20,
+        offset: Annotated[int, Query(ge=0, le=2_147_483_647)] = 0,
+        agent_id: UUID | None = None,
+    ) -> PendingReviewsPage:
+        return runs.pending_reviews(limit, offset, agent_id)
 
     @app.get("/api/runs/{run_id}", response_model=RunSnapshot, operation_id="get_run")
     def get_run(run_id: UUID) -> RunSnapshot:

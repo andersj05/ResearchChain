@@ -418,8 +418,14 @@ def test_plan_response_requires_completed_terminal_event(harness: Harness) -> No
                 },
             },
         ),
+        timeout_seconds=600,
     )
     assert result.text == "ok" and result.usage == {"input_tokens": 3}
+
+
+def test_response_rejects_time_above_configurable_limit(harness: Harness) -> None:
+    with pytest.raises(ValueError, match="bounded time"):
+        run_response(harness, b"", timeout_seconds=601)
 
 
 @pytest.mark.parametrize(

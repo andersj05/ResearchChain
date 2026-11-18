@@ -37,6 +37,10 @@ for (const width of [1440, 390]) {
       expect(response.status()).toBe(201);
     }
     await page.setViewportSize({ width, height: 1000 });
+    await page.route(
+      (url) => url.pathname === "/api/evidence" && url.search === "?limit=50",
+      (route) => route.fulfill({ json: { items: [source, chart], total: 51, next_offset: 50 } }),
+    );
     await page.goto(`/?view=evidence&evidence=${source.id}`);
     const sources = page.getByRole("complementary", { name: "Sources", exact: true });
     const details = page.getByRole("article", { name: "Source inspection" });
@@ -45,11 +49,14 @@ for (const width of [1440, 390]) {
     await page.getByLabel("Claims linked to this source").check();
     await expect(claims).toContainText(`Linked claim ${tag}`);
     await expect(claims).not.toContainText(`Other claim ${tag}`);
-    await page.getByLabel("Find a loaded source").fill(tag);
+    const olderSource = sources.getByRole("button", { name: new RegExp(unavailable.title) });
+    await expect(olderSource).toHaveCount(0);
+    await page.getByLabel("Find a source", { exact: true }).fill(tag);
     await page.getByLabel("Availability", { exact: true }).selectOption("paywalled");
     await expect(sources.locator(".source-list-item")).toHaveCount(1);
     await expect(details).toContainText(source.title);
-    await sources.getByRole("button", { name: new RegExp(unavailable.title) }).click();
+    await expect(sources.getByText("1 of 1 matches loaded", { exact: true })).toBeVisible();
+    await olderSource.click();
     await expect(details).toContainText("Paywalled");
     await expect(claims).toContainText("No loaded claims link to this source.");
     if (width > 850) {
@@ -94,7 +101,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("combobox", { name: "Run status", exact: true }).selectOption("failed");
     await expect(history).toContainText("No recent runs match these filters.");
     await expect(history).toContainText("Its details remain visible.");
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
     await page.getByRole("combobox", { name: "Run status", exact: true }).selectOption("paused");
     await expect(history.locator(".run-row")).toHaveCount(1);
     if (width > 850) {

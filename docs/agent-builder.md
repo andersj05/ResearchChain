@@ -6,17 +6,17 @@ saved pilots are optional examples. Evaluating them is not required to start.
 
 ## First experiment
 
-1. Select **New agent**, enter a name and create it. A blank agent starts with a
-   Finish step; optionally copy the current workflow. The **Agent** selector shows
-   what you are editing and switches between agents. Saved versions and runs belong
-   to their agent; existing unassigned workflows remain available.
+1. Select **New agent**, enter a name and choose a **Starting workflow**. Start
+   with a blank graph, copy the current graph, or try the idea generation demo.
+   The **Agent** selector switches between agents. Saved versions and runs belong
+   to each agent. [Try the idea generation demo](idea-generation-demo.md)
 2. Select **Add model prompt**. Give the step a name and write your Instructions.
    **Custom instructions** follows your task rather than requiring hypothesis
    formation. The optional hypothesis, challenge and revision behaviors retain
    their structured research rules. A **Research note** only copies text; it does
    not call a model.
-3. Add **Human review** and write the question you want to decide. Add another
-   model prompt after it. Select the first model's text under **Context input**
+3. Add **Human review** and write what you want to decide in **Review question**.
+   Add another model prompt after it. Select the first model's text under **Context input**
    and the review's feedback under **Reviewer feedback**. A control connection
    determines execution order; data inputs determine what the model receives.
 4. If needed, capture sources in **Sources**. URL-only records do not fetch pages.

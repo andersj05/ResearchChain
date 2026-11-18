@@ -40,9 +40,9 @@ for (const width of [1440, 390]) {
     );
     await page.getByRole("button", { name: "Add human review", exact: true }).click();
     await page.getByRole("textbox", { name: "Step name", exact: true }).fill("Checkpoint");
-    await page
-      .getByRole("textbox", { name: "Instructions", exact: true })
-      .fill("What should change?");
+    const question = page.getByRole("textbox", { name: "Review question", exact: true });
+    await expect(question).toHaveAttribute("placeholder", "Continue this workflow?");
+    await question.fill("What should change?");
     await page.getByRole("button", { name: "Add model prompt", exact: true }).click();
     await page.getByRole("textbox", { name: "Step name", exact: true }).fill("Improve");
     await page
@@ -69,7 +69,7 @@ for (const width of [1440, 390]) {
       .selectOption("test-model");
     await page.getByRole("checkbox", { name: new RegExp(sourceTitle) }).check();
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
       timeout: 30000,
     });
     const runId = new URL(page.url()).searchParams.get("run")!;
@@ -77,7 +77,7 @@ for (const width of [1440, 390]) {
       .getByRole("textbox", { name: "Reviewer feedback", exact: true })
       .fill("Use two bullets.");
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
       timeout: 30000,
     });
     const first: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
@@ -101,21 +101,31 @@ for (const width of [1440, 390]) {
       "My independent experiment",
     );
     await expect(page.getByRole("checkbox", { name: new RegExp(sourceTitle) })).toBeChecked();
+    await expect(
+      page.getByRole("link", { name: `Baseline run · ${runId.slice(0, 8)}` }),
+    ).toHaveAttribute("href", `?view=runs&run=${runId}`);
     await expect(page.getByRole("combobox", { name: "Research model", exact: true })).toHaveValue(
       "test-model",
     );
     await page.getByRole("button", { name: "Start run", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
       timeout: 30000,
     });
     const nextId = new URL(page.url()).searchParams.get("run")!;
     expect(nextId).not.toBe(runId);
     const second: RunSnapshot = await (await request.get(`/api/runs/${nextId}`)).json();
     expect(second.revision_id).not.toBe(first.revision_id);
+    expect(second.baseline_run_id).toBe(runId);
     expect(second.evidence_ids).toEqual([evidenceId]);
     expect((await (await request.get(`/api/runs/${runId}`)).json()).workflow).toEqual(
       first.workflow,
     );
+    await page.getByRole("button", { name: "Compare with baseline", exact: true }).click();
+    const compare = page.getByRole("combobox", { name: "Comparison run", exact: true });
+    await expect(compare).toHaveValue(runId);
+    await expect(page.getByRole("region", { name: "Run comparison table" })).toBeVisible();
+    await page.reload();
+    await expect(compare).toHaveValue(runId);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

@@ -1,7 +1,9 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "./fixtures";
+import advanced from "../../../examples/advanced-workflow.json";
 import example from "../../../examples/research-workflow.json";
-import type { WorkflowRevision } from "../src/lib/workflow";
+import type { SubgraphRef, Workflow, WorkflowNode, WorkflowRevision } from "../src/lib/workflow";
+import { addTemplate } from "../src/lib/workflow-editing";
 
 test.beforeEach(async ({ page, request }) => {
   const saved = await request.post("/api/revisions", { data: example });
@@ -32,6 +34,100 @@ async function save(page: Page) {
   );
   return new URL(page.url()).searchParams.get("revision")!;
 }
+
+test("insert position preserves branch ports and input bindings", async ({ page, request }) => {
+  const draft = addTemplate(advanced as Workflow, null, "note", "split");
+  const binding = { text: { source: "output", node_id: "support", port: "text" } } as const;
+  draft.workflow.nodes.find((node) => node.id === draft.selected)!.inputs = binding;
+  const response = await request.post("/api/revisions", { data: draft.workflow });
+  expect(response.status()).toBe(201);
+  await page.goto(`/?revision=${(await response.json()).id}`);
+  await expect(page.getByRole("button", { name: "Run workflow" })).toBeEnabled();
+
+  const position = page.getByRole("combobox", { name: "Insert position", exact: true });
+  const outline = page.locator(".node-outline");
+  await expect(position.locator("option:checked")).toHaveText("After the paired join");
+  await position.selectOption("before");
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  const label = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(label).toBeFocused();
+  await expect(position).toHaveValue("default");
+  await expect(outline.getByRole("button", { name: "New research note Note Start" })).toBeVisible();
+
+  await outline.getByRole("button", { name: "Join Join", exact: true }).click();
+  await expect(position).toBeDisabled();
+  await outline.getByRole("button", { name: "Support Note", exact: true }).click();
+  await position.selectOption("before");
+  await page.getByRole("button", { name: "Add condition", exact: true }).click();
+  await expect(label).toHaveValue("New condition");
+
+  const finish = outline.getByRole("button", { name: "Finish Finish", exact: true });
+  const addReview = page.getByRole("button", { name: "Add human review", exact: true });
+  await outline.getByRole("button", { name: "Challenge Note", exact: true }).click();
+  await page.getByRole("combobox", { name: "Next step", exact: true }).selectOption("finish");
+  await finish.click();
+  await expect(addReview).toBeDisabled();
+  await expect(
+    page.getByText("Finish has multiple incoming connections.", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(position.locator("option:checked")).toHaveText("Before Finish");
+  await addReview.click();
+  await valid(page);
+
+  const id = await save(page);
+  const { workflow }: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+  const condition = workflow.nodes.find((node) => node.kind === "route")!;
+  const finishReview = workflow.nodes.find((node) => node.kind === "review")!;
+  expect(workflow.start_node).not.toBe("split");
+  expect(condition.config?.type).toBe("route");
+  if (condition.config?.type !== "route") throw new Error("Missing inserted condition.");
+  expect(workflow.edges).toEqual(
+    expect.arrayContaining([
+      { source: workflow.start_node, source_port: "next", target: "split", target_port: "in" },
+      { source: "split", source_port: "support", target: condition.id, target_port: "in" },
+      { source: "split", source_port: "challenge", target: "challenge", target_port: "in" },
+      { source: condition.config.join, source_port: "next", target: "support", target_port: "in" },
+      { source: "join", source_port: "next", target: draft.selected, target_port: "in" },
+      { source: "review_loop", source_port: "next", target: finishReview.id, target_port: "in" },
+      { source: finishReview.id, source_port: "next", target: "finish", target_port: "in" },
+    ]),
+  );
+  expect(workflow.nodes.find((node) => node.id === draft.selected)?.inputs).toEqual(binding);
+});
+
+test("insert position updates a nested start in one undoable edit", async ({ page, request }) => {
+  await page.getByRole("button", { name: "Add subgraph", exact: true }).click();
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  const outline = page.locator(".node-outline");
+  const before = outline.getByRole("button", { name: "Research step Note Start", exact: true });
+  const after = outline.getByRole("button", { name: "New research note Note Start", exact: true });
+  await expect(before).toBeVisible();
+  await page.getByRole("combobox", { name: "Insert position", exact: true }).selectOption("before");
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  await expect(after).toBeVisible();
+  await expect(before).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(
+    outline.getByRole("button", { name: "New research note Note", exact: false }),
+  ).toHaveCount(0);
+  await expect(before).toBeVisible();
+  await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
+  await expect(after).toBeVisible();
+
+  const id = await save(page);
+  const { workflow }: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+  expect(workflow.start_node).toBe("frame");
+  const body = workflow.subgraphs?.[0];
+  expect(body?.start_node).not.toBe("step");
+  expect(body?.nodes.find((node) => node.id === body.start_node)?.label).toBe("New research note");
+  expect(body?.edges).toContainEqual({
+    source: body?.start_node,
+    source_port: "next",
+    target: "step",
+    target_port: "in",
+  });
+});
 
 test("keyboard ports reconnect controls, cancel safely, and expose undo and redo", async ({
   page,
@@ -124,6 +220,187 @@ test("pointer wiring distinguishes data and control ports and serializes data bi
     node_id: "frame",
     port: "text",
   });
+});
+
+test("remember visible connections across pinned subgraphs, reload, and reset", async ({
+  page,
+  request,
+}) => {
+  const root = addTemplate(structuredClone(advanced) as Workflow, null, "note", "split");
+  root.workflow.nodes.find((step) => step.id === root.selected)!.inputs = {
+    text: { source: "output", node_id: "support", port: "text" },
+  };
+  const { id, version } = root.workflow.subgraphs![0]!;
+  const nested = addTemplate(root.workflow, { id, version }, "note", "review");
+  const workflow = nested.workflow;
+  const body = workflow.subgraphs!.find((definition) => definition.id === id)!;
+  body.nodes.find((step) => step.id === nested.selected)!.inputs = {
+    text: { source: "output", node_id: "review", port: "decision" },
+  };
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision: WorkflowRevision = await response.json();
+  const owner = await page.locator("[data-owner-workspace]").getAttribute("data-owner-workspace");
+  const key = `${owner}.build-visible-connections`;
+  const otherOwnerKey = "researchchain.owner.other-workspace.other-owner.build-visible-connections";
+  await page.evaluate(
+    ({ key, otherOwnerKey }) => {
+      localStorage.setItem(key, "invalid-view");
+      localStorage.setItem(otherOwnerKey, "control");
+    },
+    { key, otherOwnerKey },
+  );
+  await page.goto(`/?revision=${revision.id}`);
+
+  const view = page.getByRole("combobox", { name: "Visible connections", exact: true });
+  const canvas = page.getByLabel("Workflow canvas", { exact: true });
+  const control = canvas.locator(".connection-control");
+  const text = canvas.locator(".connection-text");
+  const crumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+  const savedPreference = (key: string) => page.evaluate((key) => localStorage.getItem(key), key);
+  async function enterBody() {
+    await page
+      .locator(".node-outline")
+      .getByRole("button", { name: /Review_Loop/ })
+      .click();
+    await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+    await expect(crumbs).toContainText(`${body.name} v${version}`);
+  }
+
+  await expect(view).toHaveValue("all");
+  expect(await savedPreference(key)).toBe("invalid-view");
+  await view.selectOption("data");
+  expect(await savedPreference(key)).toBe("data");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(1);
+  await enterBody();
+  await expect(view).toHaveValue("data");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(1);
+  await view.selectOption("control");
+  await expect(control).toHaveCount(body.edges.length);
+  await expect(text).toHaveCount(0);
+  await crumbs.getByRole("button", { name: workflow.name, exact: true }).click();
+  await expect(view).toHaveValue("control");
+  await page.reload();
+  await expect(view).toHaveValue("control");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Reset view", exact: true }).click();
+  expect(await savedPreference(key)).toBe("all");
+  expect(await savedPreference(otherOwnerKey)).toBe("control");
+  await page.reload();
+  await expect(view).toHaveValue("all");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(1);
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+
+  await page.addInitScript((key) => {
+    const { getItem, setItem } = Storage.prototype;
+    Storage.prototype.getItem = function (name: string) {
+      if (name === key) throw new DOMException("Storage unavailable", "SecurityError");
+      return getItem.call(this, name);
+    };
+    Storage.prototype.setItem = function (name: string, value: string) {
+      if (name === key) throw new DOMException("Storage unavailable", "SecurityError");
+      setItem.call(this, name, value);
+    };
+  }, key);
+  await page.evaluate((key) => localStorage.setItem(key, "data"), key);
+  await page.reload();
+  await expect(view).toHaveValue("all");
+  await view.selectOption("control");
+  await enterBody();
+  await expect(view).toHaveValue("control");
+  await expect(text).toHaveCount(0);
+});
+
+test("filter canvas connections without changing the draft or port gestures", async ({
+  page,
+  request,
+}) => {
+  const view = page.getByRole("combobox", { name: "Visible connections", exact: true });
+  const reset = page.getByRole("button", { name: "Reset view", exact: true });
+  const canvas = page.getByLabel("Workflow canvas", { exact: true });
+  const control = canvas.locator(".connection-control");
+  const text = canvas.locator(".connection-text");
+  const number = canvas.locator(".connection-number");
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+
+  // Older documents have control edges without explicit port names.
+  await view.selectOption("data");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(0);
+  await expect(undo).toBeDisabled();
+  await reset.click();
+  await expect(view).toHaveValue("all");
+  await expect(control).toHaveCount(example.edges.length);
+
+  const source = addTemplate(structuredClone(example) as Workflow, null, "code", "challenge");
+  const { workflow, selected } = addTemplate(source.workflow, null, "code", source.selected);
+  workflow.nodes.find((node) => node.id === "challenge")!.inputs = {
+    text: { source: "output", node_id: "frame", port: "text" },
+  };
+  workflow.nodes.find((node) => node.id === selected)!.inputs = {
+    number: { source: "output", node_id: source.selected, port: "number" },
+  };
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.ok(), await response.text()).toBe(true);
+  const revision: WorkflowRevision = await response.json();
+  await page.goto(`/?revision=${revision.id}`);
+
+  await expect(view).toHaveValue("all");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(1);
+  await expect(number).toHaveCount(1);
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect(canvas).toHaveCSS("background-size", "12.5px 12.5px");
+  await view.selectOption("control");
+  await expect(canvas).toHaveCSS("background-size", "12.5px 12.5px");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(0);
+  await expect(number).toHaveCount(0);
+
+  const output = page.getByRole("button", { name: "Frame the question: output text text" });
+  const input = page.getByRole("button", { name: "Challenge the thesis: input text text" });
+  await expect(input).toHaveAttribute("data-connected", "true");
+  await expect(input).toHaveAttribute(
+    "aria-description",
+    "Connected to Frame the question: output text text.",
+  );
+  await output.press("Enter");
+  await expect(output).toHaveAttribute("data-connect", "source");
+  await expect(canvas.locator(".connection-draft")).toHaveAttribute("d", /^M/);
+  await view.press("ArrowDown");
+  await expect(view).toHaveValue("data");
+  await expect(output).toHaveAttribute("data-connect", "source");
+  await output.press("Escape");
+  await expect(output).not.toHaveAttribute("data-connect", "source");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(1);
+  await expect(number).toHaveCount(1);
+
+  await page.setViewportSize({ width: 390, height: 880 });
+  const toolbar = await page.getByRole("group", { name: "Canvas view", exact: true }).boundingBox();
+  const surface = await canvas.boundingBox();
+  expect(toolbar!.x + toolbar!.width).toBeLessThanOrEqual(surface!.x + surface!.width);
+  await reset.click();
+  await expect(view).toHaveValue("all");
+  await expect(canvas).toHaveCSS("background-size", "10px 10px");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(1);
+  await expect(number).toHaveCount(1);
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+  await page.getByText("Local draft & export", { exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON", exact: true }).click();
+  expect(JSON.parse(await readFile((await (await download).path())!, "utf8"))).toEqual(
+    revision.workflow,
+  );
 });
 
 test("typing and a full drag are grouped edits with live connection previews", async ({ page }) => {
@@ -371,7 +648,7 @@ test("new definition versions and nested draft edits keep an existing run pinned
     .fill("Original nested instructions.");
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Run paused", exact: true })).toBeVisible();
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   const runId = new URL(page.url()).searchParams.get("run");
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page
@@ -408,4 +685,165 @@ test("new definition versions and nested draft edits keep an existing run pinned
   expect(
     run.events.find((event: { path: string }) => event.path.includes("/body/step")).detail,
   ).toContain("Original nested instructions.");
+});
+
+test("duplicate a nested workflow with independent definitions and atomic undo", async ({
+  page,
+  request,
+}) => {
+  const step = (
+    id: string,
+    kind: WorkflowNode["kind"],
+    label: string,
+    x: number,
+  ): WorkflowNode => ({
+    id,
+    kind,
+    label,
+    instructions: "",
+    position: { x, y: 60 },
+  });
+  const link = (source: string, target: string) => ({
+    source,
+    target,
+    source_port: "next",
+    target_port: "in",
+  });
+  const leaf = { id: "shared", version: 2 };
+  const body = { id: "scenario", version: 1 };
+  const loop = {
+    type: "loop" as const,
+    ref: body,
+    max_iterations: 4,
+    until: {
+      left: { source: "output" as const, node_id: "criterion", port: "text" },
+      operator: "contains" as const,
+      value: "ready",
+    },
+  };
+  const shared = {
+    ...leaf,
+    name: "Shared method",
+    start_node: "method",
+    nodes: [
+      { ...step("method", "note", "Method", 60), instructions: "Original evidence method." },
+      step("finish", "finish", "Finish method", 380),
+    ],
+    edges: [link("method", "finish")],
+  };
+  const workflow: Workflow = {
+    schema_version: "0.2",
+    name: "Scenario review copy test",
+    start_node: "scenario_loop",
+    nodes: [
+      { ...step("scenario_loop", "loop", "Scenario review", 60), config: loop },
+      {
+        ...step("outside", "subgraph", "Outside reference", 380),
+        config: { type: "subgraph", ref: leaf },
+      },
+      {
+        ...step("count", "code", "Read original iteration count", 700),
+        config: {
+          type: "code",
+          language: "javascript",
+          runtime: "quickjs-ng-0.18.0.1",
+          source: "return { number: inputs.number };",
+          timeout_seconds: 1,
+        },
+        inputs: { number: { source: "output", node_id: "scenario_loop", port: "iterations" } },
+      },
+      step("finish", "finish", "Finish workflow", 1020),
+    ],
+    edges: [link("scenario_loop", "outside"), link("outside", "count"), link("count", "finish")],
+    subgraphs: [
+      { ...shared, version: 1, name: "Archived method" },
+      shared,
+      {
+        ...body,
+        name: "Scenario body",
+        start_node: "first",
+        nodes: [
+          {
+            ...step("first", "subgraph", "First method reference", 60),
+            config: { type: "subgraph", ref: leaf },
+          },
+          {
+            ...step("second", "subgraph", "Second method reference", 380),
+            config: { type: "subgraph", ref: leaf },
+          },
+          { ...step("criterion", "note", "Criterion", 700), instructions: "ready" },
+          step("finish", "finish", "Finish scenario", 1020),
+        ],
+        edges: [link("first", "second"), link("second", "criterion"), link("criterion", "finish")],
+      },
+    ],
+  };
+  const baseline = await request.post("/api/revisions", { data: workflow });
+  expect(baseline.status()).toBe(201);
+  const original: WorkflowRevision = await baseline.json();
+  await page.goto(`/?revision=${original.id}`);
+  await page.getByRole("button", { name: "Duplicate loop", exact: true }).click();
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(name).toHaveValue("Copy of Scenario review");
+  await expect(name).toBeFocused();
+  await expect(page.getByRole("spinbutton", { name: "Maximum iterations" })).toHaveValue("4");
+  await expect(page.getByText("Definitions (5)", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit Copy of Scenario review", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Definitions (3)", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
+  await expect(name).toHaveValue("Copy of Scenario review");
+
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await expect(name).toHaveValue("First method reference");
+  await expect(page.getByRole("button", { name: "Duplicate subgraph", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Instructions", exact: true })
+    .fill("Copied method with a new test.");
+  await valid(page);
+  const revisionId = await save(page);
+  const revision: WorkflowRevision = await (
+    await request.get(`/api/revisions/${revisionId}`)
+  ).json();
+  const saved = revision.workflow;
+  const copy = saved.nodes.find((node) => node.label === "Copy of Scenario review")!;
+  const refOf = (node: WorkflowNode): SubgraphRef => {
+    const { config } = node;
+    if (config?.type === "loop" || config?.type === "subgraph") return config.ref;
+    throw new Error(`Missing nested reference on ${node.label}`);
+  };
+  const definition = (ref: SubgraphRef) =>
+    saved.subgraphs!.find((item) => item.id === ref.id && item.version === ref.version)!;
+  const copiedBody = refOf(copy);
+  const clonedReferences = definition(copiedBody).nodes.slice(0, 2).map(refOf);
+  expect(copiedBody.id).not.toBe(body.id);
+  expect(copy.config).toEqual({ ...loop, ref: copiedBody });
+  expect(clonedReferences[0]!.id).not.toBe(leaf.id);
+  expect(clonedReferences[1]).toEqual(clonedReferences[0]);
+  expect(definition(clonedReferences[0]!).nodes[0]?.instructions).toBe(
+    "Copied method with a new test.",
+  );
+  expect(saved.subgraphs).toHaveLength(5);
+  expect(saved.subgraphs?.slice(0, 3)).toEqual(original.workflow.subgraphs);
+  expect(saved.nodes.filter((node) => node.id !== copy.id)).toEqual(original.workflow.nodes);
+  expect(saved.edges.map(({ source, target }) => [source, target])).toEqual(
+    expect.arrayContaining([
+      ["scenario_loop", copy.id],
+      [copy.id, "outside"],
+    ]),
+  );
+
+  await page
+    .getByRole("navigation", { name: "Graph breadcrumbs" })
+    .getByRole("button", { name: workflow.name, exact: true })
+    .click();
+  await page.getByRole("button", { name: "Edit Outside reference", exact: true }).click();
+  await page.getByRole("button", { name: "Duplicate subgraph", exact: true }).click();
+  await expect(name).toHaveValue("Copy of Outside reference");
+  await expect(page.getByText("Definitions (6)", { exact: true })).toBeVisible();
+  await valid(page);
 });

@@ -11,7 +11,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
-import type { AgentSummary } from "@/lib/workflow";
+import {
+  discretionaryMacroWorkflow,
+  ideaGenerationWorkflow,
+  type AgentSummary,
+} from "@/lib/workflow";
+
+export type StartingWorkflow = "blank" | "current" | "ideas" | "macro";
+
+const starterNames = {
+  blank: "",
+  current: "",
+  ideas: ideaGenerationWorkflow.name,
+  macro: discretionaryMacroWorkflow.name,
+};
 
 export function AgentSwitcher({
   agents,
@@ -25,12 +38,12 @@ export function AgentSwitcher({
   active: AgentSummary | null;
   disabled: boolean;
   onSelect: (id: string) => void;
-  onCreate: (id: string, name: string, copy: boolean) => Promise<void>;
+  onCreate: (id: string, name: string, starter: StartingWorkflow) => Promise<void>;
   onLatest: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const [copy, setCopy] = useState(false);
+  const [starter, setStarter] = useState<StartingWorkflow>("blank");
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const requestId = useRef<string | null>(null);
@@ -65,7 +78,7 @@ export function AgentSwitcher({
           setOpen(value);
           if (!value) {
             setName("");
-            setCopy(false);
+            setStarter("blank");
             setError("");
             requestId.current = null;
           }
@@ -89,10 +102,10 @@ export function AgentSwitcher({
               setError("");
               requestId.current ??= crypto.randomUUID();
               try {
-                await onCreate(requestId.current, name.trim(), copy);
+                await onCreate(requestId.current, name.trim(), starter);
                 setOpen(false);
                 setName("");
-                setCopy(false);
+                setStarter("blank");
                 requestId.current = null;
               } catch (cause) {
                 setError(cause instanceof Error ? cause.message : "Could not create the agent.");
@@ -113,18 +126,23 @@ export function AgentSwitcher({
                 requestId.current = null;
               }}
             />
-            <label className="agent-copy-option">
-              <input
-                type="checkbox"
-                checked={copy}
-                disabled={creating}
-                onChange={(event) => {
-                  setCopy(event.target.checked);
-                  requestId.current = null;
-                }}
-              />
-              Copy the current workflow
-            </label>
+            <label htmlFor="starting-workflow">Starting workflow</label>
+            <select
+              id="starting-workflow"
+              value={starter}
+              disabled={creating}
+              onChange={(event) => {
+                const next = event.target.value as StartingWorkflow;
+                setStarter(next);
+                if (!name.trim() || name === starterNames[starter]) setName(starterNames[next]);
+                requestId.current = null;
+              }}
+            >
+              <option value="blank">Blank workflow</option>
+              <option value="current">Copy the current workflow</option>
+              <option value="ideas">Idea generation demo</option>
+              <option value="macro">Discretionary macro research</option>
+            </select>
             {error && (
               <p className="error" role="alert">
                 {error}

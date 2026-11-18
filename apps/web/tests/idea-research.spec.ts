@@ -10,7 +10,11 @@ for (const width of [1440, 390]) {
     test.setTimeout(90000);
     const externalRequests: string[] = [];
     page.on("request", (request) => {
-      if (request.url().includes("unrecorded.invalid")) externalRequests.push(request.url());
+      if (
+        request.url().includes("unrecorded.invalid") ||
+        request.url() === "https://example.org/data"
+      )
+        externalRequests.push(request.url());
     });
     const agent = await (
       await request.post("/api/agents", {
@@ -27,6 +31,13 @@ for (const width of [1440, 390]) {
     const sec = page.getByRole("checkbox", { name: "SEC financial statements", exact: true });
     await expect(webToggle).toHaveValue("auto");
     await expect(sec).toBeChecked();
+    const analyst = page.getByRole("checkbox", { name: "Codex analyst", exact: true });
+    await expect(analyst).not.toBeChecked();
+    await analyst.check();
+    await page
+      .getByRole("textbox", { name: "Analyst skill" })
+      .fill("Compare dated primary sources.");
+    await page.getByRole("spinbutton", { name: "Maximum research passes" }).fill("3");
     await webToggle.selectOption("true");
     await page
       .getByRole("combobox", { name: "Step behavior", exact: true })
@@ -35,6 +46,7 @@ for (const width of [1440, 390]) {
     await page.getByRole("combobox", { name: "Step behavior", exact: true }).selectOption("custom");
     await expect(webToggle).toHaveValue("false");
     await expect(sec).not.toBeChecked();
+    await expect(analyst).not.toBeChecked();
     await page.getByRole("button", { name: "Use idea research example", exact: true }).click();
     await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
     await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
@@ -42,6 +54,7 @@ for (const width of [1440, 390]) {
     );
     await page.getByRole("button", { name: "Run workflow", exact: true }).click();
     await page.getByText("External research tools · 2 steps", { exact: true }).click();
+    await expect(page.getByText("Codex analyst, up to 4 passes", { exact: false })).toBeVisible();
     await expect(
       page.getByText("optional web search, optional SEC lookup", { exact: false }),
     ).toBeVisible();
@@ -63,18 +76,36 @@ for (const width of [1440, 390]) {
     await expect(page.locator('[aria-label="Review review"]')).toBeVisible({ timeout: 30000 });
     const runId = new URL(page.url()).searchParams.get("run")!;
     const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
-    expect(snapshot.model_attempts).toHaveLength(3);
-    expect(snapshot.model_attempts![0]!.result!.web_research!.sources[0]!.cited).toBe(true);
-    expect(snapshot.model_attempts![1]!.result!.web_research!.sources[0]!.cited).toBe(true);
+    const attempts = snapshot.model_attempts!;
+    expect(attempts.at(-1)?.path).toBe("root/memo");
+    expect(attempts.filter((a) => a.path.startsWith("root/research")).map((a) => a.path)).toEqual([
+      "root/research",
+      "root/research/analyst-pass-2",
+    ]);
+    for (const path of ["root/frame", "root/research"]) {
+      expect(attempts.find((a) => a.path === path)?.result?.web_research?.sources[0]?.cited).toBe(
+        true,
+      );
+    }
     const calculations = snapshot.events.find((event) => event.code)?.code;
     expect(JSON.parse(calculations!.outputs.text).analytics.status).toBe("needs_data");
-    const researchAttempt = page.locator(".research-attempt").nth(1);
-    await expect(page.locator(".run-brief")).toHaveCount(1);
+    const choose = page.getByRole("combobox", { name: "Inspect step" });
+    await expect(choose).toHaveValue("root/review");
+    await page.screenshot({ path: info.outputPath(`idea-checkpoint-${width}.png`) });
+    const graph = page.getByRole("region", { name: "Run workflow graph" });
+    await graph.getByRole("button", { name: "Fit run graph to view" }).click();
+    await graph
+      .getByRole("button", { name: "Inspect Choose research direction", exact: true })
+      .click();
+    await expect(page.getByRole("region", { name: "Selected step" })).toContainText(
+      "Test the opposing explanation.",
+    );
+    await choose.selectOption("root/research");
+    const researchAttempt = page.locator(".research-attempt[open]");
+    await expect(researchAttempt).toHaveCount(1);
     await expect(researchAttempt.locator("summary").first()).toContainText(
       "Research support and objections",
     );
-    await researchAttempt.locator("summary").first().click();
-    await expect(page.locator(".research-attempt[open]")).toHaveCount(1);
     const memo = researchAttempt.locator(".research-conclusion");
     await expect(memo.getByRole("heading", { name: "Research memo" })).toBeVisible();
     await expect(memo.locator("strong")).toHaveText("Observations");
@@ -102,12 +133,66 @@ for (const width of [1440, 390]) {
         .getByRole("link", { name: "Reference", exact: true }),
     ).toHaveAttribute("href", "https://example.org/data");
     await page.screenshot({ path: info.outputPath(`idea-research-${width}.png`), fullPage: true });
+    const openSource = researchAttempt.getByRole("button", {
+      name: "Save source link for Synthetic observations",
+    });
+    const sourceDialog = page.getByRole("dialog", { name: "Save a source link" });
+    const referenceTitle = `Saved synthetic reference ${width}`;
+    await openSource.press("Enter");
+    await expect(sourceDialog.getByLabel("Source title")).toHaveValue("Synthetic observations");
+    await expect(sourceDialog.getByLabel("Source title")).toBeFocused();
+    await sourceDialog.getByLabel("Source title").fill(referenceTitle);
+    await sourceDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(openSource).toBeFocused();
+    await openSource.click();
+    const saveSource = sourceDialog.getByRole("button", { name: "Save source", exact: true });
+    let savedBeforeResponse: string | undefined;
+    if (width === 390) {
+      await page.route("**/api/evidence", async (route) => {
+        if (route.request().method() !== "POST" || savedBeforeResponse) {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        expect(response.status()).toBe(201);
+        savedBeforeResponse = (await response.json()).id;
+        await route.fulfill({ status: 503, json: { detail: "Temporarily unavailable" } });
+      });
+    }
+    await saveSource.click();
+    if (width === 390) {
+      await expect(sourceDialog.getByRole("alert")).toContainText("Temporarily unavailable");
+      await saveSource.click();
+    }
+    const savedSource = researchAttempt.getByRole("link", { name: "View saved source" });
+    await expect(savedSource).toBeFocused();
+    await expect(sourceDialog).toBeHidden();
+    const href = (await savedSource.getAttribute("href"))!;
+    const sourceId = new URL(href, page.url()).searchParams.get("evidence");
+    if (width === 390) {
+      expect(sourceId).toBe(savedBeforeResponse);
+      await page.unroute("**/api/evidence");
+    }
+    const saved = await (await request.get(`/api/evidence/${sourceId}`)).json();
+    expect(saved).toMatchObject({
+      title: referenceTitle,
+      kind: "link",
+      availability: "reference_only",
+      source_url: "https://example.org/data",
+      retrieved_at: null,
+    });
+    const sourceAttempt = snapshot.model_attempts!.find(
+      (attempt) => attempt.path === "root/research/analyst-pass-2",
+    )!;
+    expect(saved.notes).toContain(`Run ${runId}, attempt ${sourceAttempt.id}.`);
+    expect(externalRequests).toEqual([]);
+    await page.getByRole("button", { name: "Return to review", exact: true }).click();
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible({
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
       timeout: 30000,
     });
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Run completed", exact: true })).toBeVisible();
+    await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );

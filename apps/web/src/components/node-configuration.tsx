@@ -1,7 +1,10 @@
 "use client";
 
+import { Fragment } from "react";
 import { Button } from "@ui-sdk/react/button";
+import { researchDefaults } from "@/lib/workflow";
 import type { Graph, Predicate, ValueSource, Workflow, WorkflowNode } from "@/lib/workflow";
+import { availableOutputSteps, builtInSourceLabels } from "@/lib/workflow-input-sources";
 import {
   addBranch,
   bindInput,
@@ -18,16 +21,16 @@ import {
 type SourceChoice = { value: string; label: string; type: "text" | "number"; source: ValueSource };
 function sources(graph: Graph, exclude?: string): SourceChoice[] {
   return [
-    { value: "brief", label: "Research brief", type: "text", source: { source: "brief" } },
+    { value: "brief", label: builtInSourceLabels.brief, type: "text", source: { source: "brief" } },
     {
       value: "artifact_count",
-      label: "Artifact count",
+      label: builtInSourceLabels.artifact_count,
       type: "number",
       source: { source: "artifact_count" },
     },
     {
       value: "iteration",
-      label: "Current iteration",
+      label: builtInSourceLabels.iteration,
       type: "number",
       source: { source: "iteration" },
     },
@@ -53,21 +56,93 @@ function sourceKey(source?: ValueSource) {
   return source?.source === "output" ? `${source.node_id}:${source.port}` : (source?.source ?? "");
 }
 
+function sourceChoice(options: SourceChoice[], source?: ValueSource) {
+  if (source?.source === "output" && (!source.node_id || !source.port)) return;
+  const value = sourceKey(source);
+  return options.find((item) => item.value === value);
+}
+
+function OpenSource({
+  graph,
+  label,
+  choice,
+  onOpen,
+}: {
+  graph: Graph;
+  label: string;
+  choice?: SourceChoice;
+  onOpen?: (stepId: string) => void;
+}) {
+  if (!onOpen || choice?.source.source !== "output") return null;
+  const steps = graph.nodes.filter((step) => step.id === choice.source.node_id);
+  if (steps.length !== 1) return null;
+  const step = steps[0]!;
+  return (
+    <button
+      className="input-source-link"
+      type="button"
+      aria-label={`Open source ${step.label || step.id} for ${label}`}
+      onClick={() => onOpen(step.id)}
+    >
+      Open source
+    </button>
+  );
+}
+
+function SourceOptions({
+  options,
+  available,
+}: {
+  options: SourceChoice[];
+  available?: ReadonlySet<string>;
+}) {
+  const option = ({ value, label }: SourceChoice) => (
+    <option key={value} value={value}>
+      {label}
+    </option>
+  );
+  if (!available) return options.map(option);
+
+  const builtIn: SourceChoice[] = [];
+  const ready: SourceChoice[] = [];
+  const other: SourceChoice[] = [];
+  for (const choice of options) {
+    if (choice.source.source !== "output") builtIn.push(choice);
+    else if (available.has(choice.source.node_id ?? "")) ready.push(choice);
+    else other.push(choice);
+  }
+  return (
+    <>
+      {builtIn.map(option)}
+      {ready.length > 0 && <optgroup label="Outputs available here">{ready.map(option)}</optgroup>}
+      {other.length > 0 && (
+        <optgroup label="Outputs that need different wiring">{other.map(option)}</optgroup>
+      )}
+    </>
+  );
+}
+
 export function PredicateFields({
   graph,
   predicate,
   exclude,
+  available,
   label,
+  name,
   onChange,
+  onOpenSource,
 }: {
   graph: Graph;
   predicate: Predicate;
   exclude?: string;
+  available?: ReadonlySet<string>;
   label: string;
+  name?: string;
   onChange: (predicate: Predicate, field: string) => void;
+  onOpenSource?: (stepId: string) => void;
 }) {
   const options = sources(graph, exclude);
-  const current = options.find((item) => item.value === sourceKey(predicate.left));
+  const current = sourceChoice(options, predicate.left);
   const numeric = current?.type === "number";
   const operators = numeric
     ? [
@@ -84,7 +159,12 @@ export function PredicateFields({
         ["contains", "Contains"],
       ];
   return (
-    <fieldset className="config-fields" aria-label={label}>
+    <fieldset
+      className="config-fields"
+      aria-label={label}
+      name={name}
+      tabIndex={name ? -1 : undefined}
+    >
       <legend>{label}</legend>
       <label>
         Value source
@@ -109,13 +189,15 @@ export function PredicateFields({
               Missing source ({sourceKey(predicate.left)})
             </option>
           )}
-          {options.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
+          <SourceOptions options={options} available={available} />
         </select>
       </label>
+      <OpenSource
+        graph={graph}
+        label={`${label} value source`}
+        choice={current}
+        onOpen={onOpenSource}
+      />
       <label>
         Comparison
         <select
@@ -165,6 +247,9 @@ export function NodeConfiguration({
   onWorkflow,
   onEdit,
   onOpen,
+  onOpenSource,
+  onOpenLoopSource,
+  onEditRunLimits,
 }: {
   workflow: Workflow;
   graph: Graph;
@@ -174,12 +259,20 @@ export function NodeConfiguration({
   onWorkflow: (workflow: Workflow) => void;
   onEdit: (patch: Partial<WorkflowNode>, group?: string) => void;
   onOpen: (node: WorkflowNode) => void;
+  onOpenSource: (stepId: string) => void;
+  onOpenLoopSource?: (stepId: string) => void;
+  onEditRunLimits: () => void;
 }) {
   const config = node.config;
+  const analyst = config?.type === "research" ? config.analyst : undefined;
   const ref = referenceOf(node);
   const body = ref ? graphAt(workflow, ref) : undefined;
   const definitions = workflow.subgraphs ?? [];
-  const textOptions = sources(graph, node.id).filter((source) => source.type === "text");
+  const inputOptions = sources(graph, node.id);
+  const textOptions = inputOptions.filter((source) => source.type === "text");
+  const noteValue = sourceKey(node.inputs?.text);
+  const noteChoice = sourceChoice(textOptions, node.inputs?.text);
+  const available = availableOutputSteps(graph, node.id);
   return (
     <>
       {config?.type === "code" && (
@@ -204,35 +297,37 @@ export function NodeConfiguration({
             />
           </label>
           {(["text", "number"] as const).map((port) => {
-            const choices = sources(graph, node.id).filter((item) => item.type === port);
+            const choices = inputOptions.filter((item) => item.type === port);
+            const label = port === "text" ? "Code text input" : "Code number input";
+            const value = sourceKey(node.inputs?.[port]);
+            const choice = sourceChoice(choices, node.inputs?.[port]);
             return (
-              <label key={port}>
-                {port === "text" ? "Code text input" : "Code number input"}
-                <select
-                  value={sourceKey(node.inputs?.[port])}
-                  onChange={(event) =>
-                    onGraph(
-                      bindInput(
-                        graph,
-                        node.id,
-                        port,
-                        choices.find((item) => item.value === event.target.value)?.source,
-                      ),
-                    )
-                  }
-                >
-                  <option value="">{port === "text" ? "Empty text" : "Zero"}</option>
-                  {node.inputs?.[port] &&
-                    !choices.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
-                      <option value={sourceKey(node.inputs[port])}>Missing source</option>
+              <Fragment key={port}>
+                <label>
+                  {label}
+                  <select
+                    name={port}
+                    value={value}
+                    onChange={(event) =>
+                      onGraph(
+                        bindInput(
+                          graph,
+                          node.id,
+                          port,
+                          choices.find((item) => item.value === event.target.value)?.source,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">{port === "text" ? "Empty text" : "Zero"}</option>
+                    {node.inputs?.[port] && !choice && (
+                      <option value={value}>Missing source</option>
                     )}
-                  {choices.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                    <SourceOptions options={choices} available={available} />
+                  </select>
+                </label>
+                <OpenSource graph={graph} label={label} choice={choice} onOpen={onOpenSource} />
+              </Fragment>
             );
           })}
           <label>
@@ -271,6 +366,7 @@ export function NodeConfiguration({
                     stage: event.target.value as typeof config.stage,
                     web_search: event.target.value === "custom" && config.web_search,
                     sec_financials: event.target.value === "custom" && config.sec_financials,
+                    analyst: event.target.value === "custom" ? config.analyst : undefined,
                     prompt_version: event.target.value === "custom" ? "custom-1" : "research-1",
                   },
                 })
@@ -284,6 +380,119 @@ export function NodeConfiguration({
           </label>
           {config.stage === "custom" && (
             <>
+              <label className="step-checkbox">
+                <input
+                  type="checkbox"
+                  checked={Boolean(analyst)}
+                  onChange={(event) =>
+                    onEdit({
+                      config: {
+                        ...config,
+                        analyst: event.target.checked
+                          ? { max_passes: 4, skill: "", workspace: false }
+                          : undefined,
+                      },
+                    })
+                  }
+                />
+                Codex analyst
+              </label>
+              {analyst && (
+                <>
+                  <label className="step-checkbox">
+                    <input
+                      type="checkbox"
+                      checked={analyst.workspace ?? false}
+                      onChange={(event) =>
+                        onEdit({
+                          config: {
+                            ...config,
+                            analyst: {
+                              ...analyst,
+                              workspace: event.target.checked,
+                              max_passes: Math.max(
+                                event.target.checked ? 2 : 1,
+                                analyst.max_passes ?? 4,
+                              ),
+                            },
+                          },
+                        })
+                      }
+                    />
+                    Python workspace
+                  </label>
+                  {analyst.workspace && (
+                    <p className="field-hint">
+                      The analyst can write and run Python, inspect its output, revise the analysis,
+                      and save files. Inspect its charts, scripts, data and reports in Runs.
+                    </p>
+                  )}
+                  <label>
+                    Analyst skill
+                    <textarea
+                      rows={6}
+                      maxLength={32000}
+                      placeholder="How should the analyst find evidence, test leads and decide when to finish?"
+                      value={analyst.skill ?? ""}
+                      onChange={(event) =>
+                        onEdit(
+                          {
+                            config: {
+                              ...config,
+                              analyst: { ...analyst, skill: event.target.value },
+                            },
+                          },
+                          "analyst-skill",
+                        )
+                      }
+                    />
+                  </label>
+                  <label>
+                    Maximum research passes
+                    <input
+                      type="number"
+                      min={analyst.workspace ? 2 : 1}
+                      max={100}
+                      value={analyst.max_passes ?? 4}
+                      onChange={(event) =>
+                        onEdit(
+                          {
+                            config: {
+                              ...config,
+                              analyst: {
+                                ...analyst,
+                                max_passes: event.target.valueAsNumber || 1,
+                              },
+                            },
+                          },
+                          "analyst-passes",
+                        )
+                      }
+                    />
+                  </label>
+                  <p className="field-hint">
+                    Each pass uses one model request. The analyst can follow a lead using the tools
+                    enabled below and finish as soon as it has enough evidence.
+                  </p>
+                  {analyst.workspace && (
+                    <div>
+                      <p className="field-hint">
+                        This run allows {workflow.budgets?.max_active_seconds ?? 120} active
+                        seconds,{" "}
+                        {workflow.research?.limits?.max_response_seconds ??
+                          researchDefaults.limits.max_response_seconds}{" "}
+                        seconds per response and{" "}
+                        {workflow.research?.limits?.max_model_calls ??
+                          researchDefaults.limits.max_model_calls}{" "}
+                        model attempts across all steps.
+                      </p>
+                      <Button className="button small" onClick={onEditRunLimits}>
+                        Edit run limits
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
               <label>
                 Web and market search
                 <select
@@ -310,7 +519,7 @@ export function NodeConfiguration({
                   connected model.
                 </p>
               )}
-              <label>
+              <label className="step-checkbox">
                 <input
                   type="checkbox"
                   aria-label="SEC financial statements"
@@ -329,35 +538,39 @@ export function NodeConfiguration({
               )}
             </>
           )}
-          {(["context", "feedback"] as const).map((port) => (
-            <label key={port}>
-              {port === "context" ? "Context input" : "Reviewer feedback"}
-              <select
-                value={sourceKey(node.inputs?.[port])}
-                onChange={(event) =>
-                  onGraph(
-                    bindInput(
-                      graph,
-                      node.id,
-                      port,
-                      textOptions.find((item) => item.value === event.target.value)?.source,
-                    ),
-                  )
-                }
-              >
-                <option value="">None</option>
-                {node.inputs?.[port] &&
-                  !textOptions.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
-                    <option value={sourceKey(node.inputs[port])}>Missing source</option>
-                  )}
-                {textOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
+          {(["context", "feedback"] as const).map((port) => {
+            const label = port === "context" ? "Context input" : "Reviewer feedback";
+            const value = sourceKey(node.inputs?.[port]);
+            const choice = sourceChoice(textOptions, node.inputs?.[port]);
+            return (
+              <Fragment key={port}>
+                <label>
+                  {label}
+                  <select
+                    name={port}
+                    value={value}
+                    onChange={(event) =>
+                      onGraph(
+                        bindInput(
+                          graph,
+                          node.id,
+                          port,
+                          textOptions.find((item) => item.value === event.target.value)?.source,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">None</option>
+                    {node.inputs?.[port] && !choice && (
+                      <option value={value}>Missing source</option>
+                    )}
+                    <SourceOptions options={textOptions} available={available} />
+                  </select>
+                </label>
+                <OpenSource graph={graph} label={label} choice={choice} onOpen={onOpenSource} />
+              </Fragment>
+            );
+          })}
           <p className="field-hint">
             {config.stage === "custom"
               ? "Your instructions define this task. The answer appears in the result's conclusion; hypotheses are optional. "
@@ -367,47 +580,47 @@ export function NodeConfiguration({
         </>
       )}
       {node.kind === "note" && (
-        <label>
-          Text input
-          <select
-            aria-label="Text input"
-            aria-describedby="text-input-help"
-            value={sourceKey(node.inputs?.text)}
-            onChange={(event) =>
-              onGraph(
-                bindInput(
-                  graph,
-                  node.id,
-                  "text",
-                  textOptions.find((item) => item.value === event.target.value)?.source,
-                ),
-              )
-            }
-          >
-            <option value="">Use instructions only</option>
-            {node.inputs?.text &&
-              !textOptions.some((item) => item.value === sourceKey(node.inputs?.text)) && (
-                <option value={sourceKey(node.inputs.text)}>
-                  Missing source ({sourceKey(node.inputs.text)})
-                </option>
+        <>
+          <label>
+            Text input
+            <select
+              name="text"
+              aria-label="Text input"
+              aria-describedby="text-input-help"
+              value={noteValue}
+              onChange={(event) =>
+                onGraph(
+                  bindInput(
+                    graph,
+                    node.id,
+                    "text",
+                    textOptions.find((item) => item.value === event.target.value)?.source,
+                  ),
+                )
+              }
+            >
+              <option value="">Use instructions only</option>
+              {node.inputs?.text && !noteChoice && (
+                <option value={noteValue}>Missing source ({noteValue})</option>
               )}
-            {textOptions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </select>
-          <span id="text-input-help" className="field-hint">
-            An output must be available on every path to this step.
-          </span>
-        </label>
+              <SourceOptions options={textOptions} available={available} />
+            </select>
+          </label>
+          <OpenSource graph={graph} label="Text input" choice={noteChoice} onOpen={onOpenSource} />
+          <p id="text-input-help" className="field-hint">
+            Control connections determine which outputs this step can use.
+          </p>
+        </>
       )}
       {config?.type === "route" && (
         <PredicateFields
           graph={graph}
           predicate={config.condition}
           exclude={node.id}
+          available={available}
           label="Condition"
+          name="condition"
+          onOpenSource={onOpenSource}
           onChange={(condition, field) =>
             onEdit({ config: { ...config, condition } }, `condition/${field}`)
           }
@@ -417,6 +630,7 @@ export function NodeConfiguration({
         <label>
           Join step
           <select
+            name="join"
             value={config.join}
             onChange={(event) => onEdit({ config: { ...config, join: event.target.value } })}
           >
@@ -588,7 +802,13 @@ export function NodeConfiguration({
             <PredicateFields
               graph={body}
               predicate={config.until}
+              available={availableOutputSteps(
+                body,
+                body.nodes.find((step) => step.kind === "finish")?.id,
+              )}
               label="Stop condition"
+              name="until"
+              onOpenSource={onOpenLoopSource}
               onChange={(until, field) =>
                 onEdit({ config: { ...config, until } }, `until/${field}`)
               }

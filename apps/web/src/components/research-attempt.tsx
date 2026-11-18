@@ -3,10 +3,21 @@ import { useState } from "react";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts } from "./research-tool-receipts";
+import { CopyRunLink } from "./copy-run-link";
+import { ModelRequestPreview } from "./model-request-preview";
+import { SaveRunSource } from "./save-run-source";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 
-function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) {
+function WebSources({
+  trace,
+  runId,
+  attemptId,
+}: {
+  trace: components["schemas"]["WebResearch"];
+  runId: string;
+  attemptId: string;
+}) {
   return (
     <details className="research-disclosure">
       <summary>
@@ -22,6 +33,16 @@ function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) 
               {source.title || source.url}
             </a>{" "}
             · {source.cited ? "Cited by provider" : "Consulted by provider"}
+            {source.url.length <= 2000 && (
+              <div className="web-source-actions">
+                <SaveRunSource
+                  source={source}
+                  runId={runId}
+                  attemptId={attemptId}
+                  observedAt={trace.observed_at}
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -46,17 +67,21 @@ function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) 
 }
 
 export function ResearchAttempt({
+  runId,
   attempt,
-  latest,
+  expandedByDefault,
+  group,
   label,
   sources,
 }: {
+  runId: string;
   attempt: Attempt;
-  latest: boolean;
+  expandedByDefault: boolean;
+  group: string;
   label: string;
   sources: Set<string>;
 }) {
-  const [expanded, setExpanded] = useState(latest);
+  const [expanded, setExpanded] = useState(expandedByDefault);
   const result = expanded ? attempt.result : null;
   const prose = (text: string) => <ResearchMarkdown text={text} sources={sources} />;
   const list = (items: string[]) => (
@@ -68,9 +93,9 @@ export function ResearchAttempt({
   );
   return (
     <details
-      name="model-step-output"
+      name={group}
       className="research-attempt"
-      open={latest}
+      open={expandedByDefault}
       onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>
@@ -80,6 +105,12 @@ export function ResearchAttempt({
         </span>
       </summary>
       {attempt.reason && <p className="error">{attempt.reason}</p>}
+      {typeof attempt.web_actions_completed === "number" && (
+        <p className="field-hint">
+          {attempt.web_actions_completed.toLocaleString()} web{" "}
+          {attempt.web_actions_completed === 1 ? "action" : "actions"} completed
+        </p>
+      )}
       {result && (
         <>
           <div className="research-conclusion">{prose(result.conclusion)}</div>
@@ -123,8 +154,16 @@ export function ResearchAttempt({
               ))}
             </details>
           )}
-          {result.web_research && <WebSources trace={result.web_research} />}
+          {result.web_research && (
+            <WebSources trace={result.web_research} runId={runId} attemptId={attempt.id} />
+          )}
           <ResearchToolReceipts result={result} />
+          {result.next_lead && (
+            <div className="research-disclosure">
+              <h4>Next research lead</h4>
+              {prose(result.next_lead)}
+            </div>
+          )}
           <details className="research-disclosure">
             <summary>Limitations and open questions</summary>
             <h4>Limitations</h4>
@@ -152,6 +191,9 @@ export function ResearchAttempt({
           </details>
         </>
       )}
+      {expanded && attempt.input_artifact_id && (
+        <ModelRequestPreview id={attempt.input_artifact_id} bytes={attempt.input_bytes} />
+      )}
       <details className="research-disclosure" open={!attempt.result}>
         <summary>Attempt details</summary>
         {result && result.revision_summary !== result.conclusion && prose(result.revision_summary)}
@@ -162,10 +204,15 @@ export function ResearchAttempt({
           <dd>{attempt.model}</dd>
           <dt>Provider-reported model</dt>
           <dd>{attempt.returned_model ?? "Not reported"}</dd>
+          <dt>Input tokens</dt>
+          <dd>{attempt.input_tokens?.toLocaleString() ?? "Not reported"}</dd>
+          <dt>Output tokens</dt>
+          <dd>{attempt.output_tokens?.toLocaleString() ?? "Not reported"}</dd>
           <dt>Characters received</dt>
           <dd>{attempt.output_characters.toLocaleString()}</dd>
         </dl>
         <div className="actions">
+          <CopyRunLink runId={runId} target="attempt" id={attempt.id} />
           {attempt.input_artifact_id && (
             <a className="text-link" href={contentUrl(attempt.input_artifact_id)}>
               Saved request

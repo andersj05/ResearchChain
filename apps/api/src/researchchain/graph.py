@@ -3,7 +3,7 @@
 from collections import deque
 from typing import Annotated, Any, Literal, Self
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 
 class StrictModel(BaseModel):
@@ -85,6 +85,20 @@ ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
 ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
 
 
+class AnalystConfig(StrictModel):
+    max_passes: int = Field(default=4, ge=1, le=100)
+    skill: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
+    workspace: bool = Field(default=False, exclude_if=lambda enabled: not enabled)
+
+    @model_validator(mode="after")
+    def workspace_needs_synthesis(self) -> Self:
+        if self.workspace and self.max_passes < 2:
+            raise ValueError(
+                "A Python workspace needs at least two passes for a tool and its result."
+            )
+        return self
+
+
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
@@ -93,10 +107,11 @@ class ResearchConfig(StrictModel):
 
     web_search: bool | Literal["auto"] = False
     sec_financials: bool = False
+    analyst: AnalystConfig | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
-        if (self.web_search or self.sec_financials) and self.stage != "custom":
+        if (self.web_search or self.sec_financials or self.analyst) and self.stage != "custom":
             raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
         if self.prompt_version != expected:
@@ -112,13 +127,18 @@ class CodeConfig(StrictModel):
     timeout_seconds: float = Field(default=1, ge=0.05, le=5, allow_inf_nan=False)
 
 
+MAX_RESPONSE_SECONDS = 600
+
+
 class ResearchLimits(StrictModel):
     max_model_calls: int = Field(default=3, ge=0, le=100)
     max_tool_calls: int = Field(default=3, ge=0, le=100)
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
-    max_response_seconds: float = Field(default=90, gt=0, le=120, allow_inf_nan=False)
-    max_total_tokens: int = Field(default=24000, ge=1, le=1000000)
+    max_response_seconds: float = Field(
+        default=90, gt=0, le=MAX_RESPONSE_SECONDS, allow_inf_nan=False
+    )
+    max_total_tokens: Annotated[int, Field(ge=1, le=2**53 - 1)] | Literal["as_needed"] = 1_000_000
 
 
 class ResearchSettings(StrictModel):
@@ -218,7 +238,18 @@ def validate_predicate(
         raise ValueError("Numeric comparisons require a number port.")
 
 
-def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
+def _located_value_error(
+    error: ValueError, location: tuple[str | int, ...], value: object
+) -> ValidationError:
+    return ValidationError.from_exception_data(
+        "Workflow",
+        [{"type": "value_error", "loc": location, "input": value, "ctx": {"error": error}}],
+    )
+
+
+def validate_graph(
+    graph: GraphDefinition, *, legacy: bool = False, location: tuple[str | int, ...] = ()
+) -> None:
     nodes = {node.id: node for node in graph.nodes}
     if len(nodes) != len(graph.nodes):
         raise ValueError("Node IDs must be unique.")
@@ -238,6 +269,15 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
     finishes = [node.id for node in graph.nodes if node.kind == "finish"]
     if len(finishes) != 1:
         raise ValueError("A workflow must contain exactly one finish node.")
+    indices = {node.id: index for index, node in enumerate(graph.nodes)}
+
+    def topology_error(node: WorkflowNode, message: str) -> ValidationError:
+        return _located_value_error(
+            ValueError(message),
+            (*location, "nodes", indices[node.id]),
+            node.model_dump(mode="json"),
+        )
+
     owners: dict[str, WorkflowNode] = {}
     for node in graph.nodes:
         if legacy:
@@ -251,26 +291,31 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
         elif node.config is not None:
             raise ValueError(f"Node {node.id} does not accept that configuration.")
         if set(outgoing[node.id]) != set(control_ports(node)):
-            if legacy:
-                raise ValueError("Version 0.1 supports one connected chain ending at finish.")
-            raise ValueError(
-                f"Node {node.id} must connect each declared control output exactly once."
+            message = (
+                "Version 0.1 supports one connected chain ending at finish."
+                if legacy
+                else f"Node {node.id} must connect each declared control output exactly once."
             )
+            raise topology_error(node, message)
         if node.id == graph.start_node:
             if incoming[node.id]:
                 raise ValueError("The start node cannot have incoming connections.")
         elif node.kind == "join" and not legacy:
             if len(incoming[node.id]) < 2:
-                raise ValueError("A join needs at least two incoming branches.")
+                raise topology_error(node, "A join needs at least two incoming branches.")
         elif len(incoming[node.id]) != 1:
             raise ValueError("Branches must reconverge at an explicit join.")
         if isinstance(node.config, (RouteConfig, ForkConfig)):
             join = node.config.join
             if join not in nodes or nodes[join].kind != "join" or join in owners:
-                raise ValueError("Each split requires its own existing join node.")
+                raise _located_value_error(
+                    ValueError("Each split requires its own existing join node."),
+                    (*location, "nodes", indices[node.id], "config", "join"),
+                    join,
+                )
             owners[join] = node
             if len(set(outgoing[node.id].values())) != len(outgoing[node.id]):
-                raise ValueError("Split branches must have distinct starting nodes.")
+                raise topology_error(node, "Split branches must have distinct starting nodes.")
     if legacy and (len(nodes) > 32 or len(graph.edges) > 31):
         raise ValueError("Version 0.1 supports at most 32 nodes in one connected chain.")
     # Reject cycles before recursively checking the structured branch regions.
@@ -300,17 +345,22 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
                 join = node.config.join
                 for target in outgoing[current].values():
                     if target == join:
-                        raise ValueError("A split branch needs a step before its join.")
+                        raise topology_error(node, "A split branch needs a step before its join.")
                     walk(target, join)
                 if join in visited:
                     raise ValueError("Crossed or shared joins are ambiguous.")
                 visited.add(join)
                 current = outgoing[join]["next"]
             elif node.kind == "join":
-                raise ValueError("A branch reached a different split's join.")
+                message = "A branch reached a different split's join."
+                if stop is not None:
+                    raise topology_error(owners[stop], message)
+                raise ValueError(message)
             elif node.kind == "finish":
                 if stop is not None:
-                    raise ValueError("Every branch must reach its paired join before finishing.")
+                    raise topology_error(
+                        owners[stop], "Every branch must reach its paired join before finishing."
+                    )
                 return
             else:
                 current = outgoing[current]["next"]
@@ -330,12 +380,28 @@ def validate_graph(graph: GraphDefinition, *, legacy: bool = False) -> None:
             before = set.intersection(*predecessors)
         available[node_id] = before
         node = nodes[node_id]
+        node_location = (*location, "nodes", indices[node_id])
         for port, source in node.inputs.items():
-            expected = INPUT_PORTS.get(node.kind, {}).get(port)
-            if expected is None or source_type(source, nodes, before) != expected:
-                raise ValueError(f"Input {node_id}.{port} is unknown or has an incompatible type.")
+            try:
+                expected = INPUT_PORTS.get(node.kind, {}).get(port)
+                if expected is None or source_type(source, nodes, before) != expected:
+                    raise ValueError(
+                        f"Input {node_id}.{port} is unknown or has an incompatible type."
+                    )
+            except ValueError as error:
+                raise _located_value_error(
+                    error, (*node_location, "inputs", port), source.model_dump(mode="json")
+                ) from error
         if isinstance(node.config, RouteConfig):
-            validate_predicate(node.config.condition, nodes, before)
+            condition = node.config.condition
+            try:
+                validate_predicate(condition, nodes, before)
+            except ValueError as error:
+                raise _located_value_error(
+                    error,
+                    (*node_location, "config", "condition"),
+                    condition.model_dump(mode="json"),
+                ) from error
         # Loop predicates use the loop body's final outputs and are checked below.
 
 
@@ -367,19 +433,23 @@ class Workflow(GraphDefinition):
         if legacy and (self.subgraphs or self.budgets != ExecutionBudgets()):
             raise ValueError("Subgraphs and configurable budgets require schema version 0.2.")
         validate_graph(self, legacy=legacy)
-        definitions = {(item.id, item.version): item for item in self.subgraphs}
+        definitions = {
+            (item.id, item.version): (index, item) for index, item in enumerate(self.subgraphs)
+        }
         if len(definitions) != len(self.subgraphs):
             raise ValueError("Subgraph id/version pairs must be unique within the revision.")
-        for definition in self.subgraphs:
-            validate_graph(definition)
+        for index, definition in enumerate(self.subgraphs):
+            validate_graph(definition, location=("subgraphs", index))
         visiting: set[tuple[str, int]] = set()
         costs: dict[tuple[str, int], int] = {}
 
-        def expansion(graph: GraphDefinition, depth: int) -> int:
+        def expansion(
+            graph: GraphDefinition, depth: int, location: tuple[str | int, ...] = ()
+        ) -> int:
             if depth > 8:
                 raise ValueError("Nested subgraphs cannot exceed eight levels.")
             count = len(graph.nodes)
-            for node in graph.nodes:
+            for index, node in enumerate(graph.nodes):
                 config = node.config
                 if not isinstance(config, (SubgraphConfig, LoopConfig)):
                     continue
@@ -389,8 +459,8 @@ class Workflow(GraphDefinition):
                 if key in visiting:
                     raise ValueError("Recursive subgraph references are not supported.")
                 visiting.add(key)
-                body = definitions[key]
-                body_cost = expansion(body, depth + 1)
+                body_index, body = definitions[key]
+                body_cost = expansion(body, depth + 1, ("subgraphs", body_index))
                 visiting.remove(key)
                 costs[key] = body_cost
                 iterations = config.max_iterations if isinstance(config, LoopConfig) else 1
@@ -399,16 +469,23 @@ class Workflow(GraphDefinition):
                     body_nodes = {item.id: item for item in body.nodes}
                     # A body output is valid only if available at its finish.
                     guaranteed = guaranteed_outputs(body)
-                    validate_predicate(config.until, body_nodes, guaranteed)
+                    try:
+                        validate_predicate(config.until, body_nodes, guaranteed)
+                    except ValueError as error:
+                        raise _located_value_error(
+                            error,
+                            (*location, "nodes", index, "config", "until"),
+                            config.until.model_dump(mode="json"),
+                        ) from error
                 if count > 2048:
                     raise ValueError("Expanded workflow exceeds the 2048-node compilation limit.")
             return count
 
         expansion(self, 0)
-        for key, definition in definitions.items():
+        for key, (index, definition) in definitions.items():
             if key not in costs:
                 visiting.add(key)
-                expansion(definition, 1)
+                expansion(definition, 1, ("subgraphs", index))
                 visiting.remove(key)
         return self
 
