@@ -17,8 +17,10 @@ recorded judgments. A selected judgment can be appended to a fresh editable brie
 checks. The synthetic browser run confirmed the saved feedback in downstream model
 requests and completed all three checkpoints. Desktop at `5af9c3a` served the macro
 starter and decision controls, the API was healthy, and the worker reconnected.
-An editable version 1 macro agent was saved locally. The owner can try a real
-question and judge whether the checkpoints ask for the decisions that matter.
+An editable version 1 macro agent was saved locally. A separate synthetic run of
+that graph used the local Python runner and saved a chart, CSV, and methods note.
+The owner can try a real question and judge whether the checkpoints ask for the
+decisions that matter.
 
 ## Model activity and interface guidance
 
