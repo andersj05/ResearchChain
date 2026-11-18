@@ -67,7 +67,9 @@ function InboxPage({
             <li key={item.id}>
               <strong>{item.workflow_name}</strong>
               <p className="run-row-meta">
-                <span>{item.agent_name ?? "Unassigned"}</span>
+                {item.agent_name !== item.workflow_name && (
+                  <span>{item.agent_name ?? "Unassigned"}</span>
+                )}
                 <time dateTime={item.created_at}>{formatTime(item.created_at)}</time>
               </p>
               {item.reviews.map((review) => {

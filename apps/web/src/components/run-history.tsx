@@ -133,7 +133,9 @@ export function RunHistory({
         ) : (
           <p className="muted">
             {loaded
-              ? "No runs yet. Open Build and run your agent to start an experiment."
+              ? agentName
+                ? "This agent has no recent runs."
+                : "No runs yet. Open Build and run your agent to start an experiment."
               : "Loading runs…"}
           </p>
         )}
