@@ -1,7 +1,34 @@
 # Current state
 
-Updated 2026-11-17. The owner requested sustained Codex research with Python,
-charts and editable idea generation. [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/64).
+Updated 2026-11-17. The owner requested better visibility into model runs, more
+control over workflow iteration, and an editable discretionary macro agent.
+[Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
+
+## Discretionary macro and decisions
+
+The [editable discretionary macro starter](../discretionary-macro-example.md) has
+ten steps. It frames a cross-asset tension, estimates what markets price, tests
+competing mechanisms in the Python workspace, challenges the thesis, and drafts
+scenarios and a memo. The owner chooses the scope, weighs the dissent, and
+decides whether the view is ready. **Runs → Decisions** shows open reviews and
+recorded judgments. A selected judgment can be appended to a fresh editable brief.
+
+[PR #68](https://github.com/andersj05/ResearchChain/pull/68) passed full CI and browser
+checks. The synthetic browser run confirmed the saved feedback in downstream model
+requests and completed all three checkpoints. Desktop at `5af9c3a` served the macro
+starter and decision controls, the API was healthy, and the worker reconnected.
+An editable version 1 macro agent was saved locally. The owner can try a real
+question and judge whether the checkpoints ask for the decisions that matter.
+
+## Model activity and interface guidance
+
+**Runs → Model activity** lists attempts across the pinned workflow. Filter by step,
+model, or status and open a pass directly. The workflow map can be hidden to give
+the reader more space. The [research interface principles](../research-interface.md)
+record the product choices taken from the owner's two EquityCats essays.
+[PR #67](https://github.com/andersj05/ResearchChain/pull/67) passed the full CI and
+browser gate. Desktop at `920b77d` served the new controls, the proxied API reported
+healthy, and the worker reconnected with an idle queue.
 
 ## Python research workspaces
 
@@ -12,6 +39,7 @@ and exports. The run graph shows activity, charts, datasets and full Markdown
 reports. A synthetic run through the installed Codex CLI and local Docker image
 reached the demo's final review with a saved chart, script and report. Recovery
 tests replayed a confirmed action before the next calculation.
+[Delivery criteria](https://github.com/andersj05/ResearchChain/issues/64).
 
 The owner's next step is to try the [idea generation demo](../idea-generation-demo.md)
 with the synthetic rotation brief or a real question and give feedback on the
