@@ -40,9 +40,9 @@ for (const width of [1440, 390]) {
     );
     await page.getByRole("button", { name: "Add human review", exact: true }).click();
     await page.getByRole("textbox", { name: "Step name", exact: true }).fill("Checkpoint");
-    await page
-      .getByRole("textbox", { name: "Instructions", exact: true })
-      .fill("What should change?");
+    const question = page.getByRole("textbox", { name: "Review question", exact: true });
+    await expect(question).toHaveAttribute("placeholder", "Continue this workflow?");
+    await question.fill("What should change?");
     await page.getByRole("button", { name: "Add model prompt", exact: true }).click();
     await page.getByRole("textbox", { name: "Step name", exact: true }).fill("Improve");
     await page

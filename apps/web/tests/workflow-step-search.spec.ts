@@ -16,7 +16,7 @@ test("find a nested review by its question and return to an editable root step",
   const search = page.getByRole("searchbox", { name: "Find a step" });
   const matches = page.getByRole("list", { name: "Matching steps" });
   const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
-  const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+  const question = page.getByRole("textbox", { name: "Review question", exact: true });
   const breadcrumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
   await search.fill("ready for the next pass");
   await expect(matches.getByRole("listitem")).toHaveCount(1);
@@ -25,7 +25,7 @@ test("find a nested review by its question and return to an editable root step",
   await expect(breadcrumbs).toContainText("Critique and review");
   await expect(stepName).toHaveValue("Review");
   await expect(stepName).toBeFocused();
-  await expect(instructions).toHaveValue("Is this reasoning ready for the next pass?");
+  await expect(question).toHaveValue("Is this reasoning ready for the next pass?");
 
   await search.fill("what would falsify it");
   await matches.getByRole("button", { name: /Challenge/ }).click();

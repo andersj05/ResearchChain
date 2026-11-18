@@ -15,8 +15,8 @@ saved pilots are optional examples. Evaluating them is not required to start.
    formation. The optional hypothesis, challenge and revision behaviors retain
    their structured research rules. A **Research note** only copies text; it does
    not call a model.
-3. Add **Human review** and write the question you want to decide. Add another
-   model prompt after it. Select the first model's text under **Context input**
+3. Add **Human review** and write what you want to decide in **Review question**.
+   Add another model prompt after it. Select the first model's text under **Context input**
    and the review's feedback under **Reviewer feedback**. A control connection
    determines execution order; data inputs determine what the model receives.
 4. If needed, capture sources in **Sources**. URL-only records do not fetch pages.

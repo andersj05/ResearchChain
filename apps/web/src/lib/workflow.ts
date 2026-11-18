@@ -32,6 +32,7 @@ export type AgentVersion = components["schemas"]["AgentVersion"];
 export type WorkflowRevision = components["schemas"]["WorkflowRevision"];
 export type ValidationResult = components["schemas"]["ValidationResult"];
 
+export const defaultReviewQuestion = "Continue this workflow?";
 export const exampleWorkflow = example as Workflow;
 export const initialWorkflow: Workflow = {
   schema_version: "0.2",
