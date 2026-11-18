@@ -6,7 +6,7 @@ import { Button } from "@ui-sdk/react/button";
 import { formatTime, RunStatus, runStatusLabels } from "@/components/run-status";
 import { ReviewInbox, type ReviewTarget } from "@/components/review-inbox";
 import { RunArchive } from "@/components/run-archive";
-import type { RunSummary } from "@/lib/workflow";
+import type { RecentRunSummary } from "@/lib/workflow";
 
 export function RunHistory({
   runs,
@@ -19,7 +19,7 @@ export function RunHistory({
   onOpen,
   onOpenReview,
 }: {
-  runs: RunSummary[];
+  runs: RecentRunSummary[];
   selected?: string;
   agentName?: string;
   agentId?: string;
@@ -36,7 +36,7 @@ export function RunHistory({
   const visible = runs.filter(
     (run) =>
       (status === "all" || run.status === status) &&
-      `${run.workflow_name} ${run.agent_name ?? ""} ${run.id}`
+      `${run.workflow_name} ${run.agent_name ?? ""} ${run.id} ${run.brief_excerpt ?? ""}`
         .toLowerCase()
         .includes(search.trim().toLowerCase()),
   );
@@ -101,7 +101,7 @@ export function RunHistory({
           <input
             type="search"
             value={search}
-            placeholder="Agent, workflow or run ID…"
+            placeholder="Brief, agent, workflow, or run ID…"
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
@@ -134,6 +134,9 @@ export function RunHistory({
                 >
                   <strong>{item.workflow_name}</strong>
                   <RunStatus status={item.status} />
+                  {item.brief_excerpt?.trim() && (
+                    <span className="run-row-brief">{item.brief_excerpt}</span>
+                  )}
                   <span className="run-row-meta">
                     <span>{item.agent_name ?? "Unassigned"}</span>
                     <span className="code-label">{item.id.slice(0, 8)}</span>

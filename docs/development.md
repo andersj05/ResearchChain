@@ -180,8 +180,9 @@ automatically saves and pins the current revision plus the brief. Revisions are
 immutable, and loading an older revision is undoable. Revision numbers are database
 sequence values, so concurrent saves can leave gaps.
 
-The Runs view lists recent runs and their original briefs, revisions, completed
-steps, and review questions. Run links survive browser refresh and API restart.
+The Runs view lists recent runs with a searchable excerpt of each research
+brief. Open a run for its full brief, revision, completed steps, and review
+questions. Run links survive browser refresh and API restart.
 
 In **Run workflow → Step models**, assign a model to any research step in the
 draft, including a step in a referenced subgraph. **Use workflow default for all

@@ -33,13 +33,13 @@ from researchchain.models import (
     CancelResult,
     Health,
     PendingReviewsPage,
+    RecentRunSummary,
     ResumeRequest,
     RevisionSummary,
     RunArchivePage,
     RunArchiveQuery,
     RunRequest,
     RunSnapshot,
-    RunSummary,
     ValidationResult,
     Workflow,
     WorkflowRevision,
@@ -260,10 +260,10 @@ def create_app(
     def start_run(request: RunRequest) -> CommandReceipt:
         return queue.start(request)
 
-    @app.get("/api/runs", response_model=list[RunSummary], operation_id="list_runs")
+    @app.get("/api/runs", response_model=list[RecentRunSummary], operation_id="list_runs")
     def list_runs(
         limit: Annotated[int, Query(ge=1, le=50)] = 20, agent_id: UUID | None = None
-    ) -> list[RunSummary]:
+    ) -> list[RecentRunSummary]:
         return runs.list(limit, agent_id)
 
     @app.get("/api/runs/search", response_model=RunArchivePage, operation_id="search_runs")

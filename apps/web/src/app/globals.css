@@ -895,6 +895,15 @@ code {
   font-weight: 500;
   overflow-wrap: anywhere;
 }
+.run-row-brief {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.4;
+}
 .run-row-meta {
   display: flex;
   flex-wrap: wrap;

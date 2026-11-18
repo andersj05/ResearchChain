@@ -1,5 +1,5 @@
 import { expect, test } from "./fixtures";
-import type { AgentDetail, RunSnapshot, RunSummary, Workflow } from "../src/lib/workflow";
+import type { AgentDetail, RecentRunSummary, RunSnapshot, Workflow } from "../src/lib/workflow";
 import legacy from "../../../examples/research-workflow.json";
 
 test("find and compare an older experiment outside recent runs", async ({ page, request }) => {
@@ -39,15 +39,26 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
   for (let index = 0; index < 20; index++) {
     await start(agent, `Other synthetic rates scenario ${index + 1}.`);
   }
-  const active = await start(agent, "Review a new duration scenario.");
-  const recent: RunSummary[] = await (
+  const activeBrief = "Review a new duration scenario.";
+  const active = await start(agent, activeBrief);
+  const recent: RecentRunSummary[] = await (
     await request.get(`/api/runs?agent_id=${agent.agent.id}`)
   ).json();
   expect(recent).toHaveLength(20);
   expect(recent.map((run) => run.id)).not.toContain(older);
+  expect(recent.find((run) => run.id === active)?.brief_excerpt).toBe(activeBrief);
 
   await page.setViewportSize({ width: 390, height: 950 });
   await page.goto(`/?agent=${agent.agent.id}&run=${active}&view=runs`);
+  const history = page.getByRole("complementary", { name: "Recent runs" });
+  const toggleHistory = history.getByRole("button", { name: "Recent runs", exact: true });
+  await toggleHistory.click();
+  const recentSearch = history.getByRole("searchbox", { name: "Find a recent run" });
+  await recentSearch.fill("NEW DURATION");
+  await expect(history.locator(".run-row")).toHaveCount(1);
+  await expect(history.getByText(activeBrief, { exact: true })).toBeVisible();
+  await recentSearch.fill("");
+  await toggleHistory.click();
   const compareRuns = page.getByRole("button", { name: "Compare runs", exact: true });
   await compareRuns.click();
   const comparisonSearch = page.getByText("Search comparison runs", { exact: true });
@@ -85,8 +96,7 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
     page.getByText(`Comparison run · ${older.slice(0, 8)}`, { exact: true }),
   ).toBeVisible();
 
-  const history = page.getByRole("complementary", { name: "Recent runs" });
-  await history.getByRole("button", { name: "Recent runs", exact: true }).click();
+  await toggleHistory.click();
   await history.getByText("Search saved runs", { exact: true }).click();
   await history.getByRole("button", { name: "Next page", exact: true }).click();
   await history
