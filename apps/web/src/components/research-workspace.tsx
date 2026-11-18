@@ -9,6 +9,10 @@ type WorkspaceFile = components["schemas"]["WorkspaceFile"];
 const imageTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 const previewLimit = 128 * 1024;
 
+function downloadUrl(file: WorkspaceFile) {
+  return `${contentUrl(file.artifact_id)}?filename=${encodeURIComponent(file.name)}`;
+}
+
 function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<string> }) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
@@ -65,7 +69,7 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
         </label>
         <a
           className="button small"
-          href={url}
+          href={downloadUrl(file)}
           download={file.name}
           aria-label={`Download ${file.name}`}
         >
@@ -135,7 +139,7 @@ export function ResearchWorkspace({
                       <ul aria-label={`Files from pass ${pass}`}>
                         {activity.files.map((file) => (
                           <li key={file.name}>
-                            <a href={contentUrl(file.artifact_id)} download={file.name}>
+                            <a href={downloadUrl(file)} download={file.name}>
                               {file.name}
                             </a>
                           </li>

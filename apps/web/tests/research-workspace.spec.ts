@@ -47,11 +47,12 @@ test("configure a research workspace and inspect saved files during the next pas
     name,
     byte_size: body.length,
     media_type: media,
-    artifact_id: createHash("sha256").update(body).digest("hex"),
+    artifact_id: `sha256:${createHash("sha256").update(body).digest("hex")}`,
   }));
   for (const [index, output] of outputs.entries()) {
-    await page.route(`**/api/artifacts/${files[index]!.artifact_id}/content*`, (route) =>
-      route.fulfill({ body: output.body, contentType: output.media }),
+    await page.route(
+      `**/api/artifacts/${encodeURIComponent(files[index]!.artifact_id)}/content*`,
+      (route) => route.fulfill({ body: output.body, contentType: output.media }),
     );
   }
   const attempt: components["schemas"]["ModelAttempt"] = {
@@ -69,8 +70,8 @@ test("configure a research workspace and inspect saved files during the next pas
     schema_version: "research-result-1",
     conclusion: "Synthetic pass",
     hypotheses: [],
-    limitations: [],
-    revision_summary: "",
+    limitations: ["The observations are synthetic."],
+    revision_summary: "Prepared a chart of the synthetic observations.",
     evidence_requests: [],
     unresolved_questions: [],
   };
@@ -134,6 +135,15 @@ test("configure a research workspace and inspect saved files during the next pas
     "download",
     "analysis.py",
   );
+  const scriptUrl = `/api/artifacts/${encodeURIComponent(files[0]!.artifact_id)}/content?filename=analysis.py`;
+  await expect(workspace.getByRole("link", { name: "Download analysis.py" })).toHaveAttribute(
+    "href",
+    scriptUrl,
+  );
   await activity.getByText("Execution output", { exact: true }).click();
   await expect(activity.locator("pre")).toHaveText("Synthetic observations");
+  await expect(activity.getByRole("link", { name: "analysis.py" })).toHaveAttribute(
+    "href",
+    scriptUrl,
+  );
 });
