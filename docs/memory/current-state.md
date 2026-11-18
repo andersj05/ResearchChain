@@ -4,9 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Downstream use of recorded judgments
+
+**Runs → Decisions → Steps wired to this feedback** lists direct recipients and
+opens the most recent saved model request for the exact step and iteration. The
+synthetic macro test verified the request contains the recorded judgment. Full CI
+passed 515 backend tests with 2 skips and 116 browser tests. Desktop at `f8a79e7`
+served the links with a healthy API and connected worker.
+[PR #77](https://github.com/andersj05/ResearchChain/pull/77).
+
 ## Pinned setup comparison
 
-**Runs → Run context → Compare a recent run → Setup changes** shows before and
+**Runs → Run context → Compare a saved run → Setup changes** shows before and
 after values for the brief, models, limits, pinned inputs, workflow wiring, and
 recorded judgments. It follows versioned subgraphs and ignores canvas positioning.
 The synthetic comparison verified a changed model, source order, and nested
