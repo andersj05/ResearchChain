@@ -9,6 +9,7 @@ import { ResearchSettingsEditor } from "@/components/research-settings";
 import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
+import { ReviewHandoff } from "@/components/review-handoff";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
   addTemplate,
@@ -67,13 +68,22 @@ export function WorkflowEditor({
   const selectedId = graph.nodes.some((item) => item.id === selected) ? selected : graph.start_node;
   const node = graph.nodes.find((item) => item.id === selectedId);
   const stepToFocus = useRef<string | null>(null);
+  const inputToFocus = useRef<string | null>(null);
+  const inspector = useRef<HTMLFieldSetElement>(null);
   const labelInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (stepToFocus.current === selectedId && inspectorOpen) {
       document.getElementById(`workflow-node-${selectedId}`)?.focus({ preventScroll: true });
-      labelInput.current?.focus();
-      labelInput.current?.select();
+      const input =
+        inputToFocus.current && inspector.current?.elements.namedItem(inputToFocus.current);
+      if (input instanceof HTMLSelectElement) {
+        input.focus();
+      } else {
+        labelInput.current?.focus();
+        labelInput.current?.select();
+      }
       stepToFocus.current = null;
+      inputToFocus.current = null;
     }
   }, [selectedId, inspectorOpen, path]);
   function selectNode(id: string) {
@@ -417,6 +427,7 @@ export function WorkflowEditor({
         inspector={
           <fieldset
             id="node-inspector"
+            ref={inspector}
             className="inspector"
             aria-label="Node inspector"
             disabled={disabled}
@@ -472,6 +483,17 @@ export function WorkflowEditor({
                       }
                     />
                   </label>
+                )}
+                {node.kind === "review" && (
+                  <ReviewHandoff
+                    graph={graph}
+                    reviewId={node.id}
+                    onOpenInput={(stepId, input) => {
+                      stepToFocus.current = stepId;
+                      inputToFocus.current = input;
+                      selectNode(stepId);
+                    }}
+                  />
                 )}
                 {node.kind === "note" && (
                   <p className="field-hint">

@@ -1514,6 +1514,28 @@ td time {
 .config-fields label {
   margin-top: 12px;
 }
+.review-handoff h3 {
+  margin: 12px 0 4px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.review-handoff ul {
+  margin: 0;
+  padding-inline-start: 18px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.review-handoff .review-recipients {
+  display: grid;
+  gap: 4px;
+  padding: 0;
+  list-style: none;
+}
+.review-handoff .button {
+  max-width: 100%;
+  white-space: normal;
+  text-align: left;
+}
 .config-actions {
   margin-top: 16px;
 }

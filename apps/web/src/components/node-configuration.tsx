@@ -213,6 +213,7 @@ export function NodeConfiguration({
               <label key={port}>
                 {port === "text" ? "Code text input" : "Code number input"}
                 <select
+                  name={port}
                   value={sourceKey(node.inputs?.[port])}
                   onChange={(event) =>
                     onGraph(
@@ -451,6 +452,7 @@ export function NodeConfiguration({
             <label key={port}>
               {port === "context" ? "Context input" : "Reviewer feedback"}
               <select
+                name={port}
                 value={sourceKey(node.inputs?.[port])}
                 onChange={(event) =>
                   onGraph(
@@ -488,6 +490,7 @@ export function NodeConfiguration({
         <label>
           Text input
           <select
+            name="text"
             aria-label="Text input"
             aria-describedby="text-input-help"
             value={sourceKey(node.inputs?.text)}
