@@ -17,6 +17,7 @@ import {
   controlOutputs,
   duplicateResearchStep,
   graphAt,
+  prepareNestedStepCopy,
   referenceOf,
   pruneDefinitions,
   removeStep,
@@ -124,6 +125,10 @@ export function WorkflowEditor({
   }
   const pruned = pruneDefinitions(workflow);
   const unusedDefinitions = (workflow.subgraphs?.length ?? 0) - (pruned.subgraphs?.length ?? 0);
+  const nestedCopy =
+    node && (node.kind === "loop" || node.kind === "subgraph")
+      ? prepareNestedStepCopy(workflow, scope, node)
+      : null;
   const split = node?.config?.type === "route" || node?.config?.type === "fork";
   const ownedJoin =
     node?.kind === "join" &&
@@ -608,6 +613,25 @@ export function WorkflowEditor({
                     <Copy size={14} aria-hidden="true" />
                     Duplicate research step
                   </Button>
+                )}
+                {nestedCopy && (
+                  <>
+                    <Button
+                      className="button"
+                      disabled={disabled || typeof nestedCopy === "string"}
+                      onClick={() => {
+                        if (typeof nestedCopy === "string") return;
+                        const duplicate = nestedCopy();
+                        onChange(duplicate.workflow);
+                        stepToFocus.current = duplicate.id;
+                        selectNode(duplicate.id);
+                      }}
+                    >
+                      <Copy size={14} aria-hidden="true" />
+                      {node.kind === "loop" ? "Duplicate loop" : "Duplicate subgraph"}
+                    </Button>
+                    {typeof nestedCopy === "string" && <p className="field-hint">{nestedCopy}</p>}
+                  </>
                 )}
                 <Button
                   className="button danger"

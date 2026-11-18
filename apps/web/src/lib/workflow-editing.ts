@@ -325,11 +325,92 @@ export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, select
   return insertFragment(layout, [positioned], [], step.id, step.id, selected);
 }
 
+function copyName(name: string, limit: number) {
+  return Array.from(`Copy of ${name}`).slice(0, limit).join("");
+}
+
 export function duplicateResearchStep(graph: Graph, step: WorkflowNode) {
   const id = makeId(step.kind);
-  const label = Array.from(`Copy of ${step.label}`).slice(0, 100).join("");
+  const label = copyName(step.label, 100);
   const duplicate = { ...structuredClone(step), id, label };
   return { graph: insertStep(graph, duplicate, step.id), id };
+}
+
+export function prepareNestedStepCopy(workflow: Workflow, scope: GraphScope, step: WorkflowNode) {
+  const graph = graphAt(workflow, scope);
+  const config = step.config;
+  if (
+    !graph ||
+    (config?.type !== "loop" && config?.type !== "subgraph") ||
+    config.type !== step.kind
+  ) {
+    return "Choose a configured loop or subgraph to duplicate.";
+  }
+  if (graph.nodes.length >= 128 || graph.edges.length >= 256) {
+    return "This graph has reached its step or connection limit.";
+  }
+
+  const definitions = workflow.subgraphs ?? [];
+  const byRef = new Map(definitions.map((definition) => [scopeKey(definition), definition]));
+  const reachable = new Map<string, SubgraphDefinition>();
+  const visiting = new Set<string>();
+  function visit(ref: SubgraphRef): string | undefined {
+    const key = scopeKey(ref);
+    if (visiting.has(key)) return "Resolve recursive subgraph references before duplicating.";
+    if (reachable.has(key)) return;
+    const body = byRef.get(key);
+    if (!body) return "Choose an existing definition for every nested step before duplicating.";
+
+    visiting.add(key);
+    for (const node of body.nodes) {
+      const child = referenceOf(node);
+      if (!child) continue;
+      const reason = visit(child);
+      if (reason) return reason;
+    }
+    visiting.delete(key);
+    reachable.set(key, body);
+  }
+  const reason = visit(config.ref);
+  if (reason) return reason;
+  if (definitions.length + reachable.size > 32) {
+    return "This copy would exceed the workflow’s 32-definition limit.";
+  }
+
+  return () => {
+    // Clone each pinned definition once so references that shared a body still
+    // share one within the copy. Body node IDs keep local inputs and predicates valid.
+    const copies = new Map(
+      Array.from(reachable.keys(), (key) => [
+        key,
+        { id: `body-${crypto.randomUUID()}`, version: 1 },
+      ]),
+    );
+    const copiedBodies = Array.from(reachable, ([key, body]) => {
+      const copy = structuredClone(body);
+      for (const node of copy.nodes) {
+        if (node.config?.type === "loop" || node.config?.type === "subgraph") {
+          node.config.ref = copies.get(scopeKey(node.config.ref))!;
+        }
+      }
+      return { ...copy, ...copies.get(key)!, name: copyName(copy.name, 120) };
+    });
+    const id = makeId(step.kind);
+    const duplicate = {
+      ...structuredClone(step),
+      id,
+      label: copyName(step.label, 100),
+      config: { ...structuredClone(config), ref: copies.get(scopeKey(config.ref))! },
+    };
+    return {
+      id,
+      workflow: updateGraph(
+        { ...workflow, subgraphs: [...definitions, ...copiedBodies] },
+        scope,
+        insertStep(graph, duplicate, step.id),
+      ),
+    };
+  };
 }
 
 export function addTemplate(

@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
-import type { WorkflowRevision } from "../src/lib/workflow";
+import type { SubgraphRef, Workflow, WorkflowNode, WorkflowRevision } from "../src/lib/workflow";
 
 test.beforeEach(async ({ page, request }) => {
   const saved = await request.post("/api/revisions", { data: example });
@@ -408,4 +408,165 @@ test("new definition versions and nested draft edits keep an existing run pinned
   expect(
     run.events.find((event: { path: string }) => event.path.includes("/body/step")).detail,
   ).toContain("Original nested instructions.");
+});
+
+test("duplicate a nested workflow with independent definitions and atomic undo", async ({
+  page,
+  request,
+}) => {
+  const step = (
+    id: string,
+    kind: WorkflowNode["kind"],
+    label: string,
+    x: number,
+  ): WorkflowNode => ({
+    id,
+    kind,
+    label,
+    instructions: "",
+    position: { x, y: 60 },
+  });
+  const link = (source: string, target: string) => ({
+    source,
+    target,
+    source_port: "next",
+    target_port: "in",
+  });
+  const leaf = { id: "shared", version: 2 };
+  const body = { id: "scenario", version: 1 };
+  const loop = {
+    type: "loop" as const,
+    ref: body,
+    max_iterations: 4,
+    until: {
+      left: { source: "output" as const, node_id: "criterion", port: "text" },
+      operator: "contains" as const,
+      value: "ready",
+    },
+  };
+  const shared = {
+    ...leaf,
+    name: "Shared method",
+    start_node: "method",
+    nodes: [
+      { ...step("method", "note", "Method", 60), instructions: "Original evidence method." },
+      step("finish", "finish", "Finish method", 380),
+    ],
+    edges: [link("method", "finish")],
+  };
+  const workflow: Workflow = {
+    schema_version: "0.2",
+    name: "Scenario review copy test",
+    start_node: "scenario_loop",
+    nodes: [
+      { ...step("scenario_loop", "loop", "Scenario review", 60), config: loop },
+      {
+        ...step("outside", "subgraph", "Outside reference", 380),
+        config: { type: "subgraph", ref: leaf },
+      },
+      {
+        ...step("count", "code", "Read original iteration count", 700),
+        config: {
+          type: "code",
+          language: "javascript",
+          runtime: "quickjs-ng-0.18.0.1",
+          source: "return { number: inputs.number };",
+          timeout_seconds: 1,
+        },
+        inputs: { number: { source: "output", node_id: "scenario_loop", port: "iterations" } },
+      },
+      step("finish", "finish", "Finish workflow", 1020),
+    ],
+    edges: [link("scenario_loop", "outside"), link("outside", "count"), link("count", "finish")],
+    subgraphs: [
+      { ...shared, version: 1, name: "Archived method" },
+      shared,
+      {
+        ...body,
+        name: "Scenario body",
+        start_node: "first",
+        nodes: [
+          {
+            ...step("first", "subgraph", "First method reference", 60),
+            config: { type: "subgraph", ref: leaf },
+          },
+          {
+            ...step("second", "subgraph", "Second method reference", 380),
+            config: { type: "subgraph", ref: leaf },
+          },
+          { ...step("criterion", "note", "Criterion", 700), instructions: "ready" },
+          step("finish", "finish", "Finish scenario", 1020),
+        ],
+        edges: [link("first", "second"), link("second", "criterion"), link("criterion", "finish")],
+      },
+    ],
+  };
+  const baseline = await request.post("/api/revisions", { data: workflow });
+  expect(baseline.status()).toBe(201);
+  const original: WorkflowRevision = await baseline.json();
+  await page.goto(`/?revision=${original.id}`);
+  await page.getByRole("button", { name: "Duplicate loop", exact: true }).click();
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(name).toHaveValue("Copy of Scenario review");
+  await expect(name).toBeFocused();
+  await expect(page.getByRole("spinbutton", { name: "Maximum iterations" })).toHaveValue("4");
+  await expect(page.getByText("Definitions (5)", { exact: true })).toBeVisible();
+
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(
+    page.getByRole("button", { name: "Edit Copy of Scenario review", exact: true }),
+  ).toHaveCount(0);
+  await expect(page.getByText("Definitions (3)", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
+  await expect(name).toHaveValue("Copy of Scenario review");
+
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await expect(name).toHaveValue("First method reference");
+  await expect(page.getByRole("button", { name: "Duplicate subgraph", exact: true })).toBeEnabled();
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Instructions", exact: true })
+    .fill("Copied method with a new test.");
+  await valid(page);
+  const revisionId = await save(page);
+  const revision: WorkflowRevision = await (
+    await request.get(`/api/revisions/${revisionId}`)
+  ).json();
+  const saved = revision.workflow;
+  const copy = saved.nodes.find((node) => node.label === "Copy of Scenario review")!;
+  const refOf = (node: WorkflowNode): SubgraphRef => {
+    const { config } = node;
+    if (config?.type === "loop" || config?.type === "subgraph") return config.ref;
+    throw new Error(`Missing nested reference on ${node.label}`);
+  };
+  const definition = (ref: SubgraphRef) =>
+    saved.subgraphs!.find((item) => item.id === ref.id && item.version === ref.version)!;
+  const copiedBody = refOf(copy);
+  const clonedReferences = definition(copiedBody).nodes.slice(0, 2).map(refOf);
+  expect(copiedBody.id).not.toBe(body.id);
+  expect(copy.config).toEqual({ ...loop, ref: copiedBody });
+  expect(clonedReferences[0]!.id).not.toBe(leaf.id);
+  expect(clonedReferences[1]).toEqual(clonedReferences[0]);
+  expect(definition(clonedReferences[0]!).nodes[0]?.instructions).toBe(
+    "Copied method with a new test.",
+  );
+  expect(saved.subgraphs).toHaveLength(5);
+  expect(saved.subgraphs?.slice(0, 3)).toEqual(original.workflow.subgraphs);
+  expect(saved.nodes.filter((node) => node.id !== copy.id)).toEqual(original.workflow.nodes);
+  expect(saved.edges.map(({ source, target }) => [source, target])).toEqual(
+    expect.arrayContaining([
+      ["scenario_loop", copy.id],
+      [copy.id, "outside"],
+    ]),
+  );
+
+  await page
+    .getByRole("navigation", { name: "Graph breadcrumbs" })
+    .getByRole("button", { name: workflow.name, exact: true })
+    .click();
+  await page.getByRole("button", { name: "Edit Outside reference", exact: true }).click();
+  await page.getByRole("button", { name: "Duplicate subgraph", exact: true }).click();
+  await expect(name).toHaveValue("Copy of Outside reference");
+  await expect(page.getByText("Definitions (6)", { exact: true })).toBeVisible();
+  await valid(page);
 });

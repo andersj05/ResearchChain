@@ -173,6 +173,17 @@ These operations are undoable and still require server validation before saving.
 focuses its name. The copy starts with the same instructions, model, tools and
 input bindings. Edit the copy to try a different model or research approach.
 
+**Duplicate loop** and **Duplicate subgraph** insert an editable copy after the
+selected step, including separate copies of the definitions it uses. References
+that share a definition within the original share the corresponding definition
+within the copy. Follow **Control connections** and input bindings to route the
+copy’s output where you need it. One Undo removes the new step and its definitions.
+
+When editing a saved workflow, open **Draft changes** next to **Save revision**
+to compare the draft with its saved revision. The preview lists changes to
+instructions, inputs, routing, and workflow settings. It also identifies a
+matching draft or a change limited to canvas positions.
+
 Edit a step in the inspector; use its Next step field to connect or disconnect it.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
 Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loading
