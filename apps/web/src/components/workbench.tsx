@@ -120,9 +120,32 @@ export function Workbench() {
 
   useEffect(() => {
     let active = true;
-    async function load() {
+    async function read<T>(path: string): Promise<T> {
       try {
-        const parameters = new URL(window.location.href).searchParams;
+        return await api<T>(path);
+      } catch (cause) {
+        const transient =
+          cause instanceof TypeError ||
+          (cause instanceof DOMException && cause.name === "TimeoutError") ||
+          (cause instanceof ApiError && (cause.status ?? 0) >= 500);
+        if (!active || !transient) throw cause;
+        await new Promise((resolve) => window.setTimeout(resolve, 250));
+        if (!active) throw cause;
+        return api<T>(path);
+      }
+    }
+    async function load() {
+      const parameters = new URL(window.location.href).searchParams;
+      const view = [
+        "workflow",
+        "runs",
+        "revisions",
+        "evidence",
+        "evaluations",
+        "reports",
+        "operations",
+      ].find((value) => value === parameters.get("view"));
+      try {
         const pending = readPendingRun(pendingKey);
         if (pending) {
           pendingStart.current = pending;
@@ -132,15 +155,15 @@ export function Workbench() {
           setProviderAccount(pending.provider_account_id ?? null);
         }
         const [savedRevisions, recentRuns, agentList] = await Promise.all([
-          api<RevisionSummary[]>("revisions"),
-          api<RunSummary[]>("runs"),
-          api<AgentSummary[]>("agents?limit=1000"),
+          read<RevisionSummary[]>("revisions"),
+          read<RunSummary[]>("runs"),
+          read<AgentSummary[]>("agents?limit=1000"),
         ]);
         if (!active) return;
         setAgents(agentList);
         const runId = parameters.get("run");
         const restored = runId
-          ? await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`).catch((cause) => {
+          ? await read<RunSnapshot>(`runs/${encodeURIComponent(runId)}`).catch((cause) => {
               // An unconfirmed admission may not exist yet. Restore its pinned
               // workflow and inputs so retry keeps the exact request identity.
               if (cause instanceof ApiError && cause.status === 404 && pending?.id === runId)
@@ -159,10 +182,10 @@ export function Workbench() {
           }
         }
         const detail = agentId
-          ? await api<AgentDetail>(`agents/${encodeURIComponent(agentId)}`)
+          ? await read<AgentDetail>(`agents/${encodeURIComponent(agentId)}`)
           : null;
         const versions = detail
-          ? await api<AgentVersion[]>(`agents/${detail.agent.id}/revisions?limit=1000`)
+          ? await read<AgentVersion[]>(`agents/${detail.agent.id}/revisions?limit=1000`)
           : null;
         const revisionId =
           parameters.get("revision") ??
@@ -173,8 +196,11 @@ export function Workbench() {
         if (detail && revisionId && !versions?.some((item) => item.revision.id === revisionId))
           throw new Error("This revision does not belong to the selected agent.");
         const latest = revisionId
-          ? await api<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
+          ? await read<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
           : null;
+        const agentRuns = detail
+          ? await read<RunSummary[]>(`runs?agent_id=${detail.agent.id}`)
+          : recentRuns;
         let draft = detail && !runId ? readAgentDraft(storagePrefix, detail.agent.id) : null;
         if (parameters.has("revision") && draft?.revision?.id !== revisionId) draft = null;
         if (!active) return;
@@ -185,8 +211,7 @@ export function Workbench() {
             ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
             : savedRevisions,
         );
-        setRuns(detail ? await api<RunSummary[]>(`runs?agent_id=${detail.agent.id}`) : recentRuns);
-        if (!active) return;
+        setRuns(agentRuns);
         if (latest) {
           setRevision(draft?.revision ?? latest);
           initialize(draft?.workflow ?? latest.workflow);
@@ -204,33 +229,22 @@ export function Workbench() {
           setRun(restored);
           forgetPendingRun(pendingKey, restored.id);
           if (pendingStart.current?.id === restored.id) pendingStart.current = null;
-          setTab("runs");
+          if (!view) setTab("runs");
         } else if (unconfirmed) {
           setMessage(
             "Unconfirmed run restored. Start again with the same inputs to retry this request.",
           );
         }
-        const view = parameters.get("view");
-        if (
-          view &&
-          [
-            "workflow",
-            "runs",
-            "revisions",
-            "evidence",
-            "evaluations",
-            "reports",
-            "operations",
-          ].includes(view)
-        )
-          setTab(view);
       } catch (cause) {
         if (active) {
           const detail = cause instanceof Error ? cause.message : "Unable to load the workspace.";
           setError(`${detail} The draft is editable. Refresh history when the API is available.`);
         }
       } finally {
-        if (active) setLoaded(true);
+        if (active) {
+          if (view) setTab(view);
+          setLoaded(true);
+        }
       }
     }
     void load();
