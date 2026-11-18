@@ -25,7 +25,7 @@ import { useOwner } from "@/components/access-context";
 import { ownerStoragePrefix } from "@/lib/access";
 import { pruneReviewDrafts, readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { Button } from "@ui-sdk/react/button";
-import type { RunSnapshot, RunSummary } from "@/lib/workflow";
+import type { RecentRunSummary, RunSnapshot } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
@@ -47,7 +47,7 @@ function runLinkTarget(run: RunSnapshot) {
 
 type Actions = {
   busy: boolean;
-  recentRuns: RunSummary[];
+  recentRuns: RecentRunSummary[];
   reviewFocus?: ReviewFocus;
   onResume: ResumeReview;
   onRecover: () => Promise<void>;

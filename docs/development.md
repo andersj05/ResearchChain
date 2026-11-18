@@ -244,7 +244,8 @@ silently interpreting old checkpoints through changed code.
 
 In **Runs → Compare runs**, select another run for the same
 agent to inspect its pinned revision, models, usage, sources, brief, and feedback
-alongside the open run. **Model outputs by step** compares the same step and
+alongside the open run. The comparison picker labels runs with brief excerpts.
+**Model outputs by step** compares the same step and
 iteration. Each side opens the latest saved conclusion, or the latest saved
 output if there is no conclusion yet. Use **Saved pass** to inspect a different
 conclusion, research lead, or workspace activity independently on each side.
