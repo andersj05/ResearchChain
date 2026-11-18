@@ -13,7 +13,7 @@ export type SavedFile = {
   pass: number;
 };
 
-export function* workspaceFileReceipts(run: RunSnapshot): Generator<SavedFile> {
+function* workspaceFileReceipts(run: RunSnapshot): Generator<SavedFile> {
   const passes = new Map<string, number>();
   for (const attempt of run.model_attempts ?? []) {
     const path = attemptPath(attempt);
@@ -39,6 +39,14 @@ export function savedRunFiles(run: RunSnapshot) {
   return [...files.entries()].reverse();
 }
 
+export function latestWorkspaceFiles(run: RunSnapshot) {
+  const files = new Map<string, SavedFile>();
+  for (const receipt of workspaceFileReceipts(run)) {
+    files.set(JSON.stringify([receipt.path, receipt.file.name]), receipt);
+  }
+  return files;
+}
+
 export function workspaceFileSources(run: RunSnapshot, path: string, attemptId: string) {
   const sources = new Set<string>();
   for (const attempt of run.model_attempts ?? []) {
@@ -54,10 +62,12 @@ export function RunFiles({
   files,
   run,
   inspect,
+  showFilter = true,
 }: {
   files: ReturnType<typeof savedRunFiles>;
   run: RunSnapshot;
   inspect: (path: string, attemptId: string) => void;
+  showFilter?: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [preview, setPreview] = useState<string>();
@@ -72,15 +82,17 @@ export function RunFiles({
   });
   return (
     <section className="run-files" aria-label="Saved workspace files">
-      <label>
-        Filter run files
-        <input
-          type="search"
-          placeholder="Filename, file type, or step"
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
+      {showFilter && (
+        <label>
+          Filter run files
+          <input
+            type="search"
+            placeholder="Filename, file type, or step"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+          />
+        </label>
+      )}
       {!files.length ? (
         <p className="muted">No workspace files have been saved.</p>
       ) : !visible.length ? (

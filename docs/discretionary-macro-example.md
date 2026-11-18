@@ -24,6 +24,9 @@ fresh run to try a different research process.
 
 **Runs → Decisions** shows open reviews and saved judgments. Expand **Steps wired to
 this feedback** to inspect the downstream steps and their saved model requests.
+In an open review, **Files for this review** shows saved files from the output
+under review and its earlier context. Preview the chart or observations while
+you write your judgment.
 **Iterate with this feedback** copies the saved version and appends the selected
 judgment to the next editable brief.
 
