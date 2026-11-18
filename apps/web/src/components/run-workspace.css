@@ -379,6 +379,19 @@
 .run-model-activity time {
   white-space: nowrap;
 }
+.model-activity-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 16px;
+}
+.model-activity-controls label {
+  flex: 1 1 150px;
+  min-width: 0;
+}
+.model-activity-controls :is(input, select) {
+  width: 100%;
+}
 .run-comparison label {
   display: grid;
   gap: 4px;

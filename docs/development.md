@@ -178,6 +178,11 @@ sequence values, so concurrent saves can leave gaps.
 
 The Runs view lists recent runs and their original briefs, revisions, completed
 steps, and review questions. Run links survive browser refresh and API restart.
+
+**Model activity** can sort attempts by elapsed time or total reported tokens.
+Rows with missing measurements follow measured rows, and the sort preference is
+stored in the owner's browser.
+
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
