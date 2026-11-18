@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Saved CSV table previews
+
+Open a saved CSV from **Runs → Files** or **Output file changes** to read its
+headers and first 50 rows and 20 columns. **Show raw CSV** displays the original
+text, and download returns the full file. Synthetic checks covered quoted commas,
+line breaks, leading zeros, clipping, and phone-width scrolling. CI passed 516
+backend tests with 2 skips. Of 118 browser cases, 117 passed on the first attempt
+and the expired-session case passed on retry. Desktop at `68cfb4d` served the
+table control with a healthy API and connected worker.
+[PR #86](https://github.com/andersj05/ResearchChain/pull/86).
+
 ## Review drafts in the current tab
 
 Unsent reviewer feedback stays with its run and interrupt across run switches and
