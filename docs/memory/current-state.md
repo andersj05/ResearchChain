@@ -4,6 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Prepare evidence in Run setup
+
+**Evidence for this run** searches the full library by title, author, publisher,
+or saved date. **Selected sources** shows exact versions in the order they will
+be pinned. Inspect, move, remove, or retry individual source details while
+browsing. The phone-width tests verified keyboard focus, saved order, older
+provenance after correction, and protection from a delayed search response. CI
+passed 517 backend tests with 2 skips and all 119 browser tests. Desktop at
+`ca73827` served the controls with a healthy API and connected worker. The
+owner-gated search route and a read-only library query passed on Desktop.
+[PR #93](https://github.com/andersj05/ResearchChain/pull/93).
+
 ## Review inbox agent filter
 
 **Review inbox → Show reviews for** switches between all agents and the active

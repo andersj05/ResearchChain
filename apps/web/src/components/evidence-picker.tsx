@@ -3,51 +3,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { api } from "@/lib/workflow";
+import { mergeSources, readSources, useEvidenceLibrary } from "@/lib/use-evidence-library";
 import {
   availabilityLabels,
   evidenceUrl,
-  representationLabels,
-  type EvidencePage,
+  sourceMetadata,
   type EvidenceRecord,
 } from "@/lib/evidence";
-
-type SearchResults = {
-  query: string;
-  generation: number;
-  items: EvidenceRecord[];
-  next: number | null;
-  error?: string;
-};
-
-function listSources(query: string, offset = 0) {
-  const params = new URLSearchParams({ limit: "50" });
-  if (offset) params.set("offset", String(offset));
-  if (query) params.set("search", query);
-  return api<EvidencePage>(`evidence?${params}`);
-}
-
-function mergeSources(first: EvidenceRecord[], second: EvidenceRecord[]) {
-  return [...new Map([...first, ...second].map((item) => [item.id, item])).values()];
-}
-
-async function readSources(ids: string[]) {
-  const results = await Promise.allSettled(
-    ids.map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)),
-  );
-  return results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-}
-
-function sourceMetadata(item: EvidenceRecord) {
-  return [
-    representationLabels[item.representation ?? "original"],
-    item.as_of_date
-      ? `As of ${item.as_of_date}`
-      : item.published_date && `Published ${item.published_date}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
 
 export function EvidencePicker({
   selected,
@@ -61,9 +23,6 @@ export function EvidencePicker({
   label?: string;
 }) {
   const [search, setSearch] = useState("");
-  const [generation, setGeneration] = useState(0);
-  const [results, setResults] = useState<SearchResults>();
-  const [pendingPage, setPendingPage] = useState<SearchResults>();
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
   const [initialSelection] = useState(selected);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
@@ -71,30 +30,7 @@ export function EvidencePicker({
   const moveFocus = useRef<string>(null);
   const pickerId = useId();
   const query = search.trim();
-  useEffect(() => {
-    let active = true;
-    async function load() {
-      try {
-        const page = await listSources(query);
-        if (active)
-          setResults({ query, generation, items: page.items, next: page.next_offset ?? null });
-      } catch (cause) {
-        if (active)
-          setResults({
-            query,
-            generation,
-            items: [],
-            next: null,
-            error: cause instanceof Error ? cause.message : "Unable to load evidence.",
-          });
-      }
-    }
-    const timer = setTimeout(load, query ? 200 : 0);
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [generation, query]);
+  const library = useEvidenceLibrary(query);
 
   useEffect(() => {
     if (!initialSelection.length) return;
@@ -116,44 +52,8 @@ export function EvidencePicker({
     moveFocus.current = null;
   }, [selected]);
 
-  const current =
-    results?.query === query && results.generation === generation ? results : undefined;
-  const loading = !current || pendingPage === current;
-  async function more() {
-    if (!current) return;
-    if (current.next === null) {
-      setGeneration((value) => value + 1);
-      return;
-    }
-    setPendingPage(current);
-    try {
-      const page = await listSources(query, current.next);
-      setResults((latest) =>
-        latest === current
-          ? {
-              query,
-              generation,
-              items: mergeSources(current.items, page.items),
-              next: page.next_offset ?? null,
-            }
-          : latest,
-      );
-    } catch (cause) {
-      setResults((latest) =>
-        latest === current
-          ? {
-              ...current,
-              error: cause instanceof Error ? cause.message : "Unable to load evidence.",
-            }
-          : latest,
-      );
-    } finally {
-      setPendingPage((pending) => (pending === current ? undefined : pending));
-    }
-  }
-  const resultsItems = current?.items ?? [];
-  const known = mergeSources(retained, resultsItems);
-  const visible = query ? resultsItems : known;
+  const known = mergeSources(retained, library.items);
+  const visible = query ? library.items : known;
   const byId = new Map(known.map((item) => [item.id, item]));
   const unresolved = selected.filter((id) => !byId.has(id));
   const remove = (id: string) => onChange(selected.filter((value) => value !== id));
@@ -286,7 +186,7 @@ export function EvidencePicker({
             </span>
           </label>
         ))}
-        {!loading && !current?.error && !visible.length && (
+        {!library.loading && !library.error && !visible.length && (
           <p className="muted">
             {query
               ? "No matching sources."
@@ -294,19 +194,23 @@ export function EvidencePicker({
           </p>
         )}
       </div>
-      {loading && (
+      {library.loading && (
         <p className="muted" role="status">
           Loading evidence…
         </p>
       )}
-      {current?.error && (
+      {library.error && (
         <p className="error" role="alert">
-          {current.error}
+          {library.error}
         </p>
       )}
-      {current && (current.next !== null || current.error) && (
-        <Button className="button small" disabled={loading || disabled} onClick={more}>
-          {current.error ? "Retry sources" : "Load more sources"}
+      {(library.hasMore || library.error) && (
+        <Button
+          className="button small"
+          disabled={library.loading || disabled}
+          onClick={library.more}
+        >
+          {library.error ? "Retry sources" : "Load more sources"}
         </Button>
       )}
     </fieldset>

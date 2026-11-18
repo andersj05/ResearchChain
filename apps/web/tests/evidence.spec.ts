@@ -2,7 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import type { EvidenceRecord } from "../src/lib/evidence";
-import type { RunSnapshot } from "../src/lib/workflow";
+import { researchDefaults, type RunSnapshot, type WorkflowRevision } from "../src/lib/workflow";
 
 async function addText(page: Page, title: string, text: string) {
   await page.getByRole("button", { name: "Add source", exact: true }).click();
@@ -137,6 +137,94 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   await context.click();
   await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("pinned-evidence-run.png"), fullPage: true });
+});
+
+test("pinned evidence keeps saved provenance when one source cannot load", async ({
+  page,
+  request,
+}) => {
+  const revisionId = new URL(page.url()).searchParams.get("revision");
+  const revision: WorkflowRevision = await (
+    await request.get(`/api/revisions/${revisionId}`)
+  ).json();
+  const evidence: EvidenceRecord[] = await Promise.all(
+    ["Synthetic policy release", "Synthetic pricing snapshot"].map(async (title, index) => {
+      const response = await request.post("/api/evidence", {
+        data: {
+          id: randomUUID(),
+          title,
+          kind: "text",
+          text: "Synthetic time-series observation.",
+          rights: "owned",
+          publisher: "Fixture Desk",
+          ...(index === 0 ? { published_date: "2026-11-16" } : { as_of_date: "2026-11-17" }),
+        },
+      });
+      expect(response.status()).toBe(201);
+      return response.json();
+    }),
+  );
+  const now = new Date().toISOString();
+  const run: RunSnapshot = {
+    id: randomUUID(),
+    revision_id: revision.id,
+    revision_number: revision.number,
+    workflow: revision.workflow,
+    workflow_name: revision.name,
+    brief: "Synthetic pinned input check",
+    status: "completed",
+    execution_pending: false,
+    checkpoint_id: null,
+    compiler_version: "research-0.3.0",
+    created_at: now,
+    artifacts: [],
+    events: [],
+    evidence_ids: evidence.map((item) => item.id),
+    research_manifest: {
+      version: "research-manifest-1",
+      settings: researchDefaults,
+      account_id: "fixture",
+      account_label: "Synthetic",
+      workflow_revision_id: revision.id,
+      compiler_version: "research-0.3.0",
+      created_at: now,
+      prompt_versions: {},
+      prompt_hashes: {},
+      tool_config: {},
+      evidence: evidence.map((item) => ({
+        evidence_id: item.id,
+        original: item.content_hash ?? null,
+        representation: item.representation ?? "original",
+        availability: item.availability ?? "available",
+        publisher: item.publisher ?? "",
+        source_url: null,
+        as_of_date: item.as_of_date ?? null,
+      })),
+    },
+  };
+  const unavailable = evidence[1]!;
+  const recordUrl = `**/api/evidence/${unavailable.id}`;
+  await page.route(recordUrl, (route) =>
+    route.fulfill({ status: 404, json: { detail: "Unavailable" } }),
+  );
+  await page.route(`**/api/runs/${run.id}`, (route) => route.fulfill({ json: run }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?run=${run.id}&view=runs`);
+  await page.getByRole("button", { name: "Run context" }).click();
+  const pinned = page.getByRole("region", { name: "Pinned evidence" });
+  await expect(pinned.getByText("Source details unavailable", { exact: true })).toBeVisible();
+  await expect(pinned.getByRole("listitem").first()).toContainText("Published 2026-11-16");
+  const older = pinned.getByRole("listitem").nth(1);
+  await expect(older).toContainText("As of 2026-11-17");
+  await expect(older).toContainText("Saved with this run");
+  await expect(older.getByRole("link")).toHaveAttribute(
+    "href",
+    `/?view=evidence&evidence=${unavailable.id}`,
+  );
+  await page.unroute(recordUrl);
+  await pinned.getByRole("button", { name: "Retry unavailable sources" }).click();
+  await expect(older.getByRole("link")).toHaveText(unavailable.title);
+  await expect(pinned.getByText("Source details unavailable", { exact: true })).toHaveCount(0);
 });
 
 test("inspect a screenshot and distinguish derived estimates from numeric source data", async ({

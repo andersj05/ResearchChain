@@ -14,6 +14,7 @@ AccessRights = Literal[
     "unknown", "owned", "public_domain", "open_license", "permission", "restricted"
 ]
 UploadRights = Literal["owned", "public_domain", "open_license", "permission"]
+EvidenceAvailability = Literal["available", "reference_only", "missing", "paywalled"]
 Representation = Literal[
     "original", "chart_screenshot", "ocr_interpretation", "digitized_estimate", "numeric_data"
 ]
@@ -68,7 +69,7 @@ class EvidenceFields(EvidenceModel):
     title: str = Field(min_length=1, max_length=240)
     kind: Literal["link", "report", "discussion", "image", "dataset", "text"]
     representation: Representation = "original"
-    availability: Literal["available", "reference_only", "missing", "paywalled"] = "available"
+    availability: EvidenceAvailability = "available"
     source_url: HttpUrl | None = Field(default=None, max_length=2000)
     author: str = Field(default="", max_length=240)
     publisher: str = Field(default="", max_length=240)

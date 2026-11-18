@@ -209,13 +209,20 @@ test("compare two saved research runs without switching the open run", async ({ 
     .locator(".comparison-changes > div")
     .filter({ hasText: "Total tokens allowed" });
   await expect(budgetChange).toContainText(/65(?:\D)?000/);
-  await expect(setup.getByText("The order of shared pinned sources changed.")).toBeVisible();
   await expect(
     setup.getByRole("link", { name: `Pinned source · ${priorSource.slice(0, 8)}` }),
   ).toBeVisible();
   await expect(
     setup.getByRole("link", { name: `Pinned source · ${newSource.slice(0, 8)}` }),
   ).toBeVisible();
+  await setup.getByText("Pinned source order", { exact: true }).click();
+  const orderedTitles = (ids: string[]) => ids.map((id) => `Synthetic source ${id.slice(0, 8)}`);
+  await expect(
+    setup.getByRole("region", { name: "Comparison run source order" }).getByRole("link"),
+  ).toHaveText(orderedTitles([...sharedSources, priorSource]));
+  await expect(
+    setup.getByRole("region", { name: "Open run source order" }).getByRole("link"),
+  ).toHaveText(orderedTitles([...sharedSources.toReversed(), newSource]));
   await setup.getByText(`${first.label} · Changed`, { exact: true }).click();
   await expect(
     setup.getByText("Compare front-end and belly pricing over twenty sessions.", { exact: true }),

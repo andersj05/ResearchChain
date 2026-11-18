@@ -1,32 +1,25 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/workflow";
+import { Button } from "@ui-sdk/react/button";
+import { useSourceDetails } from "@/lib/use-evidence-library";
 import {
-  availabilityLabels,
+  evidenceAvailabilityLabel,
   evidenceUrl,
-  representationLabels,
-  type EvidenceRecord,
+  sourceMetadata,
+  type EvidenceSnapshot,
 } from "@/lib/evidence";
 
-export function PinnedEvidence({ ids }: { ids: string[] }) {
-  const [items, setItems] = useState<EvidenceRecord[]>([]);
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    Promise.all(ids.map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)))
-      .then((records) => {
-        if (active) setItems(records);
-      })
-      .catch((cause: unknown) => {
-        if (active)
-          setError(cause instanceof Error ? cause.message : "Unable to inspect pinned evidence.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [ids]);
+export function PinnedEvidence({
+  ids,
+  snapshots,
+}: {
+  ids: string[];
+  snapshots?: EvidenceSnapshot[];
+}) {
+  const { items, unresolved, retry } = useSourceDetails(ids);
   if (!ids.length) return null;
+  const saved = new Map(snapshots?.map((source) => [source.evidence_id, source]));
+  const unavailable = new Set(unresolved);
   return (
     <section className="pinned-evidence" aria-label="Pinned evidence">
       <h3>
@@ -35,27 +28,38 @@ export function PinnedEvidence({ ids }: { ids: string[] }) {
       <p className="field-hint">
         These source versions stay attached when provenance is corrected later.
       </p>
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
       <ul>
         {ids.map((id) => {
-          const item = items.find((source) => source.id === id);
+          const item = items.get(id);
+          const fallback = saved.get(id);
+          const details = item ?? fallback;
           return (
             <li key={id}>
-              <a href={evidenceUrl(id)}>{item?.title ?? `Inspect source ${id.slice(0, 8)}`}</a>
-              {item && (
+              <a href={evidenceUrl(id)} target="_blank" rel="noopener">
+                {item?.title ?? `Inspect source ${id.slice(0, 8)}`}
+              </a>
+              {details && (
                 <span>
-                  {representationLabels[item.representation ?? "original"]} ·{" "}
-                  {availabilityLabels[item.availability ?? "available"]}
+                  {[
+                    sourceMetadata(details),
+                    evidenceAvailabilityLabel(details.availability),
+                    details.publisher,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                  {!item && " · Saved with this run"}
                 </span>
               )}
+              {unavailable.has(id) && <span>Source details unavailable</span>}
             </li>
           );
         })}
       </ul>
+      {unresolved.length > 0 && (
+        <Button className="button small" onClick={retry}>
+          Retry unavailable sources
+        </Button>
+      )}
     </section>
   );
 }

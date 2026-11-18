@@ -1922,6 +1922,7 @@ td time {
 .pinned-evidence li {
   padding: 8px 0;
   font-size: 12px;
+  overflow-wrap: anywhere;
 }
 .pinned-evidence li span {
   display: block;

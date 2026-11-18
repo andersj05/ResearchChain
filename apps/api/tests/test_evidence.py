@@ -141,17 +141,34 @@ def test_evidence_search_filters_before_pagination(client: TestClient) -> None:
     )
     newer = create(client, title="Model assumptions", author="Fixture Desk")
     create(client, title="Unrelated latest source")
+    paywalled = create(
+        client,
+        text="",
+        title="Fixture Desk report",
+        source_url="https://example.test/paywalled",
+        availability="paywalled",
+        rights="unknown",
+    )
 
-    first = client.get("/api/evidence", params={"search": " fixture DESK ", "limit": 1}).json()
+    first = client.get(
+        "/api/evidence",
+        params={"search": " fixture DESK ", "limit": 1, "availability": "available"},
+    ).json()
     assert first == {"items": [newer], "total": 2, "next_offset": 1}
     second = client.get(
-        "/api/evidence", params={"search": "Fixture Desk", "limit": 1, "offset": 1}
+        "/api/evidence",
+        params={"search": "Fixture Desk", "limit": 1, "offset": 1, "availability": "available"},
     ).json()
     assert second == {"items": [older], "total": 2, "next_offset": None}
     dated = client.get("/api/evidence", params={"search": "2026-10-01"}).json()
     assert dated["items"] == [older]
     literal = client.get("/api/evidence", params={"search": "%"}).json()
     assert literal["items"] == [older]
+    accessible = client.get(
+        "/api/evidence", params={"search": "Fixture Desk", "availability": "paywalled"}
+    ).json()
+    assert accessible == {"items": [paywalled], "total": 1, "next_offset": None}
+    assert client.get("/api/evidence", params={"search": "\x00"}).status_code == 422
     assert client.get("/api/evidence", params={"search": "x" * 241}).status_code == 422
 
 
