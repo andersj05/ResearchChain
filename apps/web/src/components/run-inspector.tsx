@@ -116,6 +116,9 @@ function RunWorkspace({
   const tokens = (run.usage?.input_tokens ?? 0) + (run.usage?.output_tokens ?? 0);
   const tokenLimit = limits?.max_total_tokens;
   const live = ["paused", "running", "queued", "interrupted"].includes(run.status);
+  const currentStatus = states.get(current);
+  const reviewingHistory = current !== path || view !== "step" || Boolean(attemptId);
+  const showActivity = reviewingHistory && (live || Boolean(run.stop_reason));
   return (
     <>
       <header className="run-head">
@@ -175,10 +178,6 @@ function RunWorkspace({
       <div className="run-graph-shell">
         <div className="run-graph-line">
           <h3>Workflow progress</h3>
-          <span className="sr-only" aria-live="polite" aria-atomic="true">
-            {states.has(current) &&
-              `${graphLocation(run, current).node.label}. ${states.get(current)}.`}
-          </span>
           <div className="run-metrics" aria-label="Run usage">
             <span>{run.events.length.toLocaleString()} recorded steps</span>
             {limits && (
@@ -204,6 +203,21 @@ function RunWorkspace({
           >
             {showGraph ? "Hide workflow map" : "Show workflow map"}
           </button>
+        </div>
+        <div aria-live="polite" aria-atomic="true">
+          {currentStatus && (
+            <div
+              className={showActivity ? "run-current-step" : "sr-only"}
+              role={showActivity ? "group" : undefined}
+              aria-label={showActivity ? "Latest workflow activity" : undefined}
+            >
+              {showActivity && <span className="muted">Latest activity</span>}
+              <strong>{graphLocation(run, current).node.label}</strong>
+              <span className="step-status" data-status={currentStatus}>
+                {currentStatus}
+              </span>
+            </div>
+          )}
         </div>
         {parents.length > 0 && (
           <nav className="run-graph-path" aria-label="Nested graph path">
@@ -353,7 +367,7 @@ function RunWorkspace({
               await onResume(...args);
               follow();
             }}
-            select={select}
+            select={inspectFromPanel}
           />
         )}
       </div>

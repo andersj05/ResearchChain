@@ -51,6 +51,9 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(page.getByRole("region", { name: "Selected step" })).toContainText(
     "1 of 10 research passes used",
   );
+  const latest = page.getByLabel("Latest workflow activity", { exact: true });
+  await expect(latest).toContainText("Weigh the thesis and the dissent");
+  await expect(latest).toContainText("Waiting for review");
   await page.getByRole("button", { name: "Return to review", exact: true }).click();
   await expect(judgment.getByLabel("Reviewer feedback")).toHaveValue(view);
   await judgment.getByRole("button", { name: "Approve and continue" }).click();

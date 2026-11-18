@@ -108,6 +108,15 @@
   font-size: 13px;
   font-weight: 600;
 }
+.run-current-step {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 10px;
+  padding: 0 24px 8px;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
 .run-metrics {
   gap: 4px 14px;
   font-size: 12px;
@@ -626,6 +635,7 @@
   .run-section-switch,
   .run-map-navigation,
   .run-graph-line,
+  .run-current-step,
   .run-graph-path {
     padding-inline: 14px;
   }
