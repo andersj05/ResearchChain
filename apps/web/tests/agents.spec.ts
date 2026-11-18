@@ -9,6 +9,61 @@ async function createAgent(page: Page, name: string) {
   await expect(page.getByRole("combobox", { name: "Agent", exact: true })).toHaveValue(/.+/);
   return page.getByRole("combobox", { name: "Agent", exact: true }).inputValue();
 }
+test("open the requested view after a transient workspace read failure", async ({
+  page,
+  request,
+}) => {
+  const workflow = structuredClone(example);
+  workflow.nodes[0]!.label = "Recovered startup revision";
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.status()).toBe(201);
+  const revision = await response.json();
+  let reads = 0;
+  await page.route("**/api/revisions", (route) => {
+    reads += 1;
+    if (reads === 1) return route.fulfill({ status: 502, body: "Local API disconnected" });
+    return route.continue();
+  });
+  await page.goto(`/?revision=${revision.id}&view=reports`);
+  await expect(page.getByRole("tab", { name: "Reports", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await expect(page.getByRole("button", { name: "Style guides", exact: true })).toBeVisible();
+  await expect.poll(() => reads).toBeGreaterThanOrEqual(2);
+  await expect(page.getByRole("button", { name: "New agent", exact: true })).toBeEnabled();
+  await page.getByRole("tab", { name: "Build", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Recovered startup revision",
+  );
+});
+
+test("a failed startup read preserves the saved browser draft", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "New agent", exact: true })).toBeEnabled();
+  const agent = await createAgent(page, "Startup draft recovery");
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  await name.fill("Keep this unsaved research step");
+  await page.reload();
+  await expect(name).toHaveValue("Keep this unsaved research step");
+  const match = (url: URL) =>
+    url.pathname === "/api/runs" && url.searchParams.get("agent_id") === agent;
+  await page.route(match, (route) =>
+    route.fulfill({ status: 503, json: { detail: "Synthetic workspace disconnect" } }),
+  );
+  await page.goto(`/?agent=${agent}&view=reports`);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Synthetic workspace disconnect" }),
+  ).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Reports", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  await page.unroute(match);
+  await page.goto(`/?agent=${agent}&view=workflow`);
+  await expect(name).toHaveValue("Keep this unsaved research step");
+});
+
 for (const width of [1440, 390]) {
   test(`named agents preserve drafts, inputs and exact run ownership at ${width}px`, async ({
     page,
