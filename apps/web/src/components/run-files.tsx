@@ -6,15 +6,14 @@ import type { RunSnapshot } from "@/lib/workflow";
 import { canPreviewWorkspaceFile, WorkspaceFilePreview } from "./research-workspace";
 import { researchToolUrls } from "./research-tool-receipts";
 
-type SavedFile = {
+export type SavedFile = {
   file: components["schemas"]["WorkspaceFile"];
   path: string;
   attemptId: string;
   pass: number;
 };
 
-export function savedRunFiles(run: RunSnapshot) {
-  const files = new Map<string, SavedFile>();
+export function* workspaceFileReceipts(run: RunSnapshot): Generator<SavedFile> {
   const passes = new Map<string, number>();
   for (const attempt of run.model_attempts ?? []) {
     const path = attemptPath(attempt);
@@ -25,16 +24,22 @@ export function savedRunFiles(run: RunSnapshot) {
       ...(result?.workspace_activity?.files ?? []),
       ...(result?.workspace_files ?? []),
     ];
-    for (const file of saved) {
-      const key = JSON.stringify([path, file.name, file.artifact_id]);
-      // Later passes may repeat the same file in the workspace inventory.
-      if (!files.has(key)) files.set(key, { file, attemptId: attempt.id, path, pass });
-    }
+    for (const file of saved) yield { file, attemptId: attempt.id, path, pass };
+  }
+}
+
+export function savedRunFiles(run: RunSnapshot) {
+  const files = new Map<string, SavedFile>();
+  for (const receipt of workspaceFileReceipts(run)) {
+    const { path, file } = receipt;
+    const key = JSON.stringify([path, file.name, file.artifact_id]);
+    // Later passes may repeat the same file in the workspace inventory.
+    if (!files.has(key)) files.set(key, receipt);
   }
   return [...files.entries()].reverse();
 }
 
-function previewSources(run: RunSnapshot, path: string, attemptId: string) {
+export function workspaceFileSources(run: RunSnapshot, path: string, attemptId: string) {
   const sources = new Set<string>();
   for (const attempt of run.model_attempts ?? []) {
     if (attemptPath(attempt) !== path) continue;
@@ -129,7 +134,7 @@ export function RunFiles({
                 >
                   <WorkspaceFilePreview
                     file={file}
-                    sources={previewSources(run, path, attemptId)}
+                    sources={workspaceFileSources(run, path, attemptId)}
                   />
                 </div>
               )}
