@@ -104,6 +104,9 @@ export function RunModelActivity({
           </select>
         </label>
       </div>
+      {order === "tokens" && visible.some((item) => item.tokens === null) && (
+        <p className="field-hint">Attempts with a missing token count follow complete totals.</p>
+      )}
       {!visible.length ? (
         <p className="muted" role="status">
           No attempts match this filter.

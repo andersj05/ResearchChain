@@ -91,6 +91,9 @@ test("sort model activity by measured work and remember the preference", async (
   await expect(rows.nth(3)).toContainText("zero-tokens-model");
   await expect(rows.nth(4)).toContainText("active-model");
   await order.selectOption("tokens");
+  await expect(
+    page.getByText("Attempts with a missing token count follow complete totals."),
+  ).toBeVisible();
   await expect(rows.nth(1)).toContainText("fast-metered-model");
   await expect(rows.nth(2)).toContainText("zero-tokens-model");
   await expect(rows.nth(4)).toContainText("slow-partial-model");
