@@ -213,6 +213,9 @@ or keep the original scale for the entire run.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
+**Iterate from this step** loads the pinned revision, copied brief, and sources
+and opens the corresponding step in Build. For a loop iteration, Build opens
+the versioned body and selects the step that ran.
 
 Unsent feedback stays in the current browser tab when you switch runs or refresh.
 Drafts clear when the app observes a resolved checkpoint or a terminal run.

@@ -94,6 +94,31 @@ export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
     : undefined;
 }
 
+export type GraphCrumb = { ref: SubgraphRef; via: string };
+
+export function workflowStepAtRunPath(workflow: Workflow, executionPath: string) {
+  const parts = executionPath.split("/");
+  if (parts[0] !== "root" || parts.length < 2 || parts.length % 2 !== 0) return;
+  const path: GraphCrumb[] = [];
+  let graph: Graph = workflow;
+  for (let index = 1; index < parts.length - 1; index += 2) {
+    const via = graph.nodes.find((node) => node.id === parts[index]);
+    const slot = parts[index + 1]!;
+    if (
+      !via ||
+      (via.config?.type === "loop" ? !/^iteration-[1-9]\d*$/.test(slot) : slot !== "body")
+    )
+      return;
+    const ref = referenceOf(via);
+    const child = ref && graphAt(workflow, ref);
+    if (!ref || !child) return;
+    path.push({ via: via.id, ref });
+    graph = child;
+  }
+  const step = graph.nodes.find((node) => node.id === parts.at(-1));
+  return step ? { step, path } : undefined;
+}
+
 export function controlOutputs(node: WorkflowNode): string[] {
   if (node.kind === "finish") return [];
   if (node.config?.type === "route") return ["true", "false"];
