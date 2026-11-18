@@ -265,6 +265,7 @@ class RunStore:
             created_at=manifest["created_at"],
             workflow=revision.workflow,
             brief=manifest["brief"],
+            baseline_run_id=manifest["baseline_run_id"],
             artifacts=manifest["artifacts"],
             evidence_ids=self._evidence_ids(conn, manifest["id"]),
             compiler_version=manifest["compiler_version"],
@@ -393,6 +394,7 @@ class RunStore:
         if existing and (
             run_agent(conn, request.id)["agent_id"] != request.agent_id
             or existing["revision_id"] != request.revision_id
+            or existing["baseline_run_id"] != request.baseline_run_id
             or existing["brief"] != request.brief
             or self._evidence_ids(conn, request.id) != request.evidence_ids
         ):
@@ -409,6 +411,14 @@ class RunStore:
         )
         artifacts = [item.model_dump() for item in request.artifacts]
         if existing is None:
+            if request.baseline_run_id is not None:
+                baseline = conn.execute(
+                    "SELECT a.agent_id FROM runs r LEFT JOIN agent_runs a ON a.run_id = r.id "
+                    "WHERE r.id = %s",
+                    (request.baseline_run_id,),
+                ).fetchone()
+                if baseline is None or baseline["agent_id"] != request.agent_id:
+                    raise NotFoundError("Baseline run not found for this agent.")
             if len({item.id for item in request.artifacts}) != len(request.artifacts):
                 raise EvidenceError("Select each original only once.")
             for item in request.artifacts:
@@ -441,14 +451,16 @@ class RunStore:
                 raise EvidenceError("Provider selection is only valid for a research workflow.")
             with conn.transaction():
                 conn.execute(
-                    "INSERT INTO runs (id, revision_id, compiler_version, brief, artifacts) "
-                    "VALUES (%s, %s, %s, %s, %s)",
+                    "INSERT INTO runs "
+                    "(id, revision_id, compiler_version, brief, artifacts, baseline_run_id) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
                     (
                         request.id,
                         request.revision_id,
                         compiler_version(workflow),
                         request.brief,
                         Jsonb(artifacts),
+                        request.baseline_run_id,
                     ),
                 )
                 if selected_agent:

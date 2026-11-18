@@ -95,6 +95,7 @@ export function Workbench() {
   const [brief, setBrief] = useState(
     "What evidence would distinguish sector rotation from a broad increase in correlation?",
   );
+  const [baselineRunId, setBaselineRunId] = useState<string | null>(null);
   const [run, setRun] = useState<RunSnapshot | null>(null);
   const [runs, setRuns] = useState<RecentRunSummary[]>([]);
   const [tab, setTab] = useState("workflow");
@@ -201,7 +202,9 @@ export function Workbench() {
         const agentRuns = detail
           ? await read<RecentRunSummary[]>(`runs?agent_id=${detail.agent.id}`)
           : recentRuns;
-        let draft = detail && !runId ? readAgentDraft(storagePrefix, detail.agent.id) : null;
+        const reopenBuild = view === "workflow" && parameters.has("revision");
+        let draft =
+          detail && (!runId || reopenBuild) ? readAgentDraft(storagePrefix, detail.agent.id) : null;
         if (parameters.has("revision") && draft?.revision?.id !== revisionId) draft = null;
         if (!active) return;
         setAgents(agentList);
@@ -219,6 +222,7 @@ export function Workbench() {
         }
         if (draft) {
           setBrief(draft.brief);
+          setBaselineRunId(draft.baselineRunId ?? null);
           setEvidenceIds(draft.evidenceIds);
           setArtifacts(draft.artifacts);
           setProviderAccount(draft.providerAccount);
@@ -231,6 +235,7 @@ export function Workbench() {
           if (pendingStart.current?.id === restored.id) pendingStart.current = null;
           if (!view) setTab("runs");
         } else if (unconfirmed) {
+          setBaselineRunId(unconfirmed.baseline_run_id ?? null);
           setMessage(
             "Unconfirmed run restored. Start again with the same inputs to retry this request.",
           );
@@ -260,6 +265,7 @@ export function Workbench() {
       revision,
       workflow,
       brief,
+      baselineRunId,
       evidenceIds,
       artifacts,
       providerAccount,
@@ -276,6 +282,7 @@ export function Workbench() {
     revision,
     workflow,
     brief,
+    baselineRunId,
     evidenceIds,
     artifacts,
     providerAccount,
@@ -288,6 +295,7 @@ export function Workbench() {
       revision,
       workflow,
       brief,
+      baselineRunId,
       evidenceIds,
       artifacts,
       providerAccount,
@@ -325,6 +333,7 @@ export function Workbench() {
     resetEditor();
     setSelected(next.start_node);
     setBrief(cached?.brief ?? "");
+    setBaselineRunId(cached?.baselineRunId ?? null);
     setEvidenceIds(cached?.evidenceIds ?? []);
     setArtifacts(cached?.artifacts ?? []);
     setProviderAccount(cached?.providerAccount ?? null);
@@ -594,6 +603,7 @@ export function Workbench() {
       setRevisions(savedRevisions);
       setRuns(history);
       setBrief(cached?.brief ?? "");
+      setBaselineRunId(cached?.baselineRunId ?? null);
       setEvidenceIds(cached?.evidenceIds ?? []);
       setArtifacts(cached?.artifacts ?? []);
       setProviderAccount(cached?.providerAccount ?? null);
@@ -624,6 +634,7 @@ export function Workbench() {
       pendingStart.current.revision_id !== pinned.id ||
       (pendingStart.current.agent_id ?? null) !== (activeAgent?.id ?? null) ||
       pendingStart.current.brief !== brief ||
+      (pendingStart.current.baseline_run_id ?? null) !== baselineRunId ||
       JSON.stringify(pendingStart.current.evidence_ids) !== JSON.stringify(evidenceIds) ||
       JSON.stringify(pendingStart.current.artifacts) !== JSON.stringify(artifacts) ||
       pendingStart.current.provider_account_id !== (workflow.research ? providerAccount : null)
@@ -633,6 +644,7 @@ export function Workbench() {
         revision_id: pinned.id,
         agent_id: activeAgent?.id ?? null,
         brief,
+        ...(baselineRunId ? { baseline_run_id: baselineRunId } : {}),
         artifacts,
         evidence_ids: evidenceIds,
         provider_account_id: workflow.research ? providerAccount : null,
@@ -819,6 +831,8 @@ export function Workbench() {
                 }}
                 brief={brief}
                 onBriefChange={setBrief}
+                baselineRunId={baselineRunId}
+                onClearBaseline={() => setBaselineRunId(null)}
                 evidenceIds={evidenceIds}
                 onEvidenceChange={setEvidenceIds}
                 research={workflow.research}
@@ -956,6 +970,7 @@ export function Workbench() {
                       resetEditor();
                       setSelected(initialWorkflow.start_node);
                       setBrief("");
+                      setBaselineRunId(null);
                       setEvidenceIds([]);
                       setArtifacts([]);
                       setProviderAccount(null);
@@ -1200,6 +1215,7 @@ export function Workbench() {
                     if (!run) return;
                     await loadRevision(run.revision_id, run.agent_id ?? null, stepPath);
                     setBrief(brief ?? run.brief);
+                    setBaselineRunId(run.id);
                     setEvidenceIds(run.evidence_ids ?? []);
                     setArtifacts(run.artifacts);
                     setProviderAccount(run.research_manifest?.account_id ?? null);

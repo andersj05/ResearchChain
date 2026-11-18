@@ -109,6 +109,23 @@ def test_research_tombstone_precedes_provider_selection_and_removes_attempt_orig
     assert len(provider.calls) == 1
 
 
+def test_baseline_retention_preserves_a_retained_experiment(database, workflow):
+    runs, request, _ = terminal(database, workflow)
+    child = RunRequest(
+        id=uuid4(),
+        revision_id=request.revision_id,
+        baseline_run_id=request.id,
+        brief="Use a newer window",
+    )
+    assert runs.start(child).baseline_run_id == request.id
+    store = RetentionStore(database)
+    record = preview(store)
+    assert [item.run_id for item in record.runs] == [request.id]
+    apply(store, record)
+    assert runs.get(child.id).baseline_run_id == request.id
+    assert runs.start(child).baseline_run_id == request.id
+
+
 @pytest.mark.parametrize(
     "pin_table",
     [

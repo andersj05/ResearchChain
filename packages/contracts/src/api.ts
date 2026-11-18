@@ -3432,6 +3432,8 @@ export interface components {
        * Format: uuid
        */
       revision_id: string;
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
       /** Brief */
       brief: string;
       /** Artifacts */
@@ -3489,6 +3491,8 @@ export interface components {
       workflow: components["schemas"]["Workflow"];
       /** Brief */
       brief: string;
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
       /** Artifacts */
       artifacts: components["schemas"]["ArtifactRef"][];
       /** Evidence Ids */

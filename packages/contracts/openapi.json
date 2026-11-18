@@ -8136,6 +8136,18 @@
             "format": "uuid",
             "title": "Revision Id"
           },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
           "brief": {
             "type": "string",
             "maxLength": 10000,
@@ -8252,6 +8264,18 @@
           "brief": {
             "type": "string",
             "title": "Brief"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
           },
           "artifacts": {
             "items": {

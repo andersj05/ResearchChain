@@ -287,4 +287,15 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(
     page.getByRole("checkbox", { name: `${reference.title} Link only`, exact: true }),
   ).toBeChecked();
+  const baseline = page.getByRole("link", { name: `Baseline run · ${shortId}`, exact: true });
+  await expect(baseline).toBeVisible();
+  await page.reload();
+  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Research brief", exact: true })).toHaveValue(
+    composed,
+  );
+  await expect(baseline).toBeVisible();
+  await page.getByRole("button", { name: "Clear baseline", exact: true }).click();
+  await expect(baseline).toHaveCount(0);
+  await expect(page.getByLabel("Research brief", { exact: true })).toBeFocused();
 });
