@@ -10,6 +10,7 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
+import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
   addTemplate,
@@ -90,6 +91,12 @@ export function WorkflowEditor({
     onSeal?.();
     setInspectorOpen(true);
     onSelect(id);
+  }
+  function selectStepAt(id: string, location: GraphCrumb[]) {
+    stepToFocus.current = id;
+    setNotice("");
+    setPath(location);
+    selectNode(id);
   }
   function changeGraph(next: Graph, group?: string, upgrade = false) {
     const updated = updateGraph(workflow, scope, next);
@@ -264,12 +271,7 @@ export function WorkflowEditor({
               workflow={workflow}
               scope={scope}
               selected={selectedId}
-              onSelect={(id, location) => {
-                stepToFocus.current = id;
-                setNotice("");
-                setPath(location);
-                selectNode(id);
-              }}
+              onSelect={selectStepAt}
             >
               <ol className="node-outline">
                 {graph.nodes.map((item) => (
@@ -397,6 +399,7 @@ export function WorkflowEditor({
                 Details
               </Button>
             </div>
+            {workflow.research && <WorkflowModelPlan workflow={workflow} onSelect={selectStepAt} />}
             <WorkflowCanvas
               key={scopeKey(scope)}
               workflow={graph}
