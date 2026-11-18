@@ -4,6 +4,25 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Exact model attempt links
+
+**Attempt details → Copy attempt link** reopens the specific saved model pass.
+The phone-width check copied and reopened an earlier pass of the same step while
+the latest workflow activity remained visible. CI passed 516 backend tests with
+2 skips and 118 browser tests. Desktop at `3806710` served the control with a
+healthy API and connected worker.
+[PR #84](https://github.com/andersj05/ResearchChain/pull/84).
+
+## Saved output comparisons
+
+**Run context → Compare a saved run → Output file changes** pairs the last
+recorded file for each step path and filename. Preview or download either version
+and see its producing pass. The browser check covered two different CSVs, a
+removed file, and a file that reverted to identical bytes. CI passed 516 backend
+tests with 2 skips and 118 browser tests. Desktop at `2c1c8b5` served the controls
+with a healthy API and connected worker.
+[PR #83](https://github.com/andersj05/ResearchChain/pull/83).
+
 ## Inline workspace file previews
 
 **Runs → Files → Preview** opens a saved chart or supported text file directly
