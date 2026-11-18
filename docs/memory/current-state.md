@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Keep the baseline attached to an experiment
+
+**Iterate** keeps the original run as a baseline through draft reload and start
+retry. Run setup shows the baseline and lets the owner clear it. **Compare with
+baseline** reopens that exact pair from the revised run. The backend validates
+the shared agent on admission and preserves the revised run if retention later
+removes its baseline. CI passed 519 backend tests with 2 skips and all 123
+browser cases. Desktop at `91a2d64` restored and migrated a private rehearsal,
+then verified the live migration preserved saved data and the app restarted.
+[PR #104](https://github.com/andersj05/ResearchChain/pull/104).
+
 ## Follow the bindings behind a saved step
 
 **Data bindings** shows the saved step’s upstream sources and where its output
