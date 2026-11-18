@@ -323,6 +323,13 @@ export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, select
   return insertFragment(layout, [positioned], [], step.id, step.id, selected);
 }
 
+export function duplicateResearchStep(graph: Graph, step: WorkflowNode) {
+  const id = makeId(step.kind);
+  const label = Array.from(`Copy of ${step.label}`).slice(0, 100).join("");
+  const duplicate = { ...structuredClone(step), id, label };
+  return { graph: insertStep(graph, duplicate, step.id), id };
+}
+
 export function addTemplate(
   workflow: Workflow,
   scope: GraphScope,
