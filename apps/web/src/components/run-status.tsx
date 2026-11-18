@@ -31,8 +31,9 @@ export function RunStatus({
   );
 }
 
-export function formatTime(value: string) {
+export function formatTime(value: string, includeYear = false) {
   return new Date(value).toLocaleString(undefined, {
+    year: includeYear ? "numeric" : undefined,
     month: "short",
     day: "numeric",
     hour: "numeric",

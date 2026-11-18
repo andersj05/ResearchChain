@@ -99,6 +99,7 @@ def test_run_archive_filters_and_cursor_stay_in_scope(
         excluded = client.get("/api/runs/search", params={"search": old, "exclude_id": old}).json()
         assert excluded == {"items": [], "has_more": False}
         assert client.get("/api/runs/search", params={"before_id": recent}).status_code == 422
+        assert client.get("/api/runs/search", params={"search": "\x00"}).status_code == 422
 
 
 def test_concurrent_agent_saves_accept_one_version(

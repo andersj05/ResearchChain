@@ -133,7 +133,7 @@ class RunSummary(StrictModel):
 
 class RunArchiveQuery(StrictModel):
     limit: int = Field(default=20, ge=1, le=50)
-    search: str = Field(default="", max_length=200)
+    search: str = Field(default="", max_length=200, pattern=r"^[^\x00]*$")
     status: RunStatus | None = None
     agent_id: UUID | None = None
     unassigned: bool = False

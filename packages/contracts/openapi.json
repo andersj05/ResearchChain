@@ -2550,6 +2550,7 @@
             "schema": {
               "type": "string",
               "maxLength": 200,
+              "pattern": "^[^\\x00]*$",
               "default": "",
               "title": "Search"
             }

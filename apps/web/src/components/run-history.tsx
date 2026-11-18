@@ -5,12 +5,14 @@ import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@ui-sdk/react/button";
 import { formatTime, RunStatus, runStatusLabels } from "@/components/run-status";
 import { ReviewInbox, type ReviewTarget } from "@/components/review-inbox";
+import { RunArchive } from "@/components/run-archive";
 import type { RunSummary } from "@/lib/workflow";
 
 export function RunHistory({
   runs,
   selected,
   agentName,
+  agentId,
   busy,
   loaded,
   onRefresh,
@@ -20,6 +22,7 @@ export function RunHistory({
   runs: RunSummary[];
   selected?: string;
   agentName?: string;
+  agentId?: string;
   busy: boolean;
   loaded: boolean;
   onRefresh: () => void;
@@ -69,6 +72,14 @@ export function RunHistory({
       </div>
       <ReviewInbox busy={busy} onOpen={onOpenReview} />
       <div id="recent-run-list">
+        <RunArchive
+          agentId={agentId}
+          busy={busy}
+          onSelect={(run) => {
+            setBrowsingFrom(undefined);
+            onOpen(run.id);
+          }}
+        />
         <p className="muted">
           Latest 20{agentName ? ` for ${agentName}` : " across the workspace"}.
         </p>
