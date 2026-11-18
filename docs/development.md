@@ -170,6 +170,9 @@ model and enabled tools. The plan shows which steps inherit the workflow model
 and which override it. Select a step to edit it, including steps in subgraphs.
 When validation locates an issue in the current draft, use **Open step** beside
 the issue to go directly to the affected step.
+Following a step link from search, Review handoff, validation, or the model plan
+records the step you were editing. **Return to step** reopens it at its original
+location in the graph. Undo continues to track draft edits.
 
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;

@@ -45,6 +45,48 @@ test("find a nested review by its question and return to an editable root step",
   );
 });
 
+test("return to a nested step after a Build link and discard a stale version", async ({
+  page,
+  request,
+}) => {
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.status()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+  const search = page.getByRole("searchbox", { name: "Find a step" });
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  const breadcrumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  const returnToStep = page.getByRole("button", { name: /^Return to step / });
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+
+  await search.fill("ready for the next pass");
+  await search.press("Enter");
+  await expect(stepName).toHaveValue("Review");
+  await expect(returnToStep).toHaveAccessibleName("Return to step Split");
+  await search.fill("what would falsify it");
+  await search.press("Enter");
+  await expect(stepName).toHaveValue("Challenge");
+  await expect(returnToStep).toHaveAccessibleName("Return to step Review");
+  await expect(breadcrumbs).toHaveCount(0);
+
+  await returnToStep.press("Enter");
+  await expect(stepName).toHaveValue("Review");
+  await expect(stepName).toBeFocused();
+  await expect(breadcrumbs).toContainText("Critique and review v1");
+  await expect(returnToStep).toHaveCount(0);
+  await expect(undo).toBeDisabled();
+
+  await search.fill("review_loop");
+  await search.press("Enter");
+  await expect(stepName).toHaveValue("Review_Loop");
+  await expect(returnToStep).toHaveAccessibleName("Return to step Review");
+  await page.getByRole("button", { name: "New version", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Subgraph version" })).toHaveValue("critique@2");
+  await expect(returnToStep).toHaveCount(0);
+  await expect(undo).toBeEnabled();
+});
+
 test("inspect and follow a review handoff while building the macro workflow", async ({
   page,
   request,
@@ -75,6 +117,12 @@ test("inspect and follow a review handoff while building the macro workflow", as
   await expect(input).toHaveValue("mandate:feedback");
   await expect(undo).toBeDisabled();
   await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+  await page
+    .getByRole("button", { name: "Return to step Choose the question and horizon" })
+    .click();
+  await expect(handoff).toBeVisible();
+  await testBinding.press("Enter");
+  await expect(input).toBeFocused();
 
   await input.selectOption("");
   await mandate.click();

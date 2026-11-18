@@ -1467,6 +1467,9 @@ td time {
   background: var(--surface);
   font-size: 12px;
 }
+.graph-breadcrumbs nav {
+  min-width: 0;
+}
 .graph-breadcrumbs ol {
   display: flex;
   flex-wrap: wrap;
