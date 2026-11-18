@@ -69,9 +69,28 @@ def test_in_sample_fit_can_lose_to_benchmark_after_split(tmp_path):
     assert summary["out_of_sample_r2"] < 0
 
 
+def test_perfect_benchmark_leaves_relative_score_undefined(tmp_path):
+    rows = observations()
+    for row in rows:
+        row[5] = 42
+    result = run_scorer(tmp_path, rows)
+    assert result.returncode == 0, result.stderr
+    summary = json.loads(result.stdout)
+    assert summary["benchmark_rmse"] == summary["model_rmse"] == 0
+    assert summary["out_of_sample_r2"] is None
+
+
 @pytest.mark.parametrize(
     "change",
-    ["late signal", "duplicate origin", "missing offset", "nonfinite", "too few", "constant"],
+    [
+        "late signal",
+        "duplicate origin",
+        "missing offset",
+        "nonfinite",
+        "too few",
+        "constant",
+        "shifted columns",
+    ],
 )
 def test_invalid_panel_produces_no_metrics(tmp_path, change):
     rows = observations()
@@ -85,6 +104,8 @@ def test_invalid_panel_produces_no_metrics(tmp_path, change):
         rows[0][5] = "NaN"
     elif change == "too few":
         rows = rows[:9]
+    elif change == "shifted columns":
+        rows[0].insert(5, 0)  # An unquoted thousands separator would shift the target column.
     else:
         for row in rows:
             row[4] = 1

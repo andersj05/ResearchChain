@@ -28,7 +28,7 @@ def observations(path):
     }
     rows = []
     with path.open(encoding="utf-8-sig", newline="") as source:
-        reader = csv.DictReader(source)
+        reader = csv.DictReader(source, strict=True)
         fields = reader.fieldnames or []
         if not required.issubset(fields) or len(set(fields)) != len(fields):
             raise ValueError(
@@ -36,6 +36,8 @@ def observations(path):
             )
         for line, row in enumerate(reader, start=2):
             try:
+                if None in row or None in row.values():
+                    raise ValueError("Expected the same column count as the header.")
                 available = instant(row["signal_available"])
                 origin = instant(row["forecast_at"])
                 end = instant(row["target_end"])
@@ -110,5 +112,5 @@ if __name__ == "__main__":
         Path("outputs/holdout-metrics.json").write_text(result, encoding="utf-8")
         Path("outputs/holdout-method.py").write_bytes(Path(__file__).read_bytes())
         print(result)
-    except (OSError, ValueError, OverflowError) as error:
+    except (csv.Error, OSError, ValueError, OverflowError) as error:
         sys.exit(f"Holdout could not be scored: {error}")
