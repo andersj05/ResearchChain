@@ -183,6 +183,8 @@ In **Run workflow → Step models**, assign a model to any research step in the
 draft, including a step in a referenced subgraph. **Use workflow default for all
 steps** clears the displayed overrides in one undoable edit. Starting the run
 saves the draft if needed and pins the saved model assignments to that run.
+**Run limits** shows the active-time and model-attempt budgets before start.
+Expand it to edit execution, response, and evidence limits in the same draft.
 
 **Model activity** can sort attempts by elapsed time or total reported tokens.
 Rows with missing measurements follow measured rows, and the sort preference is

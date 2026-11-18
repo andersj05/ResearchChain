@@ -1,7 +1,14 @@
 "use client";
 
-import { ResearchConnection } from "@/components/research-settings";
-import { ideaGenerationBrief, type ResearchSettings, type Workflow } from "@/lib/workflow";
+import { ResearchConnection, ResearchRequestLimitFields } from "@/components/research-settings";
+import { ExecutionLimitFields, executionDefaults } from "@/components/execution-limits";
+import {
+  ideaGenerationBrief,
+  researchDefaults,
+  type ExecutionBudgets,
+  type ResearchSettings,
+  type Workflow,
+} from "@/lib/workflow";
 import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { scopeKey, type StepModelChange } from "@/lib/workflow-editing";
 import { EvidencePicker } from "@/components/evidence-picker";
@@ -68,8 +75,9 @@ function RunTools({ workflow }: { workflow: Workflow }) {
       )}
       {steps.some((step) => step.workspace) && (
         <p className="field-hint">
-          Active time across the run is limited to {workflow.budgets?.max_active_seconds ?? 120}{" "}
-          seconds. Review pauses are excluded.
+          Active time across the run is limited to{" "}
+          {(workflow.budgets ?? executionDefaults).max_active_seconds} seconds. Review pauses are
+          excluded.
         </p>
       )}
       {steps.some((step) => step.sec) && (
@@ -100,14 +108,16 @@ export function RunSetup({
   workflow,
   onResearch,
   onStepModels,
+  onExecutionLimits,
   accountId,
   onAccount,
 }: {
   research?: ResearchSettings | null;
   catalog: ModelCatalog;
   workflow: Workflow;
-  onResearch: (settings: ResearchSettings) => void;
+  onResearch: (settings: ResearchSettings, group?: string) => void;
   onStepModels: (changes: StepModelChange[]) => void;
+  onExecutionLimits: (budgets: ExecutionBudgets, group: string) => void;
   accountId: string | null;
   onAccount: (id: string | null) => void;
   open: boolean;
@@ -144,6 +154,8 @@ export function RunSetup({
       : [];
   const overrides = stepModels.filter((step) => step.model);
   const unavailable = overrides.filter((step) => !available.has(step.model));
+  const activeSeconds = (workflow.budgets ?? executionDefaults).max_active_seconds;
+  const attempts = research?.limits?.max_model_calls ?? researchDefaults.limits.max_model_calls;
   const sampleBrief = [brief.trimEnd(), ideaGenerationBrief].filter(Boolean).join("\n\n");
   const hasWorkspace = [workflow, ...(workflow.subgraphs ?? [])].some((graph) =>
     graph.nodes.some((node) => node.config?.type === "research" && node.config.analyst?.workspace),
@@ -256,6 +268,29 @@ export function RunSetup({
               {!!unavailable.length &&
                 `In Step models, choose a replacement or use the workflow default for ${unavailable.map((step) => step.label).join(", ")}.`}
             </p>
+          )}
+          {open && (
+            <details
+              className="run-details run-limits"
+              onInvalidCapture={(event) => {
+                event.currentTarget.open = true;
+              }}
+            >
+              <summary>
+                Run limits · {activeSeconds}s active
+                {research && ` · ${attempts} model ${attempts === 1 ? "attempt" : "attempts"}`}
+              </summary>
+              <fieldset disabled={busy}>
+                <legend>Workflow execution</legend>
+                <ExecutionLimitFields budgets={workflow.budgets} onChange={onExecutionLimits} />
+              </fieldset>
+              {research && (
+                <fieldset disabled={busy}>
+                  <legend>Model requests and evidence</legend>
+                  <ResearchRequestLimitFields settings={research} onSettings={onResearch} />
+                </fieldset>
+              )}
+            </details>
           )}
           {open && (
             <EvidencePicker selected={evidenceIds} onChange={onEvidenceChange} disabled={busy} />

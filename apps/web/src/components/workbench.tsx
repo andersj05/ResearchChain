@@ -789,8 +789,18 @@ export function Workbench() {
                 onEvidenceChange={setEvidenceIds}
                 research={workflow.research}
                 catalog={catalog}
-                onResearch={(research) => change({ ...workflow, research })}
+                onResearch={(research, group) => change({ ...workflow, research }, group)}
                 onStepModels={(changes) => change(updateStepModels(workflow, changes))}
+                onExecutionLimits={(budgets, group) =>
+                  change(
+                    {
+                      ...workflow,
+                      schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
+                      budgets,
+                    },
+                    group,
+                  )
+                }
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
                 name={workflow.name}

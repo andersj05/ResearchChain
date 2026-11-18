@@ -4,6 +4,7 @@ import { Button } from "@ui-sdk/react/button";
 import { useEffect, useRef, useState } from "react";
 import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { WorkspacePanels } from "@/components/workspace-panels";
+import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
 import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
@@ -23,13 +24,7 @@ import {
   type TemplateKind,
 } from "@/lib/workflow-editing";
 import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
-import type { Graph, Workflow, WorkflowNode, ExecutionBudgets } from "@/lib/workflow";
-
-const defaults: ExecutionBudgets = {
-  max_node_executions: 256,
-  max_active_seconds: 120,
-  max_concurrency: 4,
-};
+import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
 
 export function WorkflowEditor({
   catalog,
@@ -313,42 +308,19 @@ export function WorkflowEditor({
             </details>
             <details className="workflow-settings" id="workflow-execution-limits">
               <summary>Execution limits</summary>
-              {(
-                [
-                  ["max_node_executions", "Maximum step executions", 1, 10000],
-                  ["max_active_seconds", "Maximum active seconds", 0.1, 3600],
-                  ["max_concurrency", "Maximum parallel steps", 1, 16],
-                ] as const
-              ).map(([key, label, min, max]) => (
-                <label key={key}>
-                  {label}
-                  <input
-                    id={key}
-                    type="number"
-                    min={min}
-                    max={max}
-                    step={key === "max_active_seconds" ? "any" : 1}
-                    value={(workflow.budgets ?? defaults)[key]}
-                    onChange={(event) =>
-                      onChange(
-                        {
-                          ...workflow,
-                          schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
-                          budgets: {
-                            ...(workflow.budgets ?? defaults),
-                            [key]: event.target.valueAsNumber || min,
-                          },
-                        },
-                        `budget/${key}`,
-                      )
-                    }
-                  />
-                </label>
-              ))}
-              <p className="field-hint">
-                Shared across the entire run, including subgraphs and loops. Time spent waiting for
-                a completed human review pause is excluded.
-              </p>
+              <ExecutionLimitFields
+                budgets={workflow.budgets}
+                onChange={(budgets, group) =>
+                  onChange(
+                    {
+                      ...workflow,
+                      schema_version: workflow.schema_version === "0.3" ? "0.3" : "0.2",
+                      budgets,
+                    },
+                    group,
+                  )
+                }
+              />
             </details>
             <ResearchSettingsEditor workflow={workflow} onChange={onChange} />
             {!!workflow.subgraphs?.length && (
@@ -533,7 +505,11 @@ export function WorkflowEditor({
                         const section = document.getElementById(id);
                         if (section instanceof HTMLDetailsElement) section.open = true;
                       }
-                      document.getElementById("max_active_seconds")?.focus();
+                      document
+                        .querySelector<HTMLInputElement>(
+                          "#workflow-execution-limits input[name=max_active_seconds]",
+                        )
+                        ?.focus();
                     });
                   }}
                 />
