@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Compare matching model outputs
+
+**Runs → Run context → Compare a saved run → Model outputs by step** pairs the
+latest saved conclusions at the same step and loop iteration. It shows when only
+one run has an output and links to the exact producing attempts. The phone-width
+test compared a shared iteration and two steps with output on one side. CI passed
+516 backend tests with 2 skips and all 119 browser tests. Desktop at `2b58e37`
+served the comparison with a healthy API and connected worker.
+[PR #89](https://github.com/andersj05/ResearchChain/pull/89).
+
 ## Step models in Run setup
 
 **Run workflow → Step models** edits model assignments for the reachable
