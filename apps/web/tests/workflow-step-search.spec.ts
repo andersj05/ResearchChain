@@ -199,8 +199,89 @@ test("follow macro output bindings to exact inputs and see edits reflected in Bu
   await challenge.press("Enter");
   await context.selectOption("");
   await back.press("Enter");
-  await expect(page.getByText("No step inputs in this graph use these outputs.")).toBeVisible();
+  await expect(
+    page.getByText("No step inputs or conditions in this graph use these outputs."),
+  ).toBeVisible();
   await undo.click();
   await expect(challenge).toBeVisible();
   await expect(note).toHaveCount(0);
+});
+
+test("follow condition bindings from code output and review feedback as wiring changes", async ({
+  page,
+  request,
+}) => {
+  const review = addTemplate(
+    structuredClone(workflow) as Workflow,
+    null,
+    "review",
+    "split",
+    "before",
+  );
+  const code = addTemplate(review.workflow, null, "code", review.selected);
+  const route = addTemplate(code.workflow, null, "route", "support", "before");
+  const graph: Workflow = { ...route.workflow, schema_version: "0.3" };
+  const condition = graph.nodes.find((step) => step.id === route.selected)!;
+  if (condition.config?.type !== "route") throw new Error("Missing test condition.");
+  condition.label = "Confirm the evidence signal";
+  condition.config.condition = {
+    left: { source: "output", node_id: code.selected, port: "number" },
+    operator: "gte",
+    value: 1,
+  };
+  graph.nodes.find((step) => step.id === "support")!.inputs = {
+    text: { source: "output", node_id: review.selected, port: "feedback" },
+  };
+  graph.nodes.find((step) => step.id === "challenge")!.inputs = {
+    text: { source: "output", node_id: code.selected, port: "text" },
+  };
+  const response = await request.post("/api/revisions", { data: graph });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+
+  const outline = page.locator(".node-outline");
+  const codeStep = graph.nodes.find((step) => step.id === code.selected)!;
+  const reviewStep = graph.nodes.find((step) => step.id === review.selected)!;
+  const returnTo = (name: string) =>
+    page.getByRole("button", { name: `Return to step ${name}`, exact: true });
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  const conditionGroup = page.getByRole("group", { name: "Condition", exact: true });
+  const source = conditionGroup.getByRole("combobox", { name: "Condition value source" });
+  const conditions = page.getByRole("list", { name: "Conditions in this graph" });
+  const inputs = page.getByRole("list", { name: "Step inputs in this graph" });
+  await outline.getByRole("button", { name: new RegExp(codeStep.label) }).click();
+  await page.getByText("Output bindings", { exact: true }).press("Enter");
+  await expect(inputs.getByRole("button")).toHaveText(["text → Challenge · text"]);
+  await conditions
+    .getByRole("button", { name: "number → Confirm the evidence signal · condition" })
+    .press("Enter");
+  await expect(conditionGroup).toBeFocused();
+  await expect(source).toHaveValue(`${code.selected}:number`);
+  await expect(page.getByRole("button", { name: "Undo last edit" })).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+
+  await source.selectOption(`${review.selected}:feedback`);
+  await returnTo(codeStep.label).press("Enter");
+  await expect(stepName).toBeFocused();
+  await expect(stepName).toHaveValue(codeStep.label);
+  await expect(inputs.getByRole("button")).toHaveText(["text → Challenge · text"]);
+  await expect(conditions).toHaveCount(0);
+
+  await outline.getByRole("button", { name: new RegExp(reviewStep.label) }).click();
+  const handoff = page.getByRole("group", { name: "Review handoff" });
+  const feedbackConditions = handoff.getByRole("list", { name: "Conditions using this feedback" });
+  await expect(handoff.getByRole("button", { name: "Support · text" })).toBeVisible();
+  await feedbackConditions
+    .getByRole("button", { name: "Confirm the evidence signal · condition" })
+    .press("Enter");
+  await expect(conditionGroup).toBeFocused();
+  await expect(source).toHaveValue(`${review.selected}:feedback`);
+  await source.selectOption(`${review.selected}:decision`);
+  await returnTo(reviewStep.label).press("Enter");
+  await expect(stepName).toBeFocused();
+  await expect(stepName).toHaveValue(reviewStep.label);
+  await expect(handoff.getByRole("button", { name: "Support · text" })).toBeVisible();
+  await expect(feedbackConditions).toHaveCount(0);
 });
