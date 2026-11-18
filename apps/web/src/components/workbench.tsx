@@ -31,6 +31,8 @@ import {
   ideaWorkflow,
   ideaGenerationWorkflow,
   ideaGenerationBrief,
+  discretionaryMacroWorkflow,
+  discretionaryMacroBrief,
   exampleWorkflow,
   admissionTimeout,
   type CommandReceipt,
@@ -309,7 +311,12 @@ export function Workbench() {
     setMessage("");
   }
   async function createAgent(id: string, name: string, starter: StartingWorkflow) {
-    const starters = { blank: initialWorkflow, current: workflow, ideas: ideaGenerationWorkflow };
+    const starters = {
+      blank: initialWorkflow,
+      current: workflow,
+      ideas: ideaGenerationWorkflow,
+      macro: discretionaryMacroWorkflow,
+    };
     const document = { ...structuredClone(starters[starter]), name };
     const created = await api<AgentDetail>("agents", { id, workflow: document });
     setAgents((previous) => [created.agent, ...previous.filter((item) => item.id !== id)]);
@@ -317,6 +324,9 @@ export function Workbench() {
     if (starter === "ideas") {
       setBrief(ideaGenerationBrief);
       setMessage(`Agent “${name}” created. Open Run workflow to try the synthetic rotation brief.`);
+    } else if (starter === "macro") {
+      setBrief(discretionaryMacroBrief);
+      setMessage(`Agent “${name}” created. Open Run workflow to edit the example macro brief.`);
     } else setMessage(`Agent “${name}” created. Add your steps and save a version.`);
   }
   async function loadLatestAgent() {

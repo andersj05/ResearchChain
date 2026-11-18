@@ -11,9 +11,20 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
-import { ideaGenerationWorkflow, type AgentSummary } from "@/lib/workflow";
+import {
+  discretionaryMacroWorkflow,
+  ideaGenerationWorkflow,
+  type AgentSummary,
+} from "@/lib/workflow";
 
-export type StartingWorkflow = "blank" | "current" | "ideas";
+export type StartingWorkflow = "blank" | "current" | "ideas" | "macro";
+
+const starterNames = {
+  blank: "",
+  current: "",
+  ideas: ideaGenerationWorkflow.name,
+  macro: discretionaryMacroWorkflow.name,
+};
 
 export function AgentSwitcher({
   agents,
@@ -123,13 +134,14 @@ export function AgentSwitcher({
               onChange={(event) => {
                 const next = event.target.value as StartingWorkflow;
                 setStarter(next);
-                if (next === "ideas" && !name.trim()) setName(ideaGenerationWorkflow.name);
+                if (!name.trim() || name === starterNames[starter]) setName(starterNames[next]);
                 requestId.current = null;
               }}
             >
               <option value="blank">Blank workflow</option>
               <option value="current">Copy the current workflow</option>
               <option value="ideas">Idea generation demo</option>
+              <option value="macro">Discretionary macro research</option>
             </select>
             {error && (
               <p className="error" role="alert">
