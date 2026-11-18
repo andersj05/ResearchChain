@@ -1,5 +1,11 @@
-import type { Graph } from "./workflow";
+import type { Graph, ValueSource } from "./workflow";
 import { controlOutputs } from "./workflow-editing";
+
+export const builtInSourceLabels: Record<Exclude<ValueSource["source"], "output">, string> = {
+  brief: "Research brief",
+  artifact_count: "Artifact count",
+  iteration: "Current iteration",
+};
 
 export function availableOutputSteps(graph: Graph, stepId: string | undefined) {
   const nodes = new Map(graph.nodes.map((node) => [node.id, node]));

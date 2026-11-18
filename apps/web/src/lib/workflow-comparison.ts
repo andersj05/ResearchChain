@@ -1,5 +1,6 @@
-import { graphAt, referenceOf, scopeKey } from "./workflow-editing";
+import { graphAt, referenceOf, scopeKey, type GraphScope } from "./workflow-editing";
 import type { Graph, Workflow, WorkflowNode } from "./workflow";
+import { builtInSourceLabels } from "./workflow-input-sources";
 
 export type SettingChange = { name: string; before?: string; after?: string };
 
@@ -10,7 +11,15 @@ type StepChange = {
   settings: SettingChange[];
 };
 
-type GraphChange = { key: string; label: string; settings: SettingChange[]; steps: StepChange[] };
+type GraphChange = {
+  key: string;
+  label: string;
+  settings: SettingChange[];
+  steps: StepChange[];
+  afterScope?: GraphScope;
+};
+const inputPrefix = "Input · ";
+const nextPrefix = "Next · ";
 
 function orderedValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(orderedValue);
@@ -61,7 +70,7 @@ function stepSettings(node: WorkflowNode | undefined, graph: Graph | undefined) 
   const instructions = node.kind === "review" ? "Review question" : "Instructions";
   const inputs = Object.fromEntries(
     Object.entries(node.inputs ?? {}).map(([port, binding]) => [
-      `Input · ${port}`,
+      `${inputPrefix}${port}`,
       binding.source === "output"
         ? `${binding.node_id} · ${binding.port}`
         : binding.source.replaceAll("_", " "),
@@ -70,7 +79,7 @@ function stepSettings(node: WorkflowNode | undefined, graph: Graph | undefined) 
   const next = Object.fromEntries(
     graph.edges
       .filter((edge) => edge.source === node.id)
-      .map((edge) => [`Next · ${edge.source_port ?? "next"}`, edge.target]),
+      .map((edge) => [`${nextPrefix}${edge.source_port ?? "next"}`, edge.target]),
   );
   const common = {
     "Step name": node.label,
@@ -104,9 +113,50 @@ function stepSettings(node: WorkflowNode | undefined, graph: Graph | undefined) 
   return { ...common, "Control settings": config };
 }
 
-export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphChange[] {
-  type Pair = { key: string; label: string; before?: Graph; after?: Graph };
-  const pending: Pair[] = [{ key: "root", label: "Main workflow", before, after }];
+function readableWiringSettings(
+  settings: SettingChange[],
+  before: { nodes: ReadonlyMap<string, WorkflowNode>; step?: WorkflowNode },
+  after: { nodes: ReadonlyMap<string, WorkflowNode>; step?: WorkflowNode },
+): SettingChange[] {
+  function describe(name: string, value: string | undefined, side: typeof before) {
+    if (value === undefined) return;
+    function stepName(id: string) {
+      const label = side.nodes.get(id)?.label;
+      return label && label !== id ? `${label} (${id})` : id;
+    }
+    if (name === "First step" || name.startsWith(nextPrefix)) return stepName(value);
+    if (name.startsWith(inputPrefix)) {
+      const source = side.step?.inputs?.[name.slice(inputPrefix.length)];
+      if (source?.source === "output") {
+        if (source.node_id && source.port) return `${stepName(source.node_id)} · ${source.port}`;
+      } else if (source) {
+        return builtInSourceLabels[source.source] ?? value;
+      }
+    }
+    return value;
+  }
+  return settings.map(({ name, before: oldValue, after: newValue }) => ({
+    name,
+    before: describe(name, oldValue, before),
+    after: describe(name, newValue, after),
+  }));
+}
+
+export function compareWorkflowGraphs(
+  before: Workflow,
+  after: Workflow,
+  { readableWiring = false }: { readableWiring?: boolean } = {},
+): GraphChange[] {
+  type Pair = {
+    key: string;
+    label: string;
+    before?: Graph;
+    after?: Graph;
+    afterScope?: GraphScope;
+  };
+  const pending: Pair[] = [
+    { key: "root", label: "Main workflow", before, after, afterScope: null },
+  ];
   const seen = new Set<string>();
   const result: GraphChange[] = [];
   for (const pair of pending) {
@@ -126,7 +176,13 @@ export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphC
           id,
           label,
           status: !oldStep ? "Added" : !newStep ? "Removed" : "Changed",
-          settings: fields,
+          settings: readableWiring
+            ? readableWiringSettings(
+                fields,
+                { nodes: earlier, step: oldStep },
+                { nodes: later, step: newStep },
+              )
+            : fields,
         });
       }
 
@@ -141,6 +197,7 @@ export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphC
         label: `${label} · ${pair.label}`,
         before: oldRef && graphAt(before, oldRef),
         after: newRef && graphAt(after, newRef),
+        afterScope: newRef,
       });
     }
     const settings = changedSettings(
@@ -148,7 +205,15 @@ export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphC
       { Definition: graphTitle(pair.after), "First step": pair.after?.start_node },
     );
     if (steps.length || settings.length)
-      result.push({ key: pair.key, label: pair.label, settings, steps });
+      result.push({
+        key: pair.key,
+        label: pair.label,
+        settings: readableWiring
+          ? readableWiringSettings(settings, { nodes: earlier }, { nodes: later })
+          : settings,
+        steps,
+        afterScope: pair.after ? pair.afterScope : undefined,
+      });
   }
   return result;
 }

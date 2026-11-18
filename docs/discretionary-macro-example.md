@@ -37,8 +37,10 @@ fresh run to try a different research process.
    reaches that step. Its **Output bindings** show where the test feeds the challenge.
    Use **Return to step** after following a link to reopen the source step.
 3. After editing a prompt or changing a binding, browse **Draft changes** to check
-   what will differ from the saved revision. Run **Validate workflow** to catch a
-   broken connection and follow its link to the affected step when available.
+   what will differ from the saved revision. Use **Compare with** to check against
+   an earlier version of the agent, and **Open draft step** to inspect the edit.
+   Run **Validate workflow** to catch a broken connection and follow its link to
+   the affected step when available.
 
 ## Inspect a run and carry judgment forward
 

@@ -36,7 +36,13 @@ import {
 } from "@/lib/workflow-editing";
 import { WorkflowCanvas, type ConnectionView } from "@/components/canvas/workflow-canvas";
 import { ownerStoragePrefix } from "@/lib/access";
-import type { Graph, SubgraphRef, Workflow, WorkflowNode } from "@/lib/workflow";
+import {
+  defaultReviewQuestion,
+  type Graph,
+  type SubgraphRef,
+  type Workflow,
+  type WorkflowNode,
+} from "@/lib/workflow";
 
 export type WorkflowEditorNavigation = {
   openStep: (id: string, path: GraphCrumb[], field?: string) => void;
@@ -617,10 +623,11 @@ export function WorkflowEditor({
                 </label>
                 {node.kind !== "code" && (
                   <label>
-                    Instructions
+                    {node.kind === "review" ? "Review question" : "Instructions"}
                     <textarea
                       rows={4}
                       maxLength={6000}
+                      placeholder={node.kind === "review" ? defaultReviewQuestion : undefined}
                       value={node.instructions}
                       onChange={(event) =>
                         editNode({ instructions: event.target.value }, "instructions")

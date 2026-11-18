@@ -87,7 +87,7 @@ test("Review plan shows macro questions and feedback in pinned nested graphs", a
   );
   await expect(stepName).toHaveValue(review.label);
   await expect(stepName).toBeFocused();
-  await expect(page.getByRole("textbox", { name: "Instructions", exact: true })).toHaveValue(
+  await expect(page.getByRole("textbox", { name: "Review question", exact: true })).toHaveValue(
     review.instructions,
   );
   await page

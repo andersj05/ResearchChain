@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Trace input sources and pinned definition callers
+
+**Open source** opens the producing step for a configured input or predicate.
+**Used by** lists the callers of the pinned definition being edited. Build
+remembers **Visible connections** for the current owner and browser, including
+through subgraph navigation. Desktop at `7ec62a5` served the controls with the
+API and worker ready. CI passed 559 backend tests with 2 skips and all 153
+browser cases. [PR #117](https://github.com/andersj05/ResearchChain/pull/117).
+
 ## Inspect review questions and condition inputs
 
 **Review plan** lists reachable review questions and the step inputs and

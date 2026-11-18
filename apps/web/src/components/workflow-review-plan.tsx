@@ -6,7 +6,7 @@ import {
   scopeKey,
   type GraphCrumb,
 } from "@/lib/workflow-editing";
-import type { Workflow } from "@/lib/workflow";
+import { defaultReviewQuestion, type Workflow } from "@/lib/workflow";
 import styles from "./workflow-plan.module.css";
 
 function reviewPlan(workflow: Workflow) {
@@ -81,7 +81,7 @@ export function WorkflowReviewPlan({
                   <p className="muted">Question contains only whitespace.</p>
                 ) : (
                   <p className={styles.question}>
-                    {node.instructions || "Continue this workflow?"}
+                    {node.instructions || defaultReviewQuestion}
                     {!node.instructions && <span className="muted"> · Default question</span>}
                   </p>
                 )}
