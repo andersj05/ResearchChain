@@ -11,6 +11,7 @@ test("configure a research workspace and inspect saved files during the next pas
   await page.getByRole("button", { name: "Add research workspace", exact: true }).click();
   const python = page.getByRole("checkbox", { name: "Python workspace" });
   await expect(python).toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Web and market search" })).toHaveValue("auto");
   await page.getByRole("button", { name: "Edit run limits" }).click();
   const seconds = page.getByRole("spinbutton", { name: "Maximum active seconds" });
   await expect(seconds).toBeFocused();

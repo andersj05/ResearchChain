@@ -317,7 +317,7 @@ export function addTemplate(
         type: "research",
         stage: kind === "research" ? "hypothesize" : "custom",
         prompt_version: kind === "research" ? "research-1" : "custom-1",
-        web_search: false,
+        web_search: kind === "workspace" ? "auto" : false,
         sec_financials: false,
         ...(kind === "workspace" && { analyst: { workspace: true, max_passes: 12, skill: "" } }),
       },
@@ -333,7 +333,7 @@ export function addTemplate(
     }
     if (kind === "workspace") {
       step.instructions =
-        "Investigate the question in the brief. Use Python to test claims against the supplied data. Save the analysis, any useful charts and a report with sources and limitations.";
+        "Investigate the question in the brief. Look for dated primary sources and competing explanations. Use Python to test claims against the data. Save the analysis, useful charts and a report with sources and limitations.";
     }
     next = {
       ...next,
