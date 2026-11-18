@@ -16,6 +16,7 @@ type GraphChange = {
   label: string;
   settings: SettingChange[];
   steps: StepChange[];
+  beforeScope?: GraphScope;
   afterScope?: GraphScope;
 };
 const inputPrefix = "Input · ";
@@ -152,10 +153,11 @@ export function compareWorkflowGraphs(
     label: string;
     before?: Graph;
     after?: Graph;
+    beforeScope?: GraphScope;
     afterScope?: GraphScope;
   };
   const pending: Pair[] = [
-    { key: "root", label: "Main workflow", before, after, afterScope: null },
+    { key: "root", label: "Main workflow", before, after, beforeScope: null, afterScope: null },
   ];
   const seen = new Set<string>();
   const result: GraphChange[] = [];
@@ -197,6 +199,7 @@ export function compareWorkflowGraphs(
         label: `${label} · ${pair.label}`,
         before: oldRef && graphAt(before, oldRef),
         after: newRef && graphAt(after, newRef),
+        beforeScope: oldRef,
         afterScope: newRef,
       });
     }
@@ -212,6 +215,7 @@ export function compareWorkflowGraphs(
           ? readableWiringSettings(settings, { nodes: earlier }, { nodes: later })
           : settings,
         steps,
+        beforeScope: pair.before ? pair.beforeScope : undefined,
         afterScope: pair.after ? pair.afterScope : undefined,
       });
   }

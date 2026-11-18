@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -10,13 +10,24 @@ import {
 } from "@ui-sdk/react/dialog";
 import { X } from "lucide-react";
 import { historyShortcut } from "@/components/canvas/use-workflow-history";
-import { compareWorkflowDraft } from "@/lib/workflow-draft-comparison";
+import {
+  applyDraftTextRestoration,
+  compareWorkflowDraft,
+  draftTextRestoration,
+  type DraftTextRestoration,
+} from "@/lib/workflow-draft-comparison";
 import type { SettingChange } from "@/lib/workflow-comparison";
 import { reachableWorkflowGraphs, scopeKey, type GraphCrumb } from "@/lib/workflow-editing";
 import { api, type RevisionSummary, type Workflow, type WorkflowRevision } from "@/lib/workflow";
 import styles from "./draft-changes-preview.module.css";
 
-function ChangeRows({ changes }: { changes: SettingChange[] }) {
+function ChangeRows({
+  changes,
+  action,
+}: {
+  changes: SettingChange[];
+  action?: { field: string; control: ReactNode };
+}) {
   if (!changes.length) return null;
   return (
     <dl className={styles.rows}>
@@ -26,6 +37,7 @@ function ChangeRows({ changes }: { changes: SettingChange[] }) {
           <dd>
             <span>Saved</span>
             <p>{before === undefined ? "Not set" : before || "Empty"}</p>
+            {action?.field === name && action.control}
           </dd>
           <dd>
             <span>Draft</span>
@@ -43,10 +55,12 @@ function DraftChanges({
   saved,
   draft,
   onOpenStep,
+  onRestoreText,
 }: {
   saved: Workflow;
   draft: Workflow;
   onOpenStep: (step: DraftStep) => void;
+  onRestoreText: (restoration: DraftTextRestoration) => void;
 }) {
   const comparison = compareWorkflowDraft(saved, draft);
   if (comparison.kind === "matched")
@@ -85,6 +99,11 @@ function DraftChanges({
                 scope?.graph.nodes.filter((node) => node.id === step.id).length === 1
                   ? scope.path
                   : undefined;
+              const restoration =
+                step.status === "Changed" && scope && destination && graph.beforeScope !== undefined
+                  ? draftTextRestoration(saved, graph.beforeScope, scope.graph, step.id)
+                  : undefined;
+              const useSaved = restoration && `Use saved ${restoration.field.toLowerCase()}`;
               return (
                 <details key={step.id} open={graph.steps.length === 1}>
                   <summary>
@@ -100,7 +119,24 @@ function DraftChanges({
                       Open draft step
                     </button>
                   )}
-                  <ChangeRows changes={step.settings} />
+                  <ChangeRows
+                    changes={step.settings}
+                    action={
+                      restoration && {
+                        field: restoration.field,
+                        control: (
+                          <button
+                            className={`button small ${styles.restoreText}`}
+                            type="button"
+                            aria-label={`${useSaved} for ${step.label || step.id} in ${graph.label}`}
+                            onClick={() => onRestoreText(restoration)}
+                          >
+                            {useSaved}
+                          </button>
+                        ),
+                      }
+                    }
+                  />
                 </details>
               );
             })}
@@ -136,14 +172,18 @@ export function DraftChangesPreview({
   draft,
   disabled,
   onOpenStep,
+  onRestoreDraft,
 }: {
   revision: WorkflowRevision;
   history?: RevisionSummary[];
   draft: Workflow;
   disabled: boolean;
   onOpenStep: (id: string, path: GraphCrumb[]) => void;
+  onRestoreDraft: (expected: Workflow, next: Workflow) => boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [restored, setRestored] = useState("");
+  const close = useRef<HTMLButtonElement>(null);
   const [pending, setPending] = useState<{ step: DraftStep; draft: Workflow }>();
   const destination = pending?.draft === draft ? pending.step : undefined;
   const [historical, setHistorical] = useState<{ id: string; saved?: Workflow | "error" }>();
@@ -159,6 +199,7 @@ export function DraftChangesPreview({
   const saved = comparison ? historical?.saved : revision.workflow;
 
   async function selectBaseline(id: string) {
+    setRestored("");
     const request = ++requestSequence.current;
     if (!options.some((item) => item.id === id)) {
       setHistorical(undefined);
@@ -182,6 +223,7 @@ export function DraftChangesPreview({
         if (next) {
           setPending(undefined);
           setHistorical(undefined);
+          setRestored("");
         } else {
           requestSequence.current += 1;
         }
@@ -206,13 +248,22 @@ export function DraftChangesPreview({
       >
         <div className="dialog-heading">
           <DialogTitle>Draft changes</DialogTitle>
-          <DialogClose className="button icon-button ghost" aria-label="Close draft changes">
+          <DialogClose
+            ref={close}
+            className="button icon-button ghost"
+            aria-label="Close draft changes"
+          >
             <X size={16} aria-hidden="true" />
           </DialogClose>
         </div>
         <DialogDescription className={options.length ? "sr-only" : undefined}>
           Compared with saved revision {(comparison ?? revision).number}.
         </DialogDescription>
+        {open && (
+          <p className={styles.restored} aria-live="polite" aria-atomic="true">
+            {restored}
+          </p>
+        )}
         {open && options.length > 0 && (
           <label className={styles.baseline}>
             <span>Compare with</span>
@@ -253,6 +304,14 @@ export function DraftChangesPreview({
             key={comparison?.id ?? revision.id}
             saved={saved}
             draft={draft}
+            onRestoreText={(restoration) => {
+              const next = applyDraftTextRestoration(draft, restoration);
+              if (!next || !onRestoreDraft(draft, next)) return;
+              setRestored(
+                `Restored saved ${restoration.field.toLowerCase()} for ${restoration.step.label || restoration.step.id}.`,
+              );
+              close.current?.focus();
+            }}
             onOpenStep={(step) => {
               setPending({ step, draft });
               requestSequence.current += 1;

@@ -826,6 +826,12 @@ export function Workbench() {
                       draft={workflow}
                       disabled={!loaded || busy}
                       onOpenStep={(id, path) => editorNavigation.current?.openStep(id, path)}
+                      onRestoreDraft={(expected, next) => {
+                        if (workflow !== expected || !loaded || busyRef.current) return false;
+                        seal();
+                        change(next);
+                        return true;
+                      }}
                     />
                   )}
                   <Button
