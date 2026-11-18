@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Save a web reference from an attempt
+
+**Web sources → Save source link** lets the owner review the title and URL
+before adding a Link only record to Sources. The record includes the provider
+observation time and exact run and attempt IDs. The phone test verified that
+retrying an interrupted response returns the record already created. CI passed
+517 backend tests with 2 skips and all 120 browser tests. Desktop at `25e2bd5`
+served the controls with a healthy API and connected worker. Read-only checks
+passed for evidence search, run archive and review inbox.
+[PR #97](https://github.com/andersj05/ResearchChain/pull/97).
+
 ## Combine recorded judgments
 
 **Runs → Decisions → Combine feedback for next run** stages several judgments
