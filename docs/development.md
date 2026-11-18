@@ -169,7 +169,8 @@ inspect what prepares the decision, or a binding to focus the receiving field.
 Open **Review plan** to scan the questions for reachable reviews across the
 workflow and its pinned subgraphs. Each review shows its feedback binding count.
 Open **Wiring** to inspect the previous control steps and feedback bindings.
-Select a review or a previous control step to open its editor.
+Select a review or a previous control step to open its editor. Select a feedback
+binding to focus the receiving input or condition in its pinned graph.
 
 For other steps with data outputs, **Output bindings** shows the inputs and
 conditions that read each output in the current graph. Select a binding to focus
@@ -198,12 +199,15 @@ in the current path. The current graph's breadcrumb focuses its first step.
 
 Open **Model and tool plan** to see each reachable research step’s effective
 model and enabled tools. The plan shows which steps inherit the workflow model
-and which override it. Select a step to edit it, including steps in subgraphs.
+and which override it. A confirmed account catalog flags steps using an unlisted
+model. Select a step to edit its override or use **Workflow model** for inherited
+choices. **Run workflow** can refresh or connect the account catalog.
 When validation locates an issue in the current draft, use **Open input** to
 focus the affected input or **Open step** to open the step.
 Following a step link from search, a plan, Review handoff, or validation records
-the step you were editing. **Return to step** reopens it at its original location
-in the graph. Undo continues to track draft edits.
+the step you were editing. Use **Return to step** repeatedly to retrace those
+links in reverse, including the exact callers and versions of pinned subgraphs.
+Undo continues to track draft edits.
 
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
@@ -245,7 +249,10 @@ only that text from the selected baseline. Undo reverses one restore at a time.
 The preview also identifies a matching draft or a change limited to canvas positions.
 **Return to step** takes you back to the step you were editing.
 
-Edit a step in the inspector; use its Next step field to connect or disconnect it.
+Edit a step in the inspector. Use **Expand** on Instructions or Review question
+to open a larger editor. **Apply to draft** adds one undoable edit, while **Cancel**
+or Escape returns to the inspector with the original text. Use the **Next step**
+field to connect or disconnect the step.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
 Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loading
 a saved draft validates it through the local API before rendering it. Undo keeps

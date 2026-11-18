@@ -30,13 +30,13 @@ fresh run to try a different research process.
 
 1. Open **Model and tool plan** and select **Challenge the transmission story**.
    Check its model and search settings before deciding how much independent
-   corroboration the step should collect.
+   corroboration the step should collect. Use **Expand** to revise a long prompt.
 2. Open **Review plan** to read each checkpoint question. Expand **Wiring** to see
-   what prepares the decision and where its feedback goes. Select **Choose the
-   question and horizon**. In **Review handoff**, follow
-   the feedback link for **Run the discriminating test** to see where the mandate
-   reaches that step. Its **Output bindings** show where the test feeds the challenge.
-   Use **Return to step** after following a link to reopen the source step.
+   what prepares the decision and where its feedback goes. In the **Choose the
+   question and horizon** wiring, follow the feedback link for **Run the
+   discriminating test** to see where the mandate reaches that step. Its **Output
+   bindings** show where the test feeds the challenge. Use **Return to step** to
+   retrace the links in reverse.
 3. After editing a prompt or changing a binding, browse **Draft changes** to check
    what will differ from the saved revision. Use **Find changes** to locate the
    checkpoint, then **Compare with** to check the wording against an earlier
