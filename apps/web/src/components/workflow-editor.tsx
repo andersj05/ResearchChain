@@ -10,6 +10,7 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
+import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
@@ -577,10 +578,16 @@ export function WorkflowEditor({
                     />
                   </label>
                 )}
-                {node.kind === "review" && (
+                {node.kind === "review" ? (
                   <ReviewHandoff
                     graph={graph}
                     reviewId={node.id}
+                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
+                  />
+                ) : (
+                  <StepOutputBindings
+                    graph={graph}
+                    step={node}
                     onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
                   />
                 )}
