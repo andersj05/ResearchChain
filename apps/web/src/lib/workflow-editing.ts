@@ -192,14 +192,27 @@ export function compatiblePorts(a?: Port, b?: Port): boolean {
   return !!a && !!b && a.node !== b.node && a.direction !== b.direction && a.type === b.type;
 }
 
+function outputReference(value: ValueSource) {
+  if (value.source === "output" && value.node_id && value.port) {
+    return { sourceId: value.node_id, output: value.port };
+  }
+}
+
 export function outputBindings(graph: Graph) {
   return graph.nodes.flatMap((target) =>
-    Object.entries(target.inputs ?? {}).flatMap(([input, value]) =>
-      value.source === "output" && value.node_id && value.port
-        ? [{ target, input, sourceId: value.node_id, output: value.port }]
-        : [],
-    ),
+    Object.entries(target.inputs ?? {}).flatMap(([input, value]) => {
+      const reference = outputReference(value);
+      return reference ? [{ target, input, ...reference }] : [];
+    }),
   );
+}
+
+export function conditionBindings(graph: Graph) {
+  return graph.nodes.flatMap((target) => {
+    if (target.kind !== "route" || target.config?.type !== "route") return [];
+    const reference = outputReference(target.config.condition.left);
+    return reference ? [{ target, ...reference }] : [];
+  });
 }
 
 export function connectionsFor(graph: Graph): Connection[] {

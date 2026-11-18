@@ -584,13 +584,13 @@ export function WorkflowEditor({
                   <ReviewHandoff
                     graph={graph}
                     reviewId={node.id}
-                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
+                    onOpenField={(stepId, field) => openStep(stepId, validPath, field)}
                   />
                 ) : (
                   <StepOutputBindings
                     graph={graph}
                     step={node}
-                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
+                    onOpenField={(stepId, field) => openStep(stepId, validPath, field)}
                   />
                 )}
                 <StepBranchPaths
