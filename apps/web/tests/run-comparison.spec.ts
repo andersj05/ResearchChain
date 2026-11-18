@@ -204,7 +204,12 @@ test("compare two saved research runs without switching the open run", async ({ 
   const otherAgent = { ...base, id: crypto.randomUUID(), agent_id: crypto.randomUUID() };
   const matchingOutputs = { ...current, id: crypto.randomUUID() };
   await page.route("**/api/runs", (route) =>
-    route.fulfill({ json: [current, base, otherAgent, matchingOutputs] }),
+    route.fulfill({
+      json: [current, base, otherAgent, matchingOutputs].map((item) => ({
+        ...item,
+        brief_excerpt: item.brief,
+      })),
+    }),
   );
   await page.route("**/api/evidence/*", (route) => {
     const id = new URL(route.request().url()).pathname.split("/").at(-1);
@@ -240,6 +245,7 @@ test("compare two saved research runs without switching the open run", async ({ 
   await page.getByRole("button", { name: "Compare runs", exact: true }).click();
   const compare = page.getByRole("combobox", { name: "Comparison run", exact: true });
   await expect(compare.locator("option")).toHaveCount(3);
+  await expect(compare.locator(`option[value="${base.id}"]`)).toContainText(base.brief);
   await compare.selectOption(base.id);
   const setup = page.locator(".comparison-setup");
   await setup.getByText("Setup changes · 1 step", { exact: true }).click();

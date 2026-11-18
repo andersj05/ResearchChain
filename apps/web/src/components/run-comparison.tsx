@@ -1,11 +1,26 @@
 import { useEffect, useState } from "react";
-import { api, type RunSnapshot, type RunSummary } from "@/lib/workflow";
+import { api, type RecentRunSummary, type RunSnapshot, type RunSummary } from "@/lib/workflow";
 import { formatTime, RunStatus } from "./run-status";
 import { RunSetupChanges } from "./run-setup-changes";
 import { RunOutputFileChanges } from "./run-output-file-changes";
 import { RunStepOutputComparison } from "./run-step-output-comparison";
 import { RunArchive } from "./run-archive";
 import { CopyRunLink } from "./copy-run-link";
+
+type ComparisonOption = RunSummary & { brief_excerpt?: string };
+
+function comparisonOptionLabel(item: ComparisonOption, run: RunSnapshot) {
+  const brief = item.brief_excerpt?.replace(/\s+/gu, " ").trim();
+  const excerpt = brief && (brief.length > 72 ? `${brief.slice(0, 71).trimEnd()}…` : brief);
+  return [
+    excerpt,
+    item.workflow_name !== run.workflow_name ? item.workflow_name : undefined,
+    formatTime(item.created_at, true),
+    item.id.slice(0, 8),
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 
 function reportedModels(run: RunSnapshot) {
   const models = new Set(run.model_attempts?.flatMap((attempt) => attempt.returned_model ?? []));
@@ -125,7 +140,7 @@ export function RunComparison({
   onSelect,
 }: {
   run: RunSnapshot;
-  recentRuns: RunSummary[];
+  recentRuns: RecentRunSummary[];
   selected: string | undefined;
   onSelect: (id: string | undefined) => void;
 }) {
@@ -158,10 +173,11 @@ export function RunComparison({
     };
   }, [selected, agentId]);
 
-  const options = recentRuns.filter(
+  const options: ComparisonOption[] = recentRuns.filter(
     (item) => item.id !== run.id && (item.agent_id ?? null) === agentId,
   );
-  for (const item of [archived, current?.run]) {
+  const compared = current?.run;
+  for (const item of [compared && { ...compared, brief_excerpt: compared.brief }, archived]) {
     if (
       item &&
       item.id !== run.id &&
@@ -185,8 +201,7 @@ export function RunComparison({
             {unresolved && <option value={selected}>Run {selected.slice(0, 8)}</option>}
             {options.map((item) => (
               <option key={item.id} value={item.id}>
-                {formatTime(item.created_at, true)} · {item.id.slice(0, 8)}
-                {item.workflow_name !== run.workflow_name && ` · ${item.workflow_name}`}
+                {comparisonOptionLabel(item, run)}
               </option>
             ))}
           </select>
