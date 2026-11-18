@@ -1,6 +1,8 @@
 import { expect, test } from "./fixtures";
 import workflow from "../../../examples/advanced-workflow.json";
 import macro from "../../../examples/discretionary-macro.json";
+import { addTemplate } from "../src/lib/workflow-editing";
+import type { Workflow } from "../src/lib/workflow";
 
 test("find a nested review by its question and return to an editable root step", async ({
   page,
@@ -138,4 +140,67 @@ test("inspect and follow a review handoff while building the macro workflow", as
   await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
     "Workflow valid. Ready to run.",
   );
+});
+
+test("follow macro output bindings to exact inputs and see edits reflected in Build", async ({
+  page,
+  request,
+}) => {
+  const draft = addTemplate(structuredClone(macro) as Workflow, null, "note", "challenge");
+  const consumer = draft.workflow.nodes.find((node) => node.id === draft.selected)!;
+  consumer.label = "Record discriminating evidence";
+  consumer.inputs = { text: { source: "output", node_id: "test", port: "text" } };
+  const response = await request.post("/api/revisions", { data: draft.workflow });
+  expect(response.status()).toBe(201);
+  const revision = await response.json();
+  await page.setViewportSize({ width: 1440, height: 980 });
+  await page.goto(`/?revision=${revision.id}`);
+
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+  const disclosure = page.getByText("Output bindings", { exact: true });
+  const bindings = page.getByRole("list", { name: "Step inputs in this graph" });
+  const challenge = bindings.getByRole("button", {
+    name: "text → Challenge the transmission story · context",
+    exact: true,
+  });
+  const note = bindings.getByRole("button", {
+    name: "text → Record discriminating evidence · text",
+    exact: true,
+  });
+  const back = page.getByRole("button", { name: "Return to step Run the discriminating test" });
+  await page
+    .locator(".node-outline")
+    .getByRole("button", { name: /Run the discriminating test/ })
+    .click();
+  await expect(bindings).toBeHidden();
+  await disclosure.click();
+  await expect(bindings.getByRole("listitem")).toHaveCount(2);
+
+  await challenge.press("Enter");
+  const context = page.getByRole("combobox", { name: "Context input", exact: true });
+  await expect(context).toBeFocused();
+  await expect(context).toHaveValue("test:text");
+  await back.press("Enter");
+  await expect(stepName).toHaveValue("Run the discriminating test");
+  await expect(stepName).toBeFocused();
+
+  await note.press("Enter");
+  const text = page.getByRole("combobox", { name: "Text input", exact: true });
+  await expect(text).toBeFocused();
+  await expect(text).toHaveValue("test:text");
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+  await text.selectOption("");
+  await back.press("Enter");
+  await expect(note).toHaveCount(0);
+  await expect(challenge).toBeVisible();
+
+  await challenge.press("Enter");
+  await context.selectOption("");
+  await back.press("Enter");
+  await expect(page.getByText("No step inputs in this graph use these outputs.")).toBeVisible();
+  await undo.click();
+  await expect(challenge).toBeVisible();
+  await expect(note).toHaveCount(0);
 });
