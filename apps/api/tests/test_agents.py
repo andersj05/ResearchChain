@@ -124,6 +124,42 @@ def test_concurrent_agent_saves_accept_one_version(
     assert len(store.versions(agent.id)) == 2
 
 
+def test_run_baseline_stays_pinned_to_the_same_agent(
+    database: Database, workflow: dict[str, Any]
+) -> None:
+    with owner_client(create_app(database), workers=False) as client:
+        first = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        second = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        baseline = str(uuid4())
+        request = {
+            "id": baseline,
+            "agent_id": first["agent"]["id"],
+            "revision_id": first["revision"]["id"],
+            "brief": "Price the next policy meeting",
+        }
+        assert client.post("/api/runs", json=request).status_code == 202
+        assert "baseline_run_id" not in client.get(f"/api/runs/{baseline}").json()
+        child_id = str(uuid4())
+        child = {
+            **request,
+            "id": child_id,
+            "baseline_run_id": baseline,
+            "brief": "Compare with the updated curve",
+        }
+        accepted = client.post("/api/runs", json=child)
+        assert accepted.status_code == 202
+        assert client.post("/api/runs", json=child).json() == accepted.json()
+        assert client.get(f"/api/runs/{child_id}").json()["baseline_run_id"] == baseline
+        assert client.post("/api/runs", json={**child, "baseline_run_id": None}).status_code == 409
+        foreign = {**child, "id": str(uuid4()), "agent_id": second["agent"]["id"]}
+        assert client.post("/api/runs", json=foreign).status_code == 404
+        missing = {**child, "id": str(uuid4()), "baseline_run_id": str(uuid4())}
+        assert client.post("/api/runs", json=missing).status_code == 404
+        self_reference = {**child, "id": str(uuid4())}
+        self_reference["baseline_run_id"] = self_reference["id"]
+        assert client.post("/api/runs", json=self_reference).status_code == 422
+
+
 def test_runs_pin_exact_agent_even_when_revisions_are_shared(
     database: Database, workflow: dict[str, Any]
 ) -> None:

@@ -52,13 +52,16 @@ class RunRequest(StrictModel):
     agent_id: UUID | None = None
     id: UUID
     revision_id: UUID
+    baseline_run_id: UUID | None = None
     brief: str = Field(min_length=1, max_length=10000)
     artifacts: list[ArtifactRef] = Field(default_factory=list, max_length=100)
     evidence_ids: list[UUID] = Field(default_factory=list, max_length=100)
     provider_account_id: str | None = Field(default=None, pattern=r"^oaiapp_[a-zA-Z0-9_-]{1,180}$")
 
     @model_validator(mode="after")
-    def unique_evidence(self) -> Self:
+    def validate_inputs(self) -> Self:
+        if self.baseline_run_id == self.id:
+            raise ValueError("A run cannot be its own baseline.")
         if len(set(self.evidence_ids)) != len(self.evidence_ids):
             raise ValueError("Select each evidence record only once.")
         return self
@@ -190,6 +193,7 @@ class RunSnapshot(RunSummary):
     )
     workflow: Workflow
     brief: str
+    baseline_run_id: UUID | None = Field(default=None, exclude_if=lambda value: value is None)
     artifacts: list[ArtifactRef]
     evidence_ids: list[UUID] = Field(default_factory=list)
     compiler_version: str
