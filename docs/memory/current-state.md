@@ -4,6 +4,24 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Saved output comparisons
+
+**Run context → Compare a saved run → Output file changes** pairs the last
+recorded file for each step path and filename. Preview or download either version
+and see its producing pass. The browser check covered two different CSVs, a
+removed file, and a file that reverted to identical bytes. CI passed 516 backend
+tests with 2 skips and 118 browser tests. Desktop at `2c1c8b5` served the controls
+with a healthy API and connected worker.
+[PR #83](https://github.com/andersj05/ResearchChain/pull/83).
+
+## Inline workspace file previews
+
+**Runs → Files → Preview** opens a saved chart or supported text file directly
+in the list. The phone-width check decoded the chart and opened two separate
+versions of the same script. CI passed 516 backend tests with 2 skips and 118
+browser tests. Desktop at `382245c` served the previews with a healthy API and
+connected worker. [PR #82](https://github.com/andersj05/ResearchChain/pull/82).
+
 ## Comparison links
 
 **Copy comparison link** bookmarks both run IDs. Opening it restores the exact

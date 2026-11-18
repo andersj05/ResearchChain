@@ -213,6 +213,10 @@ snapshot when you select it. Open its own run view to follow active work.
 routing, limits and judgments. It follows the referenced subgraph versions and
 compares pinned source identities and order.
 
+**Output file changes** pairs the latest saved file at each step and filename.
+Open each side to preview or download the saved versions. File contents are
+matched by their stored artifact hashes.
+
 Open **Search saved runs** in Runs for the full archive, or **Search comparison
 runs** in the comparison picker for the current agent's archive. Search by brief,
 agent, workflow, or run ID and filter by saved status. The recent run list still

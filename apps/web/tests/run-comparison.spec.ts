@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { expect, test } from "./fixtures";
 import {
   discretionaryMacroWorkflow,
@@ -43,6 +44,17 @@ test("workflow deltas follow pinned subgraph versions and ignore presentation ch
 
 test("compare two saved research runs without switching the open run", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
+  const bodies = new Map<string, string>();
+  const csv = (name: string, body: string) => {
+    const artifact_id = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    bodies.set(artifact_id, body);
+    return { name, artifact_id, byte_size: Buffer.byteLength(body), media_type: "text/csv" };
+  };
+  const oldTable = csv("pricing.csv", "horizon,change\n5,12");
+  const newTable = csv("pricing.csv", "horizon,change\n20,18");
+  const stable = csv("controls.csv", "control,base\npolicy,1");
+  const intermediate = csv("controls.csv", "control,base\npolicy,2");
+  const oldOnly = csv("old-test.csv", "sample,estimate\nrest,5");
   const now = new Date().toISOString();
   const priorSource = crypto.randomUUID();
   const newSource = crypto.randomUUID();
@@ -82,6 +94,7 @@ test("compare two saved research runs without switching the open run", async ({ 
           revision_summary: "First comparison.",
           evidence_requests: [],
           unresolved_questions: [],
+          workspace_files: [oldTable, stable, oldOnly],
         },
       },
     ],
@@ -93,6 +106,22 @@ test("compare two saved research runs without switching the open run", async ({ 
   first.config.model = "analysis-model";
   first.config.web_search = false;
   adjusted.research!.limits!.max_total_tokens = 65000;
+  const original = base.model_attempts![0]!;
+  const outputAttempt = (files: (typeof oldTable)[], path: string) => ({
+    ...original,
+    id: crypto.randomUUID(),
+    path,
+    result: {
+      ...original.result!,
+      workspace_files: files,
+      workspace_activity: {
+        tool: "run_python",
+        status: "completed",
+        summary: "Saved tables",
+        output: "",
+      } as const,
+    },
+  });
   const current: RunSnapshot = {
     ...base,
     id: crypto.randomUUID(),
@@ -110,16 +139,27 @@ test("compare two saved research runs without switching the open run", async ({ 
         review_response: { decision: "approve", feedback: "Check the curve against the dollar." },
       },
     ],
-    model_attempts: [],
+    model_attempts: [
+      outputAttempt([newTable, intermediate], "root/memo"),
+      outputAttempt([newTable, stable], "root/memo/analyst-pass-2"),
+    ],
   };
   const otherAgent = { ...base, id: crypto.randomUUID(), agent_id: crypto.randomUUID() };
-  await page.route("**/api/runs", (route) => route.fulfill({ json: [current, base, otherAgent] }));
+  const matchingOutputs = { ...current, id: crypto.randomUUID() };
+  await page.route("**/api/runs", (route) =>
+    route.fulfill({ json: [current, base, otherAgent, matchingOutputs] }),
+  );
   await page.route("**/api/evidence/*", (route) => {
     const id = new URL(route.request().url()).pathname.split("/").at(-1);
     return route.fulfill({ json: { id, title: `Synthetic source ${id?.slice(0, 8)}` } });
   });
-  for (const run of [current, base]) {
+  for (const run of [current, base, matchingOutputs]) {
     await page.route(`**/api/runs/${run.id}`, (route) => route.fulfill({ json: run }));
+  }
+  for (const [id, body] of bodies) {
+    await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) =>
+      route.fulfill({ body, contentType: "text/csv" }),
+    );
   }
   const revision: WorkflowRevision = {
     id: current.revision_id,
@@ -134,7 +174,7 @@ test("compare two saved research runs without switching the open run", async ({ 
   await page.getByRole("button", { name: "Run context", exact: true }).click();
   await page.getByText("Compare a saved run", { exact: true }).click();
   const compare = page.getByRole("combobox", { name: "Comparison run", exact: true });
-  await expect(compare.locator("option")).toHaveCount(2);
+  await expect(compare.locator("option")).toHaveCount(3);
   await compare.selectOption(base.id);
   const setup = page.locator(".comparison-setup");
   await setup.getByText("Setup changes · 1 step", { exact: true }).click();
@@ -159,6 +199,29 @@ test("compare two saved research runs without switching the open run", async ({ 
   await expect(
     setup.locator(".comparison-changes > div").filter({ hasText: "Web and market search" }),
   ).toContainText("Disabled");
+  await page.getByText("Output file changes (2)", { exact: true }).click();
+  const outputs = page.locator(".comparison-output-changes");
+  const price = outputs.getByRole("listitem").filter({ hasText: "pricing.csv" });
+  const before = price.getByRole("region", { name: "Comparison run", exact: true });
+  const after = price.getByRole("region", { name: "Open run", exact: true });
+  await before.getByText("Preview", { exact: true }).click();
+  await after.getByText("Preview", { exact: true }).click();
+  await expect(before.locator("pre")).toHaveText(bodies.get(oldTable.artifact_id)!);
+  await expect(after.locator("pre")).toHaveText(bodies.get(newTable.artifact_id)!);
+  await expect(after).toContainText("Pass 2");
+  const mobileBefore = (await before.boundingBox())!;
+  expect((await after.boundingBox())!.y).toBeGreaterThanOrEqual(
+    mobileBefore.y + mobileBefore.height,
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const wideBefore = (await before.boundingBox())!;
+  const wideAfter = (await after.boundingBox())!;
+  expect(wideAfter.y).toBeCloseTo(wideBefore.y, 0);
+  expect(wideAfter.x).toBeGreaterThanOrEqual(wideBefore.x + wideBefore.width);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await expect(outputs.getByRole("heading", { name: "controls.csv" })).toHaveCount(0);
+  const removed = outputs.getByRole("listitem").filter({ hasText: "old-test.csv" });
+  await expect(removed.getByRole("region", { name: "Open run" })).toContainText("No saved file");
   const table = page.getByRole("table");
   const revisionsRow = table.getByRole("row", { name: "Workflow revision" });
   await expect(revisionsRow.getByRole("cell")).toHaveText(["13", "12"]);
@@ -173,6 +236,9 @@ test("compare two saved research runs without switching the open run", async ({ 
   );
   await expect(page).toHaveURL(new RegExp(`run=${current.id}`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await compare.selectOption(matchingOutputs.id);
+  await page.getByText("Output file changes", { exact: true }).click();
+  await expect(page.getByText("The latest saved files match.")).toBeVisible();
   await page.getByRole("button", { name: "Hide workflow map", exact: true }).click();
   await page.reload();
   await expect(page.getByRole("button", { name: "Show workflow map", exact: true })).toBeVisible();
