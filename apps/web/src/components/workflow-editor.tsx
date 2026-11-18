@@ -10,6 +10,7 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
+import { StepBranchPaths } from "@/components/step-branch-paths";
 import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
@@ -592,6 +593,11 @@ export function WorkflowEditor({
                     onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
                   />
                 )}
+                <StepBranchPaths
+                  graph={graph}
+                  step={node}
+                  onOpenStep={(stepId) => openStep(stepId, validPath)}
+                />
                 {node.kind === "note" && (
                   <p className="field-hint">
                     Notes copy text; they do not call a model. Use Add model prompt for AI
