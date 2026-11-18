@@ -18,6 +18,7 @@ import {
   controlOutputs,
   duplicateResearchStep,
   graphAt,
+  insertionPoint,
   prepareNestedStepCopy,
   referenceOf,
   pruneDefinitions,
@@ -84,6 +85,7 @@ export function WorkflowEditor({
 }) {
   const [path, setPath] = useState(initialPath);
   const [previousVisit, setPreviousVisit] = useState<StepVisit>();
+  const [beforeStep, setBeforeStep] = useState<StepVisit>();
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [notice, setNotice] = useState("");
@@ -122,6 +124,7 @@ export function WorkflowEditor({
   function selectNode(id: string) {
     onSeal?.();
     setInspectorOpen(true);
+    setBeforeStep(undefined);
     onSelect(id);
   }
   function focusStep(id: string, location: GraphCrumb[], input?: string) {
@@ -178,6 +181,11 @@ export function WorkflowEditor({
       ? prepareNestedStepCopy(workflow, scope, node)
       : null;
   const split = node?.config?.type === "route" || node?.config?.type === "fork";
+  const canInsertBefore = !!insertionPoint(graph, selectedId, "before");
+  const insertBefore =
+    canInsertBefore && beforeStep?.id === selectedId && samePath(beforeStep.path, validPath);
+  const placement = insertBefore ? "before" : "default";
+  const canInsert = !!insertionPoint(graph, selectedId, placement);
   const ownedJoin =
     node?.kind === "join" &&
     graph.nodes.some(
@@ -271,6 +279,36 @@ export function WorkflowEditor({
               <h2>Steps</h2>
               <span className="count">{graph.nodes.length}</span>
             </div>
+            <label className="step-placement">
+              Insert position
+              <select
+                value={placement}
+                disabled={!canInsertBefore}
+                onChange={(event) =>
+                  setBeforeStep(
+                    event.target.value === "before"
+                      ? { id: selectedId, path: validPath }
+                      : undefined,
+                  )
+                }
+              >
+                <option value="default">
+                  {split
+                    ? "After the paired join"
+                    : !node || node.kind === "finish"
+                      ? "Before Finish"
+                      : "After selected step"}
+                </option>
+                <option value="before" disabled={!canInsertBefore}>
+                  Before selected step
+                </option>
+              </select>
+            </label>
+            {!canInsert && (
+              <p className="field-hint">
+                Finish has multiple incoming connections. Keep one to insert here.
+              </p>
+            )}
             <div className="node-library">
               {(
                 [
@@ -291,12 +329,13 @@ export function WorkflowEditor({
                   className="library-button"
                   disabled={
                     disabled ||
+                    !canInsert ||
                     graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) > 128 ||
                     ((kind === "subgraph" || kind === "loop") &&
                       (workflow.subgraphs?.length ?? 0) >= 32)
                   }
                   onClick={() => {
-                    const added = addTemplate(workflow, scope, kind, selectedId);
+                    const added = addTemplate(workflow, scope, kind, selectedId, placement);
                     onChange(added.workflow);
                     stepToFocus.current = added.selected;
                     selectNode(added.selected);
@@ -314,13 +353,6 @@ export function WorkflowEditor({
                 </Button>
               ))}
             </div>
-            <p className="field-hint">
-              {node
-                ? split
-                  ? `Insert after the join for “${node.label}”.`
-                  : `Insert ${node.kind === "finish" ? "before" : "after"} “${node.label}”.`
-                : "Insert before Finish."}
-            </p>
             <div className="outline-heading">
               <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
               <span className="muted">{graph.edges.length} control connections</span>

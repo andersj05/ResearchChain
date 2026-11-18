@@ -181,10 +181,13 @@ choose **Start run**. Escape or Cancel preserves the brief and returns focus;
 validation failures remain visible in the dialog. Visual conventions and the
 Vercel reference audit are recorded in [design.md](design.md).
 
-Add a step after the selection, or before a selected Finish; its connections are
-created automatically and its name is focused for editing. Removing a middle step
-reconnects its neighbors, and removing the first advances the workflow entry.
-These operations are undoable and still require server validation before saving.
+The **Steps** palette adds after the selected step by default. It uses the paired
+join for a selected split and adds before a selected Finish. Use **Insert position**
+to add before the selected entry or a step with one incoming connection. The choice
+applies to the next addition and resets when you select a step. Build reconnects
+control wires and focuses the new name. Removing a middle step reconnects its
+neighbors, and removing the first advances the workflow entry. These operations
+are undoable and still require server validation before saving.
 
 **Duplicate research step** inserts a copy after the selected research step and
 focuses its name. The copy starts with the same instructions, model, tools and

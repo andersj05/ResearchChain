@@ -323,6 +323,13 @@ h3 {
   display: grid;
   gap: 8px;
 }
+.step-placement {
+  margin: 0 0 12px;
+}
+.step-placement > select {
+  margin-top: 4px;
+  padding-block: 5px;
+}
 .library-button {
   display: flex;
   align-items: center;

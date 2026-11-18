@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "./fixtures";
+import advanced from "../../../examples/advanced-workflow.json";
 import example from "../../../examples/research-workflow.json";
 import type { SubgraphRef, Workflow, WorkflowNode, WorkflowRevision } from "../src/lib/workflow";
 import { addTemplate } from "../src/lib/workflow-editing";
@@ -33,6 +34,100 @@ async function save(page: Page) {
   );
   return new URL(page.url()).searchParams.get("revision")!;
 }
+
+test("insert position preserves branch ports and input bindings", async ({ page, request }) => {
+  const draft = addTemplate(advanced as Workflow, null, "note", "split");
+  const binding = { text: { source: "output", node_id: "support", port: "text" } } as const;
+  draft.workflow.nodes.find((node) => node.id === draft.selected)!.inputs = binding;
+  const response = await request.post("/api/revisions", { data: draft.workflow });
+  expect(response.status()).toBe(201);
+  await page.goto(`/?revision=${(await response.json()).id}`);
+  await expect(page.getByRole("button", { name: "Run workflow" })).toBeEnabled();
+
+  const position = page.getByRole("combobox", { name: "Insert position", exact: true });
+  const outline = page.locator(".node-outline");
+  await expect(position.locator("option:checked")).toHaveText("After the paired join");
+  await position.selectOption("before");
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  const label = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(label).toBeFocused();
+  await expect(position).toHaveValue("default");
+  await expect(outline.getByRole("button", { name: "New research note Note Start" })).toBeVisible();
+
+  await outline.getByRole("button", { name: "Join Join", exact: true }).click();
+  await expect(position).toBeDisabled();
+  await outline.getByRole("button", { name: "Support Note", exact: true }).click();
+  await position.selectOption("before");
+  await page.getByRole("button", { name: "Add condition", exact: true }).click();
+  await expect(label).toHaveValue("New condition");
+
+  const finish = outline.getByRole("button", { name: "Finish Finish", exact: true });
+  const addReview = page.getByRole("button", { name: "Add human review", exact: true });
+  await outline.getByRole("button", { name: "Challenge Note", exact: true }).click();
+  await page.getByRole("combobox", { name: "Next step", exact: true }).selectOption("finish");
+  await finish.click();
+  await expect(addReview).toBeDisabled();
+  await expect(
+    page.getByText("Finish has multiple incoming connections.", { exact: false }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(position.locator("option:checked")).toHaveText("Before Finish");
+  await addReview.click();
+  await valid(page);
+
+  const id = await save(page);
+  const { workflow }: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+  const condition = workflow.nodes.find((node) => node.kind === "route")!;
+  const finishReview = workflow.nodes.find((node) => node.kind === "review")!;
+  expect(workflow.start_node).not.toBe("split");
+  expect(condition.config?.type).toBe("route");
+  if (condition.config?.type !== "route") throw new Error("Missing inserted condition.");
+  expect(workflow.edges).toEqual(
+    expect.arrayContaining([
+      { source: workflow.start_node, source_port: "next", target: "split", target_port: "in" },
+      { source: "split", source_port: "support", target: condition.id, target_port: "in" },
+      { source: "split", source_port: "challenge", target: "challenge", target_port: "in" },
+      { source: condition.config.join, source_port: "next", target: "support", target_port: "in" },
+      { source: "join", source_port: "next", target: draft.selected, target_port: "in" },
+      { source: "review_loop", source_port: "next", target: finishReview.id, target_port: "in" },
+      { source: finishReview.id, source_port: "next", target: "finish", target_port: "in" },
+    ]),
+  );
+  expect(workflow.nodes.find((node) => node.id === draft.selected)?.inputs).toEqual(binding);
+});
+
+test("insert position updates a nested start in one undoable edit", async ({ page, request }) => {
+  await page.getByRole("button", { name: "Add subgraph", exact: true }).click();
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  const outline = page.locator(".node-outline");
+  const before = outline.getByRole("button", { name: "Research step Note Start", exact: true });
+  const after = outline.getByRole("button", { name: "New research note Note Start", exact: true });
+  await expect(before).toBeVisible();
+  await page.getByRole("combobox", { name: "Insert position", exact: true }).selectOption("before");
+  await page.getByRole("button", { name: "Add research note", exact: true }).click();
+  await expect(after).toBeVisible();
+  await expect(before).toHaveCount(0);
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(
+    outline.getByRole("button", { name: "New research note Note", exact: false }),
+  ).toHaveCount(0);
+  await expect(before).toBeVisible();
+  await page.getByRole("button", { name: "Redo last edit", exact: true }).click();
+  await expect(after).toBeVisible();
+
+  const id = await save(page);
+  const { workflow }: WorkflowRevision = await (await request.get(`/api/revisions/${id}`)).json();
+  expect(workflow.start_node).toBe("frame");
+  const body = workflow.subgraphs?.[0];
+  expect(body?.start_node).not.toBe("step");
+  expect(body?.nodes.find((node) => node.id === body.start_node)?.label).toBe("New research note");
+  expect(body?.edges).toContainEqual({
+    source: body?.start_node,
+    source_port: "next",
+    target: "step",
+    target_port: "in",
+  });
+});
 
 test("keyboard ports reconnect controls, cancel safely, and expose undo and redo", async ({
   page,

@@ -283,13 +283,29 @@ const makeNode = (
   position: { x: Math.min(x, 9700), y: Math.min(y, 9700) },
 });
 
-function insertionAnchor(graph: Graph, selected: string) {
+type InsertionPlacement = "default" | "before";
+type InsertionPoint = { anchor: WorkflowNode | undefined; before: boolean };
+
+export function insertionPoint(
+  graph: Graph,
+  selected: string,
+  placement: InsertionPlacement = "default",
+): InsertionPoint | undefined {
   const candidate = graph.nodes.find((node) => node.id === selected);
-  if (candidate?.config?.type === "route" || candidate?.config?.type === "fork") {
-    const join = candidate.config.join;
-    return graph.nodes.find((node) => node.id === join);
+  if (placement === "before") {
+    if (!candidate || candidate.kind === "finish") return;
+    const incoming = graph.edges.filter((item) => item.target === candidate.id);
+    if (incoming.length !== (candidate.id === graph.start_node ? 0 : 1)) return;
+    return { anchor: candidate, before: true };
   }
-  return candidate ?? graph.nodes.find((node) => node.kind === "finish");
+  const config = candidate?.config;
+  const anchor =
+    config?.type === "route" || config?.type === "fork"
+      ? graph.nodes.find((node) => node.id === config.join)
+      : (candidate ?? graph.nodes.find((node) => node.kind === "finish"));
+  const before = anchor?.kind === "finish";
+  if (before && graph.edges.filter((item) => item.target === anchor.id).length > 1) return;
+  return { anchor, before };
 }
 
 function insertFragment<G extends Graph>(
@@ -298,12 +314,10 @@ function insertFragment<G extends Graph>(
   edges: WorkflowEdge[],
   entry: string,
   exit: string,
-  selected: string,
+  { anchor, before }: InsertionPoint,
 ): G {
-  const anchor = insertionAnchor(graph, selected);
   if (!anchor)
     return { ...graph, nodes: [...graph.nodes, ...nodes], edges: [...graph.edges, ...edges] };
-  const before = anchor.kind === "finish";
   const adjacent = graph.edges.filter((item) =>
     before ? item.target === anchor.id : item.source === anchor.id,
   );
@@ -313,7 +327,7 @@ function insertFragment<G extends Graph>(
   } else {
     remaining.push(edge(anchor.id, entry), ...adjacent.map((item) => ({ ...item, source: exit })));
   }
-  const index = graph.nodes.indexOf(anchor) + (before ? 0 : 1);
+  const index = graph.nodes.findIndex((node) => node.id === anchor.id) + (before ? 0 : 1);
   return {
     ...graph,
     nodes: [...graph.nodes.slice(0, index), ...nodes, ...graph.nodes.slice(index)],
@@ -322,12 +336,18 @@ function insertFragment<G extends Graph>(
   };
 }
 
-export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, selected: string): G {
-  const anchor = insertionAnchor(graph, selected);
-  const nextId =
-    anchor?.kind === "finish"
-      ? anchor.id
-      : graph.edges.find((item) => item.source === anchor?.id)?.target;
+export function insertStep<G extends Graph>(
+  graph: G,
+  step: WorkflowNode,
+  selected: string,
+  placement: InsertionPlacement = "default",
+): G {
+  const point = insertionPoint(graph, selected, placement);
+  if (!point) return graph;
+  const { anchor, before } = point;
+  const nextId = before
+    ? anchor?.id
+    : graph.edges.find((item) => item.source === anchor?.id)?.target;
   const finish = graph.nodes.find((node) => node.id === nextId && node.kind === "finish");
   const positioned = {
     ...step,
@@ -348,7 +368,7 @@ export function insertStep<G extends Graph>(graph: G, step: WorkflowNode, select
         ),
       }
     : graph;
-  return insertFragment(layout, [positioned], [], step.id, step.id, selected);
+  return insertFragment(layout, [positioned], [], step.id, step.id, point);
 }
 
 function copyName(name: string, limit: number) {
@@ -444,12 +464,14 @@ export function addTemplate(
   scope: GraphScope,
   kind: TemplateKind,
   selected: string,
+  placement: InsertionPlacement = "default",
 ): { workflow: Workflow; selected: string } {
   const graph = graphAt(workflow, scope);
   if (!graph) return { workflow, selected };
+  const point = insertionPoint(graph, selected, placement);
+  if (!point) return { workflow, selected };
   const id = makeId(kind);
-  const anchor = insertionAnchor(graph, selected);
-  const x = Math.min(anchor?.position.x ?? 60, 8800);
+  const x = Math.min(point.anchor?.position.x ?? 60, 8800);
   const y = Math.min(Math.max(0, ...graph.nodes.map((node) => node.position.y)) + 180, 9400);
   let next =
     workflow.schema_version === "0.1" && graph.nodes.length >= 32
@@ -468,7 +490,10 @@ export function addTemplate(
       inputs: { text: { source: "brief" } },
     };
     next = { ...next, schema_version: next.schema_version === "0.3" ? "0.3" : "0.2" };
-    return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
+    return {
+      workflow: updateGraph(next, scope, insertStep(graph, step, selected, placement)),
+      selected: id,
+    };
   }
   if (kind === "research" || kind === "model" || kind === "workspace") {
     const label = {
@@ -511,7 +536,10 @@ export function addTemplate(
           budgets: { max_active_seconds: 1800, max_node_executions: 256, max_concurrency: 4 },
         }),
     };
-    return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
+    return {
+      workflow: updateGraph(next, scope, insertStep(graph, step, selected, placement)),
+      selected: id,
+    };
   }
   if (kind === "note" || kind === "review") {
     return {
@@ -522,6 +550,7 @@ export function addTemplate(
           graph,
           makeNode(id, kind, kind === "note" ? "New research note" : "New human review"),
           selected,
+          placement,
         ),
       ),
       selected: id,
@@ -557,7 +586,7 @@ export function addTemplate(
       branches.flatMap((branch, i) => [edge(id, branch.id, names[i]), edge(branch.id, join.id)]),
       id,
       join.id,
-      selected,
+      point,
     );
     return { workflow: updateGraph(next, scope, updated), selected: id };
   }
@@ -582,7 +611,7 @@ export function addTemplate(
   };
   next.subgraphs = [...(next.subgraphs ?? []), definition];
   return {
-    workflow: updateGraph(next, scope, insertFragment(graph, [node], [], id, id, selected)),
+    workflow: updateGraph(next, scope, insertFragment(graph, [node], [], id, id, point)),
     selected: id,
   };
 }
