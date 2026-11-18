@@ -129,8 +129,29 @@ test("compare two saved research runs without switching the open run", async ({ 
     path,
     result: { ...original.result!, conclusion, workspace_files: [] },
   });
-  const baselinePass = modelOutput(iterationPath(1), "**Comparison first iteration.**");
-  const openPass = modelOutput(iterationPath(1), "**Open first iteration.**");
+  const savedInputs = new Map<string, string>();
+  const requestFor = (feedback: string) => {
+    const packet = JSON.stringify({
+      brief: "Check policy repricing",
+      human_feedback: feedback,
+      additional_context: "",
+      sources: [],
+    });
+    const body = JSON.stringify({
+      input: [{ role: "user", content: [{ type: "input_text", text: packet }] }],
+    });
+    const input_artifact_id = `sha256:${createHash("sha256").update(body).digest("hex")}`;
+    savedInputs.set(input_artifact_id, body);
+    return { input_artifact_id, input_bytes: Buffer.byteLength(body) };
+  };
+  const baselinePass = {
+    ...modelOutput(iterationPath(1), "**Comparison first iteration.**"),
+    ...requestFor("Use five sessions."),
+  };
+  const openPass = {
+    ...modelOutput(iterationPath(1), "**Open first iteration.**"),
+    ...requestFor("Use twenty sessions."),
+  };
   base.model_attempts!.unshift(baselinePass);
   const outputAttempt = (files: (typeof oldTable)[], path: string) => ({
     ...original,
@@ -186,6 +207,11 @@ test("compare two saved research runs without switching the open run", async ({ 
   for (const [id, body] of bodies) {
     await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) =>
       route.fulfill({ body, contentType: "text/csv" }),
+    );
+  }
+  for (const [id, body] of savedInputs) {
+    await page.route(`**/api/artifacts/${encodeURIComponent(id)}/content*`, (route) =>
+      route.fulfill({ body, contentType: "application/json" }),
     );
   }
   const revision: WorkflowRevision = {
@@ -306,7 +332,12 @@ test("compare two saved research runs without switching the open run", async ({ 
     "href",
     `?view=runs&run=${current.id}&attempt=${openPass.id}`,
   );
+  await beforeOutput.getByText("Inspect saved inputs", { exact: true }).click();
+  await openOutput.getByText("Inspect saved inputs", { exact: true }).click();
+  await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toBeVisible();
+  await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toBeVisible();
   await step.selectOption(iterationPath(2));
+  await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toHaveCount(0);
   await expect(beforeOutput).toContainText("No saved model output for this step.");
   await expect(openOutput.locator("strong")).toHaveText("Open second iteration.");
   await step.selectOption("root/memo");

@@ -1,6 +1,6 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { expect, test } from "./fixtures";
-import { contentUrl } from "../src/lib/evidence";
+import { contentUrl, evidenceUrl } from "../src/lib/evidence";
 import type { RunSnapshot } from "../src/lib/workflow";
 import sample from "../../../examples/discretionary-macro-brief.json";
 
@@ -9,6 +9,25 @@ test("macro starter asks for judgment and records it in downstream model request
   request,
 }) => {
   test.setTimeout(90000);
+  const captured = {
+    id: randomUUID(),
+    title: "Synthetic rates observation",
+    kind: "text",
+    rights: "owned",
+    text: "Synthetic as-of observation <b>12.00</b> basis points.",
+    as_of_date: "2026-11-17",
+  };
+  const reference = {
+    id: randomUUID(),
+    title: "Synthetic event reference",
+    kind: "link",
+    source_url: "https://example.test/synthetic-event",
+    availability: "reference_only",
+  };
+  for (const source of [captured, reference]) {
+    const response = await request.post("/api/evidence", { data: source });
+    expect(response.status(), await response.text()).toBe(201);
+  }
   await page.goto("/");
   await page.getByRole("button", { name: "New agent", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create an agent" });
@@ -26,6 +45,8 @@ test("macro starter asks for judgment and records it in downstream model request
   await page
     .getByRole("combobox", { name: "Research model", exact: true })
     .selectOption("test-model");
+  await page.getByRole("checkbox", { name: `${captured.title} Captured`, exact: true }).check();
+  await page.getByRole("checkbox", { name: `${reference.title} Link only`, exact: true }).check();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   const mandate = page.getByLabel("Review mandate", { exact: true });
   const judgment = page.getByLabel("Review judgment", { exact: true });
@@ -139,6 +160,31 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(
     selected.getByRole("heading", { name: "Build catalyst and risk scenarios" }),
   ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 950 });
+  await selected.getByText("Inspect saved inputs", { exact: true }).click();
+  const inputs = selected.getByRole("region", { name: "Saved model inputs" });
+  await expect(inputs.getByRole("heading", { name: "Reviewer feedback" })).toBeVisible();
+  await expect(inputs.getByText(view, { exact: true })).toBeVisible();
+  await inputs.getByText("Prior result conclusion", { exact: true }).click();
+  const scenarioReceipt = await (
+    await request.get(contentUrl(scenarioAttempt.input_artifact_id!))
+  ).json();
+  const scenarioPacket = JSON.parse(scenarioReceipt.input[0].content[0].text);
+  await expect(
+    inputs.getByText(scenarioPacket.prior_result.conclusion, { exact: true }),
+  ).toBeVisible();
+  await inputs.getByText("Evidence in the request (2)", { exact: true }).click();
+  const sent = inputs.getByRole("listitem").filter({ hasText: captured.title });
+  const metadata = inputs.getByRole("listitem").filter({ hasText: reference.title });
+  await expect(sent).toContainText("As of 2026-11-17");
+  await expect(sent).toContainText("complete UTF-8 text of the captured original");
+  await expect(sent.getByRole("link")).toHaveAttribute("href", evidenceUrl(captured.id));
+  await sent.getByText("Supplied text", { exact: true }).click();
+  await expect(sent.locator("pre")).toHaveText(captured.text);
+  await expect(metadata).toContainText("metadata only; content has not been supplied to the model");
+  await expect(metadata.getByText("Supplied text")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  if (desktopViewport) await page.setViewportSize(desktopViewport);
   await page.getByRole("button", { name: "Decisions", exact: true }).click();
   await recorded
     .getByRole("listitem")
