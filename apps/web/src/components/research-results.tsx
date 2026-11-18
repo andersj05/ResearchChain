@@ -4,7 +4,8 @@ import { researchToolUrls } from "./research-tool-receipts";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchAttempt } from "./research-attempt";
-import { attemptPath } from "@/lib/run-inspection";
+import { attemptPath, graphLocation } from "@/lib/run-inspection";
+import { ResearchWorkspace } from "./research-workspace";
 
 export function StepResearchResults({
   run,
@@ -18,9 +19,13 @@ export function StepResearchResults({
   const attempts = run.model_attempts ?? [];
   const matches = attempts.filter((attempt) => attemptPath(attempt) === path);
   if (!matches.length) return null;
+  const config = graphLocation(run, path).node.config;
   const sources = new Set<string>();
   return (
     <section className="research-results" aria-label="Research results">
+      {config?.type === "research" && config.analyst?.workspace && (
+        <ResearchWorkspace key={path} attempts={matches} running={run.status === "running"} />
+      )}
       {attempts.map((attempt) => {
         for (const source of attempt.result?.web_research?.sources ?? []) sources.add(source.url);
         for (const url of researchToolUrls(attempt.result)) sources.add(url);

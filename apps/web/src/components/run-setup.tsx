@@ -27,6 +27,7 @@ function RunTools({ workflow }: { workflow: Workflow }) {
         return [];
       const tools = [
         config.analyst ? `Codex analyst, up to ${config.analyst.max_passes ?? 4} passes` : "",
+        config.analyst?.workspace ? "Python execution and saved files" : "",
         config.web_search === "auto"
           ? "optional web search"
           : config.web_search
@@ -42,6 +43,8 @@ function RunTools({ workflow }: { workflow: Workflow }) {
           label: node.label,
           tools,
           sec: config.sec_financials,
+          web: config.web_search,
+          workspace: config.analyst?.workspace,
         },
       ];
     }),
@@ -59,7 +62,15 @@ function RunTools({ workflow }: { workflow: Workflow }) {
           </li>
         ))}
       </ul>
-      <p className="field-hint">Web queries can include your brief and selected evidence.</p>
+      {steps.some((step) => step.web) && (
+        <p className="field-hint">Web queries can include your brief and selected evidence.</p>
+      )}
+      {steps.some((step) => step.workspace) && (
+        <p className="field-hint">
+          Active time across the run is limited to {workflow.budgets?.max_active_seconds ?? 120}{" "}
+          seconds. Review pauses are excluded.
+        </p>
+      )}
       {steps.some((step) => step.sec) && (
         <p className="field-hint">
           SEC lookups send the selected company and metric. Set RESEARCHCHAIN_SEC_USER_AGENT with an

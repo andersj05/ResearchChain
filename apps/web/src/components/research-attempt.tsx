@@ -131,6 +131,12 @@ export function ResearchAttempt({
           )}
           {result.web_research && <WebSources trace={result.web_research} />}
           <ResearchToolReceipts result={result} />
+          {result.next_lead && (
+            <div className="research-disclosure">
+              <h4>Next research lead</h4>
+              {prose(result.next_lead)}
+            </div>
+          )}
           <details className="research-disclosure">
             <summary>Limitations and open questions</summary>
             <h4>Limitations</h4>
