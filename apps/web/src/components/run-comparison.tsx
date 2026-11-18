@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { api, type RunSnapshot, type RunSummary } from "@/lib/workflow";
-import { attemptPath, graphLocation } from "@/lib/run-inspection";
 import { formatTime, RunStatus } from "./run-status";
-import { ResearchMarkdown } from "./research-markdown";
-import { researchToolUrls } from "./research-tool-receipts";
 import { RunSetupChanges } from "./run-setup-changes";
 import { RunOutputFileChanges } from "./run-output-file-changes";
+import { RunStepOutputComparison } from "./run-step-output-comparison";
 import { RunArchive } from "./run-archive";
 import { CopyRunLink } from "./copy-run-link";
 
@@ -27,19 +25,6 @@ function tokenUsage(run: RunSnapshot) {
 
 function RunComparisonColumn({ run }: { run: RunSnapshot }) {
   const saved = run.events.filter((event) => event.review_response?.feedback.trim());
-  const attempt = run.model_attempts?.findLast(
-    (item) =>
-      item.status === "completed" &&
-      item.result &&
-      !item.result.next_lead &&
-      !item.result.workspace_activity,
-  );
-  const sources = new Set<string>();
-  for (const item of run.model_attempts ?? []) {
-    for (const source of item.result?.web_research?.sources ?? []) sources.add(source.url);
-    for (const url of researchToolUrls(item.result)) sources.add(url);
-    if (item.id === attempt?.id) break;
-  }
   return (
     <div className="comparison-record">
       <details>
@@ -55,16 +40,6 @@ function RunComparisonColumn({ run }: { run: RunSnapshot }) {
               <p className="step-record">{event.review_response?.feedback}</p>
             </div>
           ))}
-        </details>
-      )}
-      {attempt?.result && (
-        <details>
-          <summary>
-            Latest model output · {graphLocation(run, attemptPath(attempt)).node.label}
-          </summary>
-          <div className="research-conclusion">
-            <ResearchMarkdown text={attempt.result.conclusion} sources={sources} />
-          </div>
         </details>
       )}
     </div>
@@ -91,6 +66,7 @@ function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: Ru
         <CopyRunLink runId={run.id} target="compare" id={baseline.id} />
       </div>
       <RunSetupChanges before={baseline} after={run} />
+      <RunStepOutputComparison run={run} baseline={baseline} />
       <RunOutputFileChanges before={baseline} after={run} />
       <div
         className="model-activity-scroll"
