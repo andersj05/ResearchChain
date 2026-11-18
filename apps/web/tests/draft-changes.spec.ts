@@ -2,7 +2,11 @@ import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import advanced from "../../../examples/advanced-workflow.json";
 import { compareWorkflowGraphs } from "../src/lib/workflow-comparison";
-import { compareWorkflowDraft } from "../src/lib/workflow-draft-comparison";
+import {
+  applyDraftTextRestoration,
+  compareWorkflowDraft,
+  draftTextRestoration,
+} from "../src/lib/workflow-draft-comparison";
 import { addTemplate } from "../src/lib/workflow-editing";
 import type { AgentDetail, Workflow } from "../src/lib/workflow";
 
@@ -193,6 +197,123 @@ test("draft changes separate unknown document edits from canvas positions", () =
   expect(compareWorkflowDraft(saved, draft).kind).toBe("layout");
   draft.subgraphs![0]!.nodes[0]!.instructions = "Compare a different input.";
   expect(compareWorkflowDraft(saved, draft).kind).toBe("other");
+});
+
+test("saved text requires a unique matching editable step and an unchanged destination", () => {
+  const saved = structuredClone(advanced) as Workflow;
+  const draft = structuredClone(saved);
+  const body = draft.subgraphs![0]!;
+  const review = body.nodes.find((step) => step.id === "review")!;
+  const ref = { id: body.id, version: body.version };
+  review.instructions = "Draft review question";
+  const restoration = draftTextRestoration(saved, ref, body, review.id);
+  expect(restoration).toBeDefined();
+  expect(applyDraftTextRestoration(structuredClone(draft), restoration!)).toBeUndefined();
+  const updated = applyDraftTextRestoration(draft, restoration!);
+  expect(updated?.nodes).toBe(draft.nodes);
+  expect(updated?.subgraphs?.[0]?.nodes.find((step) => step.id === review.id)).toEqual({
+    ...review,
+    instructions: restoration!.savedText,
+  });
+  expect(
+    draftTextRestoration(saved, ref, { ...body, nodes: [...body.nodes, review] }, review.id),
+  ).toBeUndefined();
+  const ambiguous = { ...saved, subgraphs: [...saved.subgraphs!, saved.subgraphs![0]!] };
+  expect(draftTextRestoration(ambiguous, ref, body, review.id)).toBeUndefined();
+  expect(draftTextRestoration(saved, ref, body, "missing")).toBeUndefined();
+  review.kind = "note";
+  expect(draftTextRestoration(saved, ref, body, review.id)).toBeUndefined();
+});
+
+test("restore saved step text from an earlier comparison without replacing a pinned draft body", async ({
+  page,
+  request,
+}) => {
+  const earlier = structuredClone(advanced) as Workflow;
+  earlier.name = "Selective restore agent";
+  earlier.nodes.find((step) => step.id === "support")!.instructions = "Prior support instructions";
+  earlier.subgraphs![0]!.nodes.find((step) => step.id === "review")!.instructions = "";
+  const initial = await request.post("/api/agents", {
+    data: { id: crypto.randomUUID(), workflow: earlier },
+  });
+  expect(initial.status()).toBe(201);
+  const first: AgentDetail = await initial.json();
+  const latest = structuredClone(earlier);
+  latest.nodes.find((step) => step.id === "support")!.instructions = "Latest support instructions";
+  const body = structuredClone(latest.subgraphs![0]!);
+  body.version = 2;
+  body.nodes.find((step) => step.id === "review")!.instructions = "Latest saved review question";
+  latest.subgraphs!.push(body);
+  const owner = latest.nodes.find((step) => step.id === "review_loop")!;
+  if (owner.config?.type !== "loop") throw new Error("Expected a pinned loop.");
+  owner.config.ref.version = 2;
+  const saved = await request.post(`/api/agents/${first.agent.id}/revisions`, {
+    data: { expected_version: 1, workflow: latest },
+  });
+  expect(saved.status()).toBe(201);
+  const current: AgentDetail = await saved.json();
+  await page.setViewportSize({ width: 1440, height: 1040 });
+  await page.goto(`/?agent=${first.agent.id}&view=workflow`);
+
+  const outline = page.locator(".node-outline");
+  const support = outline.getByRole("button", { name: "Support Note", exact: true });
+  const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  const question = page.getByRole("textbox", { name: "Review question", exact: true });
+  const crumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+  await support.click();
+  await expect(instructions).toHaveValue("Latest support instructions");
+  await instructions.fill("Draft support instructions");
+  await outline.getByRole("button", { name: /Review_Loop/ }).click();
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  await expect(question).toHaveValue("Latest saved review question");
+  await expect(crumbs).toContainText("Critique and review v2");
+  await name.fill("Risk review");
+  await question.fill("Draft review question");
+
+  const writes: string[] = [];
+  page.on("request", (entry) => {
+    if (entry.method() === "POST") writes.push(new URL(entry.url()).pathname);
+  });
+  const location = page.url();
+  const preview = page.getByRole("button", { name: "Draft changes", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Draft changes" });
+  const baseline = dialog.getByRole("combobox", { name: "Compare with", exact: true });
+  const close = dialog.getByRole("button", { name: "Close draft changes", exact: true });
+  await preview.click();
+  await expect(baseline).toHaveValue(current.revision.id);
+  await baseline.selectOption(first.revision.id);
+  await dialog.getByText("Support · Changed", { exact: true }).click();
+  await dialog.getByRole("button", { name: /^Use saved instructions for Support/ }).press("Enter");
+  await expect(close).toBeFocused();
+  await expect(baseline).toHaveValue(first.revision.id);
+  await expect(dialog.getByText("Restored saved instructions for Support.")).toBeVisible();
+  await dialog.getByRole("button", { name: /^Use saved review question for Risk review/ }).click();
+  await expect(close).toBeFocused();
+  await expect(baseline).toHaveValue(first.revision.id);
+  await expect(dialog.getByText("Restored saved review question for Risk review.")).toBeVisible();
+  await expect(dialog.getByText("Review question", { exact: true })).toHaveCount(0);
+  await expect(dialog.getByText("Risk review · Changed", { exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(preview).toBeFocused();
+  await expect(question).toHaveValue("");
+  await expect(question).toHaveAttribute("placeholder", "Continue this workflow?");
+  await expect(name).toHaveValue("Risk review");
+
+  await undo.click();
+  await expect(question).toHaveValue("Draft review question");
+  await expect(name).toHaveValue("Risk review");
+  await crumbs.getByRole("button", { name: earlier.name, exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Subgraph version", exact: true })).toHaveValue(
+    "critique@2",
+  );
+  await support.click();
+  await expect(instructions).toHaveValue("Prior support instructions");
+  await undo.click();
+  await expect(instructions).toHaveValue("Draft support instructions");
+  expect(page.url()).toBe(location);
+  expect(writes).toEqual([]);
 });
 
 test("readable draft wiring keeps stable step IDs and the saved-run comparison", () => {
