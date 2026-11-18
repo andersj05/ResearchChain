@@ -271,6 +271,10 @@ In the review inbox, **Show reviews for** can limit the queue to the active agen
 In **Runs → Decisions**, expand **Steps wired to this feedback** on a recorded
 judgment to inspect steps with a direct input binding. A model step links to the
 latest saved request for that exact step and iteration when one exists.
+When multiple reviews include written feedback, **Combine feedback for next
+run** appends the selected judgments in recorded order. The composer previews
+the next brief with the original run and checkpoint identified for each entry.
+**Open next experiment in Build** loads the saved workflow and the composed brief.
 
 To manually verify restart: run the sample until it pauses, restart `pnpm dev:api`,
 refresh the run's URL, and approve. Editing/saving a newer workflow before the

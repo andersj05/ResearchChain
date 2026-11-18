@@ -673,6 +673,60 @@
 .run-decisions .actions {
   margin-top: 6px;
 }
+.decision-brief {
+  margin-block: 8px 14px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.decision-brief summary {
+  cursor: pointer;
+  color: var(--blue);
+  font-size: 13px;
+}
+.decision-brief fieldset {
+  min-inline-size: 0;
+  margin: 12px 0 0;
+  padding: 0;
+  border: 0;
+}
+.decision-brief legend {
+  padding: 0;
+  font-size: 13px;
+}
+.decision-brief-choice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  padding-block: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+.decision-brief-choice input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+.decision-brief-choice small,
+.decision-brief-feedback {
+  display: block;
+}
+.decision-brief-feedback {
+  white-space: pre-wrap;
+}
+.decision-brief-field {
+  display: grid;
+  gap: 4px;
+  margin-block: 10px;
+  font-size: 13px;
+}
+.decision-brief-field textarea {
+  min-width: 0;
+  width: 100%;
+}
 .decision-feedback-inputs {
   margin-block: 8px 10px;
   font-size: 13px;

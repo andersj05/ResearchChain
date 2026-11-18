@@ -62,6 +62,7 @@ test("macro starter asks for judgment and records it in downstream model request
     timeout: 30000,
   });
   const runId = new URL(page.url()).searchParams.get("run");
+  const savedRunUrl = page.url();
   expect(runId).toBeTruthy();
   const runRoute = `**/api/runs/${runId}`;
   const csv = "series,change\n2-year,12.00";
@@ -195,4 +196,51 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(page.getByRole("textbox", { name: "Research brief", exact: true })).toHaveValue(
     `${run.brief}\n\nReviewer feedback from Weigh the thesis and the dissent (${run.id.slice(0, 8)}):\n${view}`,
   );
+
+  await page.goto(savedRunUrl);
+  await page.setViewportSize({ width: 390, height: 950 });
+  await page.getByRole("button", { name: "Decisions", exact: true }).click();
+  await recorded.getByText("Combine feedback for next run", { exact: true }).click();
+  const revise = recorded.getByRole("button", { name: "Open next experiment in Build" });
+  const prior = recorded.getByRole("textbox", { name: "Prior research brief", exact: true });
+  const next = recorded.getByRole("textbox", { name: "Next research brief", exact: true });
+  const includeMandate = recorded.getByRole("checkbox", {
+    name: /Choose the question and horizon/,
+  });
+  const includeJudgment = recorded.getByRole("checkbox", {
+    name: /Weigh the thesis and the dissent/,
+  });
+  await expect(prior).toHaveValue(run.brief);
+  await expect(revise).toBeDisabled();
+  await includeJudgment.check();
+  await includeMandate.check();
+  await prior.fill("x".repeat(10000));
+  await expect(recorded.getByRole("alert")).toContainText("Shorten the prior brief");
+  await expect(revise).toBeDisabled();
+  const update = "Recheck the divergence after the next inflation release.";
+  await prior.fill(update);
+  await includeMandate.uncheck();
+  await expect(next).not.toHaveValue(/Choose the question and horizon/);
+  await includeMandate.check();
+  await page.getByRole("button", { name: "Run context", exact: true }).click();
+  await page.getByRole("button", { name: "Decisions", exact: true }).click();
+  const shortId = run.id.slice(0, 8);
+  const composed = [
+    update,
+    `Reviewer feedback from Choose the question and horizon (${shortId}):\n${question}`,
+    `Reviewer feedback from Weigh the thesis and the dissent (${shortId}):\n${view}`,
+  ].join("\n\n");
+  await expect(next).toHaveValue(composed);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await revise.click();
+  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Research brief", exact: true })).toHaveValue(
+    composed,
+  );
+  await expect(
+    page.getByRole("checkbox", { name: `${captured.title} Captured`, exact: true }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("checkbox", { name: `${reference.title} Link only`, exact: true }),
+  ).toBeChecked();
 });
