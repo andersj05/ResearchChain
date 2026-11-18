@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@ui-sdk/react/button";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
@@ -30,11 +30,16 @@ import {
 import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
 import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
 
+export type WorkflowEditorNavigation = {
+  openStep: (id: string, path: GraphCrumb[]) => void;
+};
+
 export function WorkflowEditor({
   catalog,
   workflow,
   selected,
   initialPath = [],
+  navigationRef,
   onSelect,
   onChange,
   onSeal,
@@ -44,6 +49,7 @@ export function WorkflowEditor({
   workflow: Workflow;
   selected: string;
   initialPath?: GraphCrumb[];
+  navigationRef?: Ref<WorkflowEditorNavigation>;
   onSelect: (id: string) => void;
   onChange: (workflow: Workflow, group?: string) => void;
   onSeal?: () => void;
@@ -91,6 +97,14 @@ export function WorkflowEditor({
     setInspectorOpen(true);
     onSelect(id);
   }
+  function openStep(id: string, location: GraphCrumb[]) {
+    stepToFocus.current = id;
+    setNotice("");
+    setPath(location);
+    selectNode(id);
+  }
+  useImperativeHandle(navigationRef, () => ({ openStep }));
+
   function changeGraph(next: Graph, group?: string, upgrade = false) {
     const updated = updateGraph(workflow, scope, next);
     onChange(
@@ -264,12 +278,7 @@ export function WorkflowEditor({
               workflow={workflow}
               scope={scope}
               selected={selectedId}
-              onSelect={(id, location) => {
-                stepToFocus.current = id;
-                setNotice("");
-                setPath(location);
-                selectNode(id);
-              }}
+              onSelect={openStep}
             >
               <ol className="node-outline">
                 {graph.nodes.map((item) => (
