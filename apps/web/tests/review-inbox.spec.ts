@@ -107,6 +107,14 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await reviewTab.goto(reviewLink.href);
   await expect(reviewTab.getByLabel("Review challenge", { exact: true })).toBeVisible();
   await expect(reviewTab.getByLabel("Review support", { exact: true })).toHaveCount(0);
+  await reviewTab
+    .getByRole("combobox", { name: "Agent", exact: true })
+    .selectOption(agents[0]!.agent.id);
+  await expect
+    .poll(() => new URL(reviewTab.url()).searchParams.get("agent"))
+    .toBe(agents[0]!.agent.id);
+  expect(new URL(reviewTab.url()).searchParams.has("review")).toBe(false);
+  expect(new URL(reviewTab.url()).searchParams.has("checkpoint")).toBe(false);
   const feedback = page.getByRole("textbox", { name: "Reviewer feedback" });
   await feedback.fill("Keep the liquidity explanation in the scenario set.");
   await page.getByText("Review inbox", { exact: true }).click();

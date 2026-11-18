@@ -310,6 +310,8 @@ export function Workbench() {
     url.searchParams.delete("compare");
     url.searchParams.delete("passes");
     url.searchParams.delete("attempt");
+    url.searchParams.delete("review");
+    url.searchParams.delete("checkpoint");
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
     try {
