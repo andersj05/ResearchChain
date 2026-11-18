@@ -374,7 +374,7 @@ h3 {
 }
 .outline-row {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: 8px;
   width: 100%;
   border: 0;
@@ -386,9 +386,9 @@ h3 {
   font-size: 12px;
 }
 .outline-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .outline-row small {
@@ -437,12 +437,14 @@ h3 {
 }
 .step-search-result {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   row-gap: 3px;
   color: var(--ink);
 }
 .step-search-result small {
-  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 8px;
   margin-left: 0;
   overflow-wrap: anywhere;
 }
@@ -1487,9 +1489,6 @@ td time {
   }
 }
 
-.outline-label {
-  flex: 1;
-}
 .outline-kind {
   font-size: 11px;
   font-weight: 400;

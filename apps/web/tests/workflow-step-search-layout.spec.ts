@@ -5,12 +5,32 @@ async function top(locator: Locator) {
   return (await locator.boundingBox())!.y;
 }
 
+async function expectWrappedLabel(label: Locator) {
+  await expect(label).toBeVisible();
+  const rendered = await label.evaluate((element) => {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    const bounds = element.getBoundingClientRect();
+    const lines = Array.from(range.getClientRects());
+    return {
+      wraps: lines.length > 1,
+      fits: lines.every((line) => line.left >= bounds.left - 1 && line.right <= bounds.right + 1),
+    };
+  });
+  expect(rendered).toEqual({ wraps: true, fits: true });
+}
+
+const longReviewName =
+  "Decide whether payrolls, front-end rates, and FX positioning support the same policy-path thesis";
+
 for (const width of [390, 1440]) {
   test(`Build puts step search before insertion controls at ${width}px`, async ({
     page,
     request,
   }) => {
-    const saved = await request.post("/api/revisions", { data: macro });
+    const workflow = structuredClone(macro);
+    workflow.nodes.find((node) => node.id === "mandate")!.label = longReviewName;
+    const saved = await request.post("/api/revisions", { data: workflow });
     expect(saved.ok(), await saved.text()).toBe(true);
     await page.setViewportSize({ width, height: 950 });
     await page.goto(`/?revision=${(await saved.json()).id}&view=workflow`);
@@ -33,16 +53,19 @@ for (const width of [390, 1440]) {
     expect(await top(search)).toBeLessThan(await top(placement));
     expect(await top(placement)).toBeLessThan(await top(add));
     expect(await top(add)).toBeLessThan(await top(outline));
+    await expectWrappedLabel(outline.getByText(longReviewName, { exact: true }));
 
     await filter.selectOption("review");
     await expect(results.getByRole("listitem")).toHaveCount(3);
+    const review = results.getByRole("button", { name: longReviewName, exact: true });
+    await expectWrappedLabel(review.getByText(longReviewName, { exact: true }));
     const resultBox = (await results.boundingBox())!;
     expect(resultBox.y).toBeGreaterThan(await top(search));
     expect(resultBox.y + resultBox.height).toBeLessThan(await top(placement));
     await expect(panel.locator(".node-library").getByRole("button")).toHaveCount(10);
 
     await search.press("Enter");
-    await expect(stepName).toHaveValue("Choose the question and horizon");
+    await expect(stepName).toHaveValue(longReviewName);
     await expect(stepName).toBeFocused();
     await page
       .getByRole("button", { name: "Return to step Find the cross-asset tension" })
@@ -50,7 +73,7 @@ for (const width of [390, 1440]) {
     await expect(stepName).toHaveValue("Find the cross-asset tension");
     await expect(undo).toBeDisabled();
 
-    await results.getByRole("button", { name: /Choose the question and horizon/ }).click();
+    await review.click();
     await placement.selectOption("before");
     await add.click();
     await expect(stepName).toHaveValue("New research note");

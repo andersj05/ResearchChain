@@ -99,7 +99,7 @@ export function WorkflowStepSearch({
           id={searchId}
           type="search"
           value={search}
-          placeholder="Name, instructions, or model"
+          placeholder="Name, prompt, or model"
           onChange={(event) => changeSearch(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Escape" && search) {
@@ -130,6 +130,9 @@ export function WorkflowStepSearch({
             {results.slice(0, visibleLimit).map(({ node, path, location }) => {
               const resultScope = scopeKey(path.at(-1)?.ref ?? null);
               const kind = nodePresentation(node).shortLabel;
+              const showKind =
+                filter === "all" && kind.toLowerCase() !== node.label.trim().toLowerCase();
+              const showLocation = path.length > 0 || scope !== null;
               return (
                 <li key={`${resultScope}/${node.id}`}>
                   <Button
@@ -138,10 +141,14 @@ export function WorkflowStepSearch({
                     onClick={() => onSelect(node.id, path)}
                   >
                     <span className="outline-label">{node.label}</span>
-                    {kind.toLowerCase() !== node.label.trim().toLowerCase() && (
-                      <span className={`outline-kind kind-${node.kind}`}>{kind}</span>
+                    {(showKind || showLocation) && (
+                      <small>
+                        {showKind && (
+                          <span className={`outline-kind kind-${node.kind}`}>{kind}</span>
+                        )}
+                        {showLocation && <span>{location}</span>}
+                      </small>
                     )}
-                    <small>{location}</small>
                   </Button>
                 </li>
               );
