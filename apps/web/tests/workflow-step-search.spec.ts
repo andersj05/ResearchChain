@@ -76,7 +76,7 @@ test("return to a nested step after a Build link and discard a stale version", a
   await expect(stepName).toHaveValue("Review");
   await expect(stepName).toBeFocused();
   await expect(breadcrumbs).toContainText("Critique and review v1");
-  await expect(returnToStep).toHaveCount(0);
+  await expect(returnToStep).toHaveAccessibleName("Return to step Split");
   await expect(undo).toBeDisabled();
 
   await search.fill("review_loop");
@@ -85,6 +85,10 @@ test("return to a nested step after a Build link and discard a stale version", a
   await expect(returnToStep).toHaveAccessibleName("Return to step Review");
   await page.getByRole("button", { name: "New version", exact: true }).click();
   await expect(page.getByRole("combobox", { name: "Subgraph version" })).toHaveValue("critique@2");
+  await expect(returnToStep).toHaveAccessibleName("Return to step Split");
+  await returnToStep.press("Enter");
+  await expect(stepName).toHaveValue("Split");
+  await expect(stepName).toBeFocused();
   await expect(returnToStep).toHaveCount(0);
   await expect(undo).toBeEnabled();
 });
