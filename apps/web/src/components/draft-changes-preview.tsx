@@ -210,7 +210,7 @@ export function DraftChangesPreview({
             <X size={16} aria-hidden="true" />
           </DialogClose>
         </div>
-        <DialogDescription>
+        <DialogDescription className={options.length ? "sr-only" : undefined}>
           Compared with saved revision {(comparison ?? revision).number}.
         </DialogDescription>
         {open && options.length > 0 && (

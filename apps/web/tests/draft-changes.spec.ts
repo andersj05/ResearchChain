@@ -414,6 +414,9 @@ test("compare the draft with an earlier agent version and ignore stale responses
     );
     await dialog.getByRole("button", { name: "Retry comparison", exact: true }).click();
     await expect(dialog.getByText("Original saved instructions", { exact: true })).toBeVisible();
+    await expect(dialog).toHaveAccessibleDescription(
+      `Compared with saved revision ${first.revision.number}.`,
+    );
     await expect(dialog.getByText("My edited instructions", { exact: true })).toBeVisible();
     await expect(dialog.getByText("Current saved instructions", { exact: true })).toHaveCount(0);
     expect(page.url()).toBe(location);
