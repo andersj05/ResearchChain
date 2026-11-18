@@ -36,6 +36,13 @@ The owner asked on 2026-11-17 to use these essays as expert judgment for Researc
 These are product choices derived from the essays. The project's existing evidence,
 provider, and run-isolation rules govern implementation.
 
+## Make the research plan inspectable in Build
+
+Show which inputs can reach a step under the current control connections and
+where an expert’s feedback will go. Make both visible while the owner is still
+editing the plan. Treat a change in the research question, model, or evidence
+path as part of the experiment and expose it before the draft is saved.
+
 ## Run inspection references
 
 - Braintrust uses an ordered trace and shared time axis to expose overlap, retries,

@@ -159,6 +159,12 @@ On a human review, **Review handoff** shows the steps that lead into the review
 and the inputs wired to its feedback. Select a feedback recipient to open and
 focus its input in Build.
 
+Input pickers group step outputs by availability when the control wiring is
+complete. Outputs from every branch can be available after a parallel join.
+After a conditional join, an output must be available whichever branch runs.
+The picker keeps existing selections and shows the full source list while
+control connections are incomplete.
+
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
 validation failures remain visible in the dialog. Visual conventions and the
