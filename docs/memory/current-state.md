@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Inspect review questions and condition inputs
+
+**Review plan** lists reachable review questions and the step inputs and
+conditions wired to their feedback. Output and review links open the receiving
+condition, and validation can focus a loop’s **Stop condition**. Desktop at
+`dc41f70` served the controls and verified the synthetic loop repair. CI passed
+559 backend tests with 2 skips and all 149 browser cases.
+[PR #116](https://github.com/andersj05/ResearchChain/pull/116).
+
 ## Find Build reviews and model steps
 
 **Find a step** can list **Reviews** or **Model steps** across pinned subgraphs
