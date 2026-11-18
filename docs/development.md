@@ -161,6 +161,10 @@ On a human review, **Review handoff** shows the steps that lead into the review
 and the inputs wired to its feedback. Select a feedback recipient to open and
 focus its input in Build.
 
+For other steps with data outputs, **Output bindings** shows each explicit
+binding to a step input in the current graph. Select a binding to focus the
+receiving input, then use **Return to step** to reopen the source.
+
 Input pickers group step outputs by availability when the control wiring is
 complete. Outputs from every branch can be available after a parallel join.
 After a conditional join, an output must be available whichever branch runs.

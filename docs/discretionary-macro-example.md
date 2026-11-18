@@ -33,7 +33,8 @@ fresh run to try a different research process.
    corroboration the step should collect.
 2. Find **Choose the question and horizon** and open **Review handoff**. Select the
    feedback link for **Run the discriminating test** to see where the mandate reaches
-   that step. Use **Return to step** to get back to the checkpoint.
+   that step. Its **Output bindings** show where the test feeds the challenge.
+   Use **Return to step** after following a link to reopen the source step.
 3. After editing a prompt or changing a binding, browse **Draft changes** to check
    what will differ from the saved revision. Run **Validate workflow** to catch a
    broken connection and follow its link to the affected step when available.
