@@ -114,7 +114,18 @@ test("configure a research workspace and inspect saved files during the next pas
             result: { ...result, workspace_activity: activity },
           },
           ...(finishedPython
-            ? [{ ...attempt, id: nextId, path: `root/${id}/analyst-pass-2` }]
+            ? [
+                {
+                  ...attempt,
+                  id: nextId,
+                  path: `root/${id}/analyst-pass-2`,
+                  result: {
+                    ...result,
+                    conclusion: "Repeated inventory",
+                    workspace_files: [files[0]!],
+                  },
+                },
+              ]
             : []),
         ],
       },
@@ -152,6 +163,19 @@ test("configure a research workspace and inspect saved files during the next pas
   );
   await page.getByRole("button", { name: "Hide workflow map" }).click();
   await expect(page.getByRole("button", { name: "Inspect Research workspace" })).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: "Files (2)", exact: true }).click();
+  const savedFiles = page.getByRole("region", { name: "Saved workspace files" });
+  await expect(savedFiles.getByRole("listitem")).toHaveCount(2);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await savedFiles.getByRole("searchbox", { name: "Filter run files" }).fill("analysis.py");
+  await expect(savedFiles.getByRole("listitem")).toHaveCount(1);
+  await expect(savedFiles.getByRole("link", { name: /^Download analysis.py/ })).toHaveAttribute(
+    "href",
+    scriptUrl,
+  );
+  await savedFiles.getByRole("button", { name: "Research workspace · Pass 1" }).click();
+  await expect(page.getByText("Synthetic pass", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Model activity", exact: true }).click();
   await expect(page.getByLabel("Latest workflow activity", { exact: true })).toContainText(
     "Requesting",

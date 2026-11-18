@@ -134,6 +134,7 @@
 }
 .run-step-panel button.text-link,
 .decision-feedback-inputs .text-link,
+.run-files button.text-link,
 .run-graph-path button.text-link {
   border: 0;
   padding: 0;
@@ -145,6 +146,7 @@
 }
 .run-step-panel button.text-link:hover,
 .decision-feedback-inputs .text-link:hover,
+.run-files button.text-link:hover,
 .run-graph-path button.text-link:hover {
   text-decoration: underline;
 }
@@ -299,11 +301,36 @@
   color: var(--ink);
   font-weight: 600;
 }
-.run-model-activity label {
+.run-model-activity label,
+.run-files label {
   display: grid;
   gap: 4px;
   max-width: 320px;
   font-size: 12px;
+}
+.run-files ul {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.run-files li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  align-items: start;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-block: 10px;
+}
+.run-files li > div {
+  display: grid;
+  flex: 1 1 150px;
+  gap: 4px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.run-files small {
+  color: var(--muted);
 }
 .model-activity-scroll {
   overflow-x: auto;

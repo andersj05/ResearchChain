@@ -33,6 +33,8 @@ export const rightsLabels = {
 } as const;
 export const evidenceUrl = (id: string) => `/?view=evidence&evidence=${encodeURIComponent(id)}`;
 export const contentUrl = (id: string) => `/api/artifacts/${encodeURIComponent(id)}/content`;
+export const contentDownloadUrl = (id: string, name: string) =>
+  `${contentUrl(id)}?filename=${encodeURIComponent(name)}`;
 
 export async function uploadOriginal(file: File, rights: string): Promise<ArtifactInfo> {
   if (!file.size || file.size > 20 * 1024 * 1024)
