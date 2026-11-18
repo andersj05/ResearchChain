@@ -8,6 +8,7 @@ import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity } from "./run-model-activity";
 import { RunDecisions } from "./run-decisions";
+import { RunFiles, savedRunFiles } from "./run-files";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
@@ -74,7 +75,7 @@ function RunWorkspace({
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? null);
-  const [view, setView] = useState<"step" | "activity" | "decisions" | "context">("step");
+  const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">("step");
   const [showGraph, setShowGraph] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
@@ -111,6 +112,7 @@ function RunWorkspace({
   }, [reviewFocus]);
   const { node, graph, parents, prefix } = graphLocation(run, path);
   const reviews = pendingReviews(run);
+  const files = savedRunFiles(run);
   const select = (value: string, id?: string) => {
     setManual(value);
     setAttemptId(id);
@@ -325,6 +327,11 @@ function RunWorkspace({
         >
           Decisions{reviews.length > 0 && ` (${reviews.length})`}
         </button>
+        {files.length > 0 && (
+          <button type="button" aria-pressed={view === "files"} onClick={() => setView("files")}>
+            Files ({files.length})
+          </button>
+        )}
         <button type="button" aria-pressed={view === "context"} onClick={() => setView("context")}>
           Run context
         </button>
@@ -334,6 +341,7 @@ function RunWorkspace({
         {view === "decisions" && (
           <RunDecisions run={run} busy={busy} inspect={inspectFromPanel} iterate={onIterate} />
         )}
+        {view === "files" && <RunFiles files={files} run={run} inspect={inspectFromPanel} />}
         {view === "context" && (
           <div className="run-context-panel">
             <details className="run-brief" open>

@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Saved run archive
+
+**Runs → Search saved runs** searches the archive by brief, agent, workflow, or
+run ID. The comparison picker searches the open run's agent scope. The synthetic
+phone-width browser check found and compared a run outside the latest 20, then
+opened it from page two. Full CI passed 516 backend tests with 2 skips and 117
+browser tests. Desktop at `d1ec286` served the archive and verified the owner
+gate, read-only cursor query, and connected worker.
+[PR #78](https://github.com/andersj05/ResearchChain/pull/78).
+
 ## Downstream use of recorded judgments
 
 **Runs → Decisions → Steps wired to this feedback** lists direct recipients and
