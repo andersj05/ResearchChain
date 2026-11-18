@@ -4,6 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Test a chart signal
+
+**New agent → Chart signal research** creates an editable nine-step example.
+**Run workflow → Upload a chart** captures a source and selects its exact version.
+Four custom Codex analysts find original series, assemble a point-in-time panel,
+score a frozen holdout, and search for contrary evidence. Two reviews carry the
+owner's design and judgment into the later steps. Synthetic tests exercised a
+successful forecast, deterioration after the split, and late or unusable inputs.
+An isolated run verified the transfer of the panel, scored predictions and saved
+method through the real Python image. The owner can try a chart and assess the
+research and usability. [Example and instructions](../chart-signal-example.md).
+
 ## Open a saved-version run from Build
 
 **Recent run** opens the newest known run for the exact saved version and agent
