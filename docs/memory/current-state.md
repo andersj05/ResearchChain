@@ -4,6 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Combine recorded judgments
+
+**Runs → Decisions → Combine feedback for next run** stages several judgments
+in the recorded order. The preview shows the exact brief and identifies the
+source run and checkpoint for each entry. Shorten the prior brief or deselect
+an entry if the result exceeds the run brief limit. Build opens the saved
+workflow with the revised brief and original evidence selections. CI passed
+517 backend tests with 2 skips and all 120 browser tests. Desktop at `0055410`
+served the controls with a healthy API and connected worker. Read-only checks
+passed for evidence search, run archive and review inbox.
+[PR #96](https://github.com/andersj05/ResearchChain/pull/96).
+
 ## Inspect saved inputs and iterate from a step
 
 **Inspect saved inputs** shows the text supplied for a recorded model attempt,
