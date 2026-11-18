@@ -165,6 +165,10 @@ created automatically and its name is focused for editing. Removing a middle ste
 reconnects its neighbors, and removing the first advances the workflow entry.
 These operations are undoable and still require server validation before saving.
 
+**Duplicate research step** inserts a copy after the selected research step and
+focuses its name. The copy starts with the same instructions, model, tools and
+input bindings. Edit the copy to try a different model or research approach.
+
 Edit a step in the inspector; use its Next step field to connect or disconnect it.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use
 Ctrl/Command+scroll to zoom. Save a draft in this browser or export JSON. Loading

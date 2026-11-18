@@ -30,6 +30,61 @@ async function prepare(
   await expect(page.getByRole("button", { name: "Start run", exact: true })).toBeEnabled();
 }
 
+test("duplicate a research step with its configured inputs and edit the copy", async ({
+  page,
+  request,
+}) => {
+  const workflow = structuredClone(research) as Workflow;
+  const original = workflow.nodes.find((node) => node.id === "challenge")!;
+  if (original.config?.type !== "research") throw new Error("Missing research configuration.");
+  original.config.stage = "custom";
+  original.config.prompt_version = "custom-1";
+  original.config.model = "analysis-model";
+  original.config.web_search = true;
+  const initialResponse = await request.post("/api/revisions", { data: workflow });
+  expect(initialResponse.ok(), await initialResponse.text()).toBeTruthy();
+  const initial: WorkflowRevision = await initialResponse.json();
+  await page.goto(`/?revision=${initial.id}`);
+  const search = page.getByRole("searchbox", { name: "Find a step" });
+  const duplicate = page.getByRole("button", { name: "Duplicate research step", exact: true });
+  const name = page.getByRole("textbox", { name: "Step name", exact: true });
+  const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+  await search.fill("Challenge evidence");
+  await search.press("Enter");
+  await duplicate.click();
+  await expect(name).toHaveValue("Copy of Challenge evidence");
+  await expect(name).toBeFocused();
+  await expect(instructions).toHaveValue(original.instructions);
+  await expect(page.getByRole("combobox", { name: "Step model", exact: true })).toHaveValue(
+    "analysis-model",
+  );
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await search.fill("Challenge evidence");
+  await search.press("Enter");
+  await duplicate.click();
+  await name.fill("Challenge with a different proxy");
+  await instructions.fill("Test the alternate liquidity proxy.");
+  await page.getByRole("button", { name: "Save revision", exact: true }).click();
+  const savedRevision = () => new URL(page.url()).searchParams.get("revision");
+  await expect.poll(savedRevision).not.toBe(initial.id);
+  const result: WorkflowRevision = await (
+    await request.get(`/api/revisions/${savedRevision()}`)
+  ).json();
+  const saved = result.workflow;
+  const copy = saved.nodes.find((node) => node.label === "Challenge with a different proxy")!;
+  expect(saved.nodes).toHaveLength(workflow.nodes.length + 1);
+  expect(saved.nodes.find((node) => node.id === original.id)).toEqual(
+    initial.workflow.nodes.find((node) => node.id === original.id),
+  );
+  expect(copy.instructions).toBe("Test the alternate liquidity proxy.");
+  expect(copy.config).toEqual(
+    initial.workflow.nodes.find((node) => node.id === original.id)?.config,
+  );
+  expect(copy.inputs).toEqual(original.inputs);
+  expect(saved.edges.find((edge) => edge.source === original.id)?.target).toBe(copy.id);
+  expect(saved.edges.find((edge) => edge.source === copy.id)?.target).toBe("revise");
+});
+
 test("change a model override from Build and Run setup before pinning the run", async ({
   page,
   request,

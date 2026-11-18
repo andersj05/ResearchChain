@@ -2,7 +2,7 @@
 
 import { Button } from "@ui-sdk/react/button";
 import { useEffect, useRef, useState } from "react";
-import { Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
@@ -14,6 +14,7 @@ import {
   addTemplate,
   connectPorts,
   controlOutputs,
+  duplicateResearchStep,
   graphAt,
   referenceOf,
   pruneDefinitions,
@@ -571,6 +572,21 @@ export function WorkflowEditor({
                   <summary>Step identifier</summary>
                   <code>{node.id}</code>
                 </details>
+                {node.kind === "research" && (
+                  <Button
+                    className="button"
+                    disabled={disabled || graph.nodes.length >= 128}
+                    onClick={() => {
+                      const duplicate = duplicateResearchStep(graph, node);
+                      changeGraph(duplicate.graph);
+                      stepToFocus.current = duplicate.id;
+                      selectNode(duplicate.id);
+                    }}
+                  >
+                    <Copy size={14} aria-hidden="true" />
+                    Duplicate research step
+                  </Button>
+                )}
                 <Button
                   className="button danger"
                   disabled={disabled || node.kind === "finish" || !!ownedJoin}
