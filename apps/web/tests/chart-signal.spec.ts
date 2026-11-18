@@ -21,7 +21,9 @@ test("attach a chart and carry the frozen design and owner's verdict through the
   const briefField = setup.getByLabel("Research brief", { exact: true });
   await expect(briefField).toHaveValue(/My proposed explanation/);
   await briefField.fill(brief);
-  await setup.getByLabel("Research model", { exact: true }).selectOption("test-model");
+  await setup
+    .getByRole("combobox", { name: "Research model", exact: true })
+    .selectOption("test-model");
   const upload = setup.getByRole("button", { name: "Upload a chart" });
   await upload.click();
   await setup.getByRole("button", { name: "Cancel source" }).click();
