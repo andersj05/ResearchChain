@@ -96,15 +96,33 @@ export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
 
 export type GraphCrumb = { ref: SubgraphRef; via: string };
 
-export function* reachableWorkflowGraphs(workflow: Workflow) {
+export function reachableControlNodes(graph: Graph) {
+  const nodes = new Set(graph.nodes.map(({ id }) => id));
+  if (!nodes.has(graph.start_node)) return [];
+  const connections = new Map<string, string[]>();
+  for (const { source, target } of graph.edges) {
+    if (!nodes.has(target)) continue;
+    const targets = connections.get(source) ?? [];
+    targets.push(target);
+    connections.set(source, targets);
+  }
+  const visited = new Set([graph.start_node]);
+  for (const id of visited) {
+    for (const target of connections.get(id) ?? []) visited.add(target);
+  }
+  return graph.nodes.filter(({ id }) => visited.has(id));
+}
+
+export function* reachableWorkflowGraphs(workflow: Workflow, { controlOnly = false } = {}) {
   // A shared definition needs one editable destination. Prefer its shortest valid path.
   const pending: { graph: Graph; path: GraphCrumb[] }[] = [{ graph: workflow, path: [] }];
   const visited = new Set<string>();
   for (const entry of pending) {
-    yield entry;
     const { graph, path } = entry;
+    const nodes = controlOnly ? reachableControlNodes(graph) : graph.nodes;
+    yield { ...entry, nodes };
     if (path.length >= 8) continue;
-    for (const node of graph.nodes) {
+    for (const node of nodes) {
       const ref = referenceOf(node);
       if (
         !ref ||

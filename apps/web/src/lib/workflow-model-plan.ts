@@ -1,4 +1,10 @@
-import { graphAt, referenceOf, scopeKey, type GraphCrumb } from "./workflow-editing";
+import {
+  graphAt,
+  reachableControlNodes,
+  referenceOf,
+  scopeKey,
+  type GraphCrumb,
+} from "./workflow-editing";
 import type { Graph, Workflow, WorkflowNode } from "./workflow";
 
 type ResearchConfig = Extract<NonNullable<WorkflowNode["config"]>, { type: "research" }>;
@@ -16,23 +22,6 @@ export function researchToolLabels(config: ResearchConfig) {
   ].filter(Boolean);
 }
 
-function reachableNodes(graph: Graph) {
-  const nodes = new Set(graph.nodes.map(({ id }) => id));
-  if (!nodes.has(graph.start_node)) return [];
-  const connections = new Map<string, string[]>();
-  for (const { source, target } of graph.edges) {
-    if (!nodes.has(target)) continue;
-    const targets = connections.get(source) ?? [];
-    targets.push(target);
-    connections.set(source, targets);
-  }
-  const visited = new Set([graph.start_node]);
-  for (const id of visited) {
-    for (const target of connections.get(id) ?? []) visited.add(target);
-  }
-  return graph.nodes.filter(({ id }) => visited.has(id));
-}
-
 export function workflowModelPlan(workflow: Workflow) {
   const scopes: { graph: Graph; path: GraphCrumb[]; location: string }[] = [
     { graph: workflow, path: [], location: workflow.name || "Root workflow" },
@@ -40,7 +29,7 @@ export function workflowModelPlan(workflow: Workflow) {
   const visited = new Set<string>();
   const steps = [];
   for (const { graph, path, location } of scopes) {
-    for (const node of reachableNodes(graph)) {
+    for (const node of reachableControlNodes(graph)) {
       if (node.config?.type === "research") {
         steps.push({
           id: node.id,
