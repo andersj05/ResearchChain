@@ -433,7 +433,9 @@ class Workflow(GraphDefinition):
         if legacy and (self.subgraphs or self.budgets != ExecutionBudgets()):
             raise ValueError("Subgraphs and configurable budgets require schema version 0.2.")
         validate_graph(self, legacy=legacy)
-        definitions = {(item.id, item.version): item for item in self.subgraphs}
+        definitions = {
+            (item.id, item.version): (index, item) for index, item in enumerate(self.subgraphs)
+        }
         if len(definitions) != len(self.subgraphs):
             raise ValueError("Subgraph id/version pairs must be unique within the revision.")
         for index, definition in enumerate(self.subgraphs):
@@ -441,11 +443,13 @@ class Workflow(GraphDefinition):
         visiting: set[tuple[str, int]] = set()
         costs: dict[tuple[str, int], int] = {}
 
-        def expansion(graph: GraphDefinition, depth: int) -> int:
+        def expansion(
+            graph: GraphDefinition, depth: int, location: tuple[str | int, ...] = ()
+        ) -> int:
             if depth > 8:
                 raise ValueError("Nested subgraphs cannot exceed eight levels.")
             count = len(graph.nodes)
-            for node in graph.nodes:
+            for index, node in enumerate(graph.nodes):
                 config = node.config
                 if not isinstance(config, (SubgraphConfig, LoopConfig)):
                     continue
@@ -455,8 +459,8 @@ class Workflow(GraphDefinition):
                 if key in visiting:
                     raise ValueError("Recursive subgraph references are not supported.")
                 visiting.add(key)
-                body = definitions[key]
-                body_cost = expansion(body, depth + 1)
+                body_index, body = definitions[key]
+                body_cost = expansion(body, depth + 1, ("subgraphs", body_index))
                 visiting.remove(key)
                 costs[key] = body_cost
                 iterations = config.max_iterations if isinstance(config, LoopConfig) else 1
@@ -465,16 +469,23 @@ class Workflow(GraphDefinition):
                     body_nodes = {item.id: item for item in body.nodes}
                     # A body output is valid only if available at its finish.
                     guaranteed = guaranteed_outputs(body)
-                    validate_predicate(config.until, body_nodes, guaranteed)
+                    try:
+                        validate_predicate(config.until, body_nodes, guaranteed)
+                    except ValueError as error:
+                        raise _located_value_error(
+                            error,
+                            (*location, "nodes", index, "config", "until"),
+                            config.until.model_dump(mode="json"),
+                        ) from error
                 if count > 2048:
                     raise ValueError("Expanded workflow exceeds the 2048-node compilation limit.")
             return count
 
         expansion(self, 0)
-        for key, definition in definitions.items():
+        for key, (index, definition) in definitions.items():
             if key not in costs:
                 visiting.add(key)
-                expansion(definition, 1)
+                expansion(definition, 1, ("subgraphs", index))
                 visiting.remove(key)
         return self
 

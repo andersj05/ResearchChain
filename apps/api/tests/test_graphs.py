@@ -285,6 +285,7 @@ def test_subgraph_references_are_pinned_and_finite(case: str) -> None:
     body = document["subgraphs"][0]
     if case == "missing":
         document["nodes"][0]["config"]["ref"]["version"] = 2
+        document["nodes"][0]["config"]["until"] = predicate("iteration", "wrong type")
     elif case == "duplicate":
         document["subgraphs"].append(deepcopy(body))
     elif case == "recursive":
@@ -308,8 +309,66 @@ def test_subgraph_references_are_pinned_and_finite(case: str) -> None:
         ]
         child["start_node"] = "n0"
         document["subgraphs"].append(child)
-    with pytest.raises(ValidationError):
+    with pytest.raises(ValidationError) as raised:
         Workflow.model_validate(document)
+    if case == "missing":
+        error = raised.value.errors()[0]
+        assert error["loc"] == ()
+        assert error["msg"] == "Value error, Missing pinned subgraph definition ('investigate', 2)."
+
+
+@pytest.mark.parametrize("owner", ["root", "nested", "archived"])
+@pytest.mark.parametrize(
+    "until,message",
+    [
+        (predicate("iteration", "wrong type"), "Predicate values must match the input port type."),
+        (
+            {
+                "left": {"source": "output", "node_id": "left", "port": "text"},
+                "operator": "equals",
+                "value": "yes",
+            },
+            "Output from 'left' is not available on every incoming path.",
+        ),
+        (
+            {
+                "left": {"source": "output", "node_id": "split", "port": "text"},
+                "operator": "equals",
+                "value": "yes",
+            },
+            "Unknown output port split.text.",
+        ),
+    ],
+)
+def test_stop_predicate_errors_identify_the_owning_loop(
+    owner: str, until: dict[str, Any], message: str
+) -> None:
+    workflow = nested("loop", until=True)
+    config = workflow["nodes"][0]["config"]
+    config["ref"]["id"] = "loop_body"
+    config["until"] = until
+    workflow["nodes"].reverse()
+    body = split("route")
+    body.pop("schema_version")
+    workflow["subgraphs"] = [{"id": "loop_body", "version": 1, **body}]
+    document = workflow
+    location: tuple[str | int, ...] = ("nodes", 1, "config", "until")
+    if owner != "root":
+        document = nested()
+        workflow.pop("schema_version")
+        definitions = workflow.pop("subgraphs")
+        definition = {"id": "investigate", "version": 2, **workflow}
+        document["subgraphs"].extend([*definitions, definition])
+        if owner == "nested":
+            document["nodes"][0]["config"]["ref"]["version"] = 2
+        location = ("subgraphs", 2, *location)
+
+    with pytest.raises(ValidationError) as raised:
+        Workflow.model_validate(document)
+
+    error = raised.value.errors()[0]
+    assert error["loc"] == location
+    assert error["msg"] == f"Value error, {message}"
 
 
 @pytest.mark.parametrize("value", ["wrong type", float("inf"), float("nan")])

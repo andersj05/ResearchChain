@@ -13,6 +13,7 @@ import { ReviewHandoff } from "@/components/review-handoff";
 import { StepBranchPaths } from "@/components/step-branch-paths";
 import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
+import { WorkflowReviewPlan } from "@/components/workflow-review-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
   addTemplate,
@@ -493,6 +494,7 @@ export function WorkflowEditor({
               </Button>
             </div>
             {workflow.research && <WorkflowModelPlan workflow={workflow} onSelect={openStep} />}
+            <WorkflowReviewPlan workflow={workflow} onSelect={openStep} />
             <WorkflowCanvas
               key={scopeKey(scope)}
               workflow={graph}
@@ -584,13 +586,13 @@ export function WorkflowEditor({
                   <ReviewHandoff
                     graph={graph}
                     reviewId={node.id}
-                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
+                    onOpenField={(stepId, field) => openStep(stepId, validPath, field)}
                   />
                 ) : (
                   <StepOutputBindings
                     graph={graph}
                     step={node}
-                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
+                    onOpenField={(stepId, field) => openStep(stepId, validPath, field)}
                   />
                 )}
                 <StepBranchPaths

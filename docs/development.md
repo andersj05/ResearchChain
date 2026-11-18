@@ -160,18 +160,22 @@ zoom and all connections. Workflow settings expand beneath the outline. On
 smaller screens, the library and inspector move below the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
-and the inputs wired to its feedback. Select a feedback recipient to open and
-focus its input in Build.
+and the inputs and conditions wired to its feedback. Follow a binding to focus
+the receiving field.
+Open **Review plan** to read the questions and feedback bindings for reachable
+reviews across the workflow and its pinned subgraphs. Select a review to edit it.
 
-For other steps with data outputs, **Output bindings** shows each explicit
-binding to a step input in the current graph. Select a binding to focus the
-receiving input, then use **Return to step** to reopen the source.
+For other steps with data outputs, **Output bindings** shows the inputs and
+conditions that read each output in the current graph. Select a binding to focus
+the receiving field, then use **Return to step** to reopen the source.
 
 On a condition or parallel split, open **Branch paths** to see the first step,
 other steps in the current graph, and the paired join. Follow a step to inspect
 its settings. The disclosure updates as you rewire the draft and flags paths it
-cannot resolve. Validation links can open the **Condition** or **Join step**
-setting when the server identifies it.
+cannot resolve. Validation links can open the **Condition**, **Join step**, or
+**Stop condition** setting when the server identifies it. A loop's stop condition
+opens on the loop that owns it, where you can choose an output available at the
+end of every iteration of its body.
 
 Input pickers group step outputs by availability when the control wiring is
 complete. Outputs from every branch can be available after a parallel join.
@@ -184,9 +188,9 @@ model and enabled tools. The plan shows which steps inherit the workflow model
 and which override it. Select a step to edit it, including steps in subgraphs.
 When validation locates an issue in the current draft, use **Open input** to
 focus the affected input or **Open step** to open the step.
-Following a step link from search, Review handoff, validation, or the model plan
-records the step you were editing. **Return to step** reopens it at its original
-location in the graph. Undo continues to track draft edits.
+Following a step link from search, a plan, Review handoff, or validation records
+the step you were editing. **Return to step** reopens it at its original location
+in the graph. Undo continues to track draft edits.
 
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;

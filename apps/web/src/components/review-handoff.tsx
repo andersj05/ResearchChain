@@ -1,22 +1,23 @@
-import { outputBindings } from "@/lib/workflow-editing";
+import { conditionBindings, outputBindings } from "@/lib/workflow-editing";
 import type { Graph } from "@/lib/workflow";
 
 export function ReviewHandoff({
   graph,
   reviewId,
-  onOpenInput,
+  onOpenField,
 }: {
   graph: Graph;
   reviewId: string;
-  onOpenInput: (stepId: string, input: string) => void;
+  onOpenField: (stepId: string, field: string) => void;
 }) {
   const predecessors = new Set(
     graph.edges.filter((edge) => edge.target === reviewId).map((edge) => edge.source),
   );
   const previous = graph.nodes.filter((step) => predecessors.has(step.id));
-  const recipients = outputBindings(graph).filter(
-    ({ sourceId, output }) => sourceId === reviewId && output === "feedback",
-  );
+  const usesFeedback = ({ sourceId, output }: { sourceId: string; output: string }) =>
+    sourceId === reviewId && output === "feedback";
+  const recipients = outputBindings(graph).filter(usesFeedback);
+  const conditions = conditionBindings(graph).filter(usesFeedback);
 
   return (
     <fieldset className="config-fields review-handoff">
@@ -39,7 +40,7 @@ export function ReviewHandoff({
               <button
                 className="button small"
                 type="button"
-                onClick={() => onOpenInput(target.id, input)}
+                onClick={() => onOpenField(target.id, input)}
               >
                 {target.label} · {input}
               </button>
@@ -48,6 +49,24 @@ export function ReviewHandoff({
         </ul>
       ) : (
         <p className="field-hint">No step inputs are wired to this feedback.</p>
+      )}
+      {conditions.length > 0 && (
+        <>
+          <h3>Conditions using this feedback</h3>
+          <ul className="review-recipients" aria-label="Conditions using this feedback">
+            {conditions.map(({ target }) => (
+              <li key={target.id}>
+                <button
+                  className="button small"
+                  type="button"
+                  onClick={() => onOpenField(target.id, "condition")}
+                >
+                  {target.label} · condition
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </fieldset>
   );

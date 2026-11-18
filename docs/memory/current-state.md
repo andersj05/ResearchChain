@@ -4,84 +4,36 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
-## Inspect and repair Build branch paths
+## Find Build reviews and model steps
 
-**Branch paths** shows the steps before the paired join for each declared branch
-and flags unresolved wiring. Validation can open the affected **Condition** or
-**Join step** setting. Eleven focused browser cases covered navigation, edits,
-and repairs. CI passed 550 backend tests with 2 skips and all 144 browser cases.
-Desktop at `4331722` served the new controls and verified the owner-gated route,
-synthetic join diagnostic, and repaired workflow.
-[PR #114](https://github.com/andersj05/ResearchChain/pull/114).
+**Find a step** can list **Reviews** or **Model steps** across pinned subgraphs
+with or without a search query. Tests covered the macro checkpoints, versioned
+navigation, pagination, and the phone layout. CI passed 550 backend tests with
+2 skips and all 146 browser cases. Desktop at `496ce67` served the filter with
+the API and worker ready. [PR #115](https://github.com/andersj05/ResearchChain/pull/115).
 
-## Follow and repair Build data bindings
+## Build authoring and inspection
 
-**Output bindings** opens the step input that consumes an output in the current
-graph. **Open input** focuses a binding picker when validation identifies it.
-Fourteen focused browser cases covered nested repairs and the macro workflow.
-CI passed 538 backend tests with 2 skips and all 140 browser cases. Desktop at
-`bab5176` served both controls. Owner access, the synthetic input diagnostic,
-and the repaired binding also passed live verification.
-[PR #113](https://github.com/andersj05/ResearchChain/pull/113).
-
-## Choose where a new Build step goes
-
-**Insert position** can add before the selected entry or a step with one incoming
-connection. It preserves the incoming branch port and data bindings in one
-undoable edit. The usual placement remains after the selection or its paired
-join, or before Finish. CI passed 522 backend tests with 2 skips and all 137
-browser cases. Desktop at `8ba9f6c` served the control with the API and worker ready.
-[PR #112](https://github.com/andersj05/ResearchChain/pull/112).
-
-## Keep your place while inspecting Build connections
-
-**Return to step** restores the previous editor location after following a Build
-link. **Visible connections** can show control flow or data bindings on their
-own. **Reset view** restores all connections and default zoom. The browser
-cases verified nested return, live wiring, and unchanged JSON exports when
-changing views. CI passed 522 backend tests with 2 skips and all 135 browser
-cases. Desktop at `81f0420` served the controls with the API and worker ready.
-[PR #111](https://github.com/andersj05/ResearchChain/pull/111).
-
-## Inspect models and resolve validation issues in Build
-
-**Model and tool plan** shows the effective model and enabled tools on each
-reachable research step, with links to the relevant editor. Validation links
-open the affected step when the current draft still matches the server check.
-Eight focused browser cases passed together. CI passed 522 backend tests with
-2 skips and all 133 browser cases. Desktop at `df6f410` served both controls.
-Its owner-gated validation route and synthetic step diagnostic also passed.
-[PR #110](https://github.com/andersj05/ResearchChain/pull/110).
-
-## See availability while wiring inputs
-
-Build groups outputs by availability under the current control wiring. A
-conditional join needs an output available from every branch, while a parallel
-join can use outputs from all its branches. Incomplete or ambiguous wiring
-keeps the ungrouped picker and existing selections. Seven focused Build cases
-passed together. CI passed 519 backend tests with 2 skips and all 130 browser
-cases. Desktop at `717436f` served the controls with the API and worker ready.
-[PR #109](https://github.com/andersj05/ResearchChain/pull/109).
-
-## Reuse nested workflows and inspect a draft
-
-**Duplicate loop** and **Duplicate subgraph** copy the selected step and the
-definitions it uses so the copy can be edited independently. **Draft changes**
-compares an edited workflow with its saved revision and identifies canvas-only
-changes. Six focused cases passed across the Build controls. CI passed 519
-backend tests with 2 skips and 127 browser cases, with one existing report-save
-case passing on retry. Desktop at `735258b` served the new controls with the API
-and worker ready. [PR #108](https://github.com/andersj05/ResearchChain/pull/108).
-
-## See feedback wiring while authoring a review
-
-**Review handoff** in Build shows previous control steps and the inputs wired
-to a review’s feedback. Selecting a receiver focuses its input. The synthetic
-macro test opened a wired input by keyboard, removed and restored the binding,
-and validated the draft. CI passed 519 backend tests with 2 skips and all 124
-browser cases. Desktop at `344bc3d` served the controls with the API and worker
-ready.
-[PR #107](https://github.com/andersj05/ResearchChain/pull/107).
+- **Trace routing and inputs.** Branch paths shows the steps before each paired
+  join and flags unresolved wiring. Validation can open the affected input,
+  condition, or join setting. Output bindings opens a receiving input. Input
+  pickers group sources by availability when the control wiring is complete.
+  [PR #114](https://github.com/andersj05/ResearchChain/pull/114) ·
+  [PR #113](https://github.com/andersj05/ResearchChain/pull/113) ·
+  [PR #109](https://github.com/andersj05/ResearchChain/pull/109).
+- **Iterate on the graph.** Insert position can add before the graph entry or a
+  step with one incoming connection. Return to step restores the previous edit
+  location. Visible connections filters control flow and data bindings. Nested
+  duplication copies the definitions it uses, and Draft changes compares with
+  the saved revision, including canvas-only edits.
+  [PR #112](https://github.com/andersj05/ResearchChain/pull/112) ·
+  [PR #111](https://github.com/andersj05/ResearchChain/pull/111) ·
+  [PR #108](https://github.com/andersj05/ResearchChain/pull/108).
+- **Inspect decisions and model work.** Model and tool plan shows the effective
+  model and tools per reachable research step. Review handoff shows preceding
+  control steps and opens inputs wired to the review’s feedback.
+  [PR #110](https://github.com/andersj05/ResearchChain/pull/110) ·
+  [PR #107](https://github.com/andersj05/ResearchChain/pull/107).
 
 ## Finish the run inspection and checkpoint release
 

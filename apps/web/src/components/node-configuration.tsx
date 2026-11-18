@@ -326,7 +326,7 @@ export function NodeConfiguration({
           </label>
           {config.stage === "custom" && (
             <>
-              <label>
+              <label className="step-checkbox">
                 <input
                   type="checkbox"
                   checked={Boolean(analyst)}
@@ -345,7 +345,7 @@ export function NodeConfiguration({
               </label>
               {analyst && (
                 <>
-                  <label>
+                  <label className="step-checkbox">
                     <input
                       type="checkbox"
                       checked={analyst.workspace ?? false}
@@ -465,7 +465,7 @@ export function NodeConfiguration({
                   connected model.
                 </p>
               )}
-              <label>
+              <label className="step-checkbox">
                 <input
                   type="checkbox"
                   aria-label="SEC financial statements"
@@ -745,6 +745,7 @@ export function NodeConfiguration({
                 body.nodes.find((step) => step.kind === "finish")?.id,
               )}
               label="Stop condition"
+              name="until"
               onChange={(until, field) =>
                 onEdit({ config: { ...config, until } }, `until/${field}`)
               }

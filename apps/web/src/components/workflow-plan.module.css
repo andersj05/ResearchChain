@@ -39,3 +39,12 @@
   text-decoration: underline;
   overflow-wrap: anywhere;
 }
+
+.question {
+  white-space: pre-wrap;
+}
+
+.bindings {
+  margin: 4px 0;
+  padding-inline-start: 16px;
+}

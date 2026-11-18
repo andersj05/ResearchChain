@@ -485,6 +485,19 @@ textarea {
   resize: vertical;
 }
 
+.step-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.step-checkbox input[type="checkbox"] {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  padding: 0;
+}
+
 .node-advanced {
   margin-top: 24px;
   padding-top: 16px;
