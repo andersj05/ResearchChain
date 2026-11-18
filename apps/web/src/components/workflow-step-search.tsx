@@ -103,6 +103,7 @@ export function WorkflowStepSearch({
           <ol className="node-outline" aria-label="Matching steps">
             {results.slice(0, visibleLimit).map(({ node, path, location }) => {
               const resultScope = scopeKey(path.at(-1)?.ref ?? null);
+              const kind = nodePresentation(node).shortLabel;
               return (
                 <li key={`${resultScope}/${node.id}`}>
                   <Button
@@ -111,9 +112,9 @@ export function WorkflowStepSearch({
                     onClick={() => onSelect(node.id, path)}
                   >
                     <span className="outline-label">{node.label}</span>
-                    <span className={`outline-kind kind-${node.kind}`}>
-                      {nodePresentation(node).shortLabel}
-                    </span>
+                    {kind.toLowerCase() !== node.label.trim().toLowerCase() && (
+                      <span className={`outline-kind kind-${node.kind}`}>{kind}</span>
+                    )}
                     <small>{location}</small>
                   </Button>
                 </li>

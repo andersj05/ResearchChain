@@ -66,16 +66,16 @@ export function WorkflowEditor({
   const scope: GraphScope = validPath.at(-1)?.ref ?? null;
   const selectedId = graph.nodes.some((item) => item.id === selected) ? selected : graph.start_node;
   const node = graph.nodes.find((item) => item.id === selectedId);
-  const addedStep = useRef<string | null>(null);
+  const stepToFocus = useRef<string | null>(null);
   const labelInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (addedStep.current === selectedId && inspectorOpen) {
+    if (stepToFocus.current === selectedId && inspectorOpen) {
       document.getElementById(`workflow-node-${selectedId}`)?.focus({ preventScroll: true });
       labelInput.current?.focus();
       labelInput.current?.select();
-      addedStep.current = null;
+      stepToFocus.current = null;
     }
-  }, [selectedId, inspectorOpen]);
+  }, [selectedId, inspectorOpen, path]);
   function selectNode(id: string) {
     onSeal?.();
     setInspectorOpen(true);
@@ -110,7 +110,7 @@ export function WorkflowEditor({
     }
     setNotice("");
     setPath([...validPath, { ref, via: parent.id }]);
-    addedStep.current = child ?? body.start_node;
+    stepToFocus.current = child ?? body.start_node;
     selectNode(child ?? body.start_node);
   }
   const pruned = pruneDefinitions(workflow);
@@ -219,7 +219,7 @@ export function WorkflowEditor({
                   onClick={() => {
                     const added = addTemplate(workflow, scope, kind, selectedId);
                     onChange(added.workflow);
-                    addedStep.current = added.selected;
+                    stepToFocus.current = added.selected;
                     selectNode(added.selected);
                   }}
                 >
@@ -251,6 +251,7 @@ export function WorkflowEditor({
               scope={scope}
               selected={selectedId}
               onSelect={(id, location) => {
+                stepToFocus.current = id;
                 setNotice("");
                 setPath(location);
                 selectNode(id);

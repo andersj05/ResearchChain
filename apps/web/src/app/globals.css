@@ -404,6 +404,7 @@ h3 {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   row-gap: 3px;
+  color: var(--ink);
 }
 .step-search-result small {
   grid-column: 1 / -1;

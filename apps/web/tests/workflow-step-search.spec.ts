@@ -22,11 +22,13 @@ test("find a nested review by its question and return to an editable root step",
   await search.press("Enter");
   await expect(breadcrumbs).toContainText("Critique and review");
   await expect(stepName).toHaveValue("Review");
+  await expect(stepName).toBeFocused();
   await expect(instructions).toHaveValue("Is this reasoning ready for the next pass?");
 
   await search.fill("what would falsify it");
   await matches.getByRole("button", { name: /Challenge/ }).click();
   await expect(stepName).toHaveValue("Challenge");
+  await expect(stepName).toBeFocused();
   await expect(breadcrumbs).toHaveCount(0);
   await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
   await search.press("Escape");
