@@ -11,7 +11,16 @@ import type {
 
 export type GraphScope = SubgraphRef | null;
 export type TemplateKind =
-  "note" | "review" | "route" | "fork" | "loop" | "subgraph" | "research" | "model" | "code";
+  | "note"
+  | "review"
+  | "route"
+  | "fork"
+  | "loop"
+  | "subgraph"
+  | "research"
+  | "model"
+  | "code"
+  | "workspace";
 export type Port = {
   key: string;
   node: string;
@@ -296,21 +305,46 @@ export function addTemplate(
     next = { ...next, schema_version: next.schema_version === "0.3" ? "0.3" : "0.2" };
     return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
   }
-  if (kind === "research" || kind === "model") {
-    const step = {
-      ...makeNode(id, "research", kind === "model" ? "Model prompt" : "Form hypotheses"),
+  if (kind === "research" || kind === "model" || kind === "workspace") {
+    const label = {
+      model: "Model prompt",
+      research: "Form hypotheses",
+      workspace: "Research workspace",
+    }[kind];
+    const step: WorkflowNode = {
+      ...makeNode(id, "research", label),
       config: {
-        type: "research" as const,
-        stage: kind === "model" ? ("custom" as const) : ("hypothesize" as const),
-        prompt_version: kind === "model" ? ("custom-1" as const) : ("research-1" as const),
-        web_search: false,
+        type: "research",
+        stage: kind === "research" ? "hypothesize" : "custom",
+        prompt_version: kind === "research" ? "research-1" : "custom-1",
+        web_search: kind === "workspace" ? "auto" : false,
         sec_financials: false,
+        ...(kind === "workspace" && { analyst: { workspace: true, max_passes: 12, skill: "" } }),
       },
     };
+    const newWorkspace = kind === "workspace" && !next.research;
+    const research = next.research ?? structuredClone(researchDefaults);
+    if (newWorkspace) {
+      research.limits = {
+        ...researchDefaults.limits,
+        max_model_calls: 12,
+        max_tool_calls: 12,
+        max_input_bytes: 8000000,
+        max_response_seconds: 300,
+      };
+    }
+    if (kind === "workspace") {
+      step.instructions =
+        "Investigate the question in the brief. Look for dated primary sources and competing explanations. Use Python to test claims against the data. Save the analysis, useful charts and a report with sources and limitations.";
+    }
     next = {
       ...next,
       schema_version: "0.3",
-      research: next.research ?? structuredClone(researchDefaults),
+      research,
+      ...(newWorkspace &&
+        !next.budgets && {
+          budgets: { max_active_seconds: 1800, max_node_executions: 256, max_concurrency: 4 },
+        }),
     };
     return { workflow: updateGraph(next, scope, insertStep(graph, step, selected)), selected: id };
   }

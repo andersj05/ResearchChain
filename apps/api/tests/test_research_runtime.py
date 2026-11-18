@@ -57,7 +57,9 @@ class FakeProvider:
         assert account_id == self.account.id and models <= {"test-model", "analysis-model"}
         return self.account
 
-    def run_analyst(self, model: str, passes: int, step: Any, guard: Any) -> Any:
+    def run_analyst(
+        self, model: str, passes: int, step: Any, guard: Any, *, workspace: bool = False
+    ) -> Any:
         history = []
         transcript: list[dict[str, Any]] = []
         for _ in range(passes):

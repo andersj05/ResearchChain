@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@ui-sdk/react/button";
+import { researchDefaults } from "@/lib/workflow";
 import type { Graph, Predicate, ValueSource, Workflow, WorkflowNode } from "@/lib/workflow";
 import {
   addBranch,
@@ -165,6 +166,7 @@ export function NodeConfiguration({
   onWorkflow,
   onEdit,
   onOpen,
+  onEditRunLimits,
 }: {
   workflow: Workflow;
   graph: Graph;
@@ -174,6 +176,7 @@ export function NodeConfiguration({
   onWorkflow: (workflow: Workflow) => void;
   onEdit: (patch: Partial<WorkflowNode>, group?: string) => void;
   onOpen: (node: WorkflowNode) => void;
+  onEditRunLimits: () => void;
 }) {
   const config = node.config;
   const analyst = config?.type === "research" ? config.analyst : undefined;
@@ -294,7 +297,9 @@ export function NodeConfiguration({
                     onEdit({
                       config: {
                         ...config,
-                        analyst: event.target.checked ? { max_passes: 4, skill: "" } : undefined,
+                        analyst: event.target.checked
+                          ? { max_passes: 4, skill: "", workspace: false }
+                          : undefined,
                       },
                     })
                   }
@@ -303,6 +308,34 @@ export function NodeConfiguration({
               </label>
               {analyst && (
                 <>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={analyst.workspace ?? false}
+                      onChange={(event) =>
+                        onEdit({
+                          config: {
+                            ...config,
+                            analyst: {
+                              ...analyst,
+                              workspace: event.target.checked,
+                              max_passes: Math.max(
+                                event.target.checked ? 2 : 1,
+                                analyst.max_passes ?? 4,
+                              ),
+                            },
+                          },
+                        })
+                      }
+                    />
+                    Python workspace
+                  </label>
+                  {analyst.workspace && (
+                    <p className="field-hint">
+                      The analyst can write and run Python, inspect its output, revise the analysis,
+                      and save files. Inspect its charts, scripts, data and reports in Runs.
+                    </p>
+                  )}
                   <label>
                     Analyst skill
                     <textarea
@@ -327,8 +360,8 @@ export function NodeConfiguration({
                     Maximum research passes
                     <input
                       type="number"
-                      min={1}
-                      max={20}
+                      min={analyst.workspace ? 2 : 1}
+                      max={100}
                       value={analyst.max_passes ?? 4}
                       onChange={(event) =>
                         onEdit(
@@ -350,6 +383,23 @@ export function NodeConfiguration({
                     Each pass uses one model request. The analyst can follow a lead using the tools
                     enabled below and finish as soon as it has enough evidence.
                   </p>
+                  {analyst.workspace && (
+                    <div>
+                      <p className="field-hint">
+                        This run allows {workflow.budgets?.max_active_seconds ?? 120} active
+                        seconds,{" "}
+                        {workflow.research?.limits?.max_response_seconds ??
+                          researchDefaults.limits.max_response_seconds}{" "}
+                        seconds per response and{" "}
+                        {workflow.research?.limits?.max_model_calls ??
+                          researchDefaults.limits.max_model_calls}{" "}
+                        model attempts across all steps.
+                      </p>
+                      <Button className="button small" onClick={onEditRunLimits}>
+                        Edit run limits
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
               <label>

@@ -61,8 +61,10 @@ jobs:
       - run: uv sync --project apps/api --locked
       - run: pnpm db:migrate
       - run: pnpm contracts:check
+      - run: docker build -t researchchain/analyst-python:1 docker/analyst-python
       - run: pnpm check
         env:
+          RESEARCHCHAIN_TEST_PYTHON_IMAGE: "1"
           RESEARCHCHAIN_PG_CONTAINER: ${{ job.services.postgres.id }}
       - run: pnpm --filter @researchchain/web exec playwright install --with-deps chromium
       - run: pnpm test:e2e

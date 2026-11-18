@@ -196,6 +196,7 @@ export function WorkflowEditor({
               {(
                 [
                   "model",
+                  "workspace",
                   "code",
                   "note",
                   "research",
@@ -224,7 +225,12 @@ export function WorkflowEditor({
                 >
                   <Plus size={14} aria-hidden="true" />
                   <span>
-                    Add {kind === "model" ? "model prompt" : nodeKinds[kind].label.toLowerCase()}
+                    Add{" "}
+                    {kind === "model"
+                      ? "model prompt"
+                      : kind === "workspace"
+                        ? "research workspace"
+                        : nodeKinds[kind].label.toLowerCase()}
                   </span>
                 </Button>
               ))}
@@ -293,7 +299,7 @@ export function WorkflowEditor({
                   : "Save validates the complete workflow, including every nested definition."}
               </p>
             </details>
-            <details className="workflow-settings">
+            <details className="workflow-settings" id="workflow-execution-limits">
               <summary>Execution limits</summary>
               {(
                 [
@@ -305,6 +311,7 @@ export function WorkflowEditor({
                 <label key={key}>
                   {label}
                   <input
+                    id={key}
                     type="number"
                     min={min}
                     max={max}
@@ -507,6 +514,16 @@ export function WorkflowEditor({
                   onWorkflow={onChange}
                   onEdit={editNode}
                   onOpen={openSubgraph}
+                  onEditRunLimits={() => {
+                    setLibraryOpen(true);
+                    requestAnimationFrame(() => {
+                      for (const id of ["workflow-execution-limits", "workflow-research-limits"]) {
+                        const section = document.getElementById(id);
+                        if (section instanceof HTMLDetailsElement) section.open = true;
+                      }
+                      document.getElementById("max_active_seconds")?.focus();
+                    });
+                  }}
                 />
                 <fieldset className="config-fields">
                   <legend>Control connections</legend>

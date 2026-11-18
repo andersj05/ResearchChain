@@ -86,8 +86,17 @@ ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
 
 
 class AnalystConfig(StrictModel):
-    max_passes: int = Field(default=4, ge=1, le=20)
+    max_passes: int = Field(default=4, ge=1, le=100)
     skill: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
+    workspace: bool = Field(default=False, exclude_if=lambda enabled: not enabled)
+
+    @model_validator(mode="after")
+    def workspace_needs_synthesis(self) -> Self:
+        if self.workspace and self.max_passes < 2:
+            raise ValueError(
+                "A Python workspace needs at least two passes for a tool and its result."
+            )
+        return self
 
 
 class ResearchConfig(StrictModel):

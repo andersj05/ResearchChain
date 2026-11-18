@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, Response
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import ClientDisconnect
 
+from researchchain.analyst_workspace import EXPORT_TYPES
 from researchchain.artifacts import MAX_ARTIFACT_BYTES, ArtifactStore
 from researchchain.database import Database
 from researchchain.evidence import ClaimStore, EvidenceStore
@@ -74,7 +75,16 @@ def evidence_router(database: Database) -> APIRouter:
         return artifacts.get(content_id)
 
     @router.get("/artifacts/{content_id}/content", operation_id="artifact_content")
-    def artifact_content(content_id: ContentId, preview: bool = False) -> Response:
+    def artifact_content(
+        content_id: ContentId,
+        preview: bool = False,
+        filename: Annotated[
+            str | None,
+            Query(max_length=96, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$"),
+        ] = None,
+    ) -> Response:
+        if filename and "." + filename.rsplit(".", 1)[-1].lower() not in EXPORT_TYPES:
+            raise HTTPException(422, "Choose a supported workspace filename.")
         artifact, content = artifacts.content(content_id)
         inline = preview and artifact.media_type in ("image/png", "image/jpeg", "image/webp")
         disposition = "inline" if inline else "attachment"
@@ -83,7 +93,7 @@ def evidence_router(database: Database) -> APIRouter:
             media_type=artifact.media_type,
             headers={
                 "Content-Disposition": (
-                    f"{disposition}; filename*=UTF-8''{quote(artifact.name, safe='')}"
+                    f"{disposition}; filename*=UTF-8''{quote(filename or artifact.name, safe='')}"
                 ),
                 "X-Content-Type-Options": "nosniff",
                 "Content-Security-Policy": "default-src 'none'; sandbox",

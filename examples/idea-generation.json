@@ -1,0 +1,83 @@
+{
+  "schema_version": "0.3",
+  "name": "Idea generation — rotation research",
+  "start_node": "scout",
+  "nodes": [
+    {
+      "id": "scout",
+      "kind": "research",
+      "label": "Find ideas in the signal",
+      "instructions": "Read my brief, charts and documents as an idea scout. Identify the observation that needs explaining. State the series, units and dates you can actually identify. Respect the source labels on supplied or synthetic observations. Use a dated primary source if a real-world premise needs checking.\n\nPitch up to three genuinely different explanations. For each, give the mechanism, a prediction that distinguishes it from the others, and the observation or data that would weaken it. Consider a common market move or a measurement artifact alongside an economic explanation. Flag missing data and suggest one discriminating test I can choose. Put the idea shortlist in conclusion.",
+      "position": { "x": 60, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto"
+      }
+    },
+    {
+      "id": "direction",
+      "kind": "review",
+      "label": "Pick an idea to test",
+      "instructions": "Choose an idea or propose your own. In your feedback, specify the comparison that would change your mind. You can change the universe, horizon or test and ask for a particular chart. Approve to commission the investigation or reject to revise the brief.",
+      "position": { "x": 380, "y": 100 }
+    },
+    {
+      "id": "investigate",
+      "kind": "research",
+      "label": "Investigate and chart the evidence",
+      "instructions": "Investigate the direction in my feedback. Start from the brief, the shortlist, and the original evidence. Adapt the method to what you learn. Search for dated primary sources and contrary evidence when they could distinguish the proposed mechanisms. Report the source URL, publication date, observation period and units for real data you use. Keep synthetic observations clearly labeled in every file, chart and conclusion that uses them.\n\nUse Python in the workspace to inspect the available numerical data, verify units and alignment, check a credible rival explanation and create a chart that answers my question. Test sensitivity to a reasonable change in period, benchmark or influential observation where the data permit it. For a chart image without a source table, explain the visible pattern and ask for the underlying series before making numerical claims.\n\nSave the plotted values with dates and units in outputs/observations.csv. Save a labeled chart in outputs/rotation.png if the available data support one. Write outputs/memo.md as a standalone research note explaining the idea, mechanism, competing explanation, evidence for and against, methods, results, source dates and what would change the judgment. Include the sample size and window for each comparison. Name the files actually produced and summarize the result in conclusion for my review. When a test cannot be run, document the gap and the next data to obtain.",
+      "position": { "x": 700, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto",
+        "analyst": {
+          "workspace": true,
+          "max_passes": 30,
+          "skill": "Choose your next action based on the evidence. Trace a material claim to a primary source, try the analysis, inspect the results and refine it if a check fails. Use the Python tool to write and execute the analysis. Record transformations, source labels, units and chart captions so another analyst can reproduce the work. Keep fictional sample rows separate from live observations. Stop when you can explain the result and its most important limitation, or when progress depends on a missing source or a judgment from me."
+        }
+      },
+      "inputs": {
+        "context": { "source": "output", "node_id": "scout", "port": "text" },
+        "feedback": { "source": "output", "node_id": "direction", "port": "feedback" }
+      }
+    },
+    {
+      "id": "review",
+      "kind": "review",
+      "label": "Review the chart and memo",
+      "instructions": "Inspect the chart, underlying data, saved Python and memo from the investigation. Which explanation survived? Record the evidence or usability change you want in the next experiment. Approve to finish or reject to stop. Use Iterate from this run to apply feedback in a fresh experiment.",
+      "position": { "x": 1020, "y": 100 }
+    },
+    {
+      "id": "finish",
+      "kind": "finish",
+      "label": "Finish",
+      "instructions": "",
+      "position": { "x": 1340, "y": 100 }
+    }
+  ],
+  "edges": [
+    { "source": "scout", "target": "direction" },
+    { "source": "direction", "target": "investigate" },
+    { "source": "investigate", "target": "review" },
+    { "source": "review", "target": "finish" }
+  ],
+  "research": {
+    "provider": "chatgpt_plan",
+    "model": "gpt-6.1-sol",
+    "billing": "included_plan",
+    "limits": {
+      "max_model_calls": 31,
+      "max_tool_calls": 31,
+      "max_input_bytes": 8000000,
+      "max_output_characters": 100000,
+      "max_response_seconds": 300,
+      "max_total_tokens": 1000000
+    }
+  },
+  "budgets": { "max_node_executions": 12, "max_active_seconds": 2700, "max_concurrency": 1 }
+}

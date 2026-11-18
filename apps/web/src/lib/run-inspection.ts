@@ -9,6 +9,7 @@ export type StepStatus =
   | "Waiting for review"
   | "Preparing"
   | "Requesting"
+  | "Python requested"
   | "Scheduled"
   | "Completed"
   | "Output saved"
@@ -106,12 +107,14 @@ export function stepStates(run: RunSnapshot) {
     const path = attemptPath(attempt);
     // An analyst may have another pass after it saves a valid result. The
     // graph step only completes once the executor records its final output.
-    states.set(
-      path,
-      attempt.status === "completed" && !recorded.has(path)
-        ? "Output saved"
-        : attemptLabels[attempt.status],
-    );
+    let status = attemptLabels[attempt.status];
+    if (attempt.status === "completed" && !recorded.has(path)) status = "Output saved";
+    if (
+      attempt.status === "requesting" &&
+      attempt.result?.workspace_activity?.status === "requested"
+    )
+      status = "Python requested";
+    states.set(path, status);
   }
   for (const step of run.checkpoint_steps ?? []) {
     if (step.status === "stopped") states.set(step.path, "Stopped");
@@ -122,6 +125,7 @@ export function stepStates(run: RunSnapshot) {
   const attention = new Set<StepStatus>([
     "Preparing",
     "Requesting",
+    "Python requested",
     "Stopped",
     "Waiting for review",
   ]);
