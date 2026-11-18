@@ -258,6 +258,9 @@ The saved input preview and attempt link follow the selected pass. **Copy pass
 comparison link** reopens the selected step and both saved passes. The
 comparison loads a snapshot when you select it. Open its own run view to follow
 active work.
+**Recorded web sources** shows shared and unique provider-recorded URLs for the
+two selected passes and flags incomplete receipts. The saved input preview shows
+the material each pass received from earlier work.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
 routing, limits and judgments. It follows the referenced subgraph versions and
 compares pinned source identities and order.

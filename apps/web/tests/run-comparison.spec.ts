@@ -123,11 +123,19 @@ test("compare two saved research runs without switching the open run", async ({ 
   first.config.web_search = false;
   adjusted.research!.limits!.max_total_tokens = 65000;
   const original = base.model_attempts![0]!;
-  const modelOutput = (path: string, conclusion: string) => ({
+  const recordWeb = (sources: [string, string][], truncated = false) => ({
+    version: "web-research-1" as const,
+    observed_at: now,
+    actions: [],
+    sources: sources.map(([url, title]) => ({ url, title, cited: false })),
+    truncated,
+  });
+  const sharedWeb: [string, string] = ["https://example.org/policy", "Synthetic policy release"];
+  const modelOutput = (path: string, conclusion: string, web_research?: ReturnType<typeof recordWeb>) => ({
     ...original,
     id: crypto.randomUUID(),
     path,
-    result: { ...original.result!, conclusion, workspace_files: [] },
+    result: { ...original.result!, conclusion, workspace_files: [], web_research },
   });
   const savedInputs = new Map<string, string>();
   const requestFor = (feedback: string) => {
@@ -145,18 +153,34 @@ test("compare two saved research runs without switching the open run", async ({ 
     return { input_artifact_id, input_bytes: Buffer.byteLength(body) };
   };
   const baselinePass = {
-    ...modelOutput(`${iterationPath(1)}/analyst-pass-2`, "**Comparison first iteration.**"),
+    ...modelOutput(
+      `${iterationPath(1)}/analyst-pass-2`,
+      "**Comparison first iteration.**",
+      recordWeb([
+        sharedWeb,
+        ["https://example.org/five-sessions", "Synthetic five-session data"],
+        ["https://example.org/five-sessions", "Synthetic five-session data"],
+      ]),
+    ),
     ...requestFor("Use five sessions."),
   };
   const openPass = {
-    ...modelOutput(`${iterationPath(1)}/analyst-pass-2`, "**Open first iteration.**"),
+    ...modelOutput(
+      `${iterationPath(1)}/analyst-pass-2`,
+      "**Open first iteration.**",
+      recordWeb([sharedWeb, ["https://example.org/twenty-sessions", "Synthetic twenty-session data"]]),
+    ),
     ...requestFor("Use twenty sessions."),
   };
-  const leadPass = (conclusion: string, next_lead: string) => {
-    const attempt = modelOutput(iterationPath(1), conclusion);
+  const leadPass = (conclusion: string, next_lead: string, web?: ReturnType<typeof recordWeb>) => {
+    const attempt = modelOutput(iterationPath(1), conclusion, web);
     return { ...attempt, result: { ...attempt.result, next_lead } };
   };
-  const baselineLead = leadPass("**Comparison initial view.**", "Check five-session pricing.");
+  const baselineLead = leadPass(
+    "**Comparison initial view.**",
+    "Check five-session pricing.",
+    recordWeb([["https://example.org/policy-calendar", "Synthetic policy calendar"]], true),
+  );
   const openLead = leadPass("**Open initial view.**", "Check twenty-session pricing.");
   base.model_attempts!.unshift(baselineLead, baselinePass);
   const outputAttempt = (files: (typeof oldTable)[], path: string) => ({
@@ -363,11 +387,29 @@ test("compare two saved research runs without switching the open run", async ({ 
   const currentPass = openOutput.getByRole("combobox", { name: "Saved pass" });
   await expect(beforePass).toHaveValue(baselinePass.id);
   await expect(currentPass).toHaveValue(openPass.id);
+  const sources = comparisons.locator("details", { has: page.getByText(/^Recorded web sources/) });
+  await comparisons.getByText("Recorded web sources · 1 shared", { exact: true }).click();
+  const beforeSources = sources.getByRole("region", { name: "Comparison pass web sources" });
+  const openSources = sources.getByRole("region", { name: "Open run pass web sources" });
+  await expect(beforeSources.getByRole("link")).toHaveText(["Synthetic five-session data"]);
+  await expect(openSources.getByRole("link")).toHaveText(["Synthetic twenty-session data"]);
+  await sources.getByText("Shared web sources (1)", { exact: true }).click();
+  await expect(sources.getByRole("link", { name: "Synthetic policy release" })).toHaveAttribute(
+    "href",
+    "https://example.org/policy",
+  );
   await beforePass.selectOption(baselineLead.id);
   await expect(beforePass.locator("option:checked")).toHaveText("Pass 1 · Research lead");
   await expect(beforeOutput.getByText("Check five-session pricing.")).toBeVisible();
   await expect(beforeOutput.getByText("Use five sessions.", { exact: true })).toHaveCount(0);
   await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toBeVisible();
+  await expect(sources.getByText("Recorded web sources · 0 shared")).toBeVisible();
+  await expect(beforeSources.getByRole("link")).toHaveText(["Synthetic policy calendar"]);
+  await expect(beforeSources).toContainText("The saved source record is incomplete.");
+  await expect(openSources.getByRole("link")).toHaveText([
+    "Synthetic policy release",
+    "Synthetic twenty-session data",
+  ]);
   await expect(beforeOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
     "href",
     `?view=runs&run=${base.id}&attempt=${baselineLead.id}`,
@@ -375,10 +417,12 @@ test("compare two saved research runs without switching the open run", async ({ 
   await currentPass.selectOption(openLead.id);
   await expect(openOutput.getByText("Check twenty-session pricing.")).toBeVisible();
   await expect(beforePass).toHaveValue(baselineLead.id);
+  await expect(openSources).toContainText("No web source record saved.");
   await step.selectOption(iterationPath(2));
   await expect(openOutput.getByText("Use twenty sessions.", { exact: true })).toHaveCount(0);
   await expect(beforeOutput).toContainText("No saved model output for this step.");
   await expect(openOutput.locator("strong")).toHaveText("Open second iteration.");
+  await expect(comparisons.getByText(/^Recorded web sources/)).toHaveCount(0);
   await step.selectOption("root/memo");
   await expect(beforeOutput.locator("strong")).toHaveText("The rival mechanism survived.");
   const workspacePass = openOutput.getByRole("combobox", { name: "Saved pass" });
