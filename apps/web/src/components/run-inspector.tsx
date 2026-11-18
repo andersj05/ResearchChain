@@ -8,6 +8,8 @@ import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity } from "./run-model-activity";
 import { RunDecisions } from "./run-decisions";
+import { RunComparison } from "./run-comparison";
+import { formatTime, RunStatus } from "./run-status";
 import {
   graphLocation,
   pendingReviews,
@@ -16,53 +18,15 @@ import {
   stepStates,
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
+import { useOwner } from "@/components/access-context";
+import { ownerStoragePrefix } from "@/lib/access";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
-export const runStatusLabels = {
-  queued: "Queued",
-  paused: "Needs review",
-  running: "Running",
-  completed: "Completed",
-  rejected: "Rejected",
-  interrupted: "Needs recovery",
-  cancelled: "Cancelled",
-  limited: "Limit reached",
-  failed: "Needs attention",
-};
-
-export function RunStatus({
-  status,
-  announce = false,
-}: {
-  status: RunSummary["status"];
-  announce?: boolean;
-}) {
-  const label = runStatusLabels[status];
-  return (
-    <span
-      className={`run-status status-${status}`}
-      role={announce ? "status" : undefined}
-      aria-label={announce ? "Run status" : undefined}
-    >
-      <i aria-hidden="true" />
-      {label}
-    </span>
-  );
-}
-
-export function formatTime(value: string) {
-  return new Date(value).toLocaleString(undefined, {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
-
 type Actions = {
   busy: boolean;
+  recentRuns: RunSummary[];
   onResume: ResumeReview;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -88,6 +52,7 @@ export function RunInspector({ run, ...actions }: Actions & { run: RunSnapshot |
 
 function RunWorkspace({
   run,
+  recentRuns,
   busy,
   onResume,
   onRecover,
@@ -96,9 +61,17 @@ function RunWorkspace({
   onOpenRevision,
   onIterate,
 }: Actions & { run: RunSnapshot }) {
+  const { owner } = useOwner();
+  const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
   const [manual, setManual] = useState<string | null>(null);
   const [view, setView] = useState<"step" | "activity" | "decisions" | "context">("step");
-  const [showGraph, setShowGraph] = useState(true);
+  const [showGraph, setShowGraph] = useState(() => {
+    try {
+      return localStorage.getItem(mapPreference) !== "false";
+    } catch {
+      return true;
+    }
+  });
   const [attemptId, setAttemptId] = useState<string>();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const states = stepStates(run);
@@ -130,6 +103,14 @@ function RunWorkspace({
     setManual(null);
     setAttemptId(undefined);
     setView("step");
+  };
+  const toggleGraph = () => {
+    setShowGraph(!showGraph);
+    try {
+      localStorage.setItem(mapPreference, String(!showGraph));
+    } catch {
+      // The map remains usable if browser storage is disabled.
+    }
   };
   const limits = run.research_manifest?.settings.limits ?? run.workflow.research?.limits;
   const tokens = (run.usage?.input_tokens ?? 0) + (run.usage?.output_tokens ?? 0);
@@ -219,7 +200,7 @@ function RunWorkspace({
             className="button small"
             type="button"
             aria-expanded={showGraph}
-            onClick={() => setShowGraph(!showGraph)}
+            onClick={toggleGraph}
           >
             {showGraph ? "Hide workflow map" : "Show workflow map"}
           </button>
@@ -325,6 +306,7 @@ function RunWorkspace({
               <p>{run.brief}</p>
             </details>
             <PinnedEvidence ids={run.evidence_ids ?? []} />
+            <RunComparison run={run} recentRuns={recentRuns} />
             <ResearchManifest run={run} />
             {!run.research_manifest && (
               <p className="field-hint" aria-label="Run model">

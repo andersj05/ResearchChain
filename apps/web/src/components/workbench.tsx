@@ -21,7 +21,8 @@ import { useModelCatalog } from "@/components/model-picker";
 import { pruneDefinitions } from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
-import { formatTime, RunInspector } from "@/components/run-inspector";
+import { RunInspector } from "@/components/run-inspector";
+import { formatTime } from "@/components/run-status";
 import {
   api,
   ApiError,
@@ -1072,6 +1073,7 @@ export function Workbench() {
             detail={
               <RunInspector
                 run={run}
+                recentRuns={runs}
                 busy={busy}
                 onResume={(value, interruptId, feedback) =>
                   action(() => resumeRun(value, interruptId, feedback))

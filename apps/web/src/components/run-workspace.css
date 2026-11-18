@@ -298,24 +298,24 @@
   overflow-x: auto;
   border-block: 1px solid var(--line);
 }
-.run-model-activity table {
+.run-model-activity table,
+.run-comparison table {
   width: 100%;
   border-collapse: collapse;
   text-align: start;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
 }
-.run-model-activity :is(th, td) {
+:is(.run-model-activity, .run-comparison) :is(th, td) {
   padding: 8px 10px;
   text-align: start;
   vertical-align: top;
   border-bottom: 1px solid var(--line);
 }
-.run-model-activity thead {
+:is(.run-model-activity, .run-comparison) thead {
   color: var(--muted);
 }
-.run-model-activity tr:last-child td,
-.run-model-activity tbody tr:last-child th {
+:is(.run-model-activity, .run-comparison) tbody tr:last-child :is(th, td) {
   border-bottom: 0;
 }
 .run-model-activity th button {
@@ -340,6 +340,26 @@
 }
 .run-model-activity time {
   white-space: nowrap;
+}
+.run-comparison label {
+  display: grid;
+  gap: 4px;
+  max-width: 360px;
+}
+.run-comparison table {
+  table-layout: fixed;
+  overflow-wrap: anywhere;
+}
+.run-comparison thead th:first-child {
+  width: 26%;
+}
+.comparison-record details + details {
+  margin-top: 6px;
+}
+@container (max-width: 500px) {
+  .run-comparison :is(th, td) {
+    padding-inline: 5px;
+  }
 }
 .run-decisions section + section {
   margin-top: 24px;

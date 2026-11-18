@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@ui-sdk/react/button";
-import { formatTime, RunStatus, runStatusLabels } from "@/components/run-inspector";
+import { formatTime, RunStatus, runStatusLabels } from "@/components/run-status";
 import type { RunSummary } from "@/lib/workflow";
 
 export function RunHistory({
