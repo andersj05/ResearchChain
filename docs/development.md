@@ -208,6 +208,8 @@ Rows with missing measurements follow measured rows. Switch to **Timeline** to
 see when recorded model attempts started and overlapped. A hollow point marks a
 start whose duration is unreported. Select any attempt to inspect its exact
 request and output. The browser remembers the display and sort preferences.
+When the timeline is filtered, **Timeline range** can fit the matching attempts
+or keep the original scale for the entire run.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.

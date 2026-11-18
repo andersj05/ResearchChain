@@ -11,13 +11,15 @@ export type TimedAttempt = {
 export function ModelActivityTimeline({
   rows,
   visible,
+  fitVisible,
   inspect,
 }: {
   rows: TimedAttempt[];
   visible: TimedAttempt[];
+  fitVisible: boolean;
   inspect: (path: string, attemptId: string) => void;
 }) {
-  const measured = rows.filter(({ started }) => Number.isFinite(started));
+  const measured = (fitVisible ? visible : rows).filter(({ started }) => Number.isFinite(started));
   if (!measured.length) return <p className="muted">No model attempt start times were recorded.</p>;
 
   const start = Math.min(...measured.map((row) => row.started));
@@ -31,7 +33,11 @@ export function ModelActivityTimeline({
   });
   return (
     <section className="model-timeline" aria-label="Model activity timeline">
-      <p className="field-hint">Time since the first recorded model attempt</p>
+      <p className="field-hint">
+        {fitVisible
+          ? "Time since the first matching model attempt"
+          : "Time since the first recorded model attempt"}
+      </p>
       <div className="model-timeline-row model-timeline-axis" aria-hidden="true">
         <span>Step and pass</span>
         <div>
