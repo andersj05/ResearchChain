@@ -19,9 +19,12 @@ test("open the requested view after a transient workspace read failure", async (
   expect(response.status()).toBe(201);
   const revision = await response.json();
   let reads = 0;
+  let disconnectUntil: number | undefined;
   await page.route("**/api/revisions", (route) => {
     reads += 1;
-    if (reads === 1) return route.fulfill({ status: 502, body: "Local API disconnected" });
+    disconnectUntil ??= performance.now() + 150;
+    if (performance.now() < disconnectUntil)
+      return route.fulfill({ status: 502, body: "Local API disconnected" });
     return route.continue();
   });
   await page.goto(`/?revision=${revision.id}&view=reports`);
