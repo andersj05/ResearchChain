@@ -153,7 +153,7 @@ def run_python(
         "--ulimit",
         "core=0:0",
         "--tmpfs",
-        "/work:rw,nosuid,nodev,noexec,size=64m,mode=1777",
+        "/work:rw,nosuid,nodev,noexec,size=64m,mode=0755",
         "--tmpfs",
         "/tmp:rw,nosuid,nodev,noexec,size=64m,mode=1777",
     ]
