@@ -4,6 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Finish the run inspection and checkpoint release
+
+Review inbox shows the saved brief excerpt. Model activity can open a specific
+step and iteration. Saved-pass comparison exposes changes in the actual requests,
+including reviewer feedback and supplied evidence. **Copy review link** opens the
+exact pending question and falls back to Decisions when stale. CI passed 519
+backend tests with 2 skips and all 123 browser cases. Desktop at `1878369` served
+the new controls, with the API, worker and review projection verified read-only.
+The owner directed the next work to Build, with parallel implementation for
+independent authoring tasks.
+[PR #106](https://github.com/andersj05/ResearchChain/pull/106).
+
 ## Compare web sources recorded on selected passes
 
 **Recorded web sources** groups the shared URLs and sources recorded on only
