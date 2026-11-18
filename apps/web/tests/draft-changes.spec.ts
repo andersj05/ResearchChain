@@ -1,6 +1,7 @@
 import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import advanced from "../../../examples/advanced-workflow.json";
+import macro from "../../../examples/discretionary-macro.json";
 import { compareWorkflowGraphs } from "../src/lib/workflow-comparison";
 import {
   applyDraftTextRestoration,
@@ -67,6 +68,111 @@ test("Build previews draft changes and distinguishes reverted edits from layout 
   await page.mouse.up();
   await preview.click();
   await expect(dialog.getByText("Only canvas positions changed.")).toBeVisible();
+  expect(writes).toEqual([]);
+});
+
+test("find changes across a macro draft and keep the search through comparison and restore", async ({
+  page,
+  request,
+}) => {
+  const firstWorkflow = structuredClone(macro);
+  firstWorkflow.name = "Macro change review";
+  firstWorkflow.nodes.find((node) => node.id === "memo")!.instructions = "Earlier memo prompt";
+  const created = await request.post("/api/agents", {
+    data: { id: crypto.randomUUID(), workflow: firstWorkflow },
+  });
+  expect(created.status()).toBe(201);
+  const first: AgentDetail = await created.json();
+  const currentWorkflow = structuredClone(firstWorkflow);
+  currentWorkflow.nodes.find((node) => node.id === "memo")!.instructions =
+    "Current saved memo prompt";
+  const saved = await request.post(`/api/agents/${first.agent.id}/revisions`, {
+    data: { expected_version: 1, workflow: currentWorkflow },
+  });
+  expect(saved.status()).toBe(201);
+  const current: AgentDetail = await saved.json();
+  await page.setViewportSize({ width: 1440, height: 1040 });
+  await page.goto(`/?agent=${first.agent.id}&view=workflow`);
+
+  const outline = page.locator(".node-outline");
+  const memo = outline.getByRole("button", { name: /Write the discretionary macro memo/ });
+  const review = outline.getByRole("button", { name: /Choose the question and horizon/ });
+  const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+  const question = page.getByRole("textbox", { name: "Review question", exact: true });
+  await memo.click();
+  await expect(instructions).toHaveValue("Current saved memo prompt");
+  await instructions.fill("Draft memo prompt");
+  await outline.getByRole("button", { name: /Run the discriminating test/ }).click();
+  await instructions.fill("Test a rival macro explanation");
+  await review.click();
+  await question.fill("Which evidence would change the horizon?");
+  await page.getByText("Execution limits", { exact: true }).click();
+  await page.getByRole("spinbutton", { name: "Maximum step executions" }).fill("20");
+
+  const writes: string[] = [];
+  page.on("request", (entry) => {
+    if (entry.method() === "POST") writes.push(new URL(entry.url()).pathname);
+  });
+  const location = page.url();
+  const preview = page.getByRole("button", { name: "Draft changes", exact: true });
+  const dialog = page.getByRole("dialog", { name: "Draft changes" });
+  const baseline = dialog.getByRole("combobox", { name: "Compare with", exact: true });
+  const find = dialog.getByRole("searchbox", { name: "Find changes", exact: true });
+  const memoChange = dialog.getByText("Write the discretionary macro memo · Changed", {
+    exact: true,
+  });
+  const testChange = dialog.getByText("Run the discriminating test · Changed", { exact: true });
+  const reviewChange = dialog.getByText("Choose the question and horizon · Changed", {
+    exact: true,
+  });
+  const restoreMemo = dialog.getByRole("button", {
+    name: /^Use saved instructions for Write the discretionary macro memo/,
+  });
+  await preview.click();
+  await expect(baseline).toHaveValue(current.revision.id);
+  await expect(memoChange).toBeVisible();
+  await expect(testChange).toBeVisible();
+  await dialog.getByText("Main workflow", { exact: true }).click();
+  await expect(memoChange).toBeHidden();
+
+  await find.fill("memo instructions");
+  await expect(memoChange).toBeVisible();
+  await expect(restoreMemo).toBeVisible();
+  await expect(testChange).toHaveCount(0);
+  await expect(reviewChange).toHaveCount(0);
+  await expect(dialog.getByText("1 matching step", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Current saved memo prompt", { exact: true })).toBeVisible();
+
+  await baseline.selectOption(first.revision.id);
+  await expect(dialog.getByText("Earlier memo prompt", { exact: true })).toBeVisible();
+  await expect(find).toHaveValue("memo instructions");
+  await restoreMemo.press("Enter");
+  await expect(find).toHaveValue("memo instructions");
+  await expect(baseline).toHaveValue(first.revision.id);
+  await expect(dialog.getByText("No matching changes.", { exact: true })).toBeVisible();
+  await expect(memoChange).toHaveCount(0);
+
+  await find.fill("MAXIMUM STEP EXECUTIONS");
+  await expect(dialog.getByText("1 matching setting", { exact: true })).toBeVisible();
+  await expect(dialog.getByText("Maximum step executions", { exact: true })).toBeVisible();
+  await expect(testChange).toHaveCount(0);
+  await find.fill("mandate review question");
+  await expect(reviewChange).toBeVisible();
+  await expect(
+    dialog.getByText("Which evidence would change the horizon?", { exact: true }),
+  ).toBeVisible();
+  await expect(testChange).toHaveCount(0);
+  await find.fill("");
+  await expect(reviewChange).toBeVisible();
+  await expect(testChange).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(preview).toBeFocused();
+  await expect(question).toHaveValue("Which evidence would change the horizon?");
+  await memo.click();
+  await expect(instructions).toHaveValue("Earlier memo prompt");
+  await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
+  await expect(instructions).toHaveValue("Draft memo prompt");
+  expect(page.url()).toBe(location);
   expect(writes).toEqual([]);
 });
 
