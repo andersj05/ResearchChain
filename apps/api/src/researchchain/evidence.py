@@ -149,14 +149,22 @@ class EvidenceStore:
         with self.database.connection() as conn:
             return read_evidence(conn, evidence_id)
 
-    def list(self, limit: int = 50, offset: int = 0) -> EvidencePage:
+    def list(self, limit: int = 50, offset: int = 0, search: str = "") -> EvidencePage:
+        matches = (
+            "FROM evidence_records WHERE (%(search)s = '' OR strpos(lower(concat_ws(' ', "
+            "document->>'title', document->>'publisher', document->>'author', "
+            "document->>'as_of_date', document->>'published_date')), lower(%(search)s)) > 0)"
+        )
+        query = search.strip()
         with self.database.connection() as conn:
             rows = conn.execute(
-                "SELECT document FROM evidence_records ORDER BY created_at DESC, id DESC "
-                "LIMIT %s OFFSET %s",
-                (limit, offset),
+                f"SELECT document {matches} ORDER BY created_at DESC, id DESC "
+                "LIMIT %(limit)s OFFSET %(offset)s",
+                {"search": query, "limit": limit, "offset": offset},
             ).fetchall()
-            total = conn.execute("SELECT count(*) AS total FROM evidence_records").fetchone()
+            total = conn.execute(
+                f"SELECT count(*) AS total {matches}", {"search": query}
+            ).fetchone()
             assert total is not None
             items = [EvidenceRecord.model_validate(row["document"]) for row in rows]
             return EvidencePage(

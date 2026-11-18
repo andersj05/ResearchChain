@@ -4482,6 +4482,7 @@ export interface operations {
       query?: {
         limit?: number;
         offset?: number;
+        search?: string;
       };
       header?: never;
       path?: never;

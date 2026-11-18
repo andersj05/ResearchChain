@@ -185,6 +185,11 @@ steps** clears the displayed overrides in one undoable edit. Starting the run
 saves the draft if needed and pins the saved model assignments to that run.
 **Run limits** shows the active-time and model-attempt budgets before start.
 Expand it to edit execution, response, and evidence limits in the same draft.
+**Selected sources** shows exact evidence versions in the order they will be
+pinned. Inspect the source in a separate tab, check its as-of date when available,
+or move or remove it while browsing the rest of the library.
+Search the entire evidence library by title, author, publisher, or saved date
+while keeping the selected records in view.
 
 **Model activity** can sort attempts by elapsed time or total reported tokens.
 Rows with missing measurements follow measured rows. Switch to **Timeline** to
