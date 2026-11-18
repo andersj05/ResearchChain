@@ -183,6 +183,9 @@ steps, and review questions. Run links survive browser refresh and API restart.
 Rows with missing measurements follow measured rows, and the sort preference is
 stored in the owner's browser.
 
+Use **Copy attempt link** in **Attempt details** to reopen the specific saved
+pass, including an earlier pass of the same step.
+
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
