@@ -179,6 +179,11 @@ sequence values, so concurrent saves can leave gaps.
 The Runs view lists recent runs and their original briefs, revisions, completed
 steps, and review questions. Run links survive browser refresh and API restart.
 
+In **Run workflow → Step models**, assign a model to any research step in the
+draft, including a step in a referenced subgraph. **Use workflow default for all
+steps** clears the displayed overrides in one undoable edit. Starting the run
+saves the draft if needed and pins the saved model assignments to that run.
+
 **Model activity** can sort attempts by elapsed time or total reported tokens.
 Rows with missing measurements follow measured rows, and the sort preference is
 stored in the owner's browser.

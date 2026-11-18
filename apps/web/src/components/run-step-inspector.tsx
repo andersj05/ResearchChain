@@ -13,6 +13,7 @@ import {
 } from "@/lib/run-inspection";
 import { StepResearchResults } from "./research-results";
 import { nodePresentation } from "./node-kind";
+import { latestWorkspaceFiles, RunFiles } from "./run-files";
 
 type Event = RunSnapshot["events"][number];
 export type ResumeReview = (
@@ -71,7 +72,7 @@ export function RunStepInspector({
   feedback: Record<string, string>;
   changeFeedback: (id: string, value: string) => void;
   onResume: ResumeReview;
-  select: (path: string) => void;
+  select: (path: string, attemptId?: string) => void;
 }) {
   const { node, graph, prefix } = graphLocation(run, path);
   const review = pendingReviews(run).find((item) => reviewPath(item) === path);
@@ -101,6 +102,13 @@ export function RunStepInspector({
     }
   }
   const related = graph.nodes.filter((item) => earlierInputs.has(item.id));
+  const reviewFilePaths = new Set([
+    ...reviewInputs.map(eventPath),
+    ...related.map((item) => `${prefix}/${item.id}`),
+  ]);
+  const reviewFiles = reviewFilePaths.size
+    ? [...latestWorkspaceFiles(run)].filter(([, file]) => reviewFilePaths.has(file.path))
+    : [];
   const feedbackTargets = review ? feedbackRecipients(graph, node.id) : [];
   return (
     <section className="run-step-panel" aria-label="Selected step">
@@ -195,6 +203,17 @@ export function RunStepInspector({
                       </li>
                     ))}
                   </ul>
+                </details>
+              )}
+              {reviewFiles.length > 0 && (
+                <details className="review-workspace-files">
+                  <summary>Files for this review ({reviewFiles.length})</summary>
+                  <RunFiles
+                    run={run}
+                    files={reviewFiles}
+                    inspect={select}
+                    showFilter={reviewFiles.length > 6}
+                  />
                 </details>
               )}
               {reviewInputs.map((event) =>

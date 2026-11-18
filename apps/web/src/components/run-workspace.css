@@ -666,6 +666,10 @@
   color: var(--muted);
   font-size: 13px;
 }
+.review-workspace-files {
+  margin: 6px 0 12px;
+  font-size: 13px;
+}
 .review-earlier-inputs ul {
   display: grid;
   gap: 4px;

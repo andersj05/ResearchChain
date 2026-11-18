@@ -3166,6 +3166,19 @@ td time {
   cursor: pointer;
   font-size: 13px;
 }
+.step-model-fields {
+  display: grid;
+  gap: 10px;
+  margin: 10px 0;
+}
+.step-model-fields .model-picker {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.step-model-fields select {
+  width: 100%;
+}
 .run-model-summary {
   margin: 12px 0;
 }
