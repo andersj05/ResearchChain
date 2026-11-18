@@ -71,7 +71,9 @@ export function RunPassSourceComparison({
       <div className="comparison-inputs">
         {sides.map(({ label, record, otherRecord, sources }) => (
           <section key={label} aria-label={`${label} web sources`}>
-            <h4>{otherRecord ? "Only recorded on" : "Recorded on"} the {label.toLowerCase()}</h4>
+            <h4>
+              {otherRecord ? "Only recorded on" : "Recorded on"} the {label.toLowerCase()}
+            </h4>
             {sources.length > 0 ? (
               <SourceList sources={sources} />
             ) : (
@@ -79,7 +81,9 @@ export function RunPassSourceComparison({
                 {record ? "No unique web sources recorded." : "No web source record saved."}
               </p>
             )}
-            {record?.truncated && <p className="field-hint">The saved source record is incomplete.</p>}
+            {record?.truncated && (
+              <p className="field-hint">The saved source record is incomplete.</p>
+            )}
           </section>
         ))}
       </div>
