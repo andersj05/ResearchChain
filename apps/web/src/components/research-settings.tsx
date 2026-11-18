@@ -73,7 +73,7 @@ export function ResearchSettingsEditor({
   const settings = workflow.research;
   const limits = { ...researchDefaults.limits, ...settings.limits };
   return (
-    <details className="workflow-settings">
+    <details className="workflow-settings" id="workflow-research-limits">
       <summary>Research limits</summary>
       <TokenBudget
         settings={settings}
