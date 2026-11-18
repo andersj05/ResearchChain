@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -12,7 +12,7 @@ import { X } from "lucide-react";
 import { historyShortcut } from "@/components/canvas/use-workflow-history";
 import { compareWorkflowDraft } from "@/lib/workflow-draft-comparison";
 import type { SettingChange } from "@/lib/workflow-comparison";
-import type { Workflow, WorkflowRevision } from "@/lib/workflow";
+import { api, type RevisionSummary, type Workflow, type WorkflowRevision } from "@/lib/workflow";
 import styles from "./draft-changes-preview.module.css";
 
 function ChangeRows({ changes }: { changes: SettingChange[] }) {
@@ -73,18 +73,77 @@ function DraftChanges({ saved, draft }: { saved: Workflow; draft: Workflow }) {
   );
 }
 
+function earlierRevisions(revision: WorkflowRevision, history: RevisionSummary[]) {
+  const currentVersion = history.find((item) => item.id === revision.id)?.agent_version;
+  if (currentVersion === undefined) return [];
+
+  const seen = new Set([revision.id]);
+  const options: RevisionSummary[] = [];
+  for (const item of history) {
+    if (
+      item.agent_version === undefined ||
+      item.agent_version >= currentVersion ||
+      seen.has(item.id)
+    )
+      continue;
+    seen.add(item.id);
+    options.push(item);
+  }
+  return options;
+}
+
 export function DraftChangesPreview({
   revision,
+  history = [],
   draft,
   disabled,
 }: {
   revision: WorkflowRevision;
+  history?: RevisionSummary[];
   draft: Workflow;
   disabled: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [historical, setHistorical] = useState<{ id: string; saved?: Workflow | "error" }>();
+  const requestSequence = useRef(0);
+  useEffect(
+    () => () => {
+      requestSequence.current += 1;
+    },
+    [],
+  );
+  const options = earlierRevisions(revision, history);
+  const comparison = options.find((item) => item.id === historical?.id);
+  const saved = comparison ? historical?.saved : revision.workflow;
+
+  async function selectBaseline(id: string) {
+    const request = ++requestSequence.current;
+    if (!options.some((item) => item.id === id)) {
+      setHistorical(undefined);
+      return;
+    }
+    setHistorical({ id });
+    let saved: Workflow | "error" = "error";
+    try {
+      const result = await api<WorkflowRevision>(`revisions/${encodeURIComponent(id)}`);
+      if (result.id === id) saved = result.workflow;
+    } catch {
+      // The same selection can be retried without changing the draft or its saved revision.
+    }
+    if (request === requestSequence.current) setHistorical({ id, saved });
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) {
+          requestSequence.current += 1;
+          setHistorical(undefined);
+        }
+      }}
+    >
       <DialogTrigger className="button" disabled={disabled}>
         Draft changes
       </DialogTrigger>
@@ -101,8 +160,47 @@ export function DraftChangesPreview({
             <X size={16} aria-hidden="true" />
           </DialogClose>
         </div>
-        <DialogDescription>Compared with saved revision {revision.number}.</DialogDescription>
-        {open && <DraftChanges saved={revision.workflow} draft={draft} />}
+        <DialogDescription>
+          Compared with saved revision {(comparison ?? revision).number}.
+        </DialogDescription>
+        {open && options.length > 0 && (
+          <label className={styles.baseline}>
+            <span>Compare with</span>
+            <select
+              value={comparison?.id ?? revision.id}
+              onChange={(event) => void selectBaseline(event.target.value)}
+            >
+              <option value={revision.id}>Current saved revision {revision.number}</option>
+              {options.map((item) => (
+                <option key={item.id} value={item.id}>
+                  Version {item.agent_version} · Revision {item.number}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {open && comparison && saved === undefined && (
+          <p className={styles.message} role="status">
+            Loading saved revision…
+          </p>
+        )}
+        {open && comparison && saved === "error" && (
+          <div className={styles.message}>
+            <p className="error" role="alert">
+              Could not load the selected saved revision.
+            </p>
+            <button
+              className="button small"
+              type="button"
+              onClick={() => void selectBaseline(comparison.id)}
+            >
+              Retry comparison
+            </button>
+          </div>
+        )}
+        {open && saved && saved !== "error" && (
+          <DraftChanges key={comparison?.id ?? revision.id} saved={saved} draft={draft} />
+        )}
       </DialogContent>
     </Dialog>
   );

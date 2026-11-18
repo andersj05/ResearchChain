@@ -820,7 +820,9 @@ export function Workbench() {
                   </span>
                   {edited && revision && (
                     <DraftChangesPreview
+                      key={`${activeAgent?.id ?? "unassigned"}/${revision.id}`}
                       revision={revision}
+                      history={activeAgent ? revisions : undefined}
                       draft={workflow}
                       disabled={!loaded || busy}
                     />

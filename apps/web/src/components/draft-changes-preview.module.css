@@ -9,6 +9,17 @@
   margin-top: 16px;
 }
 
+.baseline {
+  display: grid;
+  gap: 6px;
+  justify-items: start;
+  margin-top: 16px;
+}
+
+.baseline select {
+  max-width: 100%;
+}
+
 .groups details {
   border-top: 1px solid var(--line);
   padding-block: 10px;
