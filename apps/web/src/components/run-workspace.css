@@ -322,12 +322,19 @@
   border-top: 1px solid var(--line);
   padding-block: 10px;
 }
-.run-files li > div {
+.run-file-metadata {
   display: grid;
   flex: 1 1 150px;
   gap: 4px;
   min-width: 0;
   overflow-wrap: anywhere;
+}
+.run-file-actions {
+  flex-wrap: wrap;
+}
+.run-file-preview {
+  flex: 1 0 100%;
+  min-width: 0;
 }
 .run-files small {
   color: var(--muted);
@@ -460,12 +467,38 @@
 .comparison-record details + details {
   margin-top: 6px;
 }
-.comparison-setup {
+.comparison-setup,
+.comparison-output-changes {
   margin-block: 10px;
   padding-block: 8px;
   border-block: 1px solid var(--line);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+.comparison-output-changes > ul {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.comparison-output-changes li {
+  border-top: 1px solid var(--line);
+  padding-block: 10px;
+}
+.comparison-output-changes :is(h4, h5) {
+  margin: 0;
+}
+.comparison-output-versions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 12px;
+}
+.comparison-output-versions section {
+  min-width: 0;
+  border: 1px solid var(--line);
+  padding: 8px;
+}
+.comparison-output-versions details {
+  margin-block-start: 8px;
 }
 .comparison-setup .comparison-changes {
   display: block;

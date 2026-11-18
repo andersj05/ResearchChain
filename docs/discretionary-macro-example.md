@@ -28,4 +28,5 @@ this feedback** to inspect the downstream steps and their saved model requests.
 judgment to the next editable brief.
 
 **Runs → Files** finds saved charts, CSVs, and methods files across the run. Open
-the listed pass to inspect the calculation or download that exact file version.
+the listed pass to inspect the calculation. Preview charts and supported text
+files in the list or download the exact saved version.
