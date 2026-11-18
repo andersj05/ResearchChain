@@ -1,4 +1,5 @@
 import { Button } from "@ui-sdk/react/button";
+import { CopyRunLink } from "./copy-run-link";
 import { ArrowUpRight, Check, X } from "lucide-react";
 import type { RunSnapshot } from "@/lib/workflow";
 import { outputBindings } from "@/lib/workflow-editing";
@@ -198,6 +199,15 @@ export function RunStepInspector({
                 <X size={15} aria-hidden />
                 Reject and stop
               </Button>
+              {run.checkpoint_id && (
+                <CopyRunLink
+                  key={`${run.checkpoint_id}/${review.interrupt_id}`}
+                  runId={run.id}
+                  target="review"
+                  id={review.interrupt_id}
+                  checkpointId={run.checkpoint_id}
+                />
+              )}
             </div>
           </div>
           {!!reviewInputs.length && (

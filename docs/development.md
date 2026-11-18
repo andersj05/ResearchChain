@@ -232,6 +232,9 @@ the association before starting. After you start the revised experiment,
 
 Unsent feedback stays in the current browser tab when you switch runs or refresh.
 Drafts clear when the app observes a resolved checkpoint or a terminal run.
+**Copy review link** opens the same pending question in another tab. When the
+question has been answered or the checkpoint changes, the link opens Decisions
+with the saved decisions and current questions.
 
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser

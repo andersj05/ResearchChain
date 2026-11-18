@@ -5,11 +5,12 @@ type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 export type ComparisonPasses = { baselineAttempt?: string; openAttempt?: string };
+export type ReviewBookmark = { checkpointId: string; interruptId: string };
 
 export function runInspectionUrl(
   location: string,
   run: string,
-  key: "compare" | "attempt",
+  key: "compare" | "attempt" | "review",
   id: string,
 ) {
   const url = new URL(location);
@@ -64,6 +65,12 @@ export function pendingReviews(run: RunSnapshot) {
         ? [run.review]
         : []
     : [];
+}
+
+export function bookmarkedReview(run: RunSnapshot, { checkpointId, interruptId }: ReviewBookmark) {
+  return checkpointId === run.checkpoint_id
+    ? pendingReviews(run).find((review) => review.interrupt_id === interruptId)
+    : undefined;
 }
 
 export function preferredPath(run: RunSnapshot) {
