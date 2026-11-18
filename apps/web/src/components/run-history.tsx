@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@ui-sdk/react/button";
 import { formatTime, RunStatus, runStatusLabels } from "@/components/run-status";
+import { ReviewInbox, type ReviewTarget } from "@/components/review-inbox";
 import type { RunSummary } from "@/lib/workflow";
 
 export function RunHistory({
@@ -14,6 +15,7 @@ export function RunHistory({
   loaded,
   onRefresh,
   onOpen,
+  onOpenReview,
 }: {
   runs: RunSummary[];
   selected?: string;
@@ -22,6 +24,7 @@ export function RunHistory({
   loaded: boolean;
   onRefresh: () => void;
   onOpen: (id: string) => void;
+  onOpenReview: (review: ReviewTarget) => Promise<boolean>;
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -64,6 +67,7 @@ export function RunHistory({
           Refresh history
         </Button>
       </div>
+      <ReviewInbox busy={busy} onOpen={onOpenReview} />
       <div id="recent-run-list">
         <p className="muted">
           Latest 20{agentName ? ` for ${agentName}` : " across the workspace"}.
@@ -129,7 +133,9 @@ export function RunHistory({
         ) : (
           <p className="muted">
             {loaded
-              ? "No runs yet. Open Build and run your agent to start an experiment."
+              ? agentName
+                ? "This agent has no recent runs."
+                : "No runs yet. Open Build and run your agent to start an experiment."
               : "Loading runs…"}
           </p>
         )}

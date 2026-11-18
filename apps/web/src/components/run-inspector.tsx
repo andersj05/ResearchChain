@@ -24,9 +24,12 @@ import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
+export type ReviewFocus = { runId: string; path: string };
+
 type Actions = {
   busy: boolean;
   recentRuns: RunSummary[];
+  reviewFocus?: ReviewFocus;
   onResume: ResumeReview;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -35,11 +38,16 @@ type Actions = {
   onIterate: (brief?: string) => Promise<void>;
 };
 
-export function RunInspector({ run, ...actions }: Actions & { run: RunSnapshot | null }) {
+export function RunInspector({
+  run,
+  reviewFocus,
+  ...actions
+}: Actions & { run: RunSnapshot | null }) {
+  const focus = reviewFocus?.runId === run?.id ? reviewFocus : undefined;
   return (
     <section className="run-inspector run-workspace" aria-label="Run inspector">
       {run ? (
-        <RunWorkspace key={run.id} run={run} {...actions} />
+        <RunWorkspace key={run.id} run={run} reviewFocus={focus} {...actions} />
       ) : (
         <div className="empty-state">
           <h2>No run selected</h2>
@@ -52,6 +60,7 @@ export function RunInspector({ run, ...actions }: Actions & { run: RunSnapshot |
 
 function RunWorkspace({
   run,
+  reviewFocus,
   recentRuns,
   busy,
   onResume,
@@ -63,7 +72,8 @@ function RunWorkspace({
 }: Actions & { run: RunSnapshot }) {
   const { owner } = useOwner();
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
-  const [manual, setManual] = useState<string | null>(null);
+  const [lastFocus, setLastFocus] = useState(reviewFocus);
+  const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? null);
   const [view, setView] = useState<"step" | "activity" | "decisions" | "context">("step");
   const [showGraph, setShowGraph] = useState(() => {
     try {
@@ -74,6 +84,14 @@ function RunWorkspace({
   });
   const [attemptId, setAttemptId] = useState<string>();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
+  if (reviewFocus !== lastFocus) {
+    setLastFocus(reviewFocus);
+    if (reviewFocus) {
+      setManual(reviewFocus.path);
+      setView("step");
+      setAttemptId(undefined);
+    }
+  }
   const states = stepStates(run);
   const current = preferredPath(run);
   const path = manual ?? current;
@@ -88,6 +106,9 @@ function RunWorkspace({
       pane.focus();
     }
   }, [path, view, attemptId]);
+  useLayoutEffect(() => {
+    if (reviewFocus) readingPane.current?.focus();
+  }, [reviewFocus]);
   const { node, graph, parents, prefix } = graphLocation(run, path);
   const reviews = pendingReviews(run);
   const select = (value: string, id?: string) => {

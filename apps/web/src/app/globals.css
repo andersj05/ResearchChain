@@ -3346,6 +3346,44 @@ td time {
   margin: 12px 0;
   font-size: 12px;
 }
+.review-inbox {
+  margin: 0 0 12px;
+  border-block: 1px solid var(--line);
+  font-size: 13px;
+}
+.review-inbox > summary {
+  padding-block: 9px;
+  font-weight: 600;
+}
+.review-inbox-content {
+  padding-bottom: 10px;
+}
+.review-inbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 11px;
+}
+.review-inbox li {
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.review-inbox li > p {
+  margin: 3px 0;
+}
+.review-inbox-question {
+  display: grid;
+  justify-items: start;
+  gap: 4px;
+  padding-block: 6px;
+}
+.review-inbox-question > p {
+  margin: 0;
+  white-space: pre-wrap;
+}
 .run-counts {
   display: flex;
   gap: 16px;

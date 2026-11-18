@@ -59,11 +59,20 @@ def test_loop_exhaustion_is_a_durable_terminal_outcome(client: TestClient) -> No
 def test_cancellation_is_idempotent_and_cannot_resume(client: TestClient) -> None:
     paused = start(client, nested(review=True))
     path = f"/api/runs/{paused['id']}"
+    inbox = "/api/runs/reviews?limit=1"
+    later = start(client, nested(review=True))
+    first_page = client.get(inbox).json()
+    assert first_page["has_more"] is True
+    assert first_page["items"][0]["id"] == paused["id"]
+    second_page = client.get(f"{inbox}&offset=1").json()
+    assert second_page["has_more"] is False
+    assert second_page["items"][0]["id"] == later["id"]
     first = client.post(f"{path}/cancel")
     assert first.json()["status"] == "cancelled"
     assert client.post(f"{path}/cancel").json() == first.json()
     cancelled = client.get(path).json()
     assert cancelled["status"] == "cancelled" and not cancelled["reviews"]
+    assert client.get(inbox).json() == second_page
     assert run_request(client, f"{path}/resume", json=decision(paused)).status_code == 409
     assert run_request(client, f"{path}/recover").json() == cancelled
 

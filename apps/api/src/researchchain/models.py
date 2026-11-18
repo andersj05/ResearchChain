@@ -93,6 +93,20 @@ class ReviewPrompt(StrictModel):
     question: str
 
 
+class PendingReviewRun(StrictModel):
+    id: UUID
+    agent_name: str | None
+    workflow_name: str
+    created_at: datetime
+    checkpoint_id: str
+    reviews: list[ReviewPrompt]
+
+
+class PendingReviewsPage(StrictModel):
+    items: list[PendingReviewRun]
+    has_more: bool
+
+
 class RunSummary(StrictModel):
     agent_id: UUID | None = None
     agent_name: str | None = None
