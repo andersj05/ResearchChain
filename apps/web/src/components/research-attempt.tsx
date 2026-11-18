@@ -3,6 +3,7 @@ import { useState } from "react";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts } from "./research-tool-receipts";
+import { CopyRunLink } from "./copy-run-link";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 
@@ -46,12 +47,14 @@ function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) 
 }
 
 export function ResearchAttempt({
+  runId,
   attempt,
   expandedByDefault,
   group,
   label,
   sources,
 }: {
+  runId: string;
   attempt: Attempt;
   expandedByDefault: boolean;
   group: string;
@@ -184,6 +187,7 @@ export function ResearchAttempt({
           <dd>{attempt.output_characters.toLocaleString()}</dd>
         </dl>
         <div className="actions">
+          <CopyRunLink runId={runId} target="attempt" id={attempt.id} />
           {attempt.input_artifact_id && (
             <a className="text-link" href={contentUrl(attempt.input_artifact_id)}>
               Saved request

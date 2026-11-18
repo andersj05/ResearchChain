@@ -35,6 +35,7 @@ export function StepResearchResults({
         const number = matches.indexOf(attempt) + 1;
         return (
           <ResearchAttempt
+            runId={run.id}
             key={attempt.id}
             attempt={attempt}
             expandedByDefault={attemptId ? attempt.id === attemptId : attempt === matches.at(-1)}

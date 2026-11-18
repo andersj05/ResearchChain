@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, type RunSnapshot, type RunSummary } from "@/lib/workflow";
-import { attemptPath, comparisonUrl, graphLocation } from "@/lib/run-inspection";
+import { attemptPath, graphLocation } from "@/lib/run-inspection";
 import { formatTime, RunStatus } from "./run-status";
 import { ResearchMarkdown } from "./research-markdown";
 import { researchToolUrls } from "./research-tool-receipts";
 import { RunSetupChanges } from "./run-setup-changes";
 import { RunOutputFileChanges } from "./run-output-file-changes";
 import { RunArchive } from "./run-archive";
+import { CopyRunLink } from "./copy-run-link";
 
 function reportedModels(run: RunSnapshot) {
   const models = new Set(run.model_attempts?.flatMap((attempt) => attempt.returned_model ?? []));
@@ -71,16 +72,6 @@ function RunComparisonColumn({ run }: { run: RunSnapshot }) {
 }
 
 function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: RunSnapshot }) {
-  const [linkStatus, setLinkStatus] = useState("");
-  const copyLink = async () => {
-    const url = comparisonUrl(window.location.href, run.id, baseline.id);
-    try {
-      await navigator.clipboard.writeText(url.href);
-      setLinkStatus("Comparison link copied.");
-    } catch {
-      setLinkStatus("Copy the comparison link from the address bar.");
-    }
-  };
   const model = (item: RunSnapshot) =>
     item.research_manifest?.settings.model ?? item.workflow.research?.model ?? "—";
   const rows = [
@@ -97,14 +88,7 @@ function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: Ru
   return (
     <>
       <div className="actions">
-        <button className="button small" type="button" onClick={copyLink}>
-          Copy comparison link
-        </button>
-        {linkStatus && (
-          <span className="field-hint" role="status">
-            {linkStatus}
-          </span>
-        )}
+        <CopyRunLink runId={run.id} target="compare" id={baseline.id} />
       </div>
       <RunSetupChanges before={baseline} after={run} />
       <RunOutputFileChanges before={baseline} after={run} />

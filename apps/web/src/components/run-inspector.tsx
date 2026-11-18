@@ -12,11 +12,12 @@ import { RunFiles, savedRunFiles } from "./run-files";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
-  comparisonUrl,
+  attemptPath,
   graphLocation,
   pendingReviews,
   preferredPath,
   reviewPath,
+  runInspectionUrl,
   stepStates,
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
@@ -28,18 +29,18 @@ import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
 
-function comparisonFromUrl(runId: string) {
-  if (typeof window === "undefined") return;
+function runLinkTarget(run: RunSnapshot) {
+  if (typeof window === "undefined") return {};
   const params = new URL(window.location.href).searchParams;
+  if (params.get("run")?.toLowerCase() !== run.id) return {};
+  const attemptId = params.get("attempt")?.toLowerCase();
+  const attempt = attemptId && run.model_attempts?.find((item) => item.id === attemptId);
+  if (attempt) return { attemptId: attempt.id, path: attemptPath(attempt) };
   const id = params.get("compare")?.toLowerCase();
-  if (
-    params.get("run")?.toLowerCase() === runId &&
-    id !== runId &&
-    id &&
-    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)
-  ) {
-    return id;
+  if (id && id !== run.id && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)) {
+    return { comparison: id };
   }
+  return {};
 }
 
 type Actions = {
@@ -88,9 +89,10 @@ function RunWorkspace({
 }: Actions & { run: RunSnapshot }) {
   const { owner } = useOwner();
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
-  const [comparison, setComparison] = useState(() => comparisonFromUrl(run.id));
+  const [link] = useState(() => runLinkTarget(run));
+  const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
-  const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? null);
+  const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
   const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">(
     comparison && !reviewFocus ? "context" : "step",
   );
@@ -101,7 +103,7 @@ function RunWorkspace({
       return true;
     }
   });
-  const [attemptId, setAttemptId] = useState<string>();
+  const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   if (reviewFocus !== lastFocus) {
     setLastFocus(reviewFocus);
@@ -139,7 +141,7 @@ function RunWorkspace({
   const selectComparison = (id: string | undefined) => {
     setComparison(id);
     const url = id
-      ? comparisonUrl(window.location.href, run.id, id)
+      ? runInspectionUrl(window.location.href, run.id, "compare", id)
       : new URL(window.location.href);
     if (!id) url.searchParams.delete("compare");
     window.history.replaceState(null, "", url);
