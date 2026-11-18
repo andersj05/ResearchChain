@@ -12,7 +12,7 @@ import { seed } from "./report-fixture";
 
 test.describe.configure({ mode: "default" });
 const password = process.env.RESEARCHCHAIN_TEST_OWNER_PASSWORD!;
-const origin = "http://127.0.0.1:3000";
+const origin = process.env.RESEARCHCHAIN_PUBLIC_ORIGIN!;
 
 function operator(command: string): { code?: string } {
   const python = resolve(
