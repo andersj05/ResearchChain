@@ -468,12 +468,22 @@
   margin-top: 6px;
 }
 .comparison-setup,
+.comparison-step-outputs,
 .comparison-output-changes {
   margin-block: 10px;
   padding-block: 8px;
   border-block: 1px solid var(--line);
   font-size: 13px;
   overflow-wrap: anywhere;
+}
+.comparison-step-outputs select {
+  max-width: 100%;
+}
+.comparison-step-outputs .comparison-output-versions {
+  margin-block-start: 8px;
+}
+.comparison-step-outputs h4 {
+  margin: 0;
 }
 .comparison-output-changes > ul {
   margin: 8px 0 0;
