@@ -213,8 +213,10 @@ also pins a compiler version. Incompatible executors refuse recovery instead of
 silently interpreting old checkpoints through changed code.
 
 In **Runs → Run context → Compare a saved run**, select another run for the same
-agent to inspect its pinned revision, models, usage, sources, brief, feedback and
-latest recorded model output alongside the open run. The comparison reads a saved
+agent to inspect its pinned revision, models, usage, sources, brief, and feedback
+alongside the open run. **Model outputs by step** compares the latest saved
+output at the same step and iteration, shows when only one run has output, and
+links to the exact model attempts. The comparison reads a saved
 snapshot when you select it. Open its own run view to follow active work.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
 routing, limits and judgments. It follows the referenced subgraph versions and
