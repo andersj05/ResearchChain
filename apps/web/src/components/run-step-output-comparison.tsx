@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { attemptPath, graphLocation } from "@/lib/run-inspection";
+import { attemptPath, graphLocation, type ComparisonPasses } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
 import { ModelRequestPreview } from "./model-request-preview";
 import { researchToolUrls } from "./research-tool-receipts";
+import { CopyRunLink } from "./copy-run-link";
 
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 type SavedPass = {
@@ -11,6 +12,7 @@ type SavedPass = {
   number: number;
   kind: "Conclusion" | "Research lead" | "Workspace activity";
 };
+type PassSelection = ComparisonPasses & { path?: string; unavailable?: boolean };
 
 function savedOutputs(run: RunSnapshot) {
   const outputs = new Map<string, SavedPass[]>();
@@ -33,6 +35,55 @@ function savedOutputs(run: RunSnapshot) {
   return outputs;
 }
 
+function selectedOutput(passes: SavedPass[], id: string | undefined) {
+  return (
+    passes.find((item) => item.attempt.id === id) ??
+    passes.findLast((item) => item.kind === "Conclusion") ??
+    passes.at(-1)
+  );
+}
+
+function pathForPass(outputs: Map<string, SavedPass[]>, id: string | undefined) {
+  return id
+    ? [...outputs].find(([, passes]) => passes.some((pass) => pass.attempt.id === id))?.[0]
+    : undefined;
+}
+
+function linkedPassSelection(
+  runId: string,
+  baselineId: string,
+  current: Map<string, SavedPass[]>,
+  earlier: Map<string, SavedPass[]>,
+): PassSelection {
+  if (typeof window === "undefined") return {};
+  const params = new URL(window.location.href).searchParams;
+  if (
+    params.get("run")?.toLowerCase() !== runId ||
+    params.get("compare")?.toLowerCase() !== baselineId
+  ) {
+    return {};
+  }
+  const requested = params.get("passes");
+  if (!requested) return {};
+  const [baselineAttempt, openAttempt, extra] = requested.toLowerCase().split(",");
+  const baselinePath = pathForPass(earlier, baselineAttempt);
+  const openPath = pathForPass(current, openAttempt);
+  if (
+    extra !== undefined ||
+    (baselineAttempt && !baselinePath) ||
+    (openAttempt && !openPath) ||
+    (baselinePath && openPath && baselinePath !== openPath) ||
+    (!baselinePath && !openPath)
+  ) {
+    return { unavailable: true };
+  }
+  return {
+    path: baselinePath ?? openPath,
+    baselineAttempt: baselineAttempt || undefined,
+    openAttempt: openAttempt || undefined,
+  };
+}
+
 function stepLabel(run: RunSnapshot, path: string) {
   const { node, parents } = graphLocation(run, path);
   const context = parents.map((parent) => {
@@ -47,17 +98,16 @@ function SavedOutput({
   title,
   path,
   passes,
+  pass,
+  onSelect,
 }: {
   run: RunSnapshot;
   title: string;
   path: string;
   passes: SavedPass[];
+  pass?: SavedPass;
+  onSelect: (id: string) => void;
 }) {
-  const [selected, setSelected] = useState<string>();
-  const pass =
-    passes.find((item) => item.attempt.id === selected) ??
-    passes.findLast((item) => item.kind === "Conclusion") ??
-    passes.at(-1);
   const attempt = pass?.attempt;
   const result = attempt?.result;
   const sources = new Set<string>();
@@ -76,7 +126,7 @@ function SavedOutput({
           {passes.length > 1 && (
             <label>
               Saved pass
-              <select value={attempt.id} onChange={(event) => setSelected(event.target.value)}>
+              <select value={attempt.id} onChange={(event) => onSelect(event.target.value)}>
                 {passes.map((item) => (
                   <option key={item.attempt.id} value={item.attempt.id}>
                     Pass {item.number} · {item.kind}
@@ -145,10 +195,17 @@ export function RunStepOutputComparison({
     ) ??
     [...current.keys()].find((path) => earlier.has(path)) ??
     paths.values().next().value;
-  const [selected, setSelected] = useState<string>();
-  const [open, setOpen] = useState(false);
-  const path = selected && paths.has(selected) ? selected : defaultPath;
-  if (!path) return null;
+  const [selection, setSelection] = useState(() =>
+    linkedPassSelection(run.id, baseline.id, current, earlier),
+  );
+  const [open, setOpen] = useState(Boolean(selection.path || selection.unavailable));
+  const path = selection.path && paths.has(selection.path) ? selection.path : defaultPath;
+  const unavailable = "This link points to a saved pass comparison that is unavailable.";
+  if (!path) return selection.unavailable ? <p role="status">{unavailable}</p> : null;
+  const baselinePasses = earlier.get(path) ?? [];
+  const openPasses = current.get(path) ?? [];
+  const baselinePass = selectedOutput(baselinePasses, selection.baselineAttempt);
+  const openPass = selectedOutput(openPasses, selection.openAttempt);
   const options = open
     ? [...paths].map((value) => ({
         value,
@@ -160,17 +217,25 @@ export function RunStepOutputComparison({
   return (
     <details
       className="comparison-step-outputs"
+      open={open}
       onToggle={(event) => {
         setOpen(event.currentTarget.open);
-        if (event.currentTarget.open) setSelected(path);
+        if (event.currentTarget.open) {
+          setSelection((previous) => (previous.path ? previous : { ...previous, path }));
+        }
       }}
     >
       <summary>Model outputs by step ({paths.size})</summary>
       {open && (
         <>
+          {selection.unavailable && (
+            <p className="field-hint" role="status">
+              {unavailable}
+            </p>
+          )}
           <label>
             Comparison step
-            <select value={path} onChange={(event) => setSelected(event.target.value)}>
+            <select value={path} onChange={(event) => setSelection({ path: event.target.value })}>
               {options.map(({ value, label }) => (
                 <option value={value} key={value}>
                   {label}
@@ -179,20 +244,44 @@ export function RunStepOutputComparison({
               ))}
             </select>
           </label>
+          <div className="actions">
+            <CopyRunLink
+              key={`${baselinePass?.attempt.id}/${openPass?.attempt.id}`}
+              runId={run.id}
+              target="passes"
+              id={baseline.id}
+              passes={{
+                baselineAttempt: baselinePass?.attempt.id,
+                openAttempt: openPass?.attempt.id,
+              }}
+            />
+          </div>
           <div className="comparison-output-versions">
             <SavedOutput
               key={`baseline/${path}`}
               run={baseline}
               title="Comparison run"
               path={path}
-              passes={earlier.get(path) ?? []}
+              pass={baselinePass}
+              passes={baselinePasses}
+              onSelect={(id) =>
+                setSelection((previous) => ({
+                  ...previous,
+                  baselineAttempt: id,
+                  unavailable: false,
+                }))
+              }
             />
             <SavedOutput
               key={`current/${path}`}
               run={run}
               title="Open run"
               path={path}
-              passes={current.get(path) ?? []}
+              pass={openPass}
+              passes={openPasses}
+              onSelect={(id) =>
+                setSelection((previous) => ({ ...previous, openAttempt: id, unavailable: false }))
+              }
             />
           </div>
         </>

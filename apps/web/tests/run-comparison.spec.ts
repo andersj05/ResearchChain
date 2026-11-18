@@ -383,9 +383,27 @@ test("compare two saved research runs without switching the open run", async ({ 
     "href",
     `?view=runs&run=${current.id}&attempt=${workspaceStart.id}`,
   );
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await comparisons.getByRole("button", { name: "Copy pass comparison link" }).click();
+  await expect(comparisons.getByText("Pass comparison link copied.")).toBeVisible();
+  const link = new URL(await page.evaluate(() => navigator.clipboard.readText()));
+  expect(link.searchParams.get("run")).toBe(current.id);
+  expect(link.searchParams.get("compare")).toBe(base.id);
+  expect(link.searchParams.get("passes")).toBe(`${original.id},${workspaceStart.id}`);
+  await page.goto(link.href);
+  await expect(step).toHaveValue("root/memo");
+  await expect(workspacePass).toHaveValue(workspaceStart.id);
+  await expect(beforeOutput.locator("strong")).toHaveText("The rival mechanism survived.");
+  const mismatched = new URL(link);
+  mismatched.searchParams.set("passes", `${baselineLead.id},${workspaceStart.id}`);
+  await page.goto(mismatched.href);
+  await expect(comparisons.getByRole("status")).toHaveText(
+    "This link points to a saved pass comparison that is unavailable.",
+  );
   await expect(page).toHaveURL(new RegExp(`run=${current.id}`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await compare.selectOption(matchingOutputs.id);
+  expect(new URL(page.url()).searchParams.has("passes")).toBe(false);
   await page.getByText("Output file changes", { exact: true }).click();
   await expect(page.getByText("The latest saved files match.")).toBeVisible();
   await page.getByRole("button", { name: "Hide workflow map", exact: true }).click();

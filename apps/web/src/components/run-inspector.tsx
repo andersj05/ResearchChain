@@ -157,7 +157,10 @@ function RunWorkspace({
     const url = id
       ? runInspectionUrl(window.location.href, run.id, "compare", id)
       : new URL(window.location.href);
-    if (!id) url.searchParams.delete("compare");
+    if (!id) {
+      url.searchParams.delete("compare");
+      url.searchParams.delete("passes");
+    }
     window.history.replaceState(null, "", url);
   };
   const inspectFromPanel = (step: string, id?: string) => {

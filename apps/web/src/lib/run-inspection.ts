@@ -4,6 +4,7 @@ import { referenceOf } from "./workflow-editing";
 type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
+export type ComparisonPasses = { baselineAttempt?: string; openAttempt?: string };
 
 export function runInspectionUrl(
   location: string,

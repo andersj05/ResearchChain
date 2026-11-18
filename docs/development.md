@@ -248,7 +248,8 @@ alongside the open run. **Model outputs by step** compares the same step and
 iteration. Each side opens the latest saved conclusion, or the latest saved
 output if there is no conclusion yet. Use **Saved pass** to inspect a different
 conclusion, research lead, or workspace activity independently on each side.
-The saved input preview and attempt link follow the selected pass. The
+The saved input preview and attempt link follow the selected pass. **Copy pass
+comparison link** reopens the selected step and both saved passes. The
 comparison loads a snapshot when you select it. Open its own run view to follow
 active work.
 **Setup changes** shows before and after values for changed prompts, tools, inputs,
