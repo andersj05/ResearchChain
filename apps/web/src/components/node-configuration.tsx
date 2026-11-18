@@ -380,7 +380,7 @@ export function NodeConfiguration({
           </label>
           {config.stage === "custom" && (
             <>
-              <label>
+              <label className="step-checkbox">
                 <input
                   type="checkbox"
                   checked={Boolean(analyst)}
@@ -399,7 +399,7 @@ export function NodeConfiguration({
               </label>
               {analyst && (
                 <>
-                  <label>
+                  <label className="step-checkbox">
                     <input
                       type="checkbox"
                       checked={analyst.workspace ?? false}
@@ -519,7 +519,7 @@ export function NodeConfiguration({
                   connected model.
                 </p>
               )}
-              <label>
+              <label className="step-checkbox">
                 <input
                   type="checkbox"
                   aria-label="SEC financial statements"

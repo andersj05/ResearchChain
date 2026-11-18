@@ -50,6 +50,7 @@ test("Review plan shows macro questions and feedback in pinned nested graphs", a
   await expect(plan).toHaveCount(0);
   await disclosure.click();
   await expect(rows).toHaveCount(5);
+  await expect(page.getByText("· 5 reviews", { exact: true })).toBeVisible();
   for (const step of macro.nodes.filter((node) => node.kind === "review")) {
     await expect(rowFor(step.label)).toContainText(step.instructions!);
   }

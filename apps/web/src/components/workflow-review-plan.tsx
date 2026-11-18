@@ -51,7 +51,15 @@ export function WorkflowReviewPlan({
       open={open}
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
-      <summary>Review plan</summary>
+      <summary>
+        <span>Review plan</span>
+        {reviews.length > 0 && (
+          <span className="muted">
+            {" "}
+            · {reviews.length} {reviews.length === 1 ? "review" : "reviews"}
+          </span>
+        )}
+      </summary>
       {open &&
         (reviews.length ? (
           <ul className={styles.list} aria-label="Reachable review steps">
