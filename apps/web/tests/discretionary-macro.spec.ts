@@ -9,9 +9,10 @@ test("macro starter asks for judgment and records it in downstream model request
   request,
 }) => {
   test.setTimeout(90000);
+  const fixture = randomUUID().slice(0, 8);
   const captured = {
     id: randomUUID(),
-    title: "Synthetic rates observation",
+    title: `Synthetic rates observation ${fixture}`,
     kind: "text",
     rights: "owned",
     text: "Synthetic as-of observation <b>12.00</b> basis points.",
@@ -19,7 +20,7 @@ test("macro starter asks for judgment and records it in downstream model request
   };
   const reference = {
     id: randomUUID(),
-    title: "Synthetic event reference",
+    title: `Synthetic event reference ${fixture}`,
     kind: "link",
     source_url: "https://example.test/synthetic-event",
     availability: "reference_only",
@@ -138,15 +139,35 @@ test("macro starter asks for judgment and records it in downstream model request
     expect(packet.human_feedback).toBe(expected);
     expect(packet.prior_result.conclusion).toBeTruthy();
   }
-  await editorial.getByRole("button", { name: "Approve and continue" }).click();
-  await expect(page.getByRole("status", { name: "Run status", exact: true })).toHaveText(
-    "Completed",
-  );
-  await page.getByRole("button", { name: "Decisions", exact: true }).click();
-  await expect(needed).toHaveCount(0);
-  await expect(recorded.getByRole("listitem")).toHaveCount(3);
+  let completeHistory!: () => void;
+  const delayedHistory = new Promise<void>((resolve) => {
+    completeHistory = resolve;
+  });
+  const historyRoute = "**/api/runs?agent_id=*";
+  await page.route(historyRoute, async (route) => {
+    const response = await route.fetch();
+    await delayedHistory;
+    await route.fulfill({ response });
+  });
+  const refresh = page.waitForRequest((request) => request.url().includes("/api/runs?agent_id="));
+  const decisions = page.getByRole("button", { name: "Decisions", exact: true });
   const marketJudgment = recorded.getByRole("listitem").filter({ hasText: view });
-  await marketJudgment.getByText("Steps wired to this feedback (2)", { exact: true }).click();
+  try {
+    await editorial.getByRole("button", { name: "Approve and continue" }).click();
+    await refresh;
+    await expect(page.getByRole("status", { name: "Run status", exact: true })).toHaveText(
+      "Completed",
+    );
+    await decisions.click();
+    await expect(needed).toHaveCount(0);
+    await expect(recorded.getByRole("listitem")).toHaveCount(3);
+    await marketJudgment.getByText("Steps wired to this feedback (2)", { exact: true }).click();
+  } finally {
+    completeHistory();
+  }
+  await expect(page.getByRole("button", { name: "Refresh run", exact: true })).toBeEnabled();
+  await expect(decisions).toHaveAttribute("aria-pressed", "true");
+  await page.unroute(historyRoute);
   const savedRequest = marketJudgment.getByRole("link", {
     name: "Saved request for Build catalyst and risk scenarios",
   });

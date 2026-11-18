@@ -29,6 +29,7 @@ import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
+type RunView = "step" | "activity" | "decisions" | "files" | "context" | "comparison";
 
 function runLinkTarget(run: RunSnapshot) {
   if (typeof window === "undefined") return {};
@@ -95,9 +96,8 @@ function RunWorkspace({
   const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
-  const [view, setView] = useState<
-    "step" | "activity" | "decisions" | "files" | "context" | "comparison"
-  >(comparison && !reviewFocus ? "comparison" : "step");
+  const [view, setView] = useState<RunView>(comparison && !reviewFocus ? "comparison" : "step");
+  const navigation = useRef(0);
   const [showGraph, setShowGraph] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
@@ -147,10 +147,14 @@ function RunWorkspace({
   const { node, graph, parents, prefix } = graphLocation(run, path);
   const reviews = pendingReviews(run);
   const files = savedRunFiles(run);
+  const changeView = (next: RunView) => {
+    navigation.current += 1;
+    setView(next);
+  };
   const select = (value: string, id?: string) => {
     setManual(value);
     setAttemptId(id);
-    setView("step");
+    changeView("step");
   };
   const selectComparison = (id: string | undefined) => {
     setComparison(id);
@@ -167,7 +171,7 @@ function RunWorkspace({
   const follow = () => {
     setManual(null);
     setAttemptId(undefined);
-    setView("step");
+    changeView("step");
   };
   const toggleGraph = () => {
     setShowGraph(!showGraph);
@@ -352,35 +356,39 @@ function RunWorkspace({
         </div>
       </div>
       <div className="run-section-switch" role="group" aria-label="Run inspection view">
-        <button type="button" aria-pressed={view === "step"} onClick={() => setView("step")}>
+        <button type="button" aria-pressed={view === "step"} onClick={() => changeView("step")}>
           Step details
         </button>
         <button
           type="button"
           aria-pressed={view === "activity"}
-          onClick={() => setView("activity")}
+          onClick={() => changeView("activity")}
         >
           Model activity
         </button>
         <button
           type="button"
           aria-pressed={view === "decisions"}
-          onClick={() => setView("decisions")}
+          onClick={() => changeView("decisions")}
         >
           Decisions{reviews.length > 0 && ` (${reviews.length})`}
         </button>
         {files.length > 0 && (
-          <button type="button" aria-pressed={view === "files"} onClick={() => setView("files")}>
+          <button type="button" aria-pressed={view === "files"} onClick={() => changeView("files")}>
             Files ({files.length})
           </button>
         )}
-        <button type="button" aria-pressed={view === "context"} onClick={() => setView("context")}>
+        <button
+          type="button"
+          aria-pressed={view === "context"}
+          onClick={() => changeView("context")}
+        >
           Run context
         </button>
         <button
           type="button"
           aria-pressed={view === "comparison"}
-          onClick={() => setView("comparison")}
+          onClick={() => changeView("comparison")}
         >
           Compare runs
         </button>
@@ -474,8 +482,9 @@ function RunWorkspace({
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
             onIterateStep={() => onIterate(undefined, path)}
             onResume={async (...args) => {
+              const submittedFrom = navigation.current;
               await onResume(...args);
-              follow();
+              if (navigation.current === submittedFrom) follow();
             }}
             select={inspectFromPanel}
           />
