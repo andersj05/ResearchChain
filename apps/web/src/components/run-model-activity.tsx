@@ -13,14 +13,20 @@ const orderLabels = {
 };
 type Order = keyof typeof orderLabels;
 
-function savedOrder(key: string): Order {
+function readPreference(key: string) {
   try {
-    const value = localStorage.getItem(key);
-    if (value && Object.hasOwn(orderLabels, value)) return value as Order;
+    return localStorage.getItem(key);
   } catch {
-    // The default remains available when browser storage is disabled.
+    return null;
   }
-  return "newest";
+}
+
+function storePreference(key: string, value: string) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // The selected option still applies to the open view.
+  }
 }
 
 export function RunModelActivity({
@@ -31,17 +37,23 @@ export function RunModelActivity({
   inspect: (path: string, attemptId: string) => void;
 }) {
   const { owner } = useOwner();
-  const preference = `${ownerStoragePrefix(owner)}.model-activity-order`;
+  const orderKey = `${ownerStoragePrefix(owner)}.model-activity-order`;
+  const displayKey = `${ownerStoragePrefix(owner)}.model-activity-display`;
   const [query, setQuery] = useState("");
-  const [display, setDisplay] = useState<"table" | "timeline">("table");
-  const [order, setOrder] = useState(() => savedOrder(preference));
+  const [display, setDisplay] = useState<"table" | "timeline">(() =>
+    readPreference(displayKey) === "timeline" ? "timeline" : "table",
+  );
+  const [order, setOrder] = useState<Order>(() => {
+    const value = readPreference(orderKey);
+    return value && Object.hasOwn(orderLabels, value) ? (value as Order) : "newest";
+  });
   const changeOrder = (next: Order) => {
     setOrder(next);
-    try {
-      localStorage.setItem(preference, next);
-    } catch {
-      // The selected order still applies to the open view.
-    }
+    storePreference(orderKey, next);
+  };
+  const changeDisplay = (next: typeof display) => {
+    setDisplay(next);
+    storePreference(displayKey, next);
   };
   const attempts = run.model_attempts ?? [];
   const passes = new Map<string, number>();
@@ -100,7 +112,7 @@ export function RunModelActivity({
           <select
             value={display}
             onChange={(event) =>
-              setDisplay(event.target.value === "timeline" ? "timeline" : "table")
+              changeDisplay(event.target.value === "timeline" ? "timeline" : "table")
             }
           >
             <option value="table">Table</option>

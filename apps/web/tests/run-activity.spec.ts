@@ -114,6 +114,8 @@ test("sort model activity by measured work and remember the preference", async (
   const shortBar = (await entries.nth(1).locator(".model-timeline-mark").boundingBox())!;
   expect(shortBar.x).toBeGreaterThan(longBar.x);
   expect(shortBar.x + shortBar.width).toBeLessThan(longBar.x + longBar.width);
+  const firstButton = (await entries.nth(0).getByRole("button").boundingBox())!;
+  expect(firstButton.x + firstButton.width).toBeLessThan(longBar.x);
   await display.selectOption("table");
   await expect(order).toHaveValue("tokens");
   await page.getByRole("searchbox", { name: "Filter model activity" }).fill("partial");
@@ -137,5 +139,8 @@ test("sort model activity by measured work and remember the preference", async (
   await expect(expanded).toContainText("Pass 1");
   await expect(step).toContainText("slow-partial-model");
   await expect(page.getByRole("group", { name: "Latest workflow activity" })).toBeVisible();
+  await activity.click();
+  await expect(display).toHaveValue("timeline");
+  await expect(entries).toHaveCount(4);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

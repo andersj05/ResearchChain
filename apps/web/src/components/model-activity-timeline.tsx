@@ -52,7 +52,7 @@ export function ModelActivityTimeline({
                   type="button"
                   onClick={() => inspect(path, attempt.id)}
                 >
-                  {label} · Pass {pass}
+                  {label} · <span>Pass {pass}</span>
                 </button>
                 <span className="model-timeline-meta">
                   {status} · {attempt.model}

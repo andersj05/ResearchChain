@@ -406,7 +406,7 @@
 }
 .model-timeline-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  grid-template-columns: min(40%, 18rem) minmax(0, 1fr);
   gap: 12px;
   align-items: center;
   padding-block: 8px;
@@ -424,7 +424,20 @@
   gap: 4px;
 }
 .model-timeline .text-link {
+  max-width: 100%;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font-weight: 600;
   text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.model-timeline .text-link:hover {
+  text-decoration: underline;
+}
+.model-timeline .text-link span {
+  white-space: nowrap;
 }
 .model-timeline-meta {
   display: block;
