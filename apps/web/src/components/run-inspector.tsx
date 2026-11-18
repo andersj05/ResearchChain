@@ -2,7 +2,7 @@
 
 import "./run-workspace.css";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
@@ -23,6 +23,7 @@ import {
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { useOwner } from "@/components/access-context";
 import { ownerStoragePrefix } from "@/lib/access";
+import { pruneReviewDrafts, readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { Button } from "@ui-sdk/react/button";
 import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
@@ -89,6 +90,7 @@ function RunWorkspace({
 }: Actions & { run: RunSnapshot }) {
   const { owner } = useOwner();
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
+  const reviewDraftKey = `${ownerStoragePrefix(owner)}.review-drafts.${run.id}`;
   const [link] = useState(() => runLinkTarget(run));
   const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
@@ -104,7 +106,13 @@ function RunWorkspace({
     }
   });
   const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
-  const [feedback, setFeedback] = useState<Record<string, string>>({});
+  const [feedback, setFeedback] = useState(() => readReviewDrafts(reviewDraftKey));
+  const pendingFeedback = pruneReviewDrafts(run, feedback);
+  if (pendingFeedback !== feedback) setFeedback(pendingFeedback);
+  const reviewDrafts = JSON.stringify(pendingFeedback);
+  useEffect(() => {
+    storeReviewDrafts(reviewDraftKey, reviewDrafts);
+  }, [reviewDraftKey, reviewDrafts]);
   if (reviewFocus !== lastFocus) {
     setLastFocus(reviewFocus);
     if (reviewFocus) {
@@ -423,7 +431,7 @@ function RunWorkspace({
             attemptId={attemptId}
             states={states}
             busy={busy}
-            feedback={feedback}
+            feedback={pendingFeedback}
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
             onResume={async (...args) => {
               await onResume(...args);
