@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Compare the saved model passes you choose
+
+Run comparison lets you choose a saved conclusion, research lead, or
+workspace action independently on each side. A copied pass comparison link
+reopens the same saved pair and step. The phone browser test verified an
+earlier workspace pass, its exact model request, and an unavailable pass link.
+CI passed 517 backend tests with 2 skips and all 123 browser cases. Desktop at
+`bd5b558` served the comparison controls with a healthy API and connected
+worker. The owner-gated read-only checks also passed.
+[PR #102](https://github.com/andersj05/ResearchChain/pull/102).
+
 ## Search Recent runs by their saved brief
 
 Recent runs shows a brief excerpt and includes it in the filter. The full
