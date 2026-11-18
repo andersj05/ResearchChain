@@ -2808,7 +2808,7 @@
         "properties": {
           "max_passes": {
             "type": "integer",
-            "maximum": 20.0,
+            "maximum": 100.0,
             "minimum": 1.0,
             "title": "Max Passes",
             "default": 4
@@ -2819,6 +2819,11 @@
             "pattern": "^[^\\x00]*$",
             "title": "Skill",
             "default": ""
+          },
+          "workspace": {
+            "type": "boolean",
+            "title": "Workspace",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -8429,6 +8434,23 @@
               }
             ],
             "title": "Next Lead"
+          },
+          "workspace_activity": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceActivity"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "workspace_files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFile"
+            },
+            "type": "array",
+            "title": "Workspace Files"
           }
         },
         "additionalProperties": false,
@@ -9328,6 +9350,67 @@
         "type": "object",
         "required": ["id", "number", "content_hash", "created_at", "name", "workflow"],
         "title": "WorkflowRevision"
+      },
+      "WorkspaceActivity": {
+        "properties": {
+          "tool": {
+            "type": "string",
+            "const": "run_python",
+            "title": "Tool",
+            "default": "run_python"
+          },
+          "summary": {
+            "type": "string",
+            "title": "Summary"
+          },
+          "status": {
+            "type": "string",
+            "enum": ["requested", "completed", "failed"],
+            "title": "Status"
+          },
+          "output": {
+            "type": "string",
+            "title": "Output",
+            "default": ""
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceFile"
+            },
+            "type": "array",
+            "title": "Files"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["summary", "status"],
+        "title": "WorkspaceActivity"
+      },
+      "WorkspaceFile": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "artifact_id": {
+            "type": "string",
+            "pattern": "^sha256:[a-f0-9]{64}$",
+            "title": "Artifact Id"
+          },
+          "media_type": {
+            "type": "string",
+            "title": "Media Type"
+          },
+          "byte_size": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Byte Size"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["name", "artifact_id", "media_type", "byte_size"],
+        "title": "WorkspaceFile"
       }
     }
   }

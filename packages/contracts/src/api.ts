@@ -1081,6 +1081,11 @@ export interface components {
        * @default
        */
       skill: string;
+      /**
+       * Workspace
+       * @default false
+       */
+      workspace: boolean;
     };
     /** ArtifactInfo */
     ArtifactInfo: {
@@ -3648,6 +3653,9 @@ export interface components {
       sec_financials?: components["schemas"]["SecFinancials"] | null;
       /** Next Lead */
       next_lead?: string | null;
+      workspace_activity?: components["schemas"]["WorkspaceActivity"] | null;
+      /** Workspace Files */
+      workspace_files?: components["schemas"]["WorkspaceFile"][];
     };
     /** StyleExample */
     StyleExample: {
@@ -4019,6 +4027,40 @@ export interface components {
       /** Name */
       name: string;
       workflow: components["schemas"]["Workflow"];
+    };
+    /** WorkspaceActivity */
+    WorkspaceActivity: {
+      /**
+       * Tool
+       * @default run_python
+       * @constant
+       */
+      tool: "run_python";
+      /** Summary */
+      summary: string;
+      /**
+       * Status
+       * @enum {string}
+       */
+      status: "requested" | "completed" | "failed";
+      /**
+       * Output
+       * @default
+       */
+      output: string;
+      /** Files */
+      files?: components["schemas"]["WorkspaceFile"][];
+    };
+    /** WorkspaceFile */
+    WorkspaceFile: {
+      /** Name */
+      name: string;
+      /** Artifact Id */
+      artifact_id: string;
+      /** Media Type */
+      media_type: string;
+      /** Byte Size */
+      byte_size: number;
     };
   };
   responses: never;
