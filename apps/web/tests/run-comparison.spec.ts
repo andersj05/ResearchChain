@@ -131,7 +131,11 @@ test("compare two saved research runs without switching the open run", async ({ 
     truncated,
   });
   const sharedWeb: [string, string] = ["https://example.org/policy", "Synthetic policy release"];
-  const modelOutput = (path: string, conclusion: string, web_research?: ReturnType<typeof recordWeb>) => ({
+  const modelOutput = (
+    path: string,
+    conclusion: string,
+    web_research?: ReturnType<typeof recordWeb>,
+  ) => ({
     ...original,
     id: crypto.randomUUID(),
     path,
@@ -168,7 +172,10 @@ test("compare two saved research runs without switching the open run", async ({ 
     ...modelOutput(
       `${iterationPath(1)}/analyst-pass-2`,
       "**Open first iteration.**",
-      recordWeb([sharedWeb, ["https://example.org/twenty-sessions", "Synthetic twenty-session data"]]),
+      recordWeb([
+        sharedWeb,
+        ["https://example.org/twenty-sessions", "Synthetic twenty-session data"],
+      ]),
     ),
     ...requestFor("Use twenty sessions."),
   };
