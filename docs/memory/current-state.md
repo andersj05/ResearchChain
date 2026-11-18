@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Reuse nested workflows and inspect a draft
+
+**Duplicate loop** and **Duplicate subgraph** copy the selected step and the
+definitions it uses so the copy can be edited independently. **Draft changes**
+compares an edited workflow with its saved revision and identifies canvas-only
+changes. Six focused cases passed across the Build controls. CI passed 519
+backend tests with 2 skips and 127 browser cases, with one existing report-save
+case passing on retry. Desktop at `735258b` served the new controls with the API
+and worker ready. [PR #108](https://github.com/andersj05/ResearchChain/pull/108).
+
 ## See feedback wiring while authoring a review
 
 **Review handoff** in Build shows previous control steps and the inputs wired
