@@ -4,6 +4,18 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Search Recent runs by their saved brief
+
+Recent runs shows a brief excerpt and includes it in the filter. The full
+archive still searches the complete brief. The first CI run exposed a race
+where a submitted review’s history refresh reset the inspection panel. The
+macro test now delays that response and verifies that Decisions and its
+saved request links stay open. CI passed 517 backend tests with 2 skips and
+all 123 browser cases on the corrected commit. Desktop at `85a8043` served
+the new list with a healthy API and connected worker. The owner-gated recent
+run route and read-only brief query passed.
+[PR #101](https://github.com/andersj05/ResearchChain/pull/101).
+
 ## Recover workspace startup and preserve drafts
 
 A transient local API failure during workspace startup retries the affected
