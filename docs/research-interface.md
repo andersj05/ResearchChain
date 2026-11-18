@@ -42,6 +42,9 @@ Show which inputs can reach a step under the current control connections and
 where an expert’s feedback will go. Make both visible while the owner is still
 editing the plan. Treat a change in the research question, model, or evidence
 path as part of the experiment and expose it before the draft is saved.
+Compare the draft with an exact saved version. Keep the draft available while
+the researcher reads the difference and opens the affected step. Show step
+names and identifiers together when two paths could be mistaken for each other.
 
 ## Run inspection references
 

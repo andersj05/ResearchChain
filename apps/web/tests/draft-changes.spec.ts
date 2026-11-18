@@ -93,6 +93,7 @@ test("open changed and added draft steps at their exact root or pinned editor", 
   const outline = page.locator(".node-outline");
   const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
   const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+  const question = page.getByRole("textbox", { name: "Review question", exact: true });
   const remove = page.getByRole("button", { name: "Remove step", exact: true });
   const crumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
   await outline.getByRole("button", { name: "Support Note", exact: true }).click();
@@ -106,7 +107,7 @@ test("open changed and added draft steps at their exact root or pinned editor", 
   const editBody = page.getByRole("button", { name: "Edit subgraph", exact: true });
   await editBody.click();
   await expect(crumbs).toContainText("Critique and review v2");
-  await instructions.fill("What observation could reverse the provisional view?");
+  await question.fill("What observation could reverse the provisional view?");
   await outline.getByRole("button", { name: /Archived method note/ }).click();
   await remove.click();
   await crumbs.getByRole("button", { name: "Parallel evidence review", exact: true }).click();
@@ -160,7 +161,7 @@ test("open changed and added draft steps at their exact root or pinned editor", 
     "aria-current",
     "page",
   );
-  await expect(instructions).toHaveValue("What observation could reverse the provisional view?");
+  await expect(question).toHaveValue("What observation could reverse the provisional view?");
   await back.press("Enter");
   await expect(stepName).toHaveValue("Review_Loop");
   await page.getByRole("button", { name: "Undo last edit", exact: true }).click();
