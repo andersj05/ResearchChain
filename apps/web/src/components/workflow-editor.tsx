@@ -90,7 +90,9 @@ export function WorkflowEditor({
 }) {
   const { owner } = useOwner();
   const connectionViewKey = `${ownerStoragePrefix(owner)}.build-visible-connections`;
-  const [connectionView, setConnectionView] = useState<ConnectionView>();
+  const [connectionChoice, setConnectionChoice] = useState<{ key: string; view: ConnectionView }>();
+  const connectionView =
+    connectionChoice?.key === connectionViewKey ? connectionChoice.view : "all";
   useEffect(() => {
     // Restore after hydration and keep any choice made before this read.
     const frame = requestAnimationFrame(() => {
@@ -101,13 +103,15 @@ export function WorkflowEditor({
       } catch {
         // The connection picker also works without local storage.
       }
-      setConnectionView((choice) => choice ?? preference);
+      setConnectionChoice((choice) =>
+        choice?.key === connectionViewKey ? choice : { key: connectionViewKey, view: preference },
+      );
     });
     return () => cancelAnimationFrame(frame);
   }, [connectionViewKey]);
 
   function changeConnectionView(view: ConnectionView) {
-    setConnectionView(view);
+    setConnectionChoice({ key: connectionViewKey, view });
     try {
       localStorage.setItem(connectionViewKey, view);
     } catch {
@@ -529,7 +533,7 @@ export function WorkflowEditor({
               workflow={graph}
               definitions={workflow.subgraphs}
               selected={selectedId}
-              connectionView={connectionView ?? "all"}
+              connectionView={connectionView}
               onConnectionViewChange={changeConnectionView}
               onSelect={selectNode}
               onOpen={openSubgraph}
