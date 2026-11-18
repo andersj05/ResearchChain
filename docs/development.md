@@ -226,6 +226,8 @@ When editing a saved workflow, open **Draft changes** next to **Save revision**
 to compare the draft with its saved revision. The preview lists changes to
 instructions, inputs, routing, and workflow settings. It also identifies a
 matching draft or a change limited to canvas positions.
+Expand a changed or added step and choose **Open draft step** to open its
+current editor. **Return to step** takes you back to the step you were editing.
 
 Edit a step in the inspector; use its Next step field to connect or disconnect it.
 Drag nodes or focus one and use Alt+arrows. Pan the background or scroll; use

@@ -1,4 +1,4 @@
-import { graphAt, referenceOf, scopeKey } from "./workflow-editing";
+import { graphAt, referenceOf, scopeKey, type GraphScope } from "./workflow-editing";
 import type { Graph, Workflow, WorkflowNode } from "./workflow";
 
 export type SettingChange = { name: string; before?: string; after?: string };
@@ -10,7 +10,13 @@ type StepChange = {
   settings: SettingChange[];
 };
 
-type GraphChange = { key: string; label: string; settings: SettingChange[]; steps: StepChange[] };
+type GraphChange = {
+  key: string;
+  label: string;
+  settings: SettingChange[];
+  steps: StepChange[];
+  afterScope?: GraphScope;
+};
 
 function orderedValue(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(orderedValue);
@@ -105,8 +111,16 @@ function stepSettings(node: WorkflowNode | undefined, graph: Graph | undefined) 
 }
 
 export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphChange[] {
-  type Pair = { key: string; label: string; before?: Graph; after?: Graph };
-  const pending: Pair[] = [{ key: "root", label: "Main workflow", before, after }];
+  type Pair = {
+    key: string;
+    label: string;
+    before?: Graph;
+    after?: Graph;
+    afterScope?: GraphScope;
+  };
+  const pending: Pair[] = [
+    { key: "root", label: "Main workflow", before, after, afterScope: null },
+  ];
   const seen = new Set<string>();
   const result: GraphChange[] = [];
   for (const pair of pending) {
@@ -141,6 +155,7 @@ export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphC
         label: `${label} · ${pair.label}`,
         before: oldRef && graphAt(before, oldRef),
         after: newRef && graphAt(after, newRef),
+        afterScope: newRef,
       });
     }
     const settings = changedSettings(
@@ -148,7 +163,13 @@ export function compareWorkflowGraphs(before: Workflow, after: Workflow): GraphC
       { Definition: graphTitle(pair.after), "First step": pair.after?.start_node },
     );
     if (steps.length || settings.length)
-      result.push({ key: pair.key, label: pair.label, settings, steps });
+      result.push({
+        key: pair.key,
+        label: pair.label,
+        settings,
+        steps,
+        afterScope: pair.after ? pair.afterScope : undefined,
+      });
   }
   return result;
 }
