@@ -113,6 +113,29 @@ test("macro starter asks for judgment and records it in downstream model request
   await expect(page.getByRole("region", { name: "Selected step" })).toContainText(
     "1 of 10 research passes used",
   );
+  const stepDetails = page.getByRole("region", { name: "Selected step" });
+  await stepDetails.getByText("Data bindings", { exact: true }).click();
+  const boundInputs = stepDetails.getByRole("region", { name: "Connected inputs" });
+  const boundOutputs = stepDetails.getByRole("region", { name: "Connected outputs" });
+  await expect(
+    boundInputs.getByRole("button", { name: "Estimate what markets price · text", exact: true }),
+  ).toBeVisible();
+  await expect(
+    boundInputs.getByRole("button", {
+      name: "Choose the question and horizon · feedback",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await boundOutputs
+    .getByRole("button", { name: "Challenge the transmission story · context", exact: true })
+    .click();
+  await expect(
+    stepDetails.getByRole("heading", { name: "Challenge the transmission story", exact: true }),
+  ).toBeVisible();
+  await boundInputs
+    .getByRole("button", { name: "Run the discriminating test · text", exact: true })
+    .click();
+  await expect(stepDetails).toContainText("1 of 10 research passes used");
   const latest = page.getByLabel("Latest workflow activity", { exact: true });
   await expect(latest).toContainText("Weigh the thesis and the dissent");
   await expect(latest).toContainText("Waiting for review");

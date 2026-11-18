@@ -195,6 +195,8 @@ pinned. Inspect the source in a separate tab, check its as-of date when availabl
 or move or remove it while browsing the rest of the library.
 **Run context → Pinned evidence** shows the saved source dates and can use the
 research manifest when a source record takes longer to load or is unavailable.
+In a saved step, **Data bindings** shows the explicit input and output port
+connections. Select a connected step to open it in the same graph and iteration.
 In a model attempt, **Inspect saved inputs** reads the stored request to show the
 brief, reviewer feedback, prior conclusion, and delivery status of each source.
 **Saved request** in **Attempt details** opens the complete receipt.

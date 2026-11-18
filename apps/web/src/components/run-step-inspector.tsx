@@ -1,6 +1,7 @@
 import { Button } from "@ui-sdk/react/button";
 import { ArrowUpRight, Check, X } from "lucide-react";
 import type { RunSnapshot } from "@/lib/workflow";
+import { outputBindings } from "@/lib/workflow-editing";
 import {
   attemptPath,
   childGraphs,
@@ -85,6 +86,7 @@ export function RunStepInspector({
   const status = states.get(path) ?? "Not reached";
   const children = childGraphs(run, node, path, states);
   const inputs = Object.entries(node.inputs ?? {});
+  const outputs = outputBindings(graph).filter((binding) => binding.sourceId === node.id);
   const kind = nodePresentation(node).label;
   const previous = new Set(
     graph.edges.filter((edge) => edge.target === node.id).map((edge) => `${prefix}/${edge.source}`),
@@ -267,13 +269,64 @@ export function RunStepInspector({
           ))}
         </div>
       )}
-      {(node.instructions ||
-        inputs.length > 0 ||
-        node.config?.type === "code" ||
-        node.config?.type === "research") &&
+      {(inputs.length > 0 || outputs.length > 0) && (
+        <details className="step-configuration step-bindings">
+          <summary>Data bindings</summary>
+          {inputs.length > 0 && (
+            <section aria-labelledby="step-input-bindings">
+              <h4 id="step-input-bindings">Connected inputs</h4>
+              <dl>
+                {inputs.map(([name, value]) => (
+                  <div key={name}>
+                    <dt>{name}</dt>
+                    <dd>
+                      {value.source === "output" && value.node_id ? (
+                        <button
+                          className="text-link"
+                          type="button"
+                          onClick={() => select(`${prefix}/${value.node_id}`)}
+                        >
+                          {graph.nodes.find((item) => item.id === value.node_id)?.label ??
+                            value.node_id}
+                          {" · "}
+                          {value.port}
+                        </button>
+                      ) : (
+                        value.source.replaceAll("_", " ")
+                      )}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+          {outputs.length > 0 && (
+            <section aria-labelledby="step-output-bindings">
+              <h4 id="step-output-bindings">Connected outputs</h4>
+              <dl>
+                {outputs.map(({ target, input, output }) => (
+                  <div key={`${target.id}/${input}`}>
+                    <dt>{output}</dt>
+                    <dd>
+                      <button
+                        className="text-link"
+                        type="button"
+                        onClick={() => select(`${prefix}/${target.id}`)}
+                      >
+                        {target.label} · {input}
+                      </button>
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
+        </details>
+      )}
+      {(node.instructions || node.config?.type === "code" || node.config?.type === "research") &&
         !review && (
           <details className="step-configuration" open={!hasAttempt && !events.length}>
-            <summary>Step instructions and inputs</summary>
+            <summary>Step instructions and settings</summary>
             {node.instructions && <p className="step-record">{node.instructions}</p>}
             {node.config?.type === "research" && (
               <dl>
@@ -302,28 +355,6 @@ export function RunStepInspector({
               </dl>
             )}
             {node.config?.type === "code" && <pre>{node.config.source}</pre>}
-            {!!inputs.length && (
-              <dl>
-                {inputs.map(([name, value]) => (
-                  <div key={name}>
-                    <dt>{name}</dt>
-                    <dd>
-                      {value.source === "output" && value.node_id ? (
-                        <button
-                          className="text-link"
-                          onClick={() => select(`${prefix}/${value.node_id}`)}
-                        >
-                          {graph.nodes.find((n) => n.id === value.node_id)?.label ?? value.node_id}{" "}
-                          · {value.port}
-                        </button>
-                      ) : (
-                        value.source.replaceAll("_", " ")
-                      )}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
           </details>
         )}
     </section>

@@ -166,6 +166,16 @@ export function compatiblePorts(a?: Port, b?: Port): boolean {
   return !!a && !!b && a.node !== b.node && a.direction !== b.direction && a.type === b.type;
 }
 
+export function outputBindings(graph: Graph) {
+  return graph.nodes.flatMap((target) =>
+    Object.entries(target.inputs ?? {}).flatMap(([input, value]) =>
+      value.source === "output" && value.node_id && value.port
+        ? [{ target, input, sourceId: value.node_id, output: value.port }]
+        : [],
+    ),
+  );
+}
+
 export function connectionsFor(graph: Graph): Connection[] {
   return [
     ...graph.edges.map((edge) => ({
@@ -173,21 +183,13 @@ export function connectionsFor(graph: Graph): Connection[] {
       to: portKey(edge.target, "input", edge.target_port ?? "in"),
       type: "control" as const,
     })),
-    ...graph.nodes.flatMap((node) =>
-      Object.entries(node.inputs ?? {}).flatMap(([name, value]) =>
-        value.source === "output" && value.node_id && value.port
-          ? [
-              {
-                from: portKey(value.node_id, "output", value.port),
-                to: portKey(node.id, "input", name),
-                type:
-                  portsFor(node).find((port) => port.direction === "input" && port.name === name)
-                    ?.type ?? "text",
-              },
-            ]
-          : [],
-      ),
-    ),
+    ...outputBindings(graph).map(({ target, input, sourceId, output }) => ({
+      from: portKey(sourceId, "output", output),
+      to: portKey(target.id, "input", input),
+      type:
+        portsFor(target).find((port) => port.direction === "input" && port.name === input)?.type ??
+        "text",
+    })),
   ];
 }
 

@@ -958,6 +958,24 @@
 .step-configuration dd {
   margin: 0;
 }
+.step-bindings h4 {
+  margin-block: 10px 4px;
+}
+.step-bindings dl {
+  margin: 0;
+}
+.step-bindings dl > div {
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  padding-block: 3px;
+}
+.step-bindings dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.step-bindings .text-link {
+  text-align: start;
+}
 .step-configuration pre,
 .run-context-panel pre {
   max-height: 300px;
