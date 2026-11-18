@@ -1,4 +1,4 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { nodePresentation } from "@/components/node-kind";
 import {
@@ -51,24 +51,31 @@ export function WorkflowStepSearch({
   scope,
   selected,
   onSelect,
+  palette,
   children,
 }: {
   workflow: Workflow;
   scope: GraphScope;
   selected: string;
   onSelect: (id: string, path: GraphCrumb[]) => void;
+  palette: ReactNode;
   children: ReactNode;
 }) {
   const searchId = useId();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<StepFilter>("all");
   const [visibleLimit, setVisibleLimit] = useState(pageSize);
+  const resultList = useRef<HTMLOListElement>(null);
   const query = search.trim().toLowerCase();
   const searching = !!query || filter !== "all";
   const results = searching ? findSteps(workflow, query, filter) : [];
+  function resetMatchingPage() {
+    setVisibleLimit(pageSize);
+    if (resultList.current) resultList.current.scrollTop = 0;
+  }
   function changeSearch(value: string) {
     setSearch(value);
-    setVisibleLimit(pageSize);
+    resetMatchingPage();
   }
   return (
     <>
@@ -80,7 +87,7 @@ export function WorkflowStepSearch({
             value={filter}
             onChange={(event) => {
               setFilter(event.target.value as StepFilter);
-              setVisibleLimit(pageSize);
+              resetMatchingPage();
             }}
           >
             <option value="all">All steps</option>
@@ -106,7 +113,7 @@ export function WorkflowStepSearch({
           }}
         />
       </div>
-      {searching ? (
+      {searching && (
         <>
           <p className="field-hint" role="status">
             {!results.length
@@ -115,7 +122,11 @@ export function WorkflowStepSearch({
                 ? `${visibleLimit} of ${results.length} matches`
                 : `${results.length} ${results.length === 1 ? "match" : "matches"}`}
           </p>
-          <ol className="node-outline" aria-label="Matching steps">
+          <ol
+            ref={resultList}
+            className="node-outline step-search-results"
+            aria-label="Matching steps"
+          >
             {results.slice(0, visibleLimit).map(({ node, path, location }) => {
               const resultScope = scopeKey(path.at(-1)?.ref ?? null);
               const kind = nodePresentation(node).shortLabel;
@@ -146,9 +157,9 @@ export function WorkflowStepSearch({
             </button>
           )}
         </>
-      ) : (
-        children
       )}
+      {palette}
+      {!searching && children}
     </>
   );
 }
