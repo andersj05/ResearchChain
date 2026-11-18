@@ -21,7 +21,7 @@ import {
   addTemplate,
   connectPorts,
   controlOutputs,
-  duplicateResearchStep,
+  duplicateStep,
   graphAt,
   insertionPoint,
   prepareNestedStepCopy,
@@ -761,19 +761,23 @@ export function WorkflowEditor({
                   <summary>Step identifier</summary>
                   <code>{node.id}</code>
                 </details>
-                {node.kind === "research" && (
+                {(node.kind === "research" || node.kind === "review") && (
                   <Button
                     className="button"
-                    disabled={disabled || graph.nodes.length >= 128}
+                    disabled={disabled || graph.nodes.length >= 128 || graph.edges.length >= 256}
                     onClick={() => {
-                      const duplicate = duplicateResearchStep(graph, node);
-                      changeGraph(duplicate.graph);
+                      const duplicate = duplicateStep(graph, node);
+                      changeGraph(
+                        duplicate.graph,
+                        undefined,
+                        duplicate.graph.nodes.length > 32 || duplicate.graph.edges.length > 31,
+                      );
                       stepToFocus.current = duplicate.id;
                       selectNode(duplicate.id);
                     }}
                   >
                     <Copy size={14} aria-hidden="true" />
-                    Duplicate research step
+                    {node.kind === "review" ? "Duplicate review" : "Duplicate research step"}
                   </Button>
                 )}
                 {nestedCopy && (
