@@ -44,7 +44,7 @@ export function StepBranchPaths({
                           type="button"
                           onClick={() => onOpenStep(target.id)}
                         >
-                          {position === 0 && "First: "}
+                          {position === 0 && "First step · "}
                           {target.label}
                         </button>
                       </li>
@@ -60,7 +60,7 @@ export function StepBranchPaths({
       <div>
         {join && (
           <button className="button small" type="button" onClick={() => onOpenStep(join.id)}>
-            Paired join: {join.label}
+            Paired join · {join.label}
           </button>
         )}
         {joinIssue && <p className="field-hint">{joinIssue}</p>}

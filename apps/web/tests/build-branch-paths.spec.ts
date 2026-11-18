@@ -34,26 +34,28 @@ test("inspect nested Branch paths, navigate by keyboard, and see wiring changes"
   await paths.getByText("Branch paths", { exact: true }).press("Enter");
   await expect(paths.getByText("All branches run. The join waits for all of them.")).toBeVisible();
   await expect(support.getByRole("button")).toHaveText([
-    "First: New condition",
+    "First step · New condition",
     "If true",
     "If false",
     "Join branches",
     "Support",
     "New subgraph",
   ]);
-  await expect(branch("challenge").getByRole("button")).toHaveText(["First: Challenge"]);
+  await expect(branch("challenge").getByRole("button")).toHaveText(["First step · Challenge"]);
 
-  await paths.getByRole("button", { name: "Paired join: Join", exact: true }).press("Enter");
+  await paths.getByRole("button", { name: "Paired join · Join", exact: true }).press("Enter");
   await expect(stepName).toHaveValue("Join");
   await expect(stepName).toBeFocused();
   await returnToFork.press("Enter");
   await expect(stepName).toHaveValue("Split");
-  await support.getByRole("button", { name: "First: New condition", exact: true }).press("Enter");
+  await support
+    .getByRole("button", { name: "First step · New condition", exact: true })
+    .press("Enter");
   await expect(stepName).toHaveValue("New condition");
   await expect(stepName).toBeFocused();
   await expect(paths.getByText("Only the path matching the condition runs.")).toBeVisible();
-  await expect(branch("If true").getByRole("button")).toHaveText(["First: If true"]);
-  await expect(branch("If false").getByRole("button")).toHaveText(["First: If false"]);
+  await expect(branch("If true").getByRole("button")).toHaveText(["First step · If true"]);
+  await expect(branch("If false").getByRole("button")).toHaveText(["First step · If false"]);
   await expect(undo).toBeDisabled();
   await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
 
@@ -62,14 +64,14 @@ test("inspect nested Branch paths, navigate by keyboard, and see wiring changes"
   await expect(branch("If true")).toHaveCount(0);
   await returnToFork.press("Enter");
   await expect(paths.getByText("This path does not resolve to the paired join.")).toBeVisible();
-  await expect(support.getByRole("button")).toHaveText(["First: New condition", "If false"]);
+  await expect(support.getByRole("button")).toHaveText(["First step · New condition", "If false"]);
   await undo.click();
   await expect(support.getByRole("button", { name: "If true", exact: true })).toBeVisible();
   await expect(paths.getByText("This path does not resolve to the paired join.")).toHaveCount(0);
 
   await page.getByRole("textbox", { name: "Branch 1 name", exact: true }).fill("base-case");
   await expect(
-    branch("base-case").getByRole("button", { name: "First: New condition" }),
+    branch("base-case").getByRole("button", { name: "First step · New condition" }),
   ).toBeVisible();
   await expect(support).toHaveCount(0);
 });
