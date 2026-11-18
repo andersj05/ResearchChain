@@ -44,6 +44,32 @@ function findSteps(workflow: Workflow, query: string, filter: StepFilter) {
   return results.sort((left, right) => left.relevance - right.relevance);
 }
 
+function describeMatches(
+  results: ReturnType<typeof findSteps>,
+  filter: StepFilter,
+  scope: GraphScope,
+) {
+  const byPresentation = new Map<string, Map<string, number>>();
+  return results.map(({ node, path, location }) => {
+    const ref = path.at(-1)?.ref;
+    const resultScope = scopeKey(ref ?? null);
+    const shortKind = nodePresentation(node).shortLabel;
+    const kind =
+      filter === "all" && shortKind.toLowerCase() !== node.label.trim().toLowerCase()
+        ? shortKind
+        : "";
+    const shownLocation = ref || scope !== null ? location : "";
+    // Match what the row actually displays, including when the filter hides its kind.
+    const key = JSON.stringify(
+      [node.label, kind, shownLocation].map((text) => text.replace(/\s+/g, " ").trim()),
+    );
+    const matchesByScope = byPresentation.get(key) ?? new Map<string, number>();
+    matchesByScope.set(resultScope, (matchesByScope.get(resultScope) ?? 0) + 1);
+    byPresentation.set(key, matchesByScope);
+    return { node, path, ref, resultScope, kind, location: shownLocation, matchesByScope };
+  });
+}
+
 const pageSize = 30;
 
 export function WorkflowStepSearch({
@@ -69,6 +95,7 @@ export function WorkflowStepSearch({
   const query = search.trim().toLowerCase();
   const searching = !!query || filter !== "all";
   const results = searching ? findSteps(workflow, query, filter) : [];
+  const matches = describeMatches(results, filter, scope);
   function resetMatchingPage() {
     setVisibleLimit(pageSize);
     if (resultList.current) resultList.current.scrollTop = 0;
@@ -127,12 +154,10 @@ export function WorkflowStepSearch({
             className="node-outline step-search-results"
             aria-label="Matching steps"
           >
-            {results.slice(0, visibleLimit).map(({ node, path, location }) => {
-              const resultScope = scopeKey(path.at(-1)?.ref ?? null);
-              const kind = nodePresentation(node).shortLabel;
-              const showKind =
-                filter === "all" && kind.toLowerCase() !== node.label.trim().toLowerCase();
-              const showLocation = path.length > 0 || scope !== null;
+            {matches.slice(0, visibleLimit).map((match) => {
+              const { node, path, ref, resultScope, kind, location, matchesByScope } = match;
+              const showStepId = (matchesByScope.get(resultScope) ?? 0) > 1;
+              const showDefinitionId = matchesByScope.size > 1;
               return (
                 <li key={`${resultScope}/${node.id}`}>
                   <Button
@@ -141,12 +166,26 @@ export function WorkflowStepSearch({
                     onClick={() => onSelect(node.id, path)}
                   >
                     <span className="outline-label">{node.label}</span>
-                    {(showKind || showLocation) && (
+                    {(kind || location || showStepId || showDefinitionId) && (
                       <small>
-                        {showKind && (
-                          <span className={`outline-kind kind-${node.kind}`}>{kind}</span>
+                        {kind && <span className={`outline-kind kind-${node.kind}`}>{kind}</span>}
+                        {location && <span>{location}</span>}
+                        {showDefinitionId && (
+                          <span>
+                            {ref ? (
+                              <>
+                                Definition <code>{ref.id}</code>
+                              </>
+                            ) : (
+                              "Root workflow"
+                            )}
+                          </span>
                         )}
-                        {showLocation && <span>{location}</span>}
+                        {showStepId && (
+                          <span>
+                            Step ID <code>{node.id}</code>
+                          </span>
+                        )}
                       </small>
                     )}
                   </Button>
