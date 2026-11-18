@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Inspect models and resolve validation issues in Build
+
+**Model and tool plan** shows the effective model and enabled tools on each
+reachable research step, with links to the relevant editor. Validation links
+open the affected step when the current draft still matches the server check.
+Eight focused browser cases passed together. CI passed 522 backend tests with
+2 skips and all 133 browser cases. Desktop at `df6f410` served both controls.
+Its owner-gated validation route and synthetic step diagnostic also passed.
+[PR #110](https://github.com/andersj05/ResearchChain/pull/110).
+
 ## See availability while wiring inputs
 
 Build groups outputs by availability under the current control wiring. A
