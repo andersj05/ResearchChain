@@ -11,10 +11,12 @@ export function StepResearchResults({
   run,
   path,
   label,
+  attemptId,
 }: {
   run: RunSnapshot;
   path: string;
   label: string;
+  attemptId?: string;
 }) {
   const attempts = run.model_attempts ?? [];
   const matches = attempts.filter((attempt) => attemptPath(attempt) === path);
@@ -35,7 +37,8 @@ export function StepResearchResults({
           <ResearchAttempt
             key={attempt.id}
             attempt={attempt}
-            latest={attempt === matches.at(-1)}
+            expandedByDefault={attemptId ? attempt.id === attemptId : attempt === matches.at(-1)}
+            group={`model-output-${path}`}
             label={matches.length > 1 ? `${label} · Pass ${number}` : label}
             sources={new Set(sources)}
           />

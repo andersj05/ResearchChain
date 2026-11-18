@@ -47,16 +47,18 @@ function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) 
 
 export function ResearchAttempt({
   attempt,
-  latest,
+  expandedByDefault,
+  group,
   label,
   sources,
 }: {
   attempt: Attempt;
-  latest: boolean;
+  expandedByDefault: boolean;
+  group: string;
   label: string;
   sources: Set<string>;
 }) {
-  const [expanded, setExpanded] = useState(latest);
+  const [expanded, setExpanded] = useState(expandedByDefault);
   const result = expanded ? attempt.result : null;
   const prose = (text: string) => <ResearchMarkdown text={text} sources={sources} />;
   const list = (items: string[]) => (
@@ -68,9 +70,9 @@ export function ResearchAttempt({
   );
   return (
     <details
-      name="model-step-output"
+      name={group}
       className="research-attempt"
-      open={latest}
+      open={expandedByDefault}
       onToggle={(event) => setExpanded(event.currentTarget.open)}
     >
       <summary>

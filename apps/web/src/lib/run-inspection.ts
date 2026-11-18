@@ -87,6 +87,16 @@ const attemptLabels: Record<Attempt["status"], StepStatus> = {
   limited: "Limit reached",
 };
 
+export function modelAttemptStatus(attempt: Attempt): StepStatus {
+  if (
+    attempt.status === "requesting" &&
+    attempt.result?.workspace_activity?.status === "requested"
+  ) {
+    return "Python requested";
+  }
+  return attemptLabels[attempt.status];
+}
+
 export function stepStates(run: RunSnapshot) {
   const states = new Map<string, StepStatus>();
   for (const event of run.events) {
@@ -107,13 +117,8 @@ export function stepStates(run: RunSnapshot) {
     const path = attemptPath(attempt);
     // An analyst may have another pass after it saves a valid result. The
     // graph step only completes once the executor records its final output.
-    let status = attemptLabels[attempt.status];
+    let status = modelAttemptStatus(attempt);
     if (attempt.status === "completed" && !recorded.has(path)) status = "Output saved";
-    if (
-      attempt.status === "requesting" &&
-      attempt.result?.workspace_activity?.status === "requested"
-    )
-      status = "Python requested";
     states.set(path, status);
   }
   for (const step of run.checkpoint_steps ?? []) {

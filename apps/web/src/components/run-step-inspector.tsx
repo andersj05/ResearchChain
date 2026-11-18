@@ -54,6 +54,7 @@ function StepEvent({ event }: { event: Event }) {
 export function RunStepInspector({
   run,
   path,
+  attemptId,
   states,
   busy,
   feedback,
@@ -63,6 +64,7 @@ export function RunStepInspector({
 }: {
   run: RunSnapshot;
   path: string;
+  attemptId?: string;
   states: Map<string, StepStatus>;
   busy: boolean;
   feedback: Record<string, string>;
@@ -178,7 +180,15 @@ export function RunStepInspector({
           )}
         </div>
       )}
-      {hasAttempt && <StepResearchResults run={run} path={path} label={node.label} />}
+      {hasAttempt && (
+        <StepResearchResults
+          key={`${path}:${attemptId ?? "latest"}`}
+          run={run}
+          path={path}
+          label={node.label}
+          attemptId={attemptId}
+        />
+      )}
       {events
         .filter((event) => !hasAttempt || event.kind !== "research")
         .map((event, i) => (
