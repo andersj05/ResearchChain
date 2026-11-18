@@ -25,6 +25,9 @@ agent and supply usability feedback. Preserve that as the next step.
 - Start from ideas, charts, reports, and discussions on X. Research is iterative:
   connect evidence, test hypotheses, seek disconfirming views, and revisit premises.
 - Aim for detailed reports in the owner's voice, with substantial human feedback.
+- The owner adopted the two EquityCats essays as product design input on 2026-11-17.
+  Apply the [research interface principles](../research-interface.md) when designing
+  run inspection, workflow customization, and review checkpoints.
 - The UI must ultimately edit nodes, edges, subgraphs, prompts, tools, routing,
   checkpoints, and evaluation settings. The custom UI is a firm decision.
 - Use UI SDK (`ui-sdk.dev`); Next.js is the selected frontend foundation.
