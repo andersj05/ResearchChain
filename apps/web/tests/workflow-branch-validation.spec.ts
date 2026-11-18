@@ -89,3 +89,53 @@ test("branch validation focuses a split's conflicting join setting", async ({ pa
     "Workflow valid. Ready to run.",
   );
 });
+
+test("validation opens the stop condition on the loop that owns it", async ({ page, request }) => {
+  const outer = addTemplate(example as Workflow, null, "subgraph", example.start_node);
+  const owner = outer.workflow.nodes.find((node) => node.id === outer.selected)!;
+  const parent = referenceOf(owner)!;
+  const loop = addTemplate(outer.workflow, parent, "loop", "step");
+  const ownerGraph = loop.workflow.subgraphs![0]!;
+  const repeat = ownerGraph.nodes.find((node) => node.id === loop.selected)!;
+  repeat.label = "Repeat the rates check";
+  const loopBody = loop.workflow.subgraphs![1]!;
+  const route = addTemplate(loop.workflow, referenceOf(repeat)!, "route", loopBody.start_node);
+  const branchOnlyOutput = route.workflow.subgraphs![1]!.edges.find(
+    (edge) => edge.source === route.selected && edge.source_port === "true",
+  )!.target;
+  await openBuild(page, request, route.workflow);
+
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  const search = page.getByRole("searchbox", { name: "Find a step" });
+  await search.fill(repeat.label);
+  await search.press("Enter");
+  await page.getByRole("combobox", { name: "Stop rule", exact: true }).selectOption("condition");
+  const source = page.getByRole("combobox", { name: "Stop condition value source" });
+  await source.selectOption(`${branchOnlyOutput}:text`);
+  await page
+    .getByRole("navigation", { name: "Graph breadcrumbs" })
+    .getByRole("button", { name: route.workflow.name, exact: true })
+    .click();
+  await expect(stepName).toHaveValue(owner.label);
+
+  const validate = page.getByRole("button", { name: "Validate workflow", exact: true });
+  await validate.click();
+  const problem = page.locator(".workspace-error");
+  await expect(problem).toContainText("not available on every incoming path");
+  await problem
+    .getByRole("button", { name: `Open stop condition on ${repeat.label}`, exact: true })
+    .press("Enter");
+  await expect(stepName).toHaveValue(repeat.label);
+  await expect(page.getByRole("group", { name: "Stop condition", exact: true })).toBeFocused();
+  await expect(source).toHaveValue(`${branchOnlyOutput}:text`);
+
+  await source.selectOption("iteration");
+  await validate.click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+  await page
+    .getByRole("button", { name: `Return to step ${owner.label}`, exact: true })
+    .press("Enter");
+  await expect(stepName).toHaveValue(owner.label);
+});

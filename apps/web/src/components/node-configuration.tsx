@@ -745,6 +745,7 @@ export function NodeConfiguration({
                 body.nodes.find((step) => step.kind === "finish")?.id,
               )}
               label="Stop condition"
+              name="until"
               onChange={(until, field) =>
                 onEdit({ config: { ...config, until } }, `until/${field}`)
               }
