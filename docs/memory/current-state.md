@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Keep your place while inspecting Build connections
+
+**Return to step** restores the previous editor location after following a Build
+link. **Visible connections** can show control flow or data bindings on their
+own. **Reset view** restores all connections and default zoom. The browser
+cases verified nested return, live wiring, and unchanged JSON exports when
+changing views. CI passed 522 backend tests with 2 skips and all 135 browser
+cases. Desktop at `81f0420` served the controls with the API and worker ready.
+[PR #111](https://github.com/andersj05/ResearchChain/pull/111).
+
 ## Inspect models and resolve validation issues in Build
 
 **Model and tool plan** shows the effective model and enabled tools on each
