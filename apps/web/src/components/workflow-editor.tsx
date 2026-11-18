@@ -356,16 +356,16 @@ export function WorkflowEditor({
                 </Button>
               ))}
             </div>
-            <div className="outline-heading">
-              <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
-              <span className="muted">{graph.edges.length} control connections</span>
-            </div>
             <WorkflowStepSearch
               workflow={workflow}
               scope={scope}
               selected={selectedId}
               onSelect={openStep}
             >
+              <div className="outline-heading">
+                <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
+                <span className="muted">{graph.edges.length} control connections</span>
+              </div>
               <ol className="node-outline">
                 {graph.nodes.map((item) => (
                   <li key={item.id}>

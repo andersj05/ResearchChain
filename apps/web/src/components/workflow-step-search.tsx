@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { nodePresentation } from "@/components/node-kind";
 import {
@@ -9,18 +9,22 @@ import {
 } from "@/lib/workflow-editing";
 import type { Workflow, WorkflowNode } from "@/lib/workflow";
 
-function findSteps(workflow: Workflow, query: string) {
+type StepFilter = "all" | "review" | "research";
+
+function findSteps(workflow: Workflow, query: string, filter: StepFilter) {
   const results: { node: WorkflowNode; path: GraphCrumb[]; location: string; relevance: number }[] =
     [];
   for (const { graph, path } of reachableWorkflowGraphs(workflow)) {
     const version = path.at(-1)?.ref.version;
     const location = version ? `${graph.name} · v${version}` : graph.name;
     for (const node of graph.nodes) {
+      if (filter !== "all" && node.kind !== filter) continue;
       const model =
         node.config?.type === "research"
           ? (node.config.model ?? workflow.research?.model)
           : undefined;
       if (
+        !query ||
         [
           node.label,
           node.id,
@@ -31,7 +35,8 @@ function findSteps(workflow: Workflow, query: string) {
         ].some((value) => value?.toLowerCase().includes(query))
       ) {
         const label = node.label.toLowerCase();
-        const relevance = label === query || node.id === query ? 0 : label.includes(query) ? 1 : 2;
+        const relevance =
+          !query || label === query || node.id === query ? 0 : label.includes(query) ? 1 : 2;
         results.push({ node, path, location, relevance });
       }
     }
@@ -54,19 +59,37 @@ export function WorkflowStepSearch({
   onSelect: (id: string, path: GraphCrumb[]) => void;
   children: ReactNode;
 }) {
+  const searchId = useId();
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<StepFilter>("all");
   const [visibleLimit, setVisibleLimit] = useState(pageSize);
   const query = search.trim().toLowerCase();
-  const results = query ? findSteps(workflow, query) : [];
+  const searching = !!query || filter !== "all";
+  const results = searching ? findSteps(workflow, query, filter) : [];
   function changeSearch(value: string) {
     setSearch(value);
     setVisibleLimit(pageSize);
   }
   return (
     <>
-      <label className="step-search">
-        Find a step
+      <div className="step-search">
+        <div className="step-search-heading">
+          <label htmlFor={searchId}>Find a step</label>
+          <select
+            aria-label="Filter steps by type"
+            value={filter}
+            onChange={(event) => {
+              setFilter(event.target.value as StepFilter);
+              setVisibleLimit(pageSize);
+            }}
+          >
+            <option value="all">All steps</option>
+            <option value="review">Reviews</option>
+            <option value="research">Model steps</option>
+          </select>
+        </div>
         <input
+          id={searchId}
           type="search"
           value={search}
           placeholder="Name, instructions, or model"
@@ -82,12 +105,12 @@ export function WorkflowStepSearch({
             }
           }}
         />
-      </label>
-      {query ? (
+      </div>
+      {searching ? (
         <>
           <p className="field-hint" role="status">
             {!results.length
-              ? "No steps match this search."
+              ? "No matching steps."
               : results.length > visibleLimit
                 ? `${visibleLimit} of ${results.length} matches`
                 : `${results.length} ${results.length === 1 ? "match" : "matches"}`}

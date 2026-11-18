@@ -359,7 +359,7 @@ h3 {
   margin-top: 8px;
 }
 .outline-heading {
-  margin: 28px 0 10px;
+  margin: 12px 0 10px;
 }
 .outline-heading .muted {
   font-size: 12px;
@@ -401,11 +401,29 @@ h3 {
 .step-search {
   display: grid;
   gap: 4px;
-  margin-bottom: 8px;
+  margin: 20px 0 8px;
   font-size: 12px;
+}
+.step-search-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px;
+}
+.step-search-heading > label {
+  margin: 0;
+  font-size: inherit;
+}
+.step-search-heading > select {
+  margin: 0;
+  width: auto;
+  max-width: 100%;
+  padding: 2px 4px;
 }
 .step-search input {
   min-width: 0;
+  margin-top: 0;
 }
 .step-search-result {
   display: grid;

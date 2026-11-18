@@ -149,8 +149,10 @@ The full-height desktop workbench uses a step library and outline on the left,
 a canvas in the center, and a selected-step inspector on the right. Collapse
 either panel from the canvas header. The outline selects and reveals offscreen
 nodes. **Find a step** searches names, instructions, and assigned models in the
-draft and its referenced subgraphs. Select a match to focus its step editor.
-Enter opens the first match and Escape clears the search.
+draft and its referenced subgraphs. Choose **Reviews** or **Model steps** to
+list that type across the same graphs, with or without search text. **All steps**
+with an empty search restores the current graph's outline. Select a match to
+focus its step editor. Enter opens the first match and Escape clears the text.
 Zoom controls and Fit view change only the viewport. In **Visible connections**,
 choose all connections, control flow, or data bindings to inspect the canvas.
 Ports stay available for editing in every view. **Reset view** restores 100%
