@@ -16,6 +16,7 @@ import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowReviewPlan } from "@/components/workflow-review-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
+import { WorkflowStepText } from "@/components/workflow-step-text";
 import { DefinitionReferences } from "@/components/definition-references";
 import {
   addTemplate,
@@ -633,18 +634,16 @@ export function WorkflowEditor({
                   </select>
                 </label>
                 {node.kind !== "code" && (
-                  <label>
-                    {node.kind === "review" ? "Review question" : "Instructions"}
-                    <textarea
-                      rows={4}
-                      maxLength={6000}
-                      placeholder={node.kind === "review" ? defaultReviewQuestion : undefined}
-                      value={node.instructions}
-                      onChange={(event) =>
-                        editNode({ instructions: event.target.value }, "instructions")
-                      }
-                    />
-                  </label>
+                  <WorkflowStepText
+                    key={`${scopeKey(scope)}/${node.id}/${node.kind}`}
+                    name={node.label || node.id}
+                    label={node.kind === "review" ? "Review question" : "Instructions"}
+                    value={node.instructions}
+                    placeholder={node.kind === "review" ? defaultReviewQuestion : undefined}
+                    disabled={disabled}
+                    onChange={(value) => editNode({ instructions: value }, "instructions")}
+                    onApply={(value) => editNode({ instructions: value })}
+                  />
                 )}
                 {node.kind === "review" ? (
                   <ReviewHandoff
