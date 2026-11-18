@@ -3,6 +3,7 @@
 import { Button } from "@ui-sdk/react/button";
 import { researchDefaults } from "@/lib/workflow";
 import type { Graph, Predicate, ValueSource, Workflow, WorkflowNode } from "@/lib/workflow";
+import { availableOutputSteps } from "@/lib/workflow-input-sources";
 import {
   addBranch,
   bindInput,
@@ -54,16 +55,51 @@ function sourceKey(source?: ValueSource) {
   return source?.source === "output" ? `${source.node_id}:${source.port}` : (source?.source ?? "");
 }
 
+function SourceOptions({
+  options,
+  available,
+}: {
+  options: SourceChoice[];
+  available?: ReadonlySet<string>;
+}) {
+  const option = ({ value, label }: SourceChoice) => (
+    <option key={value} value={value}>
+      {label}
+    </option>
+  );
+  if (!available) return options.map(option);
+
+  const builtIn: SourceChoice[] = [];
+  const ready: SourceChoice[] = [];
+  const other: SourceChoice[] = [];
+  for (const choice of options) {
+    if (choice.source.source !== "output") builtIn.push(choice);
+    else if (available.has(choice.source.node_id ?? "")) ready.push(choice);
+    else other.push(choice);
+  }
+  return (
+    <>
+      {builtIn.map(option)}
+      {ready.length > 0 && <optgroup label="Outputs available here">{ready.map(option)}</optgroup>}
+      {other.length > 0 && (
+        <optgroup label="Outputs that need different wiring">{other.map(option)}</optgroup>
+      )}
+    </>
+  );
+}
+
 export function PredicateFields({
   graph,
   predicate,
   exclude,
+  available,
   label,
   onChange,
 }: {
   graph: Graph;
   predicate: Predicate;
   exclude?: string;
+  available?: ReadonlySet<string>;
   label: string;
   onChange: (predicate: Predicate, field: string) => void;
 }) {
@@ -110,11 +146,7 @@ export function PredicateFields({
               Missing source ({sourceKey(predicate.left)})
             </option>
           )}
-          {options.map((item) => (
-            <option key={item.value} value={item.value}>
-              {item.label}
-            </option>
-          ))}
+          <SourceOptions options={options} available={available} />
         </select>
       </label>
       <label>
@@ -184,6 +216,7 @@ export function NodeConfiguration({
   const body = ref ? graphAt(workflow, ref) : undefined;
   const definitions = workflow.subgraphs ?? [];
   const textOptions = sources(graph, node.id).filter((source) => source.type === "text");
+  const available = availableOutputSteps(graph, node.id);
   return (
     <>
       {config?.type === "code" && (
@@ -231,11 +264,7 @@ export function NodeConfiguration({
                     !choices.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
                       <option value={sourceKey(node.inputs[port])}>Missing source</option>
                     )}
-                  {choices.map((item) => (
-                    <option key={item.value} value={item.value}>
-                      {item.label}
-                    </option>
-                  ))}
+                  <SourceOptions options={choices} available={available} />
                 </select>
               </label>
             );
@@ -470,11 +499,7 @@ export function NodeConfiguration({
                   !textOptions.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
                     <option value={sourceKey(node.inputs[port])}>Missing source</option>
                   )}
-                {textOptions.map((item) => (
-                  <option key={item.value} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
+                <SourceOptions options={textOptions} available={available} />
               </select>
             </label>
           ))}
@@ -512,14 +537,10 @@ export function NodeConfiguration({
                   Missing source ({sourceKey(node.inputs.text)})
                 </option>
               )}
-            {textOptions.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
+            <SourceOptions options={textOptions} available={available} />
           </select>
           <span id="text-input-help" className="field-hint">
-            An output must be available on every path to this step.
+            Control connections determine which outputs this step can use.
           </span>
         </label>
       )}
@@ -528,6 +549,7 @@ export function NodeConfiguration({
           graph={graph}
           predicate={config.condition}
           exclude={node.id}
+          available={available}
           label="Condition"
           onChange={(condition, field) =>
             onEdit({ config: { ...config, condition } }, `condition/${field}`)
@@ -709,6 +731,10 @@ export function NodeConfiguration({
             <PredicateFields
               graph={body}
               predicate={config.until}
+              available={availableOutputSteps(
+                body,
+                body.nodes.find((step) => step.kind === "finish")?.id,
+              )}
               label="Stop condition"
               onChange={(until, field) =>
                 onEdit({ config: { ...config, until } }, `until/${field}`)
