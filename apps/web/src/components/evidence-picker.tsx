@@ -3,32 +3,13 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { api } from "@/lib/workflow";
-import { mergeSources, useEvidenceLibrary } from "@/lib/use-evidence-library";
+import { mergeSources, readSources, useEvidenceLibrary } from "@/lib/use-evidence-library";
 import {
   availabilityLabels,
   evidenceUrl,
-  representationLabels,
+  sourceMetadata,
   type EvidenceRecord,
 } from "@/lib/evidence";
-
-async function readSources(ids: string[]) {
-  const results = await Promise.allSettled(
-    ids.map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)),
-  );
-  return results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
-}
-
-function sourceMetadata(item: EvidenceRecord) {
-  return [
-    representationLabels[item.representation ?? "original"],
-    item.as_of_date
-      ? `As of ${item.as_of_date}`
-      : item.published_date && `Published ${item.published_date}`,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-}
 
 export function EvidencePicker({
   selected,

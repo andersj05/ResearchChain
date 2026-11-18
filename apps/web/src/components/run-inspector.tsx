@@ -384,7 +384,10 @@ function RunWorkspace({
               <summary>Research brief</summary>
               <p>{run.brief}</p>
             </details>
-            <PinnedEvidence ids={run.evidence_ids ?? []} />
+            <PinnedEvidence
+              ids={run.evidence_ids ?? []}
+              snapshots={run.research_manifest?.evidence}
+            />
             <RunComparison
               run={run}
               recentRuns={recentRuns}

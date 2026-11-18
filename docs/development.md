@@ -188,6 +188,10 @@ Expand it to edit execution, response, and evidence limits in the same draft.
 **Selected sources** shows exact evidence versions in the order they will be
 pinned. Inspect the source in a separate tab, check its as-of date when available,
 or move or remove it while browsing the rest of the library.
+**Run context → Pinned evidence** shows the saved source dates and can use the
+research manifest when a source record takes longer to load or is unavailable.
+When shared sources changed order, **Setup changes → Pinned source order** shows
+both runs’ full saved order.
 Search the entire evidence library by title, author, publisher, or saved date
 while keeping the selected records in view.
 The **Sources** workspace uses the same library search and applies availability

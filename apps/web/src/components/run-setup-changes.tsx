@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
+import { useSourceDetails } from "@/lib/use-evidence-library";
 import {
   changedSettings,
   compareWorkflowGraphs,
@@ -108,6 +110,48 @@ function diffInputs(before: RunSnapshot, after: RunSnapshot) {
   };
 }
 
+function PinnedSourceOrder({ before, after }: { before: RunSnapshot; after: RunSnapshot }) {
+  const [open, setOpen] = useState(false);
+  const groups = [
+    { title: "Comparison run", run: before },
+    { title: "Open run", run: after },
+  ];
+  const ids = [...new Set([...(before.evidence_ids ?? []), ...(after.evidence_ids ?? [])])];
+  const { items } = useSourceDetails(open ? ids : []);
+  return (
+    <details onToggle={(event) => setOpen(event.currentTarget.open)}>
+      <summary>Pinned source order</summary>
+      {open && (
+        <div className="comparison-inputs">
+          {groups.map(({ title, run }) => (
+            <section aria-label={`${title} source order`} key={title}>
+              <h4>{title}</h4>
+              <ol>
+                {run.evidence_ids?.map((id, index) => {
+                  const item = items.get(id);
+                  const pinned = run.research_manifest?.evidence.find(
+                    (item) => item.evidence_id === id,
+                  );
+                  const asOf = item?.as_of_date ?? pinned?.as_of_date;
+                  return (
+                    <li key={`${id}:${index}`}>
+                      <a href={evidenceUrl(id)} target="_blank" rel="noreferrer">
+                        {item?.title ??
+                          `${pinned?.publisher || "Pinned source"} · ${id.slice(0, 8)}`}
+                      </a>
+                      {asOf && <small> As of {asOf}</small>}
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ))}
+        </div>
+      )}
+    </details>
+  );
+}
+
 function PinnedInputChanges({
   before,
   after,
@@ -129,9 +173,7 @@ function PinnedInputChanges({
   ];
   return (
     <>
-      {sources.reordered && (
-        <p className="field-hint">The order of shared pinned sources changed.</p>
-      )}
+      {sources.reordered && <PinnedSourceOrder before={before} after={after} />}
       {files.reordered && <p className="field-hint">The order of shared input files changed.</p>}
       <div className="comparison-inputs">
         {groups.map(({ title, run, sourceIds, files: items }) => (

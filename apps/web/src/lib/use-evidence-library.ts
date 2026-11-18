@@ -19,6 +19,41 @@ export function mergeSources(first: EvidenceRecord[], second: EvidenceRecord[]) 
   return [...new Map([...first, ...second].map((item) => [item.id, item])).values()];
 }
 
+export async function readSources(ids: string[]) {
+  const results = await Promise.allSettled(
+    ids.map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)),
+  );
+  return results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+}
+
+export function useSourceDetails(ids: string[]) {
+  const key = ids.join(",");
+  const [result, setResult] = useState<{ key: string; items: EvidenceRecord[] }>();
+  useEffect(() => {
+    if (!key) return;
+    let active = true;
+    void readSources(key.split(",")).then((items) => {
+      if (active) setResult({ key, items });
+    });
+    return () => {
+      active = false;
+    };
+  }, [key]);
+  const current = result?.key === key ? result : undefined;
+  const items = new Map(current?.items.map((source) => [source.id, source]));
+  const unresolved = current ? ids.filter((id) => !items.has(id)) : [];
+  return {
+    items,
+    unresolved,
+    retry: async () => {
+      const recovered = await readSources(unresolved);
+      setResult((previous) =>
+        previous?.key === key ? { key, items: mergeSources(previous.items, recovered) } : previous,
+      );
+    },
+  };
+}
+
 export function useEvidenceLibrary(
   query: string,
   availability?: EvidenceAvailability,
