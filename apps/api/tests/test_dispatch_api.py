@@ -24,7 +24,8 @@ def test_http_returns_stable_receipt_before_worker_execution(
     app = create_app(database)
     with owner_client(app, workers=False) as client:
         revision = client.post("/api/revisions", json=workflow).json()
-        body = {"id": str(uuid4()), "revision_id": revision["id"], "brief": "Queued API test"}
+        brief = "Queued API test " + "λ" * 250
+        body = {"id": str(uuid4()), "revision_id": revision["id"], "brief": brief}
         first = client.post("/api/runs", json=body)
         assert first.status_code == 202
         assert first.json()["run_id"] == body["id"] and first.json()["kind"] == "start"
@@ -40,15 +41,18 @@ def test_http_returns_stable_receipt_before_worker_execution(
         assert client.get(inbox).json() == {
             "items": [
                 {
-                    key: paused[key]
-                    for key in (
-                        "id",
-                        "agent_name",
-                        "workflow_name",
-                        "created_at",
-                        "checkpoint_id",
-                        "reviews",
-                    )
+                    **{
+                        key: paused[key]
+                        for key in (
+                            "id",
+                            "agent_name",
+                            "workflow_name",
+                            "created_at",
+                            "checkpoint_id",
+                            "reviews",
+                        )
+                    },
+                    "brief_excerpt": brief[:240],
                 }
             ],
             "has_more": False,

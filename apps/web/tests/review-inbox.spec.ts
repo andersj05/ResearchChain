@@ -54,13 +54,19 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await page.setViewportSize({ width: 390, height: 950 });
   await page.goto(`/?agent=${agents[0]!.agent.id}&view=runs`);
   await page.getByText("Review inbox", { exact: true }).click();
-  const item = page.getByRole("listitem").filter({ hasText: "Inbox macro analysis" });
+  const inbox = page.locator("details.review-inbox");
+  const item = inbox.getByRole("listitem").filter({ hasText: "Inbox macro analysis" });
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
+  await expect(item.getByText("Synthetic rates disagreement", { exact: true })).toBeVisible();
+  await expect(
+    item.locator(".review-inbox-question").filter({ hasText: dissentQuestion }).getByRole("button"),
+  ).toHaveAccessibleDescription(`${dissentQuestion} Synthetic rates disagreement`);
   const scope = page.getByRole("combobox", { name: "Show reviews for" });
   await expect(scope).toHaveValue("all");
   await scope.selectOption("agent");
-  const currentAgentReview = page.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
+  const currentAgentReview = inbox.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
   await expect(currentAgentReview.getByRole("button", { name: "Open review" })).toHaveCount(1);
+  await expect(currentAgentReview.getByText("Synthetic comparison run", { exact: true })).toBeVisible();
   await expect(item).toHaveCount(0);
   await scope.selectOption("all");
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
@@ -76,7 +82,7 @@ test("the mobile inbox opens the exact parallel review across agents and handles
     });
   const chooseQuestion = async (question: string) => {
     await openQuestion(question).click();
-    await expect(page.locator("details.review-inbox")).not.toHaveAttribute("open", "");
+    await expect(inbox).not.toHaveAttribute("open", "");
   };
   await chooseQuestion(dissentQuestion);
   await expect(page.getByLabel("Review challenge", { exact: true })).toBeVisible();

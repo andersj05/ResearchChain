@@ -100,6 +100,7 @@ class PendingReviewRun(StrictModel):
     id: UUID
     agent_name: str | None
     workflow_name: str
+    brief_excerpt: str
     created_at: datetime
     checkpoint_id: str
     reviews: list[ReviewPrompt]

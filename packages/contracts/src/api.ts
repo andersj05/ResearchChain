@@ -2567,6 +2567,8 @@ export interface components {
       agent_name: string | null;
       /** Workflow Name */
       workflow_name: string;
+      /** Brief Excerpt */
+      brief_excerpt: string;
       /**
        * Created At
        * Format: date-time

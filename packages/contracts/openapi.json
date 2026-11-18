@@ -6348,6 +6348,10 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "brief_excerpt": {
+            "type": "string",
+            "title": "Brief Excerpt"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6367,7 +6371,15 @@
         },
         "additionalProperties": false,
         "type": "object",
-        "required": ["id", "agent_name", "workflow_name", "created_at", "checkpoint_id", "reviews"],
+        "required": [
+          "id",
+          "agent_name",
+          "workflow_name",
+          "brief_excerpt",
+          "created_at",
+          "checkpoint_id",
+          "reviews"
+        ],
         "title": "PendingReviewRun"
       },
       "PendingReviewsPage": {

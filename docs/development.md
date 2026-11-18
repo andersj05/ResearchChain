@@ -281,7 +281,8 @@ Selecting a comparison run puts both run IDs in the address bar. Use **Copy
 comparison link** to bookmark the pair, including a baseline from the archive.
 
 Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
-including runs outside Recent runs. It lists the oldest runs first, 20 per page, and
+including runs outside Recent runs. Each row includes a brief excerpt to identify
+the experiment. It lists the oldest runs first, 20 per page, and
 refreshes while open. Opening a question checks the current checkpoint and takes
 you to its evidence and decision controls. An expired entry refreshes the inbox.
 
