@@ -114,7 +114,9 @@ export function RunModelActivity({
           Workflow step
           <select
             value={step ?? ""}
-            onChange={(event) => onFilterChange({ ...filter, step: event.target.value || undefined })}
+            onChange={(event) =>
+              onFilterChange({ ...filter, step: event.target.value || undefined })
+            }
           >
             <option value="">All steps</option>
             {steps.map(({ path, label }) => (

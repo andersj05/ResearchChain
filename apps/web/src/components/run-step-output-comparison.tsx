@@ -1,5 +1,10 @@
 import { useState } from "react";
-import { attemptPath, graphLocation, runStepLabel, type ComparisonPasses } from "@/lib/run-inspection";
+import {
+  attemptPath,
+  graphLocation,
+  runStepLabel,
+  type ComparisonPasses,
+} from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
 import { ModelRequestPreview } from "./model-request-preview";
