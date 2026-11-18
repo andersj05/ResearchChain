@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Compare runs directly and retain inspection filters
+
+**Runs → Compare runs** opens setup, output, and file comparisons directly.
+Archived baseline search and copied links still select the exact pair.
+Model activity and Files retain their filters when you open a saved attempt
+and return. The fitted timeline range also persists within the open run. CI
+passed 517 backend tests with 2 skips and all 121 browser cases. Desktop at
+`11c320f` served the view with a healthy API and connected worker.
+Read-only checks passed for evidence search, run archive and review inbox.
+[PR #99](https://github.com/andersj05/ResearchChain/pull/99).
+
 ## Duplicate configured research steps
 
 **Duplicate research step** in Build inserts a copy with the same instructions,
