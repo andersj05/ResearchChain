@@ -8,6 +8,7 @@ import { ResearchSettingsEditor } from "@/components/research-settings";
 import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
+import { WorkflowStepSearch, type GraphCrumb } from "@/components/workflow-step-search";
 import {
   addTemplate,
   connectPorts,
@@ -22,9 +23,8 @@ import {
   type TemplateKind,
 } from "@/lib/workflow-editing";
 import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
-import type { Graph, Workflow, WorkflowNode, SubgraphRef, ExecutionBudgets } from "@/lib/workflow";
+import type { Graph, Workflow, WorkflowNode, ExecutionBudgets } from "@/lib/workflow";
 
-type Crumb = { ref: SubgraphRef; via: string };
 const defaults: ExecutionBudgets = {
   max_node_executions: 256,
   max_active_seconds: 120,
@@ -48,12 +48,12 @@ export function WorkflowEditor({
   onSeal?: () => void;
   disabled: boolean;
 }) {
-  const [path, setPath] = useState<Crumb[]>([]);
+  const [path, setPath] = useState<GraphCrumb[]>([]);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [notice, setNotice] = useState("");
   // Undo/import can remove a parent or change its reference. Discard stale navigation.
-  const validPath: Crumb[] = [];
+  const validPath: GraphCrumb[] = [];
   let graph: Graph = workflow;
   for (const crumb of path) {
     const parent = graph.nodes.find((node) => node.id === crumb.via);
@@ -246,28 +246,39 @@ export function WorkflowEditor({
               <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
               <span className="muted">{graph.edges.length} control connections</span>
             </div>
-            <ol className="node-outline">
-              {graph.nodes.map((item) => (
-                <li key={item.id}>
-                  <Button
-                    className="outline-row"
-                    aria-pressed={selectedId === item.id}
-                    onClick={() => {
-                      selectNode(item.id);
-                      document
-                        .getElementById(`workflow-node-${item.id}`)
-                        ?.focus({ preventScroll: true });
-                    }}
-                  >
-                    <span className="outline-label">{item.label}</span>
-                    <span className={`outline-kind kind-${item.kind}`}>
-                      {nodePresentation(item).shortLabel}
-                    </span>
-                    {graph.start_node === item.id && <small>Start</small>}
-                  </Button>
-                </li>
-              ))}
-            </ol>
+            <WorkflowStepSearch
+              workflow={workflow}
+              scope={scope}
+              selected={selectedId}
+              onSelect={(id, location) => {
+                setNotice("");
+                setPath(location);
+                selectNode(id);
+              }}
+            >
+              <ol className="node-outline">
+                {graph.nodes.map((item) => (
+                  <li key={item.id}>
+                    <Button
+                      className="outline-row"
+                      aria-pressed={selectedId === item.id}
+                      onClick={() => {
+                        selectNode(item.id);
+                        document
+                          .getElementById(`workflow-node-${item.id}`)
+                          ?.focus({ preventScroll: true });
+                      }}
+                    >
+                      <span className="outline-label">{item.label}</span>
+                      <span className={`outline-kind kind-${item.kind}`}>
+                        {nodePresentation(item).shortLabel}
+                      </span>
+                      {graph.start_node === item.id && <small>Start</small>}
+                    </Button>
+                  </li>
+                ))}
+              </ol>
+            </WorkflowStepSearch>
             <details className="workflow-settings">
               <summary>{scope ? "Subgraph settings" : "Workflow settings"}</summary>
               <label>
