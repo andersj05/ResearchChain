@@ -148,9 +148,9 @@ acceptance concerns owner control, not pilot quality or production hosting.
 The full-height desktop workbench uses a step library and outline on the left,
 a canvas in the center, and a selected-step inspector on the right. Collapse
 either panel from the canvas header. The outline selects and reveals offscreen
-nodes. **Find a step** searches names, instructions, and assigned models in the
-draft and its referenced subgraphs. Choose **Reviews** or **Model steps** to
-list that type across the same graphs, with or without search text. **All steps**
+nodes. **Find a step** at the top of **Steps** searches names, instructions, and
+assigned models in the draft and referenced subgraphs. Choose **Reviews** or
+**Model steps** to list that type with or without search text. **All steps**
 with an empty search restores the current graph's outline. Select a match to
 focus its step editor. Enter opens the first match and Escape clears the text.
 Zoom controls and Fit view change only the viewport. In **Visible connections**,
@@ -162,10 +162,11 @@ beneath the outline. On smaller screens, the library and inspector move below
 the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
-and the inputs and conditions wired to its feedback. Follow a binding to focus
-the receiving field.
+and the inputs and conditions wired to its feedback. Follow a previous step to
+inspect what prepares the decision, or a binding to focus the receiving field.
 Open **Review plan** to read the questions and feedback bindings for reachable
-reviews across the workflow and its pinned subgraphs. Select a review to edit it.
+reviews across the workflow and its pinned subgraphs. Select a review or one of
+its previous control steps to inspect the editor.
 
 For other steps with data outputs, **Output bindings** shows the inputs and
 conditions that read each output in the current graph. Select a binding to focus
@@ -216,6 +217,10 @@ are undoable and still require server validation before saving.
 focuses its name. The copy starts with the same instructions, model, tools and
 input bindings. Edit the copy to try a different model or research approach.
 
+**Duplicate review** inserts a separate checkpoint after the selected review.
+Edit its question, then use the receiving step’s input picker to route feedback
+from the copy.
+
 **Duplicate loop** and **Duplicate subgraph** insert an editable copy after the
 selected step, including separate copies of the definitions it uses. References
 that share a definition within the original share the corresponding definition
@@ -228,6 +233,8 @@ can select one of its earlier versions while keeping the current draft. The
 preview lists changes to instructions, inputs, routing, and workflow settings.
 Input sources and control destinations show step names and IDs.
 Use **Open draft step** to inspect a changed or added step in its current graph.
+Choose **Use saved instructions** or **Use saved review question** to bring back
+only that text from the selected baseline. Undo reverses one restore at a time.
 The preview also identifies a matching draft or a change limited to canvas positions.
 Expand a changed or added step and choose **Open draft step** to open its
 current editor. **Return to step** takes you back to the step you were editing.

@@ -2,6 +2,7 @@ import { useState } from "react";
 import {
   conditionBindings,
   outputBindings,
+  previousControlSteps,
   reachableWorkflowGraphs,
   scopeKey,
   type GraphCrumb,
@@ -27,6 +28,7 @@ function reviewPlan(workflow: Workflow) {
                 node,
                 path,
                 location,
+                previous: previousControlSteps(graph, node.id),
                 bindings: feedback.filter((binding) => binding.sourceId === node.id),
               },
             ]
@@ -45,6 +47,10 @@ export function WorkflowReviewPlan({
 }) {
   const [open, setOpen] = useState(false);
   const reviews = open ? reviewPlan(workflow) : [];
+  function openStep(id: string, path: GraphCrumb[]) {
+    setOpen(false);
+    onSelect(id, path);
+  }
   return (
     <details
       className={styles.plan}
@@ -63,16 +69,13 @@ export function WorkflowReviewPlan({
       {open &&
         (reviews.length ? (
           <ul className={styles.list} aria-label="Reachable review steps">
-            {reviews.map(({ node, path, location, bindings }) => (
+            {reviews.map(({ node, path, location, previous, bindings }) => (
               <li key={`${scopeKey(path.at(-1)?.ref ?? null)}/${node.id}`}>
                 <button
                   className={styles.step}
                   type="button"
                   aria-label={`Edit ${node.label || node.id} in ${location}`}
-                  onClick={() => {
-                    setOpen(false);
-                    onSelect(node.id, path);
-                  }}
+                  onClick={() => openStep(node.id, path)}
                 >
                   {node.label || node.id}
                 </button>
@@ -84,6 +87,24 @@ export function WorkflowReviewPlan({
                     {node.instructions || defaultReviewQuestion}
                     {!node.instructions && <span className="muted"> · Default question</span>}
                   </p>
+                )}
+                {previous.length > 0 && (
+                  <>
+                    <p className="muted">Previous control steps</p>
+                    <ul className={styles.bindings} aria-label="Previous control steps">
+                      {previous.map((step) => (
+                        <li key={step.id}>
+                          <button
+                            className={styles.step}
+                            type="button"
+                            onClick={() => openStep(step.id, path)}
+                          >
+                            {step.label || step.id}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
                 )}
                 {bindings.length ? (
                   <>

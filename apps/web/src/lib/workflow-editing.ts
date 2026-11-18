@@ -225,6 +225,19 @@ export function outputBindings(graph: Graph) {
   );
 }
 
+export function previousControlSteps(graph: Graph, stepId: string) {
+  const predecessors = new Set(
+    graph.edges
+      .filter((edge) => edge.target === stepId && edge.source !== stepId)
+      .map((edge) => edge.source),
+  );
+  return graph.nodes.filter(
+    (step) =>
+      predecessors.has(step.id) &&
+      graph.nodes.filter((candidate) => candidate.id === step.id).length === 1,
+  );
+}
+
 export function conditionBindings(graph: Graph) {
   return graph.nodes.flatMap((target) => {
     if (target.kind !== "route" || target.config?.type !== "route") return [];
@@ -406,8 +419,9 @@ function copyName(name: string, limit: number) {
   return Array.from(`Copy of ${name}`).slice(0, limit).join("");
 }
 
-export function duplicateResearchStep(graph: Graph, step: WorkflowNode) {
-  const id = makeId(step.kind);
+export function duplicateStep(graph: Graph, step: WorkflowNode) {
+  let id = makeId(step.kind);
+  while (graph.nodes.some((node) => node.id === id)) id = makeId(step.kind);
   const label = copyName(step.label, 100);
   const duplicate = { ...structuredClone(step), id, label };
   return { graph: insertStep(graph, duplicate, step.id), id };

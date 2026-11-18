@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Compare a Build draft with an earlier version
+
+**Draft changes** can compare the draft against an earlier saved version and
+open changed or added steps in their root or pinned editors. Wiring changes show
+readable step names and their stable IDs. Reviews have a dedicated **Review
+question**. Desktop at `3716c89` served the controls with the API and worker
+ready and passed the read-only review and run checks. CI passed 559 backend
+tests with 2 skips, and all 158 browser cases passed, 2 on retry.
+[PR #118](https://github.com/andersj05/ResearchChain/pull/118).
+
 ## Trace input sources and pinned definition callers
 
 **Open source** opens the producing step for a configured input or predicate.

@@ -21,7 +21,7 @@ import {
   addTemplate,
   connectPorts,
   controlOutputs,
-  duplicateResearchStep,
+  duplicateStep,
   graphAt,
   insertionPoint,
   prepareNestedStepCopy,
@@ -333,85 +333,90 @@ export function WorkflowEditor({
               <h2>Steps</h2>
               <span className="count">{graph.nodes.length}</span>
             </div>
-            <label className="step-placement">
-              Insert position
-              <select
-                value={placement}
-                disabled={!canInsertBefore}
-                onChange={(event) =>
-                  setBeforeStep(
-                    event.target.value === "before"
-                      ? { id: selectedId, path: validPath }
-                      : undefined,
-                  )
-                }
-              >
-                <option value="default">
-                  {split
-                    ? "After the paired join"
-                    : !node || node.kind === "finish"
-                      ? "Before Finish"
-                      : "After selected step"}
-                </option>
-                <option value="before" disabled={!canInsertBefore}>
-                  Before selected step
-                </option>
-              </select>
-            </label>
-            {!canInsert && (
-              <p className="field-hint">
-                Finish has multiple incoming connections. Keep one to insert here.
-              </p>
-            )}
-            <div className="node-library">
-              {(
-                [
-                  "model",
-                  "workspace",
-                  "code",
-                  "note",
-                  "research",
-                  "review",
-                  "route",
-                  "fork",
-                  "loop",
-                  "subgraph",
-                ] satisfies TemplateKind[]
-              ).map((kind) => (
-                <Button
-                  key={kind}
-                  className="library-button"
-                  disabled={
-                    disabled ||
-                    !canInsert ||
-                    graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) > 128 ||
-                    ((kind === "subgraph" || kind === "loop") &&
-                      (workflow.subgraphs?.length ?? 0) >= 32)
-                  }
-                  onClick={() => {
-                    const added = addTemplate(workflow, scope, kind, selectedId, placement);
-                    onChange(added.workflow);
-                    stepToFocus.current = added.selected;
-                    selectNode(added.selected);
-                  }}
-                >
-                  <Plus size={14} aria-hidden="true" />
-                  <span>
-                    Add{" "}
-                    {kind === "model"
-                      ? "model prompt"
-                      : kind === "workspace"
-                        ? "research workspace"
-                        : nodeKinds[kind].label.toLowerCase()}
-                  </span>
-                </Button>
-              ))}
-            </div>
             <WorkflowStepSearch
               workflow={workflow}
               scope={scope}
               selected={selectedId}
               onSelect={openStep}
+              palette={
+                <div className="step-palette">
+                  <label className="step-placement">
+                    Insert position
+                    <select
+                      value={placement}
+                      disabled={!canInsertBefore}
+                      onChange={(event) =>
+                        setBeforeStep(
+                          event.target.value === "before"
+                            ? { id: selectedId, path: validPath }
+                            : undefined,
+                        )
+                      }
+                    >
+                      <option value="default">
+                        {split
+                          ? "After the paired join"
+                          : !node || node.kind === "finish"
+                            ? "Before Finish"
+                            : "After selected step"}
+                      </option>
+                      <option value="before" disabled={!canInsertBefore}>
+                        Before selected step
+                      </option>
+                    </select>
+                  </label>
+                  {!canInsert && (
+                    <p className="field-hint">
+                      Finish has multiple incoming connections. Keep one to insert here.
+                    </p>
+                  )}
+                  <div className="node-library">
+                    {(
+                      [
+                        "model",
+                        "workspace",
+                        "code",
+                        "note",
+                        "research",
+                        "review",
+                        "route",
+                        "fork",
+                        "loop",
+                        "subgraph",
+                      ] satisfies TemplateKind[]
+                    ).map((kind) => (
+                      <Button
+                        key={kind}
+                        className="library-button"
+                        disabled={
+                          disabled ||
+                          !canInsert ||
+                          graph.nodes.length + (kind === "route" || kind === "fork" ? 4 : 1) >
+                            128 ||
+                          ((kind === "subgraph" || kind === "loop") &&
+                            (workflow.subgraphs?.length ?? 0) >= 32)
+                        }
+                        onClick={() => {
+                          const added = addTemplate(workflow, scope, kind, selectedId, placement);
+                          onChange(added.workflow);
+                          stepToFocus.current = added.selected;
+                          selectNode(added.selected);
+                        }}
+                      >
+                        <Plus size={14} aria-hidden="true" />
+                        <span>
+                          Add{" "}
+                          {kind === "model"
+                            ? "model prompt"
+                            : kind === "workspace"
+                              ? "research workspace"
+                              : nodeKinds[kind].label.toLowerCase()}
+                        </span>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              }
             >
               <div className="outline-heading">
                 <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
@@ -761,19 +766,23 @@ export function WorkflowEditor({
                   <summary>Step identifier</summary>
                   <code>{node.id}</code>
                 </details>
-                {node.kind === "research" && (
+                {(node.kind === "research" || node.kind === "review") && (
                   <Button
                     className="button"
-                    disabled={disabled || graph.nodes.length >= 128}
+                    disabled={disabled || graph.nodes.length >= 128 || graph.edges.length >= 256}
                     onClick={() => {
-                      const duplicate = duplicateResearchStep(graph, node);
-                      changeGraph(duplicate.graph);
+                      const duplicate = duplicateStep(graph, node);
+                      changeGraph(
+                        duplicate.graph,
+                        undefined,
+                        duplicate.graph.nodes.length > 32 || duplicate.graph.edges.length > 31,
+                      );
                       stepToFocus.current = duplicate.id;
                       selectNode(duplicate.id);
                     }}
                   >
                     <Copy size={14} aria-hidden="true" />
-                    Duplicate research step
+                    {node.kind === "review" ? "Duplicate review" : "Duplicate research step"}
                   </Button>
                 )}
                 {nestedCopy && (

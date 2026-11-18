@@ -72,6 +72,18 @@ test("Review plan shows macro questions and feedback in pinned nested graphs", a
   await expect(rowFor("Decide on a second pass")).toContainText(
     "Continue this workflow? · Default question",
   );
+  await rowFor("Weigh the thesis and the dissent")
+    .getByRole("list", { name: "Previous control steps" })
+    .getByRole("button", { name: "Challenge the transmission story", exact: true })
+    .press("Enter");
+  await expect(stepName).toHaveValue("Challenge the transmission story");
+  await expect(stepName).toBeFocused();
+  await page
+    .getByRole("button", { name: "Return to step Find the cross-asset tension" })
+    .press("Enter");
+  await expect(stepName).toHaveValue("Find the cross-asset tension");
+  await expect(undo).toBeDisabled();
+  await disclosure.click();
 
   const nested = rowFor(review.label);
   await expect(nested).toContainText(review.instructions);
@@ -80,7 +92,9 @@ test("Review plan shows macro questions and feedback in pinned nested graphs", a
     nested.getByRole("list", { name: "Feedback bindings" }).getByRole("listitem"),
   ).toHaveText(["Record the owner’s judgment · text", "Look for a policy surprise · condition"]);
   await expect(plan.getByText("An unused question", { exact: true })).toHaveCount(0);
-  await nested.getByRole("button").press("Enter");
+  await nested
+    .getByRole("button", { name: `Edit ${review.label} in Transmission check · v1` })
+    .press("Enter");
   await expect(plan).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Graph breadcrumbs" })).toContainText(
     "Transmission check v1",
