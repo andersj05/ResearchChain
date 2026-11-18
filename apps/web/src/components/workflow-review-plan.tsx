@@ -1,5 +1,6 @@
 import { useState } from "react";
 import {
+  conditionBindings,
   outputBindings,
   reachableWorkflowGraphs,
   scopeKey,
@@ -14,7 +15,10 @@ function reviewPlan(workflow: Workflow) {
       const version = path.at(-1)?.ref.version;
       const name = graph.name || (version ? "Subgraph" : "Workflow");
       const location = version ? `${name} · v${version}` : name;
-      const feedback = outputBindings(graph).filter((binding) => binding.output === "feedback");
+      const feedback = [
+        ...outputBindings(graph).map(({ input, ...binding }) => ({ ...binding, field: input })),
+        ...conditionBindings(graph).map((binding) => ({ ...binding, field: "condition" })),
+      ].filter((binding) => binding.output === "feedback");
       return nodes.flatMap((node) =>
         node.kind === "review" &&
         graph.nodes.filter((candidate) => candidate.id === node.id).length === 1
@@ -77,15 +81,15 @@ export function WorkflowReviewPlan({
                   <>
                     <p className="muted">Feedback bindings</p>
                     <ul className={styles.bindings} aria-label="Feedback bindings">
-                      {bindings.map(({ target, input }, index) => (
-                        <li key={`${target.id}/${input}/${index}`}>
-                          {target.label || target.id} · {input}
+                      {bindings.map(({ target, field }, index) => (
+                        <li key={`${target.id}/${field}/${index}`}>
+                          {target.label || target.id} · {field}
                         </li>
                       ))}
                     </ul>
                   </>
                 ) : (
-                  <p className="muted">No step inputs are wired to this feedback.</p>
+                  <p className="muted">No step inputs or conditions are wired to this feedback.</p>
                 )}
               </li>
             ))}

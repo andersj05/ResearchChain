@@ -160,14 +160,14 @@ zoom and all connections. Workflow settings expand beneath the outline. On
 smaller screens, the library and inspector move below the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
-and the inputs wired to its feedback. Select a feedback recipient to open and
-focus its input in Build.
+and the inputs and conditions wired to its feedback. Follow a binding to focus
+the receiving field.
 Open **Review plan** to read the questions and feedback bindings for reachable
 reviews across the workflow and its pinned subgraphs. Select a review to edit it.
 
-For other steps with data outputs, **Output bindings** shows each explicit
-binding to a step input in the current graph. Select a binding to focus the
-receiving input, then use **Return to step** to reopen the source.
+For other steps with data outputs, **Output bindings** shows the inputs and
+conditions that read each output in the current graph. Select a binding to focus
+the receiving field, then use **Return to step** to reopen the source.
 
 On a condition or parallel split, open **Branch paths** to see the first step,
 other steps in the current graph, and the paired join. Follow a step to inspect
