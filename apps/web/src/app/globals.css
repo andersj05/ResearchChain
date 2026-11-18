@@ -1535,10 +1535,35 @@ td time {
   color: var(--ink);
   font-weight: 500;
 }
-.graph-breadcrumbs p,
 .graph-breadcrumbs small {
   color: var(--muted);
   font-size: 11px;
+}
+.definition-references {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.definition-references[open] {
+  flex-basis: 100%;
+}
+.definition-references summary {
+  cursor: pointer;
+  padding: 4px;
+}
+.definition-references ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0 0 0 16px;
+  max-height: 180px;
+  overflow: auto;
+}
+.definition-references li {
+  flex-wrap: wrap;
+  min-height: 26px;
+}
+.definition-references li button {
+  color: var(--ink);
+  text-decoration: underline;
 }
 .config-fields {
   border: 0;

@@ -15,6 +15,7 @@ import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowReviewPlan } from "@/components/workflow-review-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
+import { DefinitionReferences } from "@/components/definition-references";
 import {
   addTemplate,
   connectPorts,
@@ -197,14 +198,6 @@ export function WorkflowEditor({
         (item.config?.type === "route" || item.config?.type === "fork") &&
         item.config.join === node.id,
     );
-  const uses = scope
-    ? [workflow, ...(workflow.subgraphs ?? [])]
-        .flatMap((item) => item.nodes)
-        .filter((item) => {
-          const ref = referenceOf(item);
-          return ref && scopeKey(ref) === scopeKey(scope);
-        }).length
-    : 0;
   return (
     <>
       {(scope || previousStep) && (
@@ -260,9 +253,13 @@ export function WorkflowEditor({
             </nav>
           )}
           {scope && (
-            <p>
-              Editing a shared definition · {uses} draft {uses === 1 ? "reference" : "references"}
-            </p>
+            <DefinitionReferences
+              key={scopeKey(scope)}
+              workflow={workflow}
+              definition={scope}
+              disabled={disabled}
+              onOpen={openStep}
+            />
           )}
         </div>
       )}
