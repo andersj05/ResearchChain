@@ -46,7 +46,7 @@ export function compareWorkflowDraft(saved: Workflow, draft: Workflow) {
     return { kind: "layout" } as const;
 
   const settings = changedSettings(workflowSettings(saved), workflowSettings(draft));
-  const graphs = compareWorkflowGraphs(saved, draft);
+  const graphs = compareWorkflowGraphs(saved, draft, { readableWiring: true });
   return settings.length || graphs.length
     ? ({ kind: "settings", settings, graphs } as const)
     : ({ kind: "other" } as const);
