@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { expect, test, type Page } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import type { EvidenceRecord } from "../src/lib/evidence";
+import type { RunSnapshot } from "../src/lib/workflow";
 
 async function addText(page: Page, title: string, text: string) {
   await page.getByRole("button", { name: "Add source", exact: true }).click();
@@ -82,20 +83,46 @@ test("capture untrusted source text and preserve conflicting claim links", async
 
 test("pin evidence to a run and retain the earlier source after correction", async ({
   page,
+  request,
 }, testInfo) => {
   const title = `Pinned source ${randomUUID().slice(0, 8)}`;
+  const companionTitle = `${title} comparison`;
+  const companionResponse = await request.post("/api/evidence", {
+    data: {
+      id: randomUUID(),
+      title: companionTitle,
+      kind: "text",
+      text: "Synthetic comparison observation.",
+      rights: "owned",
+    },
+  });
+  expect(companionResponse.status()).toBe(201);
+  const companion: EvidenceRecord = await companionResponse.json();
   await addText(page, title, "Synthetic immutable original.");
   const first = await saveSource(page);
+  await page.setViewportSize({ width: 390, height: 844 });
   await page.getByRole("tab", { name: "Build", exact: true }).click();
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("checkbox", { name: `${title} Captured`, exact: true }).check();
+  await page.getByRole("checkbox", { name: `${companionTitle} Captured`, exact: true }).check();
+  await page.getByText("Selected sources (2)", { exact: true }).click();
+  const selection = page.locator(".evidence-selected");
+  await expect(selection.getByRole("link")).toHaveText([title, companionTitle]);
+  const down = selection.getByRole("button", { name: `Move ${title} down`, exact: true });
+  await down.focus();
+  await page.keyboard.press("Enter");
+  await expect(down).toBeFocused();
+  await expect(selection.getByRole("link")).toHaveText([companionTitle, title]);
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
   const context = page.getByRole("button", { name: "Run context", exact: true });
   await context.click();
   const pinned = page.getByRole("region", { name: "Pinned evidence" });
-  await expect(pinned.getByRole("link", { name: title, exact: true })).toBeVisible();
+  await expect(pinned.getByRole("link")).toHaveText([companionTitle, title]);
   const runId = new URL(page.url()).searchParams.get("run");
+  const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
+  expect(snapshot.evidence_ids).toEqual([companion.id, first.id]);
+  await page.setViewportSize({ width: 1440, height: 900 });
   await page.getByRole("tab", { name: "Sources", exact: true }).click();
   await page.getByRole("button", { name: "Correct provenance" }).click();
   await page.getByLabel("Source title", { exact: true }).fill(`${title} corrected`);
@@ -231,10 +258,19 @@ test("run setup retains selected evidence outside the first library page", async
     title: `Recent source ${index + 1}`,
     as_of_date: "2026-11-18",
   }));
+  let releaseSlowSearch = () => {};
+  const slowSearch = new Promise<void>((resolve) => {
+    releaseSlowSearch = resolve;
+  });
   await page.route("**/api/evidence?limit=50*", async (route) => {
     const params = new URL(route.request().url()).searchParams;
     const query = params.get("search");
     if (query === "Recent") {
+      await route.fulfill({ json: { items: recent, total: recent.length, next_offset: null } });
+      return;
+    }
+    if (query === "Slow fixture") {
+      await slowSearch;
       await route.fulfill({ json: { items: recent, total: recent.length, next_offset: null } });
       return;
     }
@@ -280,9 +316,28 @@ test("run setup retains selected evidence outside the first library page", async
   await expect(selection).toContainText("As of 2026-11-11");
   await selection.getByRole("button", { name: "Remove Older selected source" }).click();
   await expect(selection).toHaveCount(0);
-  await search.fill("2026-11-11");
-  await expect(old).toBeVisible();
-  await expect(old).not.toBeChecked();
-  await expect(current).toHaveCount(0);
+  const isSlowSearch = (url: string) => new URL(url).searchParams.get("search") === "Slow fixture";
+  try {
+    const requested = page.waitForRequest((request) => isSlowSearch(request.url()));
+    await search.fill("Slow fixture");
+    await requested;
+    await search.fill("2026-11-11");
+    await search.press("Enter");
+    await expect(old).toBeVisible();
+    await expect(old).not.toBeChecked();
+    const responded = page.waitForResponse((response) => isSlowSearch(response.url()));
+    releaseSlowSearch();
+    await (await responded).finished();
+    await page.evaluate(
+      () =>
+        new Promise<void>((done) =>
+          requestAnimationFrame(() => requestAnimationFrame(() => done())),
+        ),
+    );
+    await expect(old).toBeVisible();
+    await expect(current).toHaveCount(0);
+  } finally {
+    releaseSlowSearch();
+  }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

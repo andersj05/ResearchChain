@@ -1869,6 +1869,12 @@ td time {
   display: block;
   color: var(--muted);
 }
+.evidence-selected-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
 .evidence-options {
   max-height: 190px;
   overflow: auto;

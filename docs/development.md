@@ -187,7 +187,7 @@ saves the draft if needed and pins the saved model assignments to that run.
 Expand it to edit execution, response, and evidence limits in the same draft.
 **Selected sources** shows exact evidence versions in the order they will be
 pinned. Inspect the source in a separate tab, check its as-of date when available,
-or remove it while browsing the rest of the library.
+or move or remove it while browsing the rest of the library.
 Search the entire evidence library by title, author, publisher, or saved date
 while keeping the selected records in view.
 

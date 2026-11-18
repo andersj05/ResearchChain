@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { api } from "@/lib/workflow";
 import {
   availabilityLabels,
@@ -66,6 +67,8 @@ export function EvidencePicker({
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
   const [initialSelection] = useState(selected);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
+  const [orderMessage, setOrderMessage] = useState("");
+  const moveFocus = useRef<string>(null);
   const pickerId = useId();
   const query = search.trim();
   useEffect(() => {
@@ -106,6 +109,12 @@ export function EvidencePicker({
       active = false;
     };
   }, [initialSelection]);
+
+  useLayoutEffect(() => {
+    if (!moveFocus.current) return;
+    document.getElementById(moveFocus.current)?.focus();
+    moveFocus.current = null;
+  }, [selected]);
 
   const current =
     results?.query === query && results.generation === generation ? results : undefined;
@@ -148,6 +157,18 @@ export function EvidencePicker({
   const byId = new Map(known.map((item) => [item.id, item]));
   const unresolved = selected.filter((id) => !byId.has(id));
   const remove = (id: string) => onChange(selected.filter((value) => value !== id));
+  function move(index: number, distance: -1 | 1, control: string, title: string) {
+    const destination = index + distance;
+    const id = selected[index];
+    const neighbor = selected[destination];
+    if (!id || !neighbor) return;
+    const ordered = [...selected];
+    ordered[index] = neighbor;
+    ordered[destination] = id;
+    moveFocus.current = control;
+    onChange(ordered);
+    setOrderMessage(`${title} moved to position ${destination + 1} of ${selected.length}.`);
+  }
   return (
     <fieldset className="evidence-picker" disabled={disabled}>
       <legend>
@@ -157,13 +178,16 @@ export function EvidencePicker({
         <details className="evidence-selected">
           <summary>Selected sources ({selected.length})</summary>
           <ul>
-            {selected.map((id) => {
+            {selected.map((id, index) => {
               const item = byId.get(id);
+              const title = item?.title ?? `Source ${id.slice(0, 8)}`;
+              const upId = `${pickerId}-${id}-up`;
+              const downId = `${pickerId}-${id}-down`;
               return (
                 <li key={id}>
                   <div>
                     <a href={evidenceUrl(id)} target="_blank" rel="noopener">
-                      {item?.title ?? `Source ${id.slice(0, 8)}`}
+                      {title}
                     </a>
                     <small>
                       {item
@@ -173,17 +197,46 @@ export function EvidencePicker({
                           : "Source details unavailable"}
                     </small>
                   </div>
-                  <Button
-                    className="button small"
-                    aria-label={`Remove ${item?.title ?? `source ${id.slice(0, 8)}`}`}
-                    onClick={() => remove(id)}
-                  >
-                    Remove
-                  </Button>
+                  <div className="evidence-selected-actions">
+                    {selected.length > 1 && (
+                      <>
+                        <Button
+                          id={upId}
+                          className="button icon-button"
+                          aria-label={`Move ${title} up`}
+                          disabled={index === 0}
+                          focusableWhenDisabled
+                          onClick={() => move(index, -1, upId, title)}
+                        >
+                          <ChevronUp size={14} aria-hidden />
+                        </Button>
+                        <Button
+                          id={downId}
+                          className="button icon-button"
+                          aria-label={`Move ${title} down`}
+                          disabled={index === selected.length - 1}
+                          focusableWhenDisabled
+                          onClick={() => move(index, 1, downId, title)}
+                        >
+                          <ChevronDown size={14} aria-hidden />
+                        </Button>
+                      </>
+                    )}
+                    <Button
+                      className="button small"
+                      aria-label={`Remove ${title}`}
+                      onClick={() => remove(id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
                 </li>
               );
             })}
           </ul>
+          <span className="sr-only" role="status">
+            {orderMessage}
+          </span>
           {!loadingDetails && unresolved.length > 0 && (
             <Button
               className="button small"

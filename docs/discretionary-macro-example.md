@@ -8,6 +8,10 @@ positioning data, release tables, or other evidence. Workspaces use the existing
 ChatGPT connection, Codex CLI, and local Python runner. The example enables optional
 live search and sets an upper limit of 15 model calls across six model steps.
 
+In Run setup, search **Evidence for this run** by saved date or source metadata.
+Open **Selected sources** to confirm the exact versions and put the dated pricing
+inputs and release evidence in the order you want to pin them.
+
 | Stage              | What the run produces                                                                | Owner decision                                                      |
 | ------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
 | Frame              | A cross-asset tension, two mechanisms, and a test that distinguishes them            | Choose the question, event window, and horizon                      |
