@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Choose where a new Build step goes
+
+**Insert position** can add before the selected entry or a step with one incoming
+connection. It preserves the incoming branch port and data bindings in one
+undoable edit. The usual placement remains after the selection or its paired
+join, or before Finish. CI passed 522 backend tests with 2 skips and all 137
+browser cases. Desktop at `8ba9f6c` served the control with the API and worker ready.
+[PR #112](https://github.com/andersj05/ResearchChain/pull/112).
+
 ## Keep your place while inspecting Build connections
 
 **Return to step** restores the previous editor location after following a Build
