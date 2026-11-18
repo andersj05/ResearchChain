@@ -457,11 +457,11 @@
   flex-wrap: wrap;
   margin-block: 8px;
 }
-.run-comparison table {
+.run-comparison > .model-activity-scroll > table {
   table-layout: fixed;
   overflow-wrap: anywhere;
 }
-.run-comparison thead th:first-child {
+.run-comparison > .model-activity-scroll > table > thead th:first-child {
   width: 26%;
 }
 .comparison-record details + details {
@@ -750,6 +750,41 @@
 }
 .workspace-file-preview > pre {
   margin: 0;
+}
+.csv-table-scroll {
+  max-height: 22rem;
+  overflow: auto;
+}
+.workspace-file-preview .csv-preview table {
+  width: max-content;
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.workspace-file-preview .csv-preview :is(th, td) {
+  min-width: 3rem;
+  max-width: 26ch;
+  border-bottom: 1px solid var(--line);
+  padding: 5px 9px;
+  text-align: start;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.csv-preview th {
+  position: sticky;
+  top: 0;
+  background: var(--paper);
+}
+.csv-preview details {
+  margin-block-start: 8px;
+}
+.csv-preview pre {
+  max-height: 22rem;
+  overflow: auto;
+  margin-block-end: 0;
+  font-size: 12px;
 }
 .run-step-panel {
   overflow-wrap: anywhere;
