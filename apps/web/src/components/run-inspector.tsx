@@ -95,9 +95,9 @@ function RunWorkspace({
   const [comparison, setComparison] = useState(link.comparison);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
-  const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">(
-    comparison && !reviewFocus ? "context" : "step",
-  );
+  const [view, setView] = useState<
+    "step" | "activity" | "decisions" | "files" | "context" | "comparison"
+  >(comparison && !reviewFocus ? "comparison" : "step");
   const [showGraph, setShowGraph] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
@@ -377,6 +377,13 @@ function RunWorkspace({
         <button type="button" aria-pressed={view === "context"} onClick={() => setView("context")}>
           Run context
         </button>
+        <button
+          type="button"
+          aria-pressed={view === "comparison"}
+          onClick={() => setView("comparison")}
+        >
+          Compare runs
+        </button>
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
         {view === "activity" && (
@@ -405,6 +412,14 @@ function RunWorkspace({
             filter={{ query: fileQuery, onChange: setFileQuery }}
           />
         )}
+        {view === "comparison" && (
+          <RunComparison
+            run={run}
+            recentRuns={recentRuns}
+            selected={comparison}
+            onSelect={selectComparison}
+          />
+        )}
         {view === "context" && (
           <div className="run-context-panel">
             <details className="run-brief" open>
@@ -414,12 +429,6 @@ function RunWorkspace({
             <PinnedEvidence
               ids={run.evidence_ids ?? []}
               snapshots={run.research_manifest?.evidence}
-            />
-            <RunComparison
-              run={run}
-              recentRuns={recentRuns}
-              selected={comparison}
-              onSelect={selectComparison}
             />
             <ResearchManifest run={run} />
             {!run.research_manifest && (

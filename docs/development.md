@@ -241,7 +241,7 @@ parameters and direct UUID lookups; there is no automatic data deletion. A run
 also pins a compiler version. Incompatible executors refuse recovery instead of
 silently interpreting old checkpoints through changed code.
 
-In **Runs → Run context → Compare a saved run**, select another run for the same
+In **Runs → Compare runs**, select another run for the same
 agent to inspect its pinned revision, models, usage, sources, brief, and feedback
 alongside the open run. **Model outputs by step** compares the latest saved
 output at the same step and iteration, shows when only one run has output, and

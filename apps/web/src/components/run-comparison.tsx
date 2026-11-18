@@ -129,7 +129,6 @@ export function RunComparison({
   selected: string | undefined;
   onSelect: (id: string | undefined) => void;
 }) {
-  const [open, setOpen] = useState(Boolean(selected));
   const [archived, setArchived] = useState<RunSummary>();
   const [response, setResponse] = useState<{ id: string; run?: RunSnapshot; error?: string }>();
   const current = response?.id === selected ? response : undefined;
@@ -174,12 +173,7 @@ export function RunComparison({
   }
   const unresolved = selected && !options.some((item) => item.id === selected);
   return (
-    <details
-      className="run-details run-comparison"
-      open={open}
-      onToggle={(event) => setOpen(event.currentTarget.open)}
-    >
-      <summary>Compare a saved run</summary>
+    <section className="run-comparison" aria-label="Compare saved runs">
       {(options.length > 0 || selected) && (
         <label>
           Comparison run
@@ -220,6 +214,6 @@ export function RunComparison({
       {current?.run && (
         <RunComparisonResult key={current.run.id} run={run} baseline={current.run} />
       )}
-    </details>
+    </section>
   );
 }
