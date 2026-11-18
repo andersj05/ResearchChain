@@ -1,0 +1,41 @@
+.plan {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.plan > summary {
+  width: fit-content;
+  font-weight: 500;
+}
+
+.plan p {
+  margin: 4px 0;
+}
+
+.list {
+  max-height: min(16rem, 40vh);
+  overflow: auto;
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.list > li {
+  padding: 6px 0;
+  border-top: 1px solid var(--line);
+}
+
+.step {
+  max-width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-weight: 600;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}

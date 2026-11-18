@@ -10,6 +10,7 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
+import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
   addTemplate,
@@ -406,6 +407,7 @@ export function WorkflowEditor({
                 Details
               </Button>
             </div>
+            {workflow.research && <WorkflowModelPlan workflow={workflow} onSelect={openStep} />}
             <WorkflowCanvas
               key={scopeKey(scope)}
               workflow={graph}

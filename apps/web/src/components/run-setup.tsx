@@ -11,6 +11,7 @@ import {
 } from "@/lib/workflow";
 import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { scopeKey, type StepModelChange } from "@/lib/workflow-editing";
+import { researchToolLabels } from "@/lib/workflow-model-plan";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { Button } from "@ui-sdk/react/button";
 import {
@@ -34,18 +35,7 @@ function RunTools({ workflow }: { workflow: Workflow }) {
         (!config.web_search && !config.sec_financials && !config.analyst)
       )
         return [];
-      const tools = [
-        config.analyst ? `Codex analyst, up to ${config.analyst.max_passes ?? 4} passes` : "",
-        config.analyst?.workspace ? "Python execution and saved files" : "",
-        config.web_search === "auto"
-          ? "optional web search"
-          : config.web_search
-            ? "required web search"
-            : "",
-        config.sec_financials ? "optional SEC lookup" : "",
-      ]
-        .filter(Boolean)
-        .join(", ");
+      const tools = researchToolLabels(config).join(", ");
       return [
         {
           key: `${"id" in graph ? graph.id + "/" + graph.version : "root"}/${node.id}`,

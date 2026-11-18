@@ -1,7 +1,7 @@
 import { expect, test } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import research from "../../../examples/hypothesis-research.json";
-import { addTemplate, forkDefinition, referenceOf } from "../src/lib/workflow-editing";
+import { addTemplate, forkDefinition, insertStep, referenceOf } from "../src/lib/workflow-editing";
 import type { RunSnapshot, Workflow, WorkflowRevision } from "../src/lib/workflow";
 
 async function prepare(
@@ -112,6 +112,84 @@ test("change a model override from Build and Run setup before pinning the run", 
   const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
   expect(snapshot.research_manifest?.settings.model).toBe("test-model");
   expect(snapshot.model_attempts?.[0]?.model).toBe("analysis-model");
+});
+
+test("inspect reachable model and tool settings in Build on a phone", async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const inserted = addTemplate(
+    structuredClone(research) as Workflow,
+    null,
+    "subgraph",
+    "challenge",
+  );
+  const call = inserted.workflow.nodes.find((node) => node.id === inserted.selected)!;
+  call.label = "First evidence pass";
+  const ref = referenceOf(call)!;
+  const nested = addTemplate(inserted.workflow, ref, "model", "step");
+  const nestedStep = nested.workflow.subgraphs![0]!.nodes.find(
+    (node) => node.id === nested.selected,
+  )!;
+  if (nestedStep.config?.type !== "research") throw new Error("Expected a research step.");
+  nestedStep.label = "Shared evidence model";
+  nestedStep.config.model = "analysis-model";
+  nestedStep.config.web_search = "auto";
+  nestedStep.config.sec_financials = true;
+  nestedStep.config.analyst = { workspace: true, max_passes: 4, skill: "" };
+  const secondCall = { ...call, id: "second_evidence_pass", label: "Second evidence pass" };
+  const shared = insertStep(nested.workflow, secondCall, call.id);
+  const { workflow, ref: archived } = forkDefinition(shared, ref);
+  const oldStep = workflow
+    .subgraphs!.find((body) => body.version === archived.version)!
+    .nodes.find((node) => node.id === nestedStep.id)!;
+  oldStep.label = "Archived evidence model";
+
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.ok(), await response.text()).toBe(true);
+  const initial: WorkflowRevision = await response.json();
+  await page.goto(`/?revision=${initial.id}`);
+
+  const disclosure = page.getByText("Model and tool plan", { exact: true });
+  const list = page.getByRole("list", { name: "Reachable research steps" });
+  const rows = list.getByRole("listitem");
+  const nestedRow = rows.filter({ hasText: "Shared evidence model" });
+  const rootRows = workflow.nodes.filter((node) => node.kind === "research").length;
+  await expect(list).toHaveCount(0);
+  await disclosure.click();
+  await expect(rows).toHaveCount(rootRows + 1);
+  await expect(nestedRow).toHaveCount(1);
+  await expect(nestedRow).toContainText("First evidence pass · New subgraph v1");
+  await expect(nestedRow).toContainText("analysis-model · Step override");
+  await expect(nestedRow).toContainText("Codex analyst, up to 4 passes");
+  await expect(nestedRow).toContainText("Python execution and saved files");
+  await expect(nestedRow).toContainText("optional web search");
+  await expect(nestedRow).toContainText("optional SEC lookup");
+  await expect(list.getByText("Archived evidence model", { exact: true })).toHaveCount(0);
+
+  await page
+    .getByRole("combobox", { name: "Workflow model", exact: true })
+    .selectOption("test-model");
+  await expect(rows.filter({ hasText: "Form hypotheses" })).toContainText(
+    "test-model · Workflow default",
+  );
+  await expect(nestedRow).toContainText("analysis-model · Step override");
+  await nestedRow.getByRole("button", { name: /^Edit Shared evidence model in/ }).press("Enter");
+  await expect(list).toHaveCount(0);
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(stepName).toHaveValue("Shared evidence model");
+  await expect(stepName).toBeFocused();
+  const breadcrumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  await expect(breadcrumbs.getByRole("button", { name: /New subgraph/ })).toBeVisible();
+  await page.getByRole("combobox", { name: "Step model", exact: true }).selectOption("");
+  await disclosure.click();
+  await expect(nestedRow).toContainText("test-model · Workflow default");
+  await expect(
+    page.getByText(`${rootRows + 1} use the workflow model · 0 overrides`),
+  ).toBeVisible();
+
+  await breadcrumbs.getByRole("button", { name: /New subgraph/ }).click();
+  await page.getByRole("combobox", { name: "Next step", exact: true }).selectOption("");
+  await expect(rows).toHaveCount(rootRows);
+  await expect(nestedRow).toHaveCount(0);
 });
 
 test("reset unavailable and nested step models from Run setup on a phone", async ({
