@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, type RunSnapshot, type RunSummary } from "@/lib/workflow";
-import { attemptPath, graphLocation } from "@/lib/run-inspection";
+import { attemptPath, comparisonUrl, graphLocation } from "@/lib/run-inspection";
 import { formatTime, RunStatus } from "./run-status";
 import { ResearchMarkdown } from "./research-markdown";
 import { researchToolUrls } from "./research-tool-receipts";
@@ -70,6 +70,16 @@ function RunComparisonColumn({ run }: { run: RunSnapshot }) {
 }
 
 function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: RunSnapshot }) {
+  const [linkStatus, setLinkStatus] = useState("");
+  const copyLink = async () => {
+    const url = comparisonUrl(window.location.href, run.id, baseline.id);
+    try {
+      await navigator.clipboard.writeText(url.href);
+      setLinkStatus("Comparison link copied.");
+    } catch {
+      setLinkStatus("Copy the comparison link from the address bar.");
+    }
+  };
   const model = (item: RunSnapshot) =>
     item.research_manifest?.settings.model ?? item.workflow.research?.model ?? "—";
   const rows = [
@@ -85,6 +95,16 @@ function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: Ru
   const shared = run.evidence_ids?.filter((id) => baselineEvidence.has(id)).length ?? 0;
   return (
     <>
+      <div className="actions">
+        <button className="button small" type="button" onClick={copyLink}>
+          Copy comparison link
+        </button>
+        {linkStatus && (
+          <span className="field-hint" role="status">
+            {linkStatus}
+          </span>
+        )}
+      </div>
       <RunSetupChanges before={baseline} after={run} />
       <div
         className="model-activity-scroll"
@@ -136,63 +156,77 @@ function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: Ru
   );
 }
 
-function Comparison({ run, id }: { run: RunSnapshot; id: string }) {
-  const [result, setResult] = useState<RunSnapshot>();
-  const [error, setError] = useState("");
+export function RunComparison({
+  run,
+  recentRuns,
+  selected,
+  onSelect,
+}: {
+  run: RunSnapshot;
+  recentRuns: RunSummary[];
+  selected: string | undefined;
+  onSelect: (id: string | undefined) => void;
+}) {
+  const [open, setOpen] = useState(Boolean(selected));
+  const [archived, setArchived] = useState<RunSummary>();
+  const [response, setResponse] = useState<{ id: string; run?: RunSnapshot; error?: string }>();
+  const current = response?.id === selected ? response : undefined;
+  const agentId = run.agent_id ?? null;
   useEffect(() => {
+    if (!selected) return;
     let active = true;
-    api<RunSnapshot>(`runs/${id}`).then(
+    api<RunSnapshot>(`runs/${encodeURIComponent(selected)}`).then(
       (snapshot) => {
-        if (active) setResult(snapshot);
+        if (!active) return;
+        setResponse(
+          (snapshot.agent_id ?? null) === agentId
+            ? { id: selected, run: snapshot }
+            : { id: selected, error: "Select a comparison run from the same agent." },
+        );
       },
       (cause: unknown) => {
-        if (active) setError(cause instanceof Error ? cause.message : "Unable to load the run.");
+        if (active)
+          setResponse({
+            id: selected,
+            error: cause instanceof Error ? cause.message : "Unable to load the run.",
+          });
       },
     );
     return () => {
       active = false;
     };
-  }, [id]);
-  if (error)
-    return (
-      <p className="error" role="alert">
-        {error}
-      </p>
-    );
-  if (!result)
-    return (
-      <p className="field-hint" role="status">
-        Loading comparison run…
-      </p>
-    );
-  if ((result.agent_id ?? null) !== (run.agent_id ?? null))
-    return <p role="alert">Select a comparison run from the same agent.</p>;
-  return <RunComparisonResult run={run} baseline={result} />;
-}
+  }, [selected, agentId]);
 
-export function RunComparison({ run, recentRuns }: { run: RunSnapshot; recentRuns: RunSummary[] }) {
-  const [id, setId] = useState("");
-  const [archived, setArchived] = useState<RunSummary>();
   const options = recentRuns.filter(
-    (item) => item.id !== run.id && (item.agent_id ?? null) === (run.agent_id ?? null),
+    (item) => item.id !== run.id && (item.agent_id ?? null) === agentId,
   );
-  if (
-    archived &&
-    archived.id !== run.id &&
-    (archived.agent_id ?? null) === (run.agent_id ?? null) &&
-    !options.some((item) => item.id === archived.id)
-  ) {
-    options.push(archived);
+  for (const item of [archived, current?.run]) {
+    if (
+      item &&
+      item.id !== run.id &&
+      (item.agent_id ?? null) === agentId &&
+      !options.some((option) => option.id === item.id)
+    ) {
+      options.push(item);
+    }
   }
-  const selected = options.some((item) => item.id === id) ? id : "";
+  const unresolved = selected && !options.some((item) => item.id === selected);
   return (
-    <details className="run-details run-comparison">
+    <details
+      className="run-details run-comparison"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary>Compare a saved run</summary>
-      {options.length > 0 && (
+      {(options.length > 0 || selected) && (
         <label>
           Comparison run
-          <select value={selected} onChange={(event) => setId(event.target.value)}>
+          <select
+            value={selected ?? ""}
+            onChange={(event) => onSelect(event.target.value || undefined)}
+          >
             <option value="">Choose a run</option>
+            {unresolved && <option value={selected}>Run {selected.slice(0, 8)}</option>}
             {options.map((item) => (
               <option key={item.id} value={item.id}>
                 {formatTime(item.created_at, true)} · {item.id.slice(0, 8)}
@@ -208,10 +242,22 @@ export function RunComparison({ run, recentRuns }: { run: RunSnapshot; recentRun
         excludeRun={run.id}
         onSelect={(item) => {
           setArchived(item);
-          setId(item.id);
+          onSelect(item.id);
         }}
       />
-      {selected && <Comparison key={selected} run={run} id={selected} />}
+      {selected && !current && (
+        <p className="field-hint" role="status">
+          Loading comparison run…
+        </p>
+      )}
+      {current?.error && (
+        <p className="error" role="alert">
+          {current.error}
+        </p>
+      )}
+      {current?.run && (
+        <RunComparisonResult key={current.run.id} run={run} baseline={current.run} />
+      )}
     </details>
   );
 }

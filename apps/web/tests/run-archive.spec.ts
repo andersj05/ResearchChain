@@ -29,7 +29,7 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
   const another = await makeAgent();
   const olderBrief = "Use the original synthetic breakevens baseline.";
   const older = await start(agent, olderBrief);
-  await start(another, olderBrief);
+  const foreign = await start(another, olderBrief);
   await expect
     .poll(async () => {
       const snapshot: RunSnapshot = await (await request.get(`/api/runs/${older}`)).json();
@@ -69,6 +69,20 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
     page.getByText(`Comparison run · ${older.slice(0, 8)}`, { exact: true }),
   ).toBeVisible();
   expect(new URL(page.url()).searchParams.get("run")).toBe(active);
+  expect(new URL(page.url()).searchParams.get("compare")).toBe(older);
+  await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await page.getByRole("button", { name: "Copy comparison link" }).click();
+  await expect(page.getByText("Comparison link copied.")).toBeVisible();
+  const link = await page.evaluate(() => navigator.clipboard.readText());
+  expect(link).toBe(page.url());
+
+  await page.getByRole("button", { name: "Model activity", exact: true }).click();
+  await page.getByRole("button", { name: "Run context", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Comparison run" })).toHaveValue(older);
+  await page.goto(link);
+  await expect(
+    page.getByText(`Comparison run · ${older.slice(0, 8)}`, { exact: true }),
+  ).toBeVisible();
 
   const history = page.getByRole("complementary", { name: "Recent runs" });
   await history.getByRole("button", { name: "Recent runs", exact: true }).click();
@@ -81,5 +95,14 @@ test("find and compare an older experiment outside recent runs", async ({ page, 
     })
     .click();
   await expect.poll(() => new URL(page.url()).searchParams.get("run")).toBe(older);
+  expect(new URL(page.url()).searchParams.get("compare")).toBeNull();
+
+  await page.goto(`/?view=runs&run=${active}&compare=${foreign}`);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Select a comparison run from the same agent." }),
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "Run comparison table" })).toHaveCount(0);
+  await page.getByRole("combobox", { name: "Comparison run" }).selectOption("");
+  expect(new URL(page.url()).searchParams.get("compare")).toBeNull();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
