@@ -823,6 +823,7 @@ export function Workbench() {
                       revision={revision}
                       draft={workflow}
                       disabled={!loaded || busy}
+                      onOpenStep={(id, path) => editorNavigation.current?.openStep(id, path)}
                     />
                   )}
                   <Button

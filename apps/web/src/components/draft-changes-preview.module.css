@@ -23,6 +23,10 @@
   font-weight: 600;
 }
 
+.openStep {
+  margin-top: 8px;
+}
+
 .rows {
   margin: 0;
   font-size: 13px;

@@ -1,4 +1,4 @@
-import { graphAt, referenceOf, scopeKey } from "./workflow-editing";
+import { graphAt, referenceOf, scopeKey, type GraphScope } from "./workflow-editing";
 import type { Graph, Workflow, WorkflowNode } from "./workflow";
 import { builtInSourceLabels } from "./workflow-input-sources";
 
@@ -11,7 +11,13 @@ type StepChange = {
   settings: SettingChange[];
 };
 
-type GraphChange = { key: string; label: string; settings: SettingChange[]; steps: StepChange[] };
+type GraphChange = {
+  key: string;
+  label: string;
+  settings: SettingChange[];
+  steps: StepChange[];
+  afterScope?: GraphScope;
+};
 const inputPrefix = "Input · ";
 const nextPrefix = "Next · ";
 
@@ -141,8 +147,16 @@ export function compareWorkflowGraphs(
   after: Workflow,
   { readableWiring = false }: { readableWiring?: boolean } = {},
 ): GraphChange[] {
-  type Pair = { key: string; label: string; before?: Graph; after?: Graph };
-  const pending: Pair[] = [{ key: "root", label: "Main workflow", before, after }];
+  type Pair = {
+    key: string;
+    label: string;
+    before?: Graph;
+    after?: Graph;
+    afterScope?: GraphScope;
+  };
+  const pending: Pair[] = [
+    { key: "root", label: "Main workflow", before, after, afterScope: null },
+  ];
   const seen = new Set<string>();
   const result: GraphChange[] = [];
   for (const pair of pending) {
@@ -183,6 +197,7 @@ export function compareWorkflowGraphs(
         label: `${label} · ${pair.label}`,
         before: oldRef && graphAt(before, oldRef),
         after: newRef && graphAt(after, newRef),
+        afterScope: newRef,
       });
     }
     const settings = changedSettings(
@@ -197,6 +212,7 @@ export function compareWorkflowGraphs(
           ? readableWiringSettings(settings, { nodes: earlier }, { nodes: later })
           : settings,
         steps,
+        afterScope: pair.after ? pair.afterScope : undefined,
       });
   }
   return result;
