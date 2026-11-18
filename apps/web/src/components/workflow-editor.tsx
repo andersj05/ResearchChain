@@ -3,6 +3,7 @@
 import { Button } from "@ui-sdk/react/button";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { ArrowLeft, Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { useOwner } from "@/components/access-context";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
@@ -32,7 +33,8 @@ import {
   type GraphScope,
   type TemplateKind,
 } from "@/lib/workflow-editing";
-import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
+import { WorkflowCanvas, type ConnectionView } from "@/components/canvas/workflow-canvas";
+import { ownerStoragePrefix } from "@/lib/access";
 import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
 
 export type WorkflowEditorNavigation = {
@@ -86,6 +88,33 @@ export function WorkflowEditor({
   onSeal?: () => void;
   disabled: boolean;
 }) {
+  const { owner } = useOwner();
+  const connectionViewKey = `${ownerStoragePrefix(owner)}.build-visible-connections`;
+  const [connectionView, setConnectionView] = useState<ConnectionView>();
+  useEffect(() => {
+    // Restore after hydration and keep any choice made before this read.
+    const frame = requestAnimationFrame(() => {
+      let preference: ConnectionView = "all";
+      try {
+        const saved = localStorage.getItem(connectionViewKey);
+        if (saved === "control" || saved === "data") preference = saved;
+      } catch {
+        // The connection picker also works without local storage.
+      }
+      setConnectionView((choice) => choice ?? preference);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [connectionViewKey]);
+
+  function changeConnectionView(view: ConnectionView) {
+    setConnectionView(view);
+    try {
+      localStorage.setItem(connectionViewKey, view);
+    } catch {
+      // Keep using the selected view in the editor for this session.
+    }
+  }
+
   const [path, setPath] = useState(initialPath);
   const [previousVisit, setPreviousVisit] = useState<StepVisit>();
   const [beforeStep, setBeforeStep] = useState<StepVisit>();
@@ -500,6 +529,8 @@ export function WorkflowEditor({
               workflow={graph}
               definitions={workflow.subgraphs}
               selected={selectedId}
+              connectionView={connectionView ?? "all"}
+              onConnectionViewChange={changeConnectionView}
               onSelect={selectNode}
               onOpen={openSubgraph}
               onConnect={(from, to) =>
