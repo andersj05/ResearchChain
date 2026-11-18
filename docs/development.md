@@ -148,9 +148,9 @@ acceptance concerns owner control, not pilot quality or production hosting.
 The full-height desktop workbench uses a step library and outline on the left,
 a canvas in the center, and a selected-step inspector on the right. Collapse
 either panel from the canvas header. The outline selects and reveals offscreen
-nodes. **Find a step** searches names, instructions, and assigned models in the
-draft and its referenced subgraphs. Choose **Reviews** or **Model steps** to
-list that type across the same graphs, with or without search text. **All steps**
+nodes. **Find a step** at the top of **Steps** searches names, instructions, and
+assigned models in the draft and referenced subgraphs. Choose **Reviews** or
+**Model steps** to list that type with or without search text. **All steps**
 with an empty search restores the current graph's outline. Select a match to
 focus its step editor. Enter opens the first match and Escape clears the text.
 Zoom controls and Fit view change only the viewport. In **Visible connections**,

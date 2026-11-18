@@ -102,16 +102,18 @@ test("filtered step matches paginate and reset when the search or type changes",
   await page.goto(`/?revision=${(await saved.json()).id}`);
   const filter = page.getByRole("combobox", { name: "Filter steps by type", exact: true });
   const search = page.getByRole("searchbox", { name: "Find a step", exact: true });
-  const results = page
-    .getByRole("list", { name: "Matching steps", exact: true })
-    .getByRole("listitem");
+  const list = page.getByRole("list", { name: "Matching steps", exact: true });
+  const results = list.getByRole("listitem");
   const more = page.getByRole("button", { name: "Show more matches", exact: true });
   await filter.selectOption("review");
   await expect(results).toHaveCount(30);
   await more.click();
   await expect(results).toHaveCount(33);
+  await results.last().scrollIntoViewIfNeeded();
+  expect(await list.evaluate((element) => element.scrollTop)).toBeGreaterThan(0);
   await search.fill("risk checkpoint");
   await expect(results).toHaveCount(30);
+  expect(await list.evaluate((element) => element.scrollTop)).toBe(0);
   await more.click();
   await expect(results).toHaveCount(32);
   await filter.selectOption("all");
