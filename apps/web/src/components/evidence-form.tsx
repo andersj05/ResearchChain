@@ -14,19 +14,23 @@ import {
 export function EvidenceForm({
   sources,
   original,
+  attachChart = false,
+  onSavingChange,
   onSaved,
   onCancel,
 }: {
   sources: EvidenceRecord[];
   original?: EvidenceRecord;
+  attachChart?: boolean;
+  onSavingChange?: (saving: boolean) => void;
   onSaved: (record: EvidenceRecord) => void;
   onCancel: () => void;
 }) {
   const [draft, setDraft] = useState<EvidenceCreate>(() => ({
     id: crypto.randomUUID(),
     title: original?.title ?? "",
-    kind: original?.kind ?? "report",
-    representation: original?.representation ?? "original",
+    kind: original?.kind ?? (attachChart ? "image" : "report"),
+    representation: original?.representation ?? (attachChart ? "chart_screenshot" : "original"),
     availability: original?.availability ?? "available",
     rights: original?.rights ?? "unknown",
     source_url: original?.source_url ?? null,
@@ -60,6 +64,7 @@ export function EvidenceForm({
   async function save() {
     if (busy) return;
     setBusy(true);
+    onSavingChange?.(true);
     setError("");
     try {
       if (mode === "file" && !file) throw new Error("Choose an original file.");
@@ -76,6 +81,7 @@ export function EvidenceForm({
       setError(cause instanceof Error ? cause.message : "Unable to save evidence.");
     } finally {
       setBusy(false);
+      onSavingChange?.(false);
     }
   }
   const derived = ["ocr_interpretation", "digitized_estimate"].includes(
@@ -88,13 +94,20 @@ export function EvidenceForm({
     <section className="evidence-form" aria-label="Source form">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">Evidence desk</p>
-          <h2>{original ? "Create a corrected version" : "Add a source"}</h2>
+          {!attachChart && <p className="eyebrow">Evidence desk</p>}
+          <h2>
+            {attachChart
+              ? "Attach a chart"
+              : original
+                ? "Create a corrected version"
+                : "Add a source"}
+          </h2>
         </div>
       </div>
       <p className="muted">
-        Capture material you may use, or record a source link. Links are saved without fetching the
-        website.
+        {attachChart
+          ? "Upload a PNG, JPEG or WebP chart. Saving adds it to Sources and selects it for this run."
+          : "Capture material you may use, or record a source link. Links are saved without fetching the website."}
       </p>
       {original && (
         <p className="field-hint">
@@ -156,10 +169,22 @@ export function EvidenceForm({
               <input
                 id="source-file"
                 type="file"
+                accept={
+                  draft.representation === "chart_screenshot"
+                    ? "image/png,image/jpeg,image/webp"
+                    : undefined
+                }
                 required
                 onChange={(event) => {
                   const next = event.target.files?.[0] ?? null;
                   setFile(next);
+                  if (
+                    attachChart &&
+                    next &&
+                    (!draft.title || draft.title === file?.name.slice(0, 240))
+                  ) {
+                    update("title", next.name.slice(0, 240));
+                  }
                   update("table_format", next?.name.toLowerCase().endsWith(".tsv") ? "tsv" : "csv");
                 }}
               />
@@ -454,7 +479,13 @@ export function EvidenceForm({
             Cancel source
           </Button>
           <Button className="button primary" type="submit" disabled={busy}>
-            {busy ? "Saving source…" : original ? "Save corrected version" : "Save source"}
+            {busy
+              ? "Saving source…"
+              : attachChart
+                ? "Save and attach"
+                : original
+                  ? "Save corrected version"
+                  : "Save source"}
           </Button>
         </div>
       </form>
