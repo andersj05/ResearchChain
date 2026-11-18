@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -54,23 +54,76 @@ type DraftStep = { id: string; path: GraphCrumb[] };
 function DraftChanges({
   saved,
   draft,
+  search,
+  onSearchChange,
   onOpenStep,
   onRestoreText,
 }: {
   saved: Workflow;
   draft: Workflow;
+  search: string;
+  onSearchChange: (value: string) => void;
   onOpenStep: (step: DraftStep) => void;
   onRestoreText: (restoration: DraftTextRestoration) => void;
 }) {
-  const comparison = compareWorkflowDraft(saved, draft);
-  if (comparison.kind === "matched")
-    return <p className={styles.message}>The draft matches the saved revision.</p>;
-  if (comparison.kind === "layout")
-    return <p className={styles.message}>Only canvas positions changed.</p>;
-  if (comparison.kind === "other")
+  const comparison = useMemo(() => compareWorkflowDraft(saved, draft), [saved, draft]);
+  const finder = (
+    <label className={styles.find}>
+      <span>Find changes</span>
+      <input
+        type="search"
+        placeholder="Step, graph, or setting"
+        value={search}
+        onChange={(event) => onSearchChange(event.target.value)}
+      />
+    </label>
+  );
+  if (comparison.kind !== "settings") {
+    const messages = {
+      matched: "The draft matches the saved revision.",
+      layout: "Only canvas positions changed.",
+      other: "The draft changes document details outside this preview.",
+    };
     return (
-      <p className={styles.message}>The draft changes document details outside this preview.</p>
+      <>
+        {search && finder}
+        <p className={styles.message}>{messages[comparison.kind]}</p>
+      </>
     );
+  }
+
+  const query = search.trim().toLowerCase();
+  const words = query.split(/\s+/).filter(Boolean);
+  function matches(...values: string[]) {
+    const text = values.join(" ").toLowerCase();
+    return words.every((word) => text.includes(word));
+  }
+  const settings = comparison.settings.filter(({ name }) => matches("Workflow settings", name));
+  const graphs = comparison.graphs.flatMap((graph) => {
+    const graphTerms = [graph.label, graph.key];
+    const settings = graph.settings.filter(({ name }) => matches(...graphTerms, name));
+    const steps = graph.steps.filter((step) =>
+      matches(
+        ...graphTerms,
+        step.label,
+        step.id,
+        step.status,
+        ...step.settings.map(({ name }) => name),
+      ),
+    );
+    return settings.length || steps.length ? [{ ...graph, settings, steps }] : [];
+  });
+  const stepCount = graphs.reduce((count, graph) => count + graph.steps.length, 0);
+  const settingCount = graphs.reduce(
+    (count, graph) => count + graph.settings.length,
+    settings.length,
+  );
+  const result = [
+    stepCount ? `${stepCount} matching ${stepCount === 1 ? "step" : "steps"}` : "",
+    settingCount ? `${settingCount} matching ${settingCount === 1 ? "setting" : "settings"}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   const scopes = new Map(
     [...reachableWorkflowGraphs(draft)].map(({ graph, path }) => [
@@ -79,71 +132,80 @@ function DraftChanges({
     ]),
   );
   return (
-    <div className={styles.groups}>
-      {comparison.settings.length > 0 && (
-        <details open>
-          <summary>Workflow settings</summary>
-          <ChangeRows changes={comparison.settings} />
-        </details>
-      )}
-      {comparison.graphs.map((graph) => {
-        const scope =
-          graph.afterScope === undefined ? undefined : scopes.get(scopeKey(graph.afterScope));
-        return (
-          <details key={graph.key} open>
-            <summary>{graph.label}</summary>
-            <ChangeRows changes={graph.settings} />
-            {graph.steps.map((step) => {
-              const destination =
-                step.status !== "Removed" &&
-                scope?.graph.nodes.filter((node) => node.id === step.id).length === 1
-                  ? scope.path
-                  : undefined;
-              const restoration =
-                step.status === "Changed" && scope && destination && graph.beforeScope !== undefined
-                  ? draftTextRestoration(saved, graph.beforeScope, scope.graph, step.id)
-                  : undefined;
-              const useSaved = restoration && `Use saved ${restoration.field.toLowerCase()}`;
-              return (
-                <details key={step.id} open={graph.steps.length === 1}>
-                  <summary>
-                    {step.label} · {step.status}
-                  </summary>
-                  {destination && (
-                    <button
-                      className={`button small ${styles.openStep}`}
-                      type="button"
-                      aria-label={`Open draft step ${step.label || step.id} in ${graph.label}`}
-                      onClick={() => onOpenStep({ id: step.id, path: destination })}
-                    >
-                      Open draft step
-                    </button>
-                  )}
-                  <ChangeRows
-                    changes={step.settings}
-                    action={
-                      restoration && {
-                        field: restoration.field,
-                        control: (
-                          <button
-                            className={`button small ${styles.restoreText}`}
-                            type="button"
-                            aria-label={`${useSaved} for ${step.label || step.id} in ${graph.label}`}
-                            onClick={() => onRestoreText(restoration)}
-                          >
-                            {useSaved}
-                          </button>
-                        ),
-                      }
-                    }
-                  />
-                </details>
-              );
-            })}
+    <>
+      {finder}
+      <p className={styles.findResult} aria-live="polite" aria-atomic="true">
+        {query ? result || "No matching changes." : ""}
+      </p>
+      <div className={styles.groups} key={query}>
+        {settings.length > 0 && (
+          <details open>
+            <summary>Workflow settings</summary>
+            <ChangeRows changes={settings} />
           </details>
-        );
-      })}
-    </div>
+        )}
+        {graphs.map((graph) => {
+          const scope =
+            graph.afterScope === undefined ? undefined : scopes.get(scopeKey(graph.afterScope));
+          return (
+            <details key={graph.key} open>
+              <summary>{graph.label}</summary>
+              <ChangeRows changes={graph.settings} />
+              {graph.steps.map((step) => {
+                const destination =
+                  step.status !== "Removed" &&
+                  scope?.graph.nodes.filter((node) => node.id === step.id).length === 1
+                    ? scope.path
+                    : undefined;
+                const restoration =
+                  step.status === "Changed" &&
+                  scope &&
+                  destination &&
+                  graph.beforeScope !== undefined
+                    ? draftTextRestoration(saved, graph.beforeScope, scope.graph, step.id)
+                    : undefined;
+                const useSaved = restoration && `Use saved ${restoration.field.toLowerCase()}`;
+                return (
+                  <details key={step.id} open={!!query || graph.steps.length === 1}>
+                    <summary>
+                      {step.label} · {step.status}
+                    </summary>
+                    {destination && (
+                      <button
+                        className={`button small ${styles.openStep}`}
+                        type="button"
+                        aria-label={`Open draft step ${step.label || step.id} in ${graph.label}`}
+                        onClick={() => onOpenStep({ id: step.id, path: destination })}
+                      >
+                        Open draft step
+                      </button>
+                    )}
+                    <ChangeRows
+                      changes={step.settings}
+                      action={
+                        restoration && {
+                          field: restoration.field,
+                          control: (
+                            <button
+                              className={`button small ${styles.restoreText}`}
+                              type="button"
+                              aria-label={`${useSaved} for ${step.label || step.id} in ${graph.label}`}
+                              onClick={() => onRestoreText(restoration)}
+                            >
+                              {useSaved}
+                            </button>
+                          ),
+                        }
+                      }
+                    />
+                  </details>
+                );
+              })}
+            </details>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -183,6 +245,7 @@ export function DraftChangesPreview({
 }) {
   const [open, setOpen] = useState(false);
   const [restored, setRestored] = useState("");
+  const [search, setSearch] = useState("");
   const close = useRef<HTMLButtonElement>(null);
   const [pending, setPending] = useState<{ step: DraftStep; draft: Workflow }>();
   const destination = pending?.draft === draft ? pending.step : undefined;
@@ -224,6 +287,7 @@ export function DraftChangesPreview({
           setPending(undefined);
           setHistorical(undefined);
           setRestored("");
+          setSearch("");
         } else {
           requestSequence.current += 1;
         }
@@ -304,6 +368,8 @@ export function DraftChangesPreview({
             key={comparison?.id ?? revision.id}
             saved={saved}
             draft={draft}
+            search={search}
+            onSearchChange={setSearch}
             onRestoreText={(restoration) => {
               const next = applyDraftTextRestoration(draft, restoration);
               if (!next || !onRestoreDraft(draft, next)) return;
