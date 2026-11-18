@@ -178,6 +178,11 @@ sequence values, so concurrent saves can leave gaps.
 
 The Runs view lists recent runs and their original briefs, revisions, completed
 steps, and review questions. Run links survive browser refresh and API restart.
+
+**Model activity** can sort attempts by elapsed time or total reported tokens.
+Rows with missing measurements follow measured rows, and the sort preference is
+stored in the owner's browser.
+
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
@@ -206,6 +211,9 @@ Open **Search saved runs** in Runs for the full archive, or **Search comparison
 runs** in the comparison picker for the current agent's archive. Search by brief,
 agent, workflow, or run ID and filter by saved status. The recent run list still
 provides a quick view of the latest 20 runs.
+
+Selecting a comparison run puts both run IDs in the address bar. Use **Copy
+comparison link** to bookmark the pair, including a baseline from the archive.
 
 Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
 including runs outside Recent runs. It lists the oldest runs first, 20 per page, and

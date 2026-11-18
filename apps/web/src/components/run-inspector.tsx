@@ -12,6 +12,7 @@ import { RunFiles, savedRunFiles } from "./run-files";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
+  comparisonUrl,
   graphLocation,
   pendingReviews,
   preferredPath,
@@ -26,6 +27,20 @@ import type { RunSnapshot, RunSummary } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
+
+function comparisonFromUrl(runId: string) {
+  if (typeof window === "undefined") return;
+  const params = new URL(window.location.href).searchParams;
+  const id = params.get("compare")?.toLowerCase();
+  if (
+    params.get("run")?.toLowerCase() === runId &&
+    id !== runId &&
+    id &&
+    /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)
+  ) {
+    return id;
+  }
+}
 
 type Actions = {
   busy: boolean;
@@ -73,9 +88,12 @@ function RunWorkspace({
 }: Actions & { run: RunSnapshot }) {
   const { owner } = useOwner();
   const mapPreference = `${ownerStoragePrefix(owner)}.run-map-visible`;
+  const [comparison, setComparison] = useState(() => comparisonFromUrl(run.id));
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? null);
-  const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">("step");
+  const [view, setView] = useState<"step" | "activity" | "decisions" | "files" | "context">(
+    comparison && !reviewFocus ? "context" : "step",
+  );
   const [showGraph, setShowGraph] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
@@ -117,6 +135,14 @@ function RunWorkspace({
     setManual(value);
     setAttemptId(id);
     setView("step");
+  };
+  const selectComparison = (id: string | undefined) => {
+    setComparison(id);
+    const url = id
+      ? comparisonUrl(window.location.href, run.id, id)
+      : new URL(window.location.href);
+    if (!id) url.searchParams.delete("compare");
+    window.history.replaceState(null, "", url);
   };
   const inspectFromPanel = (step: string, id?: string) => {
     focusOnInspect.current = true;
@@ -349,7 +375,12 @@ function RunWorkspace({
               <p>{run.brief}</p>
             </details>
             <PinnedEvidence ids={run.evidence_ids ?? []} />
-            <RunComparison run={run} recentRuns={recentRuns} />
+            <RunComparison
+              run={run}
+              recentRuns={recentRuns}
+              selected={comparison}
+              onSelect={selectComparison}
+            />
             <ResearchManifest run={run} />
             {!run.research_manifest && (
               <p className="field-hint" aria-label="Run model">
