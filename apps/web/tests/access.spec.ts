@@ -12,7 +12,7 @@ import { seed } from "./report-fixture";
 
 test.describe.configure({ mode: "default" });
 const password = process.env.RESEARCHCHAIN_TEST_OWNER_PASSWORD!;
-const origin = "http://127.0.0.1:3000";
+const origin = process.env.RESEARCHCHAIN_PUBLIC_ORIGIN!;
 
 function operator(command: string): { code?: string } {
   const python = resolve(
@@ -214,7 +214,9 @@ test("a different owner cannot inherit the previous owner's open or stored draft
     await page.context().addCookies((await api.storageState()).cookies);
     await page.goto(`/?revision=${revision.id}`);
     const instructions = page.getByRole("textbox", { name: "Instructions", exact: true });
+    const view = page.getByRole("combobox", { name: "Visible connections", exact: true });
     await expect(page.getByRole("button", { name: "Run workflow", exact: true })).toBeEnabled();
+    await view.selectOption("data");
     await instructions.fill("Private draft belonging to the first owner.");
     await page.getByText("Local draft & export", { exact: true }).click();
     await page.getByRole("button", { name: "Save draft", exact: true }).click();
@@ -226,6 +228,7 @@ test("a different owner cannot inherit the previous owner's open or stored draft
     await expect(page.getByRole("heading", { name: "Sign in again", exact: true })).toBeVisible();
     await login(page);
     await expect(page.getByRole("button", { name: "Run workflow", exact: true })).toBeEnabled();
+    await expect(view).toHaveValue("all");
     await expect(instructions).not.toHaveValue("Private draft belonging to the first owner.");
     expect(
       await page.locator("[data-owner-workspace]").getAttribute("data-owner-workspace"),

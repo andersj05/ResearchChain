@@ -3,6 +3,7 @@
 import { Button } from "@ui-sdk/react/button";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { ArrowLeft, Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { useOwner } from "@/components/access-context";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
@@ -15,6 +16,7 @@ import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowReviewPlan } from "@/components/workflow-review-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
+import { DefinitionReferences } from "@/components/definition-references";
 import {
   addTemplate,
   connectPorts,
@@ -32,8 +34,9 @@ import {
   type GraphScope,
   type TemplateKind,
 } from "@/lib/workflow-editing";
-import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
-import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
+import { WorkflowCanvas, type ConnectionView } from "@/components/canvas/workflow-canvas";
+import { ownerStoragePrefix } from "@/lib/access";
+import type { Graph, SubgraphRef, Workflow, WorkflowNode } from "@/lib/workflow";
 
 export type WorkflowEditorNavigation = {
   openStep: (id: string, path: GraphCrumb[], field?: string) => void;
@@ -86,6 +89,37 @@ export function WorkflowEditor({
   onSeal?: () => void;
   disabled: boolean;
 }) {
+  const { owner } = useOwner();
+  const connectionViewKey = `${ownerStoragePrefix(owner)}.build-visible-connections`;
+  const [connectionChoice, setConnectionChoice] = useState<{ key: string; view: ConnectionView }>();
+  const connectionView =
+    connectionChoice?.key === connectionViewKey ? connectionChoice.view : "all";
+  useEffect(() => {
+    // Restore after hydration and keep any choice made before this read.
+    const frame = requestAnimationFrame(() => {
+      let preference: ConnectionView = "all";
+      try {
+        const saved = localStorage.getItem(connectionViewKey);
+        if (saved === "control" || saved === "data") preference = saved;
+      } catch {
+        // The connection picker also works without local storage.
+      }
+      setConnectionChoice((choice) =>
+        choice?.key === connectionViewKey ? choice : { key: connectionViewKey, view: preference },
+      );
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [connectionViewKey]);
+
+  function changeConnectionView(view: ConnectionView) {
+    setConnectionChoice({ key: connectionViewKey, view });
+    try {
+      localStorage.setItem(connectionViewKey, view);
+    } catch {
+      // Keep using the selected view in the editor for this session.
+    }
+  }
+
   const [path, setPath] = useState(initialPath);
   const [previousVisit, setPreviousVisit] = useState<StepVisit>();
   const [beforeStep, setBeforeStep] = useState<StepVisit>();
@@ -162,22 +196,36 @@ export function WorkflowEditor({
       group,
     );
   }
+  function subgraphPath(parentId: string, ref: SubgraphRef) {
+    if (validPath.length >= 8 || validPath.some((crumb) => scopeKey(crumb.ref) === scopeKey(ref)))
+      return;
+    return [...validPath, { ref, via: parentId }];
+  }
   function openSubgraph(parent: WorkflowNode, child?: string) {
     const ref = referenceOf(parent);
     if (!ref) return;
     const body = graphAt(workflow, ref);
     if (!body) return;
-    if (validPath.length >= 8 || validPath.some((crumb) => scopeKey(crumb.ref) === scopeKey(ref))) {
+    const nextPath = subgraphPath(parent.id, ref);
+    if (!nextPath) {
       setNotice(
         "This reference is recursive or exceeds eight nesting levels. Choose another subgraph version.",
       );
       return;
     }
     setNotice("");
-    setPath([...validPath, { ref, via: parent.id }]);
+    setPath(nextPath);
     stepToFocus.current = child ?? body.start_node;
     selectNode(child ?? body.start_node);
   }
+  const loopRef = node?.config?.type === "loop" ? node.config.ref : undefined;
+  const loopSourcePath =
+    loopRef &&
+    graph.nodes.filter((item) => item.id === selectedId).length === 1 &&
+    workflow.subgraphs?.filter((definition) => scopeKey(definition) === scopeKey(loopRef))
+      .length === 1
+      ? subgraphPath(selectedId, loopRef)
+      : undefined;
   const pruned = pruneDefinitions(workflow);
   const unusedDefinitions = (workflow.subgraphs?.length ?? 0) - (pruned.subgraphs?.length ?? 0);
   const nestedCopy =
@@ -197,14 +245,6 @@ export function WorkflowEditor({
         (item.config?.type === "route" || item.config?.type === "fork") &&
         item.config.join === node.id,
     );
-  const uses = scope
-    ? [workflow, ...(workflow.subgraphs ?? [])]
-        .flatMap((item) => item.nodes)
-        .filter((item) => {
-          const ref = referenceOf(item);
-          return ref && scopeKey(ref) === scopeKey(scope);
-        }).length
-    : 0;
   return (
     <>
       {(scope || previousStep) && (
@@ -260,9 +300,13 @@ export function WorkflowEditor({
             </nav>
           )}
           {scope && (
-            <p>
-              Editing a shared definition · {uses} draft {uses === 1 ? "reference" : "references"}
-            </p>
+            <DefinitionReferences
+              key={scopeKey(scope)}
+              workflow={workflow}
+              definition={scope}
+              disabled={disabled}
+              onOpen={openStep}
+            />
           )}
         </div>
       )}
@@ -500,6 +544,8 @@ export function WorkflowEditor({
               workflow={graph}
               definitions={workflow.subgraphs}
               selected={selectedId}
+              connectionView={connectionView}
+              onConnectionViewChange={changeConnectionView}
               onSelect={selectNode}
               onOpen={openSubgraph}
               onConnect={(from, to) =>
@@ -634,6 +680,10 @@ export function WorkflowEditor({
                   onWorkflow={onChange}
                   onEdit={editNode}
                   onOpen={openSubgraph}
+                  onOpenSource={(stepId) => openStep(stepId, validPath)}
+                  onOpenLoopSource={
+                    loopSourcePath ? (stepId) => openStep(stepId, loopSourcePath) : undefined
+                  }
                   onEditRunLimits={() => {
                     setLibraryOpen(true);
                     requestAnimationFrame(() => {

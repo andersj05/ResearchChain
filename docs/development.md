@@ -155,9 +155,11 @@ with an empty search restores the current graph's outline. Select a match to
 focus its step editor. Enter opens the first match and Escape clears the text.
 Zoom controls and Fit view change only the viewport. In **Visible connections**,
 choose all connections, control flow, or data bindings to inspect the canvas.
-Ports stay available for editing in every view. **Reset view** restores 100%
-zoom and all connections. Workflow settings expand beneath the outline. On
-smaller screens, the library and inspector move below the canvas.
+Build remembers that choice for the current owner in this browser, including
+when opening a subgraph. Ports stay available for editing in every view.
+**Reset view** restores 100% zoom and all connections. Workflow settings expand
+beneath the outline. On smaller screens, the library and inspector move below
+the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
 and the inputs and conditions wired to its feedback. Follow a binding to focus
@@ -182,6 +184,11 @@ complete. Outputs from every branch can be available after a parallel join.
 After a conditional join, an output must be available whichever branch runs.
 The picker keeps existing selections and shows the full source list while
 control connections are incomplete.
+Use **Open source** beside a configured output binding to inspect the producing
+step. For a loop stop condition, it opens the source in that loop’s pinned body.
+While editing a pinned subgraph, **Used by** lists the draft steps that reference
+that version. Select a reachable caller to open it, then use **Return to step**
+to resume editing the body.
 
 Open **Model and tool plan** to see each reachable research step’s effective
 model and enabled tools. The plan shows which steps inherit the workflow model
