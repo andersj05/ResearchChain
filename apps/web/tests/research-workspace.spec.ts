@@ -110,6 +110,7 @@ test("configure a research workspace and inspect saved files during the next pas
           {
             ...attempt,
             status: finishedPython ? "completed" : "requesting",
+            finished_at: finishedPython ? new Date(Date.parse(now) + 2500).toISOString() : null,
             result: { ...result, workspace_activity: activity },
           },
           ...(finishedPython
@@ -157,7 +158,8 @@ test("configure a research workspace and inspect saved files during the next pas
   const filter = attempts.getByRole("searchbox", { name: "Filter model activity" });
   await filter.fill("completed");
   await expect(attempts.getByRole("row")).toHaveCount(2);
-  await expect(attempts.getByRole("row").last()).toContainText("0 / —");
+  await expect(attempts.getByRole("row").last()).toContainText("0 / Unreported");
+  await expect(attempts.getByRole("row").last()).toContainText("2.5 s");
   await attempts.getByRole("button", { name: "Research workspace · Pass 1" }).click();
   await expect(page.getByText("Synthetic pass", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Step details", exact: true })).toHaveAttribute(
