@@ -15,6 +15,7 @@ from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
+from researchchain.analyst_workspace import PythonRequest, run_python
 from researchchain.artifacts import put_artifact, read_content
 from researchchain.codex_analyst import (
     AnalystPass,
@@ -40,10 +41,12 @@ from researchchain.research_models import (
     ResearchResult,
     ResearchWithLookup,
     StoredResearchResult,
+    WorkspaceActivity,
 )
 from researchchain.research_prompt import (
     ANALYST_VERSION,
     PROMPT_VERSION,
+    WORKSPACE_VERSION,
     PreparedResearch,
     json_bytes,
     prepare_analyst_pass,
@@ -53,6 +56,7 @@ from researchchain.research_prompt import (
     validate_result,
     web_prompt_hash,
 )
+from researchchain.research_workspace import generated_files, load_files, save_files, staged_files
 from researchchain.sec_financials import SEC_TOOL_VERSION, lookup_sec_financials
 from researchchain.usage_models import UsageError
 from researchchain.usage_store import admit_request
@@ -63,7 +67,13 @@ RESEARCH_COMPILER_VERSION = "research-0.3.0"
 
 class ResearchProvider(Protocol):
     def run_analyst(
-        self, model: str, passes: int, step: AnalystPass, guard: Callable[[], None]
+        self,
+        model: str,
+        passes: int,
+        step: AnalystPass,
+        guard: Callable[[], None],
+        *,
+        workspace: bool = False,
     ) -> StoredResearchResult: ...
     def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount: ...
     def status(self) -> ProviderStatus: ...
@@ -198,6 +208,11 @@ def make_manifest(
         created_at=datetime.now(UTC),
         tool_config={
             **({"analyst_version": ANALYST_VERSION} if any(c.analyst for c in configs) else {}),
+            **(
+                {"workspace_version": WORKSPACE_VERSION}
+                if any(c.analyst and c.analyst.workspace for c in configs)
+                else {}
+            ),
             "version": "evidence-packet-1",
             "allowed": ["read_pinned_evidence"],
             "calls_per_attempt": 1,
@@ -399,6 +414,12 @@ class ResearchExecutor:
                 raise ExecutionStopped(
                     "This run requires its pinned analyst implementation.", "failed"
                 )
+            workspace = node.config.analyst.workspace
+            if (
+                workspace
+                and self.manifest.tool_config.get("workspace_version") != WORKSPACE_VERSION
+            ):
+                raise ExecutionStopped("This run requires its pinned Python workspace.", "failed")
 
             def step(
                 history: list[StoredResearchResult], body: dict[str, Any]
@@ -416,7 +437,11 @@ class ResearchExecutor:
                 return result, receipt["analyst_response"]
 
             result = self.provider.run_analyst(
-                model, node.config.analyst.max_passes, step, lambda: self.control.guard(path, False)
+                model,
+                node.config.analyst.max_passes,
+                step,
+                lambda: self.control.guard(path, False),
+                workspace=workspace,
             )
             return result.model_dump_json()
         return self.execute_pass(node, path, context, feedback, model, []).model_dump_json()
@@ -437,7 +462,10 @@ class ResearchExecutor:
             return StoredResearchResult.model_validate(previous)
         partial = ""
         completion: Completion | None = None
+        interim: StoredResearchResult | None = None
+        exports: dict[str, bytes] = {}
         last_update = 0.0
+        workspace = bool(node.config.analyst and node.config.analyst.workspace)
 
         def progress(update: str | WebSearchProgress) -> None:
             nonlocal partial, last_update
@@ -472,9 +500,13 @@ class ResearchExecutor:
                     web_search=node.config.web_search,
                     sec_financials=node.config.sec_financials,
                 )
+                available = (
+                    generated_files(self.conn, self.run_id, prepared, history) if workspace else {}
+                )
+                inputs = staged_files(prepared, available) if workspace else {}
                 if node.config.analyst:
                     assert body is not None
-                    prepare_analyst_pass(prepared, node.config.analyst, history, body)
+                    prepare_analyst_pass(prepared, node.config.analyst, history, body, list(inputs))
                 payload = json_bytes(prepared.request_body())
                 if (
                     node.config.analyst
@@ -498,14 +530,21 @@ class ResearchExecutor:
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
             lead = None
+            python = None
             if node.config.analyst:
                 if completion.analyst_response is None:
                     raise ValueError("The analyst provider did not return a Codex response.")
-                call = tool_call(completion.analyst_response)
+                call = tool_call(completion.analyst_response, workspace=workspace)
                 if call is not None:
+                    if len(call["arguments"]) > self.manifest.settings.limits.max_output_characters:
+                        raise ValueError("The analyst tool call exceeds the response output limit.")
                     if len(history) + 1 >= node.config.analyst.max_passes:
                         raise ValueError("The analyst requested a follow-up after its final pass.")
-                    lead = ResearchLead.model_validate_json(call["arguments"])
+                    if call["name"] == "run_python":
+                        python = PythonRequest.model_validate_json(call["arguments"])
+                        lead = ResearchLead(lead=python.purpose, findings=python.purpose)
+                    else:
+                        lead = ResearchLead.model_validate_json(call["arguments"])
                     if lead.sec_lookup and not node.config.sec_financials:
                         raise ValueError("The analyst requested an unavailable SEC lookup.")
             if lead:
@@ -547,17 +586,38 @@ class ResearchExecutor:
                 self.control.guard(path, False)
                 result.sec_financials = asyncio.run(lookup_sec_financials(validated.sec_lookup))
                 self.control.guard(path, False)
+            if python:
+                activity = WorkspaceActivity(summary=python.purpose, status="requested")
+                result.workspace_activity = activity
+                interim = result
+                with self.control.lock, self.conn.transaction():
+                    activity.files = save_files(self.conn, {"analysis.py": python.script.encode()})
+                    self.conn.execute(
+                        "UPDATE research_attempts SET result = %s WHERE id = %s",
+                        (Jsonb(result.model_dump(mode="json")), attempt_id),
+                    )
+                with self.control.lock:
+                    files = load_files(self.conn, inputs)
+                execution = run_python(python, files, lambda: self.control.guard(path, False))
+                activity.status = "completed" if execution.exit_code == 0 else "failed"
+                activity.output = execution.output
+                exports = execution.files
             if history and not lead:
                 retain_observations(result, history)
-            self.finish(attempt_id, "completed", partial, completion, result=result)
+            if workspace and not lead:
+                result.workspace_files = list(available.values())
+            self.finish(
+                attempt_id, "completed", partial, completion, result=result, exports=exports
+            )
             return result
         except ExecutionStopped as error:
             self.finish(
                 attempt_id,
-                "cancelled" if error.status == "cancelled" else "limited",
+                error.status,
                 partial,
                 completion,
                 reason=str(error),
+                result=interim,
             )
             raise
         except UsageError as error:
@@ -571,7 +631,9 @@ class ResearchExecutor:
                 if isinstance(error, ValidationError)
                 else str(error)
             )
-            self.finish(attempt_id, "failed", partial, completion, reason=reason[:1000])
+            self.finish(
+                attempt_id, "failed", partial, completion, reason=reason[:1000], result=interim
+            )
             raise ExecutionStopped(reason[:1000], "failed") from None
 
     def finish(
@@ -583,6 +645,7 @@ class ResearchExecutor:
         *,
         reason: str | None = None,
         result: ResearchResult | None = None,
+        exports: dict[str, bytes] | None = None,
     ) -> None:
         def tokens(name: str) -> int | None:
             value = completion.usage.get(name) if completion else None
@@ -593,7 +656,14 @@ class ResearchExecutor:
             )
 
         output_characters = len(text)
-        with self.control.lock:
+        with self.control.lock, self.conn.transaction():
+            if isinstance(result, StoredResearchResult) and result.workspace_activity:
+                activity = result.workspace_activity
+                if exports:
+                    activity.files = save_files(self.conn, exports)
+                if status != "completed":
+                    activity.status = "failed"
+                    activity.output = reason or "The Python action stopped."
             sec = result.sec_financials if isinstance(result, StoredResearchResult) else None
             if completion and (completion.web_research or sec or completion.analyst_response):
                 text = json_bytes(

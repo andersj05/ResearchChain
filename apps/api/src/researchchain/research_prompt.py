@@ -10,6 +10,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.rows import DictRow
 
+from researchchain.analyst_workspace import python_tool
 from researchchain.artifacts import read_content
 from researchchain.codex_analyst import follow_tool
 from researchchain.evidence import read_evidence
@@ -206,6 +207,7 @@ class PreparedResearch:
 
 
 ANALYST_VERSION = "codex-analyst-1"
+WORKSPACE_VERSION = "codex-python-1"
 ANALYST_PROMPT = (
     "Use research.pursue_lead to save findings and investigate a specific open question "
     "when another pass would materially improve the result. Your tool receipt includes "
@@ -220,7 +222,25 @@ def prepare_analyst_pass(
     config: AnalystConfig,
     history: list[StoredResearchResult],
     request: dict[str, Any],
+    workspace_names: list[str] | None = None,
 ) -> None:
+    if config.workspace:
+        prepared.instructions = prepared.instructions.replace(
+            "Never execute code or publish.", "Use research.run_python for local analysis."
+        ).replace(
+            "Use only the supplied evidence. Do not claim to browse, run code, publish "
+            "or use unavailable tools.",
+            "Use the supplied evidence and research.run_python for local analysis.",
+        )
+        prepared.instructions += (
+            "\nUse research.run_python when an experiment, dataset, chart, or report is needed. "
+            "You can write and execute Python, examine its output, correct errors and iterate. "
+            "The networkless Python environment has matplotlib. Read staged files by name. "
+            "Write deliverables under outputs/ with simple filenames. Store long reports as "
+            "Markdown and put the executive summary in conclusion. Only claim files from tool "
+            "receipts. Explain sources, units and transformations for computed values. "
+            "The names available for this action are " + json.dumps(workspace_names or []) + "."
+        )
     prepared.instructions = (
         str(request.get("instructions") or "")
         + "\n"
@@ -239,7 +259,9 @@ def prepare_analyst_pass(
     prepared.input_items = [*prepared.input_items, *harness_items]
     tools: list[dict[str, Any]] = [{"type": "web_search"}] if prepared.web_search else []
     if len(history) + 1 < config.max_passes:
-        spec = follow_tool(sec_financials=prepared.sec_financials)
+        specs = [follow_tool(sec_financials=prepared.sec_financials)]
+        if config.workspace:
+            specs.append(python_tool())
         tools.append(
             {
                 "type": "namespace",
@@ -253,6 +275,7 @@ def prepare_analyst_pass(
                         "parameters": spec["inputSchema"],
                         "strict": True,
                     }
+                    for spec in specs
                 ],
             }
         )

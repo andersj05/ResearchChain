@@ -93,7 +93,9 @@ class AnalystConfig(StrictModel):
     @model_validator(mode="after")
     def workspace_needs_synthesis(self) -> Self:
         if self.workspace and self.max_passes < 2:
-            raise ValueError("A Python workspace needs at least two passes for a tool and its result.")
+            raise ValueError(
+                "A Python workspace needs at least two passes for a tool and its result."
+            )
         return self
 
 
