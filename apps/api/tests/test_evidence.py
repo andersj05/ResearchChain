@@ -65,6 +65,9 @@ def test_original_hash_dedup_and_safe_download(client: TestClient, database: Dat
     assert result.headers["content-disposition"].startswith("attachment;")
     assert result.headers["x-content-type-options"] == "nosniff"
     assert "sandbox" in result.headers["content-security-policy"]
+    named = client.get(f"/api/artifacts/{artifact['id']}/content", params={"filename": "copy.csv"})
+    assert named.content == content
+    assert named.headers["content-disposition"] == "attachment; filename*=UTF-8''copy.csv"
     with database.connection() as conn:
         with pytest.raises(psycopg.IntegrityError, match="immutable"):
             conn.execute("UPDATE artifact_blobs SET content = 'x'::bytea")

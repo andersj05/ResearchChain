@@ -1,7 +1,21 @@
 # Current state
 
-Updated 2026-11-17. The owner requested deeper research runs and a graph-based
-run inspector for the `dev` branch. [Implementation and verification](https://github.com/andersj05/ResearchChain/pull/62).
+Updated 2026-11-17. The owner requested sustained Codex research with Python,
+charts and editable idea generation. [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/64).
+
+## Python research workspaces
+
+The builder offers an opt-in research workspace with owner-set pass and execution
+limits. Codex can use hosted search, write and run Python, read the numerical
+output and inspect its chart on the next pass. Each action retains its script
+and exports. The run graph shows activity, charts, datasets and full Markdown
+reports. A synthetic run through the installed Codex CLI and local Docker image
+reached the demo's final review with a saved chart, script and report. Recovery
+tests replayed a confirmed action before the next calculation.
+
+The owner's next step is to try the [idea generation demo](../idea-generation-demo.md)
+with the synthetic rotation brief or a real question and give feedback on the
+research and review experience. [Workspace architecture](../decisions/0022-research-python-workspaces.md).
 
 ## Research run workbench
 

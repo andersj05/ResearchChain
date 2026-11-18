@@ -383,6 +383,24 @@
               "default": false,
               "title": "Preview"
             }
+          },
+          {
+            "name": "filename",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 96,
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Filename"
+            }
           }
         ],
         "responses": {

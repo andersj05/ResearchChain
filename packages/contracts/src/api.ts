@@ -4372,6 +4372,7 @@ export interface operations {
     parameters: {
       query?: {
         preview?: boolean;
+        filename?: string | null;
       };
       header?: never;
       path: {

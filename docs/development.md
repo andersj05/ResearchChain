@@ -39,6 +39,15 @@ the database before upgrades; volumes and checkpoints are not backups. Use the
 
 ## Desktop delivery
 
+Workspace-enabled research nodes use the installed Codex CLI and a local Python
+runner image. Build the image from this checkout when installing or updating
+the runner. The build downloads the pinned Python environment. Running a
+research script uses the local image with networking disabled.
+
+```text
+docker build -t researchchain/analyst-python:1 docker/analyst-python
+```
+
 The owner's Windows app runs from `C:/Users/jense/Desktop/ResearchChain` and
 tracks `origin/dev`. Complete these steps on the owner's machine after merging
 an implementation, even when development and tests ran in a different checkout.
@@ -53,6 +62,7 @@ an implementation, even when development and tests ran in a different checkout.
    follow [Upgrade and rollback](backups.md#upgrade-and-rollback) using the old
    code for backup and restore verification, then rehearse the new migration.
 3. In the Desktop clone, switch to `dev` and run `git merge --ff-only origin/dev`.
+   Rebuild the Python image when files under `docker/analyst-python` change.
    Sync changed dependencies with `pnpm install --frozen-lockfile` or
    `uv sync --project apps/api --locked` as applicable. Apply rehearsed schema
    changes with `pnpm db:migrate`. Restart the affected services from this clone.
