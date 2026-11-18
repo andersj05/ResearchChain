@@ -63,13 +63,17 @@ export function RunFiles({
   run,
   inspect,
   showFilter = true,
+  filter,
 }: {
   files: ReturnType<typeof savedRunFiles>;
   run: RunSnapshot;
   inspect: (path: string, attemptId: string) => void;
   showFilter?: boolean;
+  filter?: { query: string; onChange: (query: string) => void };
 }) {
-  const [query, setQuery] = useState("");
+  const [localQuery, setLocalQuery] = useState("");
+  const query = filter?.query ?? localQuery;
+  const setQuery = filter?.onChange ?? setLocalQuery;
   const [preview, setPreview] = useState<string>();
   const panelId = useId();
   const search = query.trim().toLowerCase();

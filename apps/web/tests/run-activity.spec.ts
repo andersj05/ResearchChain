@@ -131,10 +131,19 @@ test("sort model activity by measured work and remember the preference", async (
   await expect(timeline.getByText("360 s", { exact: true })).toHaveCount(0);
   await range.selectOption("full");
   await expect(timeline.getByText("360 s", { exact: true })).toBeVisible();
+  await range.selectOption("filtered");
   await entries.nth(0).getByRole("button").click();
   const step = page.getByRole("region", { name: "Selected step" });
   const expanded = step.locator(".research-attempt[open] > summary");
   await expect(expanded).toContainText("Pass 1");
+  await activity.click();
+  await expect(page.getByRole("searchbox", { name: "Filter model activity" })).toHaveValue(
+    "partial",
+  );
+  await expect(range).toHaveValue("filtered");
+  await expect(entries).toHaveCount(1);
+  await expect(timeline.getByText("300 s", { exact: true })).toBeVisible();
+  await entries.nth(0).getByRole("button").click();
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
   await step.getByRole("button", { name: "Copy attempt link", exact: true }).click();
   await expect(step.getByText("Attempt link copied.")).toBeVisible();

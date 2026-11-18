@@ -12,6 +12,7 @@ const orderLabels = {
   tokens: "Most reported tokens",
 };
 type Order = keyof typeof orderLabels;
+export type ModelActivityFilter = { query: string; fitFiltered: boolean };
 
 function readPreference(key: string) {
   try {
@@ -32,15 +33,18 @@ function storePreference(key: string, value: string) {
 export function RunModelActivity({
   run,
   inspect,
+  filter,
+  onFilterChange,
 }: {
   run: RunSnapshot;
   inspect: (path: string, attemptId: string) => void;
+  filter: ModelActivityFilter;
+  onFilterChange: (filter: ModelActivityFilter) => void;
 }) {
   const { owner } = useOwner();
   const orderKey = `${ownerStoragePrefix(owner)}.model-activity-order`;
   const displayKey = `${ownerStoragePrefix(owner)}.model-activity-display`;
-  const [query, setQuery] = useState("");
-  const [fitFiltered, setFitFiltered] = useState(false);
+  const { query, fitFiltered } = filter;
   const [display, setDisplay] = useState<"table" | "timeline">(() =>
     readPreference(displayKey) === "timeline" ? "timeline" : "table",
   );
@@ -104,7 +108,7 @@ export function RunModelActivity({
           <input
             type="search"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => onFilterChange({ ...filter, query: event.target.value })}
             placeholder="Step, model, or status"
           />
         </label>
@@ -137,7 +141,9 @@ export function RunModelActivity({
             Timeline range
             <select
               value={fitFiltered ? "filtered" : "full"}
-              onChange={(event) => setFitFiltered(event.target.value === "filtered")}
+              onChange={(event) =>
+                onFilterChange({ ...filter, fitFiltered: event.target.value === "filtered" })
+              }
             >
               <option value="full">Entire run</option>
               <option value="filtered">Filtered attempts</option>

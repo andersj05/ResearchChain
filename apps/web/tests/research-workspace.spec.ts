@@ -204,6 +204,11 @@ test("configure a research workspace and inspect saved files during the next pas
   await expect(revisedPreview.locator("pre")).toHaveText(revisedScript);
   await savedFiles.getByRole("button", { name: "Research workspace · Pass 1" }).click();
   await expect(page.getByText("Synthetic pass", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Files (3)", exact: true }).click();
+  await expect(savedFiles.getByRole("searchbox", { name: "Filter run files" })).toHaveValue(
+    "analysis.py",
+  );
+  await expect(savedFiles.getByRole("listitem")).toHaveCount(2);
   await page.getByRole("button", { name: "Model activity", exact: true }).click();
   await expect(page.getByLabel("Latest workflow activity", { exact: true })).toContainText(
     "Requesting",

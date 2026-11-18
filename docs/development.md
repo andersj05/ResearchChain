@@ -213,7 +213,8 @@ see when recorded model attempts started and overlapped. A hollow point marks a
 start whose duration is unreported. Select any attempt to inspect its exact
 request and output. The browser remembers the display and sort preferences.
 When the timeline is filtered, **Timeline range** can fit the matching attempts
-or keep the original scale for the entire run.
+or keep the original scale for the entire run. Model activity and Files keep
+their filters as you inspect a step and return within the same open run.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
