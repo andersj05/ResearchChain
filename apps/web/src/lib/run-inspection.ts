@@ -167,6 +167,15 @@ export function graphLocation(run: RunSnapshot, path: string) {
   return { graph, prefix, parents, node };
 }
 
+export function feedbackRecipients(graph: Graph, reviewId: string) {
+  return graph.nodes.filter((node) =>
+    Object.values(node.inputs ?? {}).some(
+      (input) =>
+        input.source === "output" && input.node_id === reviewId && input.port === "feedback",
+    ),
+  );
+}
+
 export function childGraphs(
   run: RunSnapshot,
   node: WorkflowNode,
