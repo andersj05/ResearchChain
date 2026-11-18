@@ -21,7 +21,9 @@ import { useModelCatalog } from "@/components/model-picker";
 import { pruneDefinitions } from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
-import { RunInspector } from "@/components/run-inspector";
+import { RunInspector, type ReviewFocus } from "@/components/run-inspector";
+import type { ReviewTarget } from "@/components/review-inbox";
+import { pendingReviews, reviewPath } from "@/lib/run-inspection";
 import { formatTime } from "@/components/run-status";
 import {
   api,
@@ -101,6 +103,7 @@ export function Workbench() {
   const pendingStart = useRef<RunRequest | null>(null);
   const runReadEpoch = useRef(0);
   const selectedRunId = useRef<string | null>(null);
+  const [reviewFocus, setReviewFocus] = useState<ReviewFocus>();
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
 
@@ -436,9 +439,13 @@ export function Workbench() {
     setRuns(recentRuns);
   }
 
-  function rememberRun(id: string) {
+  function rememberRun(id: string, fromInbox = false) {
     selectedRunId.current = id;
     const url = new URL(window.location.href);
+    if (fromInbox) {
+      url.searchParams.delete("agent");
+      url.searchParams.delete("revision");
+    }
     url.searchParams.set("run", id);
     url.searchParams.set("view", "runs");
     window.history.replaceState(null, "", url);
@@ -459,19 +466,40 @@ export function Workbench() {
     window.history.replaceState(null, "", url);
   }
 
-  async function openRun(id: string) {
-    selectedRunId.current = id;
+  async function openRun(id: string, target?: ReviewTarget) {
+    if (!target) selectedRunId.current = id;
     const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
-    if (epoch === runReadEpoch.current && selectedRunId.current === id) {
+    if (epoch === runReadEpoch.current && (target || selectedRunId.current === id)) {
+      if (target) {
+        const review = pendingReviews(result).find(
+          (item) => item.interrupt_id === target.interruptId,
+        );
+        if (!review || result.checkpoint_id !== target.checkpointId) {
+          if (selectedRunId.current === id) setRun(result);
+          throw new Error("That checkpoint changed. Select a current review from the inbox.");
+        }
+        setReviewFocus({ runId: id, path: reviewPath(review) });
+      } else {
+        setReviewFocus((previous) => (previous?.runId === id ? previous : undefined));
+      }
       setRun(result);
       setSetupOpen(false);
       setTab("runs");
-      rememberRun(id);
+      rememberRun(id, Boolean(target));
       forgetPendingRun(pendingKey, id);
       if (pendingStart.current?.id === id) pendingStart.current = null;
+      return true;
     }
-    return result;
+    return false;
+  }
+
+  async function openInboxReview(target: ReviewTarget) {
+    let opened = false;
+    await action(async () => {
+      opened = await openRun(target.runId, target);
+    });
+    return opened;
   }
 
   async function saveRevision() {
@@ -1056,6 +1084,7 @@ export function Workbench() {
                 selected={run?.id}
                 agentName={activeAgent?.name}
                 busy={busy}
+                onOpenReview={openInboxReview}
                 loaded={loaded}
                 onRefresh={() =>
                   void action(async () => {
@@ -1073,6 +1102,7 @@ export function Workbench() {
             detail={
               <RunInspector
                 run={run}
+                reviewFocus={reviewFocus}
                 recentRuns={runs}
                 busy={busy}
                 onResume={(value, interruptId, feedback) =>

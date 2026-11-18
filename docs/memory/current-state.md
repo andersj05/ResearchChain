@@ -4,6 +4,13 @@ Updated 2026-11-17. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Run comparison and live progress
+
+Desktop at `c45ce60` served same-agent run comparison, the saved workflow map
+preference, and latest activity while reading older outputs. The API was healthy,
+the worker connected, and the saved macro agent was present.
+[PR #70](https://github.com/andersj05/ResearchChain/pull/70).
+
 ## Discretionary macro and decisions
 
 The [editable discretionary macro starter](../discretionary-macro-example.md) has

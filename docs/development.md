@@ -196,6 +196,11 @@ agent to inspect its pinned revision, models, usage, sources, brief, feedback an
 latest recorded model output alongside the open run. The comparison reads a saved
 snapshot when you select it. Open its own run view to follow active work.
 
+Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
+including runs outside Recent runs. It lists the oldest runs first, 20 per page, and
+refreshes while open. Opening a question checks the current checkpoint and takes
+you to its evidence and decision controls. An expired entry refreshes the inbox.
+
 To manually verify restart: run the sample until it pauses, restart `pnpm dev:api`,
 refresh the run's URL, and approve. Editing/saving a newer workflow before the
 restart must not change that run. `apps/api/tests/test_restart.py` automates this
