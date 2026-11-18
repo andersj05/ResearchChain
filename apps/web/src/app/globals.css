@@ -1555,6 +1555,16 @@ td time {
 .config-fields label {
   margin-top: 12px;
 }
+.input-source-link {
+  display: block;
+  min-height: 24px;
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-size: 12px;
+  text-decoration: underline;
+}
 .review-handoff h3 {
   margin: 12px 0 4px;
   font-size: 12px;

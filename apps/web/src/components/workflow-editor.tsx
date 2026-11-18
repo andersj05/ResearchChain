@@ -33,7 +33,7 @@ import {
   type TemplateKind,
 } from "@/lib/workflow-editing";
 import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
-import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
+import type { Graph, SubgraphRef, Workflow, WorkflowNode } from "@/lib/workflow";
 
 export type WorkflowEditorNavigation = {
   openStep: (id: string, path: GraphCrumb[], field?: string) => void;
@@ -162,22 +162,36 @@ export function WorkflowEditor({
       group,
     );
   }
+  function subgraphPath(parentId: string, ref: SubgraphRef) {
+    if (validPath.length >= 8 || validPath.some((crumb) => scopeKey(crumb.ref) === scopeKey(ref)))
+      return;
+    return [...validPath, { ref, via: parentId }];
+  }
   function openSubgraph(parent: WorkflowNode, child?: string) {
     const ref = referenceOf(parent);
     if (!ref) return;
     const body = graphAt(workflow, ref);
     if (!body) return;
-    if (validPath.length >= 8 || validPath.some((crumb) => scopeKey(crumb.ref) === scopeKey(ref))) {
+    const nextPath = subgraphPath(parent.id, ref);
+    if (!nextPath) {
       setNotice(
         "This reference is recursive or exceeds eight nesting levels. Choose another subgraph version.",
       );
       return;
     }
     setNotice("");
-    setPath([...validPath, { ref, via: parent.id }]);
+    setPath(nextPath);
     stepToFocus.current = child ?? body.start_node;
     selectNode(child ?? body.start_node);
   }
+  const loopRef = node?.config?.type === "loop" ? node.config.ref : undefined;
+  const loopSourcePath =
+    loopRef &&
+    graph.nodes.filter((item) => item.id === selectedId).length === 1 &&
+    workflow.subgraphs?.filter((definition) => scopeKey(definition) === scopeKey(loopRef))
+      .length === 1
+      ? subgraphPath(selectedId, loopRef)
+      : undefined;
   const pruned = pruneDefinitions(workflow);
   const unusedDefinitions = (workflow.subgraphs?.length ?? 0) - (pruned.subgraphs?.length ?? 0);
   const nestedCopy =
@@ -634,6 +648,10 @@ export function WorkflowEditor({
                   onWorkflow={onChange}
                   onEdit={editNode}
                   onOpen={openSubgraph}
+                  onOpenSource={(stepId) => openStep(stepId, validPath)}
+                  onOpenLoopSource={
+                    loopSourcePath ? (stepId) => openStep(stepId, loopSourcePath) : undefined
+                  }
                   onEditRunLimits={() => {
                     setLibraryOpen(true);
                     requestAnimationFrame(() => {

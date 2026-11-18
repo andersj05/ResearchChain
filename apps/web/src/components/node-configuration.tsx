@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { researchDefaults } from "@/lib/workflow";
 import type { Graph, Predicate, ValueSource, Workflow, WorkflowNode } from "@/lib/workflow";
@@ -55,6 +56,39 @@ function sourceKey(source?: ValueSource) {
   return source?.source === "output" ? `${source.node_id}:${source.port}` : (source?.source ?? "");
 }
 
+function sourceChoice(options: SourceChoice[], source?: ValueSource) {
+  if (source?.source === "output" && (!source.node_id || !source.port)) return;
+  const value = sourceKey(source);
+  return options.find((item) => item.value === value);
+}
+
+function OpenSource({
+  graph,
+  label,
+  choice,
+  onOpen,
+}: {
+  graph: Graph;
+  label: string;
+  choice?: SourceChoice;
+  onOpen?: (stepId: string) => void;
+}) {
+  if (!onOpen || choice?.source.source !== "output") return null;
+  const steps = graph.nodes.filter((step) => step.id === choice.source.node_id);
+  if (steps.length !== 1) return null;
+  const step = steps[0]!;
+  return (
+    <button
+      className="input-source-link"
+      type="button"
+      aria-label={`Open source ${step.label || step.id} for ${label}`}
+      onClick={() => onOpen(step.id)}
+    >
+      Open source
+    </button>
+  );
+}
+
 function SourceOptions({
   options,
   available,
@@ -96,6 +130,7 @@ export function PredicateFields({
   label,
   name,
   onChange,
+  onOpenSource,
 }: {
   graph: Graph;
   predicate: Predicate;
@@ -104,9 +139,10 @@ export function PredicateFields({
   label: string;
   name?: string;
   onChange: (predicate: Predicate, field: string) => void;
+  onOpenSource?: (stepId: string) => void;
 }) {
   const options = sources(graph, exclude);
-  const current = options.find((item) => item.value === sourceKey(predicate.left));
+  const current = sourceChoice(options, predicate.left);
   const numeric = current?.type === "number";
   const operators = numeric
     ? [
@@ -156,6 +192,12 @@ export function PredicateFields({
           <SourceOptions options={options} available={available} />
         </select>
       </label>
+      <OpenSource
+        graph={graph}
+        label={`${label} value source`}
+        choice={current}
+        onOpen={onOpenSource}
+      />
       <label>
         Comparison
         <select
@@ -205,6 +247,8 @@ export function NodeConfiguration({
   onWorkflow,
   onEdit,
   onOpen,
+  onOpenSource,
+  onOpenLoopSource,
   onEditRunLimits,
 }: {
   workflow: Workflow;
@@ -215,6 +259,8 @@ export function NodeConfiguration({
   onWorkflow: (workflow: Workflow) => void;
   onEdit: (patch: Partial<WorkflowNode>, group?: string) => void;
   onOpen: (node: WorkflowNode) => void;
+  onOpenSource: (stepId: string) => void;
+  onOpenLoopSource?: (stepId: string) => void;
   onEditRunLimits: () => void;
 }) {
   const config = node.config;
@@ -222,7 +268,10 @@ export function NodeConfiguration({
   const ref = referenceOf(node);
   const body = ref ? graphAt(workflow, ref) : undefined;
   const definitions = workflow.subgraphs ?? [];
-  const textOptions = sources(graph, node.id).filter((source) => source.type === "text");
+  const inputOptions = sources(graph, node.id);
+  const textOptions = inputOptions.filter((source) => source.type === "text");
+  const noteValue = sourceKey(node.inputs?.text);
+  const noteChoice = sourceChoice(textOptions, node.inputs?.text);
   const available = availableOutputSteps(graph, node.id);
   return (
     <>
@@ -248,32 +297,37 @@ export function NodeConfiguration({
             />
           </label>
           {(["text", "number"] as const).map((port) => {
-            const choices = sources(graph, node.id).filter((item) => item.type === port);
+            const choices = inputOptions.filter((item) => item.type === port);
+            const label = port === "text" ? "Code text input" : "Code number input";
+            const value = sourceKey(node.inputs?.[port]);
+            const choice = sourceChoice(choices, node.inputs?.[port]);
             return (
-              <label key={port}>
-                {port === "text" ? "Code text input" : "Code number input"}
-                <select
-                  name={port}
-                  value={sourceKey(node.inputs?.[port])}
-                  onChange={(event) =>
-                    onGraph(
-                      bindInput(
-                        graph,
-                        node.id,
-                        port,
-                        choices.find((item) => item.value === event.target.value)?.source,
-                      ),
-                    )
-                  }
-                >
-                  <option value="">{port === "text" ? "Empty text" : "Zero"}</option>
-                  {node.inputs?.[port] &&
-                    !choices.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
-                      <option value={sourceKey(node.inputs[port])}>Missing source</option>
+              <Fragment key={port}>
+                <label>
+                  {label}
+                  <select
+                    name={port}
+                    value={value}
+                    onChange={(event) =>
+                      onGraph(
+                        bindInput(
+                          graph,
+                          node.id,
+                          port,
+                          choices.find((item) => item.value === event.target.value)?.source,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">{port === "text" ? "Empty text" : "Zero"}</option>
+                    {node.inputs?.[port] && !choice && (
+                      <option value={value}>Missing source</option>
                     )}
-                  <SourceOptions options={choices} available={available} />
-                </select>
-              </label>
+                    <SourceOptions options={choices} available={available} />
+                  </select>
+                </label>
+                <OpenSource graph={graph} label={label} choice={choice} onOpen={onOpenSource} />
+              </Fragment>
             );
           })}
           <label>
@@ -484,32 +538,39 @@ export function NodeConfiguration({
               )}
             </>
           )}
-          {(["context", "feedback"] as const).map((port) => (
-            <label key={port}>
-              {port === "context" ? "Context input" : "Reviewer feedback"}
-              <select
-                name={port}
-                value={sourceKey(node.inputs?.[port])}
-                onChange={(event) =>
-                  onGraph(
-                    bindInput(
-                      graph,
-                      node.id,
-                      port,
-                      textOptions.find((item) => item.value === event.target.value)?.source,
-                    ),
-                  )
-                }
-              >
-                <option value="">None</option>
-                {node.inputs?.[port] &&
-                  !textOptions.some((item) => item.value === sourceKey(node.inputs?.[port])) && (
-                    <option value={sourceKey(node.inputs[port])}>Missing source</option>
-                  )}
-                <SourceOptions options={textOptions} available={available} />
-              </select>
-            </label>
-          ))}
+          {(["context", "feedback"] as const).map((port) => {
+            const label = port === "context" ? "Context input" : "Reviewer feedback";
+            const value = sourceKey(node.inputs?.[port]);
+            const choice = sourceChoice(textOptions, node.inputs?.[port]);
+            return (
+              <Fragment key={port}>
+                <label>
+                  {label}
+                  <select
+                    name={port}
+                    value={value}
+                    onChange={(event) =>
+                      onGraph(
+                        bindInput(
+                          graph,
+                          node.id,
+                          port,
+                          textOptions.find((item) => item.value === event.target.value)?.source,
+                        ),
+                      )
+                    }
+                  >
+                    <option value="">None</option>
+                    {node.inputs?.[port] && !choice && (
+                      <option value={value}>Missing source</option>
+                    )}
+                    <SourceOptions options={textOptions} available={available} />
+                  </select>
+                </label>
+                <OpenSource graph={graph} label={label} choice={choice} onOpen={onOpenSource} />
+              </Fragment>
+            );
+          })}
           <p className="field-hint">
             {config.stage === "custom"
               ? "Your instructions define this task. The answer appears in the result's conclusion; hypotheses are optional. "
@@ -519,37 +580,37 @@ export function NodeConfiguration({
         </>
       )}
       {node.kind === "note" && (
-        <label>
-          Text input
-          <select
-            name="text"
-            aria-label="Text input"
-            aria-describedby="text-input-help"
-            value={sourceKey(node.inputs?.text)}
-            onChange={(event) =>
-              onGraph(
-                bindInput(
-                  graph,
-                  node.id,
-                  "text",
-                  textOptions.find((item) => item.value === event.target.value)?.source,
-                ),
-              )
-            }
-          >
-            <option value="">Use instructions only</option>
-            {node.inputs?.text &&
-              !textOptions.some((item) => item.value === sourceKey(node.inputs?.text)) && (
-                <option value={sourceKey(node.inputs.text)}>
-                  Missing source ({sourceKey(node.inputs.text)})
-                </option>
+        <>
+          <label>
+            Text input
+            <select
+              name="text"
+              aria-label="Text input"
+              aria-describedby="text-input-help"
+              value={noteValue}
+              onChange={(event) =>
+                onGraph(
+                  bindInput(
+                    graph,
+                    node.id,
+                    "text",
+                    textOptions.find((item) => item.value === event.target.value)?.source,
+                  ),
+                )
+              }
+            >
+              <option value="">Use instructions only</option>
+              {node.inputs?.text && !noteChoice && (
+                <option value={noteValue}>Missing source ({noteValue})</option>
               )}
-            <SourceOptions options={textOptions} available={available} />
-          </select>
-          <span id="text-input-help" className="field-hint">
+              <SourceOptions options={textOptions} available={available} />
+            </select>
+          </label>
+          <OpenSource graph={graph} label="Text input" choice={noteChoice} onOpen={onOpenSource} />
+          <p id="text-input-help" className="field-hint">
             Control connections determine which outputs this step can use.
-          </span>
-        </label>
+          </p>
+        </>
       )}
       {config?.type === "route" && (
         <PredicateFields
@@ -559,6 +620,7 @@ export function NodeConfiguration({
           available={available}
           label="Condition"
           name="condition"
+          onOpenSource={onOpenSource}
           onChange={(condition, field) =>
             onEdit({ config: { ...config, condition } }, `condition/${field}`)
           }
@@ -746,6 +808,7 @@ export function NodeConfiguration({
               )}
               label="Stop condition"
               name="until"
+              onOpenSource={onOpenLoopSource}
               onChange={(until, field) =>
                 onEdit({ config: { ...config, until } }, `until/${field}`)
               }

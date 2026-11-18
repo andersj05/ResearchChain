@@ -182,6 +182,8 @@ complete. Outputs from every branch can be available after a parallel join.
 After a conditional join, an output must be available whichever branch runs.
 The picker keeps existing selections and shows the full source list while
 control connections are incomplete.
+Use **Open source** beside a configured output binding to inspect the producing
+step. For a loop stop condition, it opens the source in that loop’s pinned body.
 
 Open **Model and tool plan** to see each reachable research step’s effective
 model and enabled tools. The plan shows which steps inherit the workflow model
