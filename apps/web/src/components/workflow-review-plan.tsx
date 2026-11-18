@@ -69,59 +69,71 @@ export function WorkflowReviewPlan({
       {open &&
         (reviews.length ? (
           <ul className={styles.list} aria-label="Reachable review steps">
-            {reviews.map(({ node, path, location, previous, bindings }) => (
-              <li key={`${scopeKey(path.at(-1)?.ref ?? null)}/${node.id}`}>
-                <button
-                  className={styles.step}
-                  type="button"
-                  aria-label={`Edit ${node.label || node.id} in ${location}`}
-                  onClick={() => openStep(node.id, path)}
-                >
-                  {node.label || node.id}
-                </button>
-                <p className="muted">{location}</p>
-                {node.instructions && !node.instructions.trim() ? (
-                  <p className="muted">Question contains only whitespace.</p>
-                ) : (
-                  <p className={styles.question}>
-                    {node.instructions || defaultReviewQuestion}
-                    {!node.instructions && <span className="muted"> · Default question</span>}
-                  </p>
-                )}
-                {previous.length > 0 && (
-                  <>
-                    <p className="muted">Previous control steps</p>
-                    <ul className={styles.bindings} aria-label="Previous control steps">
-                      {previous.map((step) => (
-                        <li key={step.id}>
-                          <button
-                            className={styles.step}
-                            type="button"
-                            onClick={() => openStep(step.id, path)}
-                          >
-                            {step.label || step.id}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                )}
-                {bindings.length ? (
-                  <>
-                    <p className="muted">Feedback bindings</p>
-                    <ul className={styles.bindings} aria-label="Feedback bindings">
-                      {bindings.map(({ target, field }, index) => (
-                        <li key={`${target.id}/${field}/${index}`}>
-                          {target.label || target.id} · {field}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
-                  <p className="muted">No step inputs or conditions are wired to this feedback.</p>
-                )}
-              </li>
-            ))}
+            {reviews.map(({ node, path, location, previous, bindings }) => {
+              const feedback = bindings.length
+                ? `${bindings.length} feedback ${bindings.length === 1 ? "binding" : "bindings"}`
+                : "No feedback bindings";
+              return (
+                <li key={`${scopeKey(path.at(-1)?.ref ?? null)}/${node.id}`}>
+                  <button
+                    className={styles.step}
+                    type="button"
+                    aria-label={`Edit ${node.label || node.id} in ${location}`}
+                    onClick={() => openStep(node.id, path)}
+                  >
+                    {node.label || node.id}
+                  </button>
+                  {path.length > 0 && <p className="muted">{location}</p>}
+                  {node.instructions && !node.instructions.trim() ? (
+                    <p className="muted">Question contains only whitespace.</p>
+                  ) : (
+                    <p className={styles.question}>
+                      {node.instructions || defaultReviewQuestion}
+                      {!node.instructions && <span className="muted"> · Default question</span>}
+                    </p>
+                  )}
+                  {previous.length || bindings.length ? (
+                    <details className={styles.reviewWiring}>
+                      <summary>
+                        Wiring <span className="muted">· {feedback}</span>
+                      </summary>
+                      {previous.length > 0 && (
+                        <>
+                          <p className="muted">Previous control steps</p>
+                          <ul className={styles.bindings} aria-label="Previous control steps">
+                            {previous.map((step) => (
+                              <li key={step.id}>
+                                <button
+                                  className={styles.step}
+                                  type="button"
+                                  onClick={() => openStep(step.id, path)}
+                                >
+                                  {step.label || step.id}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                      {bindings.length > 0 && (
+                        <>
+                          <p className="muted">Feedback bindings</p>
+                          <ul className={styles.bindings} aria-label="Feedback bindings">
+                            {bindings.map(({ target, field }, index) => (
+                              <li key={`${target.id}/${field}/${index}`}>
+                                {target.label || target.id} · {field}
+                              </li>
+                            ))}
+                          </ul>
+                        </>
+                      )}
+                    </details>
+                  ) : (
+                    <p className="muted">{feedback}</p>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <p className="muted">No review steps are reachable from the workflow start.</p>

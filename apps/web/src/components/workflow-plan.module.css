@@ -48,3 +48,8 @@
   margin: 4px 0;
   padding-inline-start: 16px;
 }
+
+.reviewWiring > summary {
+  width: fit-content;
+  padding-block: 3px;
+}
