@@ -328,6 +328,8 @@ export function addTemplate(
       research.limits = {
         ...researchDefaults.limits,
         max_model_calls: 12,
+        max_tool_calls: 12,
+        max_input_bytes: 8000000,
         max_response_seconds: 300,
       };
     }

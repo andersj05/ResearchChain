@@ -31,6 +31,7 @@ test("configure a research workspace and inspect saved files during the next pas
   const saved: WorkflowRevision = await response.json();
   const workflow = saved.workflow;
   expect(workflow.budgets?.max_active_seconds).toBe(1500);
+  expect(workflow.research?.limits?.max_tool_calls).toBe(12);
 
   const runId = crypto.randomUUID();
   const id = workflow.start_node;
