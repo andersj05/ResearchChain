@@ -20,6 +20,7 @@ export type NodeTypeSpec = components["schemas"]["NodeTypeSpec"];
 export type ExecutionBudgets = components["schemas"]["ExecutionBudgets"];
 export type RunSnapshot = components["schemas"]["RunSnapshot"];
 export type RunSummary = components["schemas"]["RunSummary"];
+export type RunArchivePage = components["schemas"]["RunArchivePage"];
 export type PendingReviewsPage = components["schemas"]["PendingReviewsPage"];
 export type RunRequest = components["schemas"]["RunRequest"];
 export type CommandReceipt = components["schemas"]["CommandReceipt"];

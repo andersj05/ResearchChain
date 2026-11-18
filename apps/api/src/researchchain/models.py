@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
 from researchchain.code_models import CodeExecution
 from researchchain.graph import (
@@ -107,6 +107,19 @@ class PendingReviewsPage(StrictModel):
     has_more: bool
 
 
+RunStatus = Literal[
+    "queued",
+    "paused",
+    "completed",
+    "rejected",
+    "interrupted",
+    "cancelled",
+    "limited",
+    "running",
+    "failed",
+]
+
+
 class RunSummary(StrictModel):
     agent_id: UUID | None = None
     agent_name: str | None = None
@@ -114,18 +127,37 @@ class RunSummary(StrictModel):
     revision_id: UUID
     revision_number: int
     workflow_name: str
-    status: Literal[
-        "queued",
-        "paused",
-        "completed",
-        "rejected",
-        "interrupted",
-        "cancelled",
-        "limited",
-        "running",
-        "failed",
-    ]
+    status: RunStatus
     created_at: datetime
+
+
+class RunArchiveQuery(StrictModel):
+    limit: int = Field(default=20, ge=1, le=50)
+    search: str = Field(default="", max_length=200, pattern=r"^[^\x00]*$")
+    status: RunStatus | None = None
+    agent_id: UUID | None = None
+    unassigned: bool = False
+    exclude_id: UUID | None = None
+    before_created_at: AwareDatetime | None = None
+    before_id: UUID | None = None
+
+    @model_validator(mode="after")
+    def validate_scope_and_cursor(self) -> Self:
+        if self.agent_id is not None and self.unassigned:
+            raise ValueError("Choose an agent or unassigned runs.")
+        if (self.before_created_at is None) != (self.before_id is None):
+            raise ValueError("Provide both the creation time and ID to fetch the next page.")
+        return self
+
+
+class RunArchiveItem(StrictModel):
+    run: RunSummary
+    brief_excerpt: str
+
+
+class RunArchivePage(StrictModel):
+    items: list[RunArchiveItem]
+    has_more: bool
 
 
 class RunUsage(StrictModel):

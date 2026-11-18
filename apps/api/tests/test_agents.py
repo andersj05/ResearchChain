@@ -3,6 +3,7 @@ from copy import deepcopy
 from typing import Any
 from uuid import uuid4
 
+from access_fixtures import owner_client
 from fastapi.testclient import TestClient
 
 from researchchain.agent_models import AgentCreate, AgentSave
@@ -54,6 +55,51 @@ def test_agent_versions_revert_and_conflicts_preserve_pinned_documents(
     assert (
         client.post("/api/agents", json={"id": agent_id, "workflow": workflow}).json() == reverted
     )
+
+
+def test_run_archive_filters_and_cursor_stay_in_scope(
+    database: Database, workflow: dict[str, Any]
+) -> None:
+    with owner_client(create_app(database), workers=False) as client:
+        first = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        second = client.post("/api/agents", json={"id": str(uuid4()), "workflow": workflow}).json()
+        agent_id = first["agent"]["id"]
+        revision_id = first["revision"]["id"]
+
+        def start(brief: str, agent: str | None = agent_id) -> str:
+            run_id = str(uuid4())
+            response = client.post(
+                "/api/runs",
+                json={"id": run_id, "agent_id": agent, "revision_id": revision_id, "brief": brief},
+            )
+            assert response.status_code == 202
+            return run_id
+
+        old = start("Compare inflation breakevens")
+        recent = start("Inspect inflation swaps")
+        unassigned = start("Inflation prints", None)
+        start("Inflation surprise", second["agent"]["id"])
+        cancelled = start("Inflation scenario")
+        assert client.post(f"/api/runs/{cancelled}/cancel").status_code == 200
+        filters = {"search": "INFLATION", "limit": "1", "agent_id": agent_id, "status": "queued"}
+
+        page = client.get("/api/runs/search", params=filters).json()
+        assert page["has_more"] is True
+        row = page["items"][0]
+        assert row["run"]["id"] == recent and row["brief_excerpt"] == "Inspect inflation swaps"
+        start("Inflation futures")
+        remaining = client.get(
+            "/api/runs/search",
+            params={**filters, "before_created_at": row["run"]["created_at"], "before_id": recent},
+        ).json()
+        assert remaining["has_more"] is False
+        assert [item["run"]["id"] for item in remaining["items"]] == [old]
+        legacy = client.get("/api/runs/search", params={"unassigned": "true"}).json()
+        assert [item["run"]["id"] for item in legacy["items"]] == [unassigned]
+        excluded = client.get("/api/runs/search", params={"search": old, "exclude_id": old}).json()
+        assert excluded == {"items": [], "has_more": False}
+        assert client.get("/api/runs/search", params={"before_id": recent}).status_code == 422
+        assert client.get("/api/runs/search", params={"search": "\x00"}).status_code == 422
 
 
 def test_concurrent_agent_saves_accept_one_version(

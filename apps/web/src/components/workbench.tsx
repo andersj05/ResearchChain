@@ -1083,6 +1083,7 @@ export function Workbench() {
                 runs={runs}
                 selected={run?.id}
                 agentName={activeAgent?.name}
+                agentId={activeAgent?.id}
                 busy={busy}
                 onOpenReview={openInboxReview}
                 loaded={loaded}
