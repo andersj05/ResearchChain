@@ -218,6 +218,8 @@ request and output. The browser remembers the display and sort preferences.
 When the timeline is filtered, **Timeline range** can fit the matching attempts
 or keep the original scale for the entire run. Model activity and Files keep
 their filters as you inspect a step and return within the same open run.
+Use **Workflow step** to scope activity to a saved step and loop iteration.
+**Model activity for this step** opens that scope directly from Step details.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.

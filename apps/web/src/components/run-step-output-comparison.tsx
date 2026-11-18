@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { attemptPath, graphLocation, type ComparisonPasses } from "@/lib/run-inspection";
+import { attemptPath, graphLocation, runStepLabel, type ComparisonPasses } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
 import { ModelRequestPreview } from "./model-request-preview";
@@ -83,15 +83,6 @@ function linkedPassSelection(
     baselineAttempt: baselineAttempt || undefined,
     openAttempt: openAttempt || undefined,
   };
-}
-
-function stepLabel(run: RunSnapshot, path: string) {
-  const { node, parents } = graphLocation(run, path);
-  const context = parents.map((parent) => {
-    const iteration = /^iteration-(\d+)\//.exec(path.slice(parent.path.length + 1))?.[1];
-    return iteration ? `Iteration ${iteration} · ${parent.label}` : parent.label;
-  });
-  return [node.label, ...context].join(" · ");
 }
 
 function SavedOutput({
@@ -210,7 +201,7 @@ export function RunStepOutputComparison({
   const options = open
     ? [...paths].map((value) => ({
         value,
-        label: stepLabel(current.has(value) ? run : baseline, value),
+        label: runStepLabel(current.has(value) ? run : baseline, value),
       }))
     : [];
   const labelCounts = new Map<string, number>();

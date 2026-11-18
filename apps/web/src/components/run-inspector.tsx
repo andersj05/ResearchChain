@@ -496,6 +496,11 @@ function RunWorkspace({
             feedback={pendingFeedback}
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
             onIterateStep={() => onIterate(undefined, path)}
+            onModelActivity={() => {
+              focusOnInspect.current = true;
+              setActivityFilter((previous) => ({ ...previous, query: "", step: path }));
+              changeView("activity");
+            }}
             onResume={async (...args) => {
               const submittedFrom = navigation.current;
               await onResume(...args);

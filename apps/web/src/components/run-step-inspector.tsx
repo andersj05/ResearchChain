@@ -64,6 +64,7 @@ export function RunStepInspector({
   changeFeedback,
   onResume,
   onIterateStep,
+  onModelActivity,
   select,
 }: {
   run: RunSnapshot;
@@ -75,6 +76,7 @@ export function RunStepInspector({
   changeFeedback: (id: string, value: string) => void;
   onResume: ResumeReview;
   onIterateStep: () => Promise<void>;
+  onModelActivity: () => void;
   select: (path: string, attemptId?: string) => void;
 }) {
   const { node, graph, prefix } = graphLocation(run, path);
@@ -131,6 +133,11 @@ export function RunStepInspector({
         <Button className="button small" disabled={busy} onClick={onIterateStep}>
           Iterate from this step
         </Button>
+        {hasAttempt && (
+          <Button className="button small" onClick={onModelActivity}>
+            Model activity for this step
+          </Button>
+        )}
       </div>
       {node.config?.type === "research" && node.config.analyst && (
         <p className="field-hint">

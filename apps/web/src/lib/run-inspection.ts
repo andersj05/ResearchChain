@@ -180,6 +180,15 @@ export function graphLocation(run: RunSnapshot, path: string) {
   return { graph, prefix, parents, node };
 }
 
+export function runStepLabel(run: RunSnapshot, path: string) {
+  const { node, parents } = graphLocation(run, path);
+  const context = parents.map((parent) => {
+    const iteration = /^iteration-(\d+)\//.exec(path.slice(parent.path.length + 1))?.[1];
+    return iteration ? `Iteration ${iteration} · ${parent.label}` : parent.label;
+  });
+  return [node.label, ...context].join(" · ");
+}
+
 export function feedbackRecipients(graph: Graph, reviewId: string) {
   return graph.nodes.filter((node) =>
     Object.values(node.inputs ?? {}).some(
