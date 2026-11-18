@@ -35,6 +35,29 @@ test("nested reviews show the iteration, survive refresh, and finish", async ({
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
   await page.getByRole("combobox", { name: "Inspect step" }).selectOption("root/review_loop");
   await expect(inspector).toContainText("Exit condition satisfied.");
+  const runId = new URL(page.url()).searchParams.get("run");
+  const pinned = await (await request.get(`/api/runs/${runId}`)).json();
+  await inspector.getByRole("button", { name: "Iteration 2", exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "Inspect step" })).toHaveValue(
+    "root/review_loop/iteration-2/review",
+  );
+  await inspector.getByRole("button", { name: "Iterate from this step", exact: true }).click();
+  await expect(page.getByRole("tab", { name: "Build", exact: true })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  const crumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  await expect(crumbs.getByRole("button", { name: "Critique and review v1" })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(stepName).toHaveValue("Review");
+  await stepName.fill("Synthetic revised checkpoint");
+  await expect(page.locator(".save-state")).toHaveClass(/unsaved/);
+  const saved = await (await request.get(`/api/runs/${runId}`)).json();
+  expect(saved.workflow).toEqual(pinned.workflow);
+  expect(saved.events).toEqual(pinned.events);
   expect(errors).toEqual([]);
 });
 

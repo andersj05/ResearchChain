@@ -190,6 +190,11 @@ pinned. Inspect the source in a separate tab, check its as-of date when availabl
 or move or remove it while browsing the rest of the library.
 **Run context → Pinned evidence** shows the saved source dates and can use the
 research manifest when a source record takes longer to load or is unavailable.
+In a model attempt, **Inspect saved inputs** reads the stored request to show the
+brief, reviewer feedback, prior conclusion, and delivery status of each source.
+**Saved request** in **Attempt details** opens the complete receipt.
+The two cards in **Model outputs by step** can each show their saved inputs,
+making it possible to check whether a changed result followed changed feedback.
 When shared sources changed order, **Setup changes → Pinned source order** shows
 both runs’ full saved order.
 Search the entire evidence library by title, author, publisher, or saved date
@@ -203,9 +208,14 @@ Rows with missing measurements follow measured rows. Switch to **Timeline** to
 see when recorded model attempts started and overlapped. A hollow point marks a
 start whose duration is unreported. Select any attempt to inspect its exact
 request and output. The browser remembers the display and sort preferences.
+When the timeline is filtered, **Timeline range** can fit the matching attempts
+or keep the original scale for the entire run.
 
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
+**Iterate from this step** loads the pinned revision, copied brief, and sources
+and opens the corresponding step in Build. For a loop iteration, Build opens
+the versioned body and selects the step that ran.
 
 Unsent feedback stays in the current browser tab when you switch runs or refresh.
 Drafts clear when the app observes a resolved checkpoint or a terminal run.

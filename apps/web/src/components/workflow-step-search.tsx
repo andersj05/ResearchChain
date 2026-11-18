@@ -1,10 +1,14 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { nodePresentation } from "@/components/node-kind";
-import { graphAt, referenceOf, scopeKey, type GraphScope } from "@/lib/workflow-editing";
-import type { Graph, SubgraphRef, Workflow, WorkflowNode } from "@/lib/workflow";
-
-export type GraphCrumb = { ref: SubgraphRef; via: string };
+import {
+  graphAt,
+  referenceOf,
+  scopeKey,
+  type GraphCrumb,
+  type GraphScope,
+} from "@/lib/workflow-editing";
+import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
 
 function findSteps(workflow: Workflow, query: string) {
   // A shared definition needs one editable destination. Visit the shortest valid

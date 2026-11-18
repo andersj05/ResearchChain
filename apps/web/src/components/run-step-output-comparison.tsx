@@ -2,6 +2,7 @@ import { useState } from "react";
 import { attemptPath, graphLocation } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
+import { ModelRequestPreview } from "./model-request-preview";
 import { researchToolUrls } from "./research-tool-receipts";
 
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
@@ -68,6 +69,13 @@ function SavedOutput({
           <div className="research-conclusion">
             <ResearchMarkdown text={attempt.result.conclusion} sources={sources} />
           </div>
+          {attempt.input_artifact_id && (
+            <ModelRequestPreview
+              key={attempt.id}
+              id={attempt.input_artifact_id}
+              bytes={attempt.input_bytes}
+            />
+          )}
           <a
             className="button small"
             href={`?${new URLSearchParams({ view: "runs", run: run.id, attempt: attempt.id })}`}

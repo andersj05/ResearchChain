@@ -40,6 +40,7 @@ export function RunModelActivity({
   const orderKey = `${ownerStoragePrefix(owner)}.model-activity-order`;
   const displayKey = `${ownerStoragePrefix(owner)}.model-activity-display`;
   const [query, setQuery] = useState("");
+  const [fitFiltered, setFitFiltered] = useState(false);
   const [display, setDisplay] = useState<"table" | "timeline">(() =>
     readPreference(displayKey) === "timeline" ? "timeline" : "table",
   );
@@ -131,6 +132,18 @@ export function RunModelActivity({
             </select>
           </label>
         )}
+        {display === "timeline" && search && (
+          <label>
+            Timeline range
+            <select
+              value={fitFiltered ? "filtered" : "full"}
+              onChange={(event) => setFitFiltered(event.target.value === "filtered")}
+            >
+              <option value="full">Entire run</option>
+              <option value="filtered">Filtered attempts</option>
+            </select>
+          </label>
+        )}
       </div>
       {display === "table" &&
         order === "tokens" &&
@@ -142,7 +155,12 @@ export function RunModelActivity({
           No attempts match this filter.
         </p>
       ) : display === "timeline" ? (
-        <ModelActivityTimeline rows={rows} visible={visible} inspect={inspect} />
+        <ModelActivityTimeline
+          rows={rows}
+          visible={visible}
+          fitVisible={Boolean(search && fitFiltered)}
+          inspect={inspect}
+        />
       ) : (
         <div
           className="model-activity-scroll"

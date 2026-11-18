@@ -53,7 +53,7 @@ type Actions = {
   onRefresh: () => Promise<void>;
   onCancel: () => Promise<void>;
   onOpenRevision: () => Promise<void>;
-  onIterate: (brief?: string) => Promise<void>;
+  onIterate: (brief?: string, stepPath?: string) => Promise<void>;
 };
 
 export function RunInspector({
@@ -436,6 +436,7 @@ function RunWorkspace({
             busy={busy}
             feedback={pendingFeedback}
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
+            onIterateStep={() => onIterate(undefined, path)}
             onResume={async (...args) => {
               await onResume(...args);
               follow();

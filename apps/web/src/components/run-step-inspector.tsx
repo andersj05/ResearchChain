@@ -62,6 +62,7 @@ export function RunStepInspector({
   feedback,
   changeFeedback,
   onResume,
+  onIterateStep,
   select,
 }: {
   run: RunSnapshot;
@@ -72,6 +73,7 @@ export function RunStepInspector({
   feedback: Record<string, string>;
   changeFeedback: (id: string, value: string) => void;
   onResume: ResumeReview;
+  onIterateStep: () => Promise<void>;
   select: (path: string, attemptId?: string) => void;
 }) {
   const { node, graph, prefix } = graphLocation(run, path);
@@ -122,6 +124,11 @@ export function RunStepInspector({
         <span className="step-status" data-status={status}>
           {status}
         </span>
+      </div>
+      <div className="actions">
+        <Button className="button small" disabled={busy} onClick={onIterateStep}>
+          Iterate from this step
+        </Button>
       </div>
       {node.config?.type === "research" && node.config.analyst && (
         <p className="field-hint">

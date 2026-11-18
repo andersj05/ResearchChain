@@ -9,7 +9,7 @@ import { ResearchSettingsEditor } from "@/components/research-settings";
 import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
-import { WorkflowStepSearch, type GraphCrumb } from "@/components/workflow-step-search";
+import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
   addTemplate,
   connectPorts,
@@ -20,6 +20,7 @@ import {
   removeStep,
   scopeKey,
   updateGraph,
+  type GraphCrumb,
   type GraphScope,
   type TemplateKind,
 } from "@/lib/workflow-editing";
@@ -30,6 +31,7 @@ export function WorkflowEditor({
   catalog,
   workflow,
   selected,
+  initialPath = [],
   onSelect,
   onChange,
   onSeal,
@@ -38,12 +40,13 @@ export function WorkflowEditor({
   catalog: ModelCatalog;
   workflow: Workflow;
   selected: string;
+  initialPath?: GraphCrumb[];
   onSelect: (id: string) => void;
   onChange: (workflow: Workflow, group?: string) => void;
   onSeal?: () => void;
   disabled: boolean;
 }) {
-  const [path, setPath] = useState<GraphCrumb[]>([]);
+  const [path, setPath] = useState(initialPath);
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [notice, setNotice] = useState("");

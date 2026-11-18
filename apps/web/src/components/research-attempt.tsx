@@ -4,6 +4,7 @@ import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts } from "./research-tool-receipts";
 import { CopyRunLink } from "./copy-run-link";
+import { ModelRequestPreview } from "./model-request-preview";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 
@@ -168,6 +169,9 @@ export function ResearchAttempt({
             )}
           </details>
         </>
+      )}
+      {expanded && attempt.input_artifact_id && (
+        <ModelRequestPreview id={attempt.input_artifact_id} bytes={attempt.input_bytes} />
       )}
       <details className="research-disclosure" open={!attempt.result}>
         <summary>Attempt details</summary>

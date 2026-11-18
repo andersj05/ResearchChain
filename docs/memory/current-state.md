@@ -4,6 +4,17 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Search and verify saved evidence
+
+**Sources** searches the entire library and applies availability before paging.
+Filtering keeps the open source and its claims visible. **Pinned evidence**
+shows saved dates and uses the research manifest when a source cannot load.
+**Pinned source order** shows both full sequences when shared evidence moved.
+CI passed 517 backend tests with 2 skips and all 120 browser tests on retry
+after the first runner timed out. Desktop at `d31061e` served the controls with a
+healthy API and connected worker. The owner-gated search and read-only query
+passed on Desktop. [PR #94](https://github.com/andersj05/ResearchChain/pull/94).
+
 ## Prepare evidence in Run setup
 
 **Evidence for this run** searches the full library by title, author, publisher,

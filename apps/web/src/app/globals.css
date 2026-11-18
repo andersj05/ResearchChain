@@ -2051,6 +2051,18 @@ td time {
 .research-disclosure ul {
   padding-left: 20px;
 }
+.saved-model-inputs h4 {
+  margin: 10px 0 4px;
+}
+.saved-model-inputs pre {
+  margin: 4px 0 8px;
+  padding: 8px;
+  max-height: 280px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .research-disclosure > h4,
 .hypothesis > h4 {
   margin: 12px 0 6px;

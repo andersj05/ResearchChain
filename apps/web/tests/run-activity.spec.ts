@@ -124,6 +124,13 @@ test("sort model activity by measured work and remember the preference", async (
   await display.selectOption("timeline");
   await expect(entries).toHaveCount(1);
   await expect(timeline.getByText("360 s", { exact: true })).toBeVisible();
+  const range = page.getByRole("combobox", { name: "Timeline range" });
+  await range.selectOption("filtered");
+  await expect(timeline.getByText("Time since the first matching model attempt")).toBeVisible();
+  await expect(timeline.getByText("300 s", { exact: true })).toBeVisible();
+  await expect(timeline.getByText("360 s", { exact: true })).toHaveCount(0);
+  await range.selectOption("full");
+  await expect(timeline.getByText("360 s", { exact: true })).toBeVisible();
   await entries.nth(0).getByRole("button").click();
   const step = page.getByRole("region", { name: "Selected step" });
   const expanded = step.locator(".research-attempt[open] > summary");

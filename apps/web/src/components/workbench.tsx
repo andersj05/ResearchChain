@@ -18,7 +18,12 @@ import { Tabs, TabsList, TabsPanel, TabsTab } from "@ui-sdk/react/tabs";
 import { historyShortcut, useWorkflowHistory } from "@/components/canvas/use-workflow-history";
 import { WorkflowEditor } from "@/components/workflow-editor";
 import { useModelCatalog } from "@/components/model-picker";
-import { pruneDefinitions, updateStepModels } from "@/lib/workflow-editing";
+import {
+  pruneDefinitions,
+  updateStepModels,
+  workflowStepAtRunPath,
+  type GraphCrumb,
+} from "@/lib/workflow-editing";
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
 import { RunInspector, type ReviewFocus } from "@/components/run-inspector";
@@ -75,7 +80,13 @@ export function Workbench() {
     canRedo,
     seal,
   } = useWorkflowHistory(initialWorkflow);
-  const [documentEpoch, setDocumentEpoch] = useState(0);
+  const [editorDocument, setEditorDocument] = useState<{ epoch: number; path: GraphCrumb[] }>({
+    epoch: 0,
+    path: [],
+  });
+  function resetEditor(path: GraphCrumb[] = []) {
+    setEditorDocument((previous) => ({ epoch: previous.epoch + 1, path }));
+  }
   const importInput = useRef<HTMLInputElement>(null);
   const [diagnostics, setDiagnostics] = useState<ValidationIssue[]>([]);
   const [revision, setRevision] = useState<WorkflowRevision | null>(null);
@@ -296,7 +307,7 @@ export function Workbench() {
     setRevision(cached?.revision ?? detail?.revision ?? null);
     initialize(next);
     setEdited(Boolean(cached));
-    setDocumentEpoch((value) => value + 1);
+    resetEditor();
     setSelected(next.start_node);
     setBrief(cached?.brief ?? "");
     setEvidenceIds(cached?.evidenceIds ?? []);
@@ -345,7 +356,7 @@ export function Workbench() {
     change(detail.revision.workflow);
     setRevision(detail.revision);
     setActiveAgent(detail.agent);
-    setDocumentEpoch((value) => value + 1);
+    resetEditor();
     setSelected(detail.revision.workflow.start_node);
     rememberAgent(detail.agent.id);
     setMessage("Latest saved agent loaded. Undo restores your draft.");
@@ -538,8 +549,15 @@ export function Workbench() {
     return result;
   }
 
-  async function loadRevision(id: string, agentId: string | null = activeAgent?.id ?? null) {
+  async function loadRevision(
+    id: string,
+    agentId: string | null = activeAgent?.id ?? null,
+    stepPath?: string,
+  ) {
     const result = await api<WorkflowRevision>(`revisions/${id}`);
+    const destination = stepPath ? workflowStepAtRunPath(result.workflow, stepPath) : undefined;
+    if (stepPath && !destination)
+      throw new Error("This step is unavailable in the saved revision.");
     const detail = agentId ? await api<AgentDetail>(`agents/${agentId}`) : null;
     const versions = agentId
       ? await api<AgentVersion[]>(`agents/${agentId}/revisions?limit=1000`)
@@ -570,9 +588,9 @@ export function Workbench() {
       rememberAgent(agentId);
     } else change(result.workflow);
     setActiveAgent(detail?.agent ?? null);
-    setDocumentEpoch((value) => value + 1);
+    resetEditor(destination?.path);
     setRevision(result);
-    setSelected(result.workflow.start_node);
+    setSelected(destination?.step.id ?? result.workflow.start_node);
     rememberRevision(result.id);
     switchTab("workflow");
     setMessage(`Loaded revision ${result.number}. Undo restores your previous draft.`);
@@ -672,7 +690,7 @@ export function Workbench() {
     }
     const validated = await api<ValidationResult>("workflows/validate", document);
     change(validated.workflow);
-    setDocumentEpoch((value) => value + 1);
+    resetEditor();
     setSelected(validated.workflow.start_node);
     setMessage("Workflow imported and validated. Undo restores your previous draft.");
   }
@@ -899,7 +917,8 @@ export function Workbench() {
             </details>
             <WorkflowEditor
               catalog={catalog}
-              key={documentEpoch}
+              key={editorDocument.epoch}
+              initialPath={editorDocument.path}
               onSeal={seal}
               workflow={workflow}
               selected={selected}
@@ -918,7 +937,7 @@ export function Workbench() {
                       setActiveAgent(null);
                       rememberAgent(null);
                       change(structuredClone(initialWorkflow));
-                      setDocumentEpoch((value) => value + 1);
+                      resetEditor();
                       setSelected(initialWorkflow.start_node);
                       setBrief("");
                       setEvidenceIds([]);
@@ -937,7 +956,7 @@ export function Workbench() {
                   disabled={!loaded || busy}
                   onClick={() => {
                     change(structuredClone(exampleWorkflow));
-                    setDocumentEpoch((value) => value + 1);
+                    resetEditor();
                     setSelected(exampleWorkflow.start_node);
                     setMessage(
                       "Demo loaded. Notes do not call a model. Undo restores your previous draft.",
@@ -951,7 +970,7 @@ export function Workbench() {
                   disabled={!loaded || busy}
                   onClick={() => {
                     change(structuredClone(researchWorkflow));
-                    setDocumentEpoch((value) => value + 1);
+                    resetEditor();
                     setSelected(researchWorkflow.start_node);
                     setMessage("Research template loaded. Undo restores your previous draft.");
                   }}
@@ -963,7 +982,7 @@ export function Workbench() {
                   disabled={!loaded || busy}
                   onClick={() => {
                     change(structuredClone(ideaWorkflow));
-                    setDocumentEpoch((value) => value + 1);
+                    resetEditor();
                     setSelected(ideaWorkflow.start_node);
                     setMessage("Idea research example loaded. Undo to restore your draft.");
                   }}
@@ -1017,7 +1036,7 @@ export function Workbench() {
                           JSON.parse(stored),
                         );
                         change(validated.workflow);
-                        setDocumentEpoch((value) => value + 1);
+                        resetEditor();
                         setSelected(validated.workflow.start_node);
                         setMessage("Saved draft loaded and validated.");
                       })
@@ -1038,7 +1057,7 @@ export function Workbench() {
                           );
                           localStorage.setItem(storageKey, JSON.stringify(validated.workflow));
                           change(validated.workflow);
-                          setDocumentEpoch((value) => value + 1);
+                          resetEditor();
                           setSelected(validated.workflow.start_node);
                           setLegacyAvailable(false);
                           setMessage(
@@ -1160,10 +1179,10 @@ export function Workbench() {
                     }
                   })
                 }
-                onIterate={(brief) =>
+                onIterate={(brief, stepPath) =>
                   action(async () => {
                     if (!run) return;
-                    await loadRevision(run.revision_id, run.agent_id ?? null);
+                    await loadRevision(run.revision_id, run.agent_id ?? null, stepPath);
                     setBrief(brief ?? run.brief);
                     setEvidenceIds(run.evidence_ids ?? []);
                     setArtifacts(run.artifacts);
@@ -1171,7 +1190,7 @@ export function Workbench() {
                     setMessage(
                       brief
                         ? "Run copied to the editor with the selected reviewer feedback appended to the brief."
-                        : "Run copied to the editor with its brief and sources. Edit, then Run workflow to start a separate experiment.",
+                        : `Run copied to ${stepPath ? "the selected step" : "the editor"} with its brief and sources. Edit, then Run workflow to start a separate experiment.`,
                     );
                   })
                 }
