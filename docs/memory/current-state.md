@@ -1,8 +1,16 @@
 # Current state
 
-Updated 2026-11-17. The owner requested better visibility into model runs, more
+Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
+
+## Workflow step search
+
+**Build → Find a step** searches names, instructions, and assigned models across
+the draft and its referenced subgraphs. Selecting a result focuses the step editor.
+Browser checks covered nested navigation, phone widths, and all 128 matches in a
+large workflow. Desktop at `8758ba5` served the finder and review inbox with a
+healthy API and connected worker. [PR #73](https://github.com/andersj05/ResearchChain/pull/73).
 
 ## Review inbox
 

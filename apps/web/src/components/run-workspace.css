@@ -365,9 +365,70 @@
 .comparison-record details + details {
   margin-top: 6px;
 }
+.comparison-setup {
+  margin-block: 10px;
+  padding-block: 8px;
+  border-block: 1px solid var(--line);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.comparison-setup .comparison-changes {
+  display: block;
+  margin: 6px 0;
+}
+.comparison-setup details {
+  margin: 8px 0 10px;
+}
+.comparison-setup details details {
+  margin-inline-start: 12px;
+}
+.comparison-setup :is(summary, dt, h4) {
+  font-weight: 600;
+}
+.comparison-changes > div,
+.comparison-inputs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 6px 14px;
+  border-block-start: 1px solid var(--line);
+  padding-block: 8px;
+}
+.comparison-changes dt {
+  grid-column: 1 / -1;
+}
+.comparison-setup .comparison-changes dd {
+  min-width: 0;
+  margin: 0;
+  padding: 6px 8px;
+  background: var(--soft);
+  font-family: inherit;
+}
+.comparison-changes dd span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.comparison-changes dd p {
+  margin: 2px 0 0;
+  white-space: pre-wrap;
+}
+.comparison-inputs h4 {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+.comparison-inputs ul {
+  margin: 0;
+  padding-inline-start: 16px;
+}
+.comparison-inputs li + li {
+  margin-top: 4px;
+}
 @container (max-width: 500px) {
   .run-comparison :is(th, td) {
     padding-inline: 5px;
+  }
+  .comparison-changes > [data-long="true"] {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 .run-decisions section + section {

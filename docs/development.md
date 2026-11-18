@@ -198,6 +198,9 @@ In **Runs → Run context → Compare a recent run**, select another run for the
 agent to inspect its pinned revision, models, usage, sources, brief, feedback and
 latest recorded model output alongside the open run. The comparison reads a saved
 snapshot when you select it. Open its own run view to follow active work.
+**Setup changes** shows before and after values for changed prompts, tools, inputs,
+routing, limits and judgments. It follows the referenced subgraph versions and
+compares pinned source identities and order.
 
 Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
 including runs outside Recent runs. It lists the oldest runs first, 20 per page, and

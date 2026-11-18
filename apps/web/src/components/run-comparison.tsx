@@ -4,6 +4,7 @@ import { attemptPath, graphLocation } from "@/lib/run-inspection";
 import { formatTime, RunStatus } from "./run-status";
 import { ResearchMarkdown } from "./research-markdown";
 import { researchToolUrls } from "./research-tool-receipts";
+import { RunSetupChanges } from "./run-setup-changes";
 
 function reportedModels(run: RunSnapshot) {
   const models = new Set(run.model_attempts?.flatMap((attempt) => attempt.returned_model ?? []));
@@ -83,6 +84,7 @@ function RunComparisonResult({ run, baseline }: { run: RunSnapshot; baseline: Ru
   const shared = run.evidence_ids?.filter((id) => baselineEvidence.has(id)).length ?? 0;
   return (
     <>
+      <RunSetupChanges before={baseline} after={run} />
       <div
         className="model-activity-scroll"
         role="region"
