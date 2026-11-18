@@ -171,6 +171,14 @@ test("configure a research workspace and inspect saved files during the next pas
   const savedFiles = page.getByRole("region", { name: "Saved workspace files" });
   await expect(savedFiles.getByRole("listitem")).toHaveCount(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  const chartPreview = savedFiles.getByRole("button", {
+    name: "Preview chart.png from Research workspace, pass 1",
+  });
+  await chartPreview.click();
+  const chartImage = savedFiles.getByRole("img", { name: "Generated chart, chart.png" });
+  await expect
+    .poll(() => chartImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+    .toBe(1);
   await savedFiles.getByRole("searchbox", { name: "Filter run files" }).fill("analysis.py");
   await expect(savedFiles.getByRole("listitem")).toHaveCount(2);
   await expect(
@@ -179,6 +187,21 @@ test("configure a research workspace and inspect saved files during the next pas
   await expect(
     savedFiles.getByRole("link", { name: "Download analysis.py from Research workspace, pass 2" }),
   ).toHaveAttribute("href", revisedUrl);
+  await savedFiles
+    .getByRole("button", { name: "Preview analysis.py from Research workspace, pass 1" })
+    .click();
+  const originalPreview = savedFiles.getByRole("region", {
+    name: "Preview of analysis.py from pass 1",
+  });
+  await expect(originalPreview.locator("pre")).toHaveText(script);
+  await savedFiles
+    .getByRole("button", { name: "Preview analysis.py from Research workspace, pass 2" })
+    .click();
+  await expect(originalPreview).toHaveCount(0);
+  const revisedPreview = savedFiles.getByRole("region", {
+    name: "Preview of analysis.py from pass 2",
+  });
+  await expect(revisedPreview.locator("pre")).toHaveText(revisedScript);
   await savedFiles.getByRole("button", { name: "Research workspace · Pass 1" }).click();
   await expect(page.getByText("Synthetic pass", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Model activity", exact: true }).click();
