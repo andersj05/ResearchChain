@@ -11,6 +11,25 @@ import {
   type EvidenceRecord,
 } from "@/lib/evidence";
 
+type SearchResults = {
+  query: string;
+  generation: number;
+  items: EvidenceRecord[];
+  next: number | null;
+  error?: string;
+};
+
+function listSources(query: string, offset = 0) {
+  const params = new URLSearchParams({ limit: "50" });
+  if (offset) params.set("offset", String(offset));
+  if (query) params.set("search", query);
+  return api<EvidencePage>(`evidence?${params}`);
+}
+
+function mergeSources(first: EvidenceRecord[], second: EvidenceRecord[]) {
+  return [...new Map([...first, ...second].map((item) => [item.id, item])).values()];
+}
+
 async function readSources(ids: string[]) {
   const results = await Promise.allSettled(
     ids.map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)),
@@ -40,56 +59,93 @@ export function EvidencePicker({
   disabled?: boolean;
   label?: string;
 }) {
-  const [items, setItems] = useState<EvidenceRecord[]>([]);
-  const [next, setNext] = useState<number | null>(null);
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [generation, setGeneration] = useState(0);
+  const [results, setResults] = useState<SearchResults>();
+  const [pendingPage, setPendingPage] = useState<SearchResults>();
+  const [retained, setRetained] = useState<EvidenceRecord[]>([]);
   const [initialSelection] = useState(selected);
+  const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
   const pickerId = useId();
+  const query = search.trim();
   useEffect(() => {
     let active = true;
     async function load() {
-      let page: EvidencePage | undefined;
       try {
-        page = await api<EvidencePage>("evidence?limit=50");
+        const page = await listSources(query);
+        if (active)
+          setResults({ query, generation, items: page.items, next: page.next_offset ?? null });
       } catch (cause) {
-        if (active) setError(cause instanceof Error ? cause.message : "Unable to load evidence.");
-      }
-      if (!active) return;
-      const recent = page?.items ?? [];
-      const retained = await readSources(
-        initialSelection.filter((id) => !recent.some((item) => item.id === id)),
-      );
-      if (active) {
-        setItems([...retained, ...recent]);
-        setNext(page?.next_offset ?? null);
-        setLoading(false);
+        if (active)
+          setResults({
+            query,
+            generation,
+            items: [],
+            next: null,
+            error: cause instanceof Error ? cause.message : "Unable to load evidence.",
+          });
       }
     }
-    void load();
+    const timer = setTimeout(load, query ? 200 : 0);
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [generation, query]);
+
+  useEffect(() => {
+    if (!initialSelection.length) return;
+    let active = true;
+    void readSources(initialSelection).then((records) => {
+      if (active) {
+        setRetained((previous) => mergeSources(records, previous));
+        setLoadingDetails(false);
+      }
+    });
     return () => {
       active = false;
     };
   }, [initialSelection]);
+
+  const current =
+    results?.query === query && results.generation === generation ? results : undefined;
+  const loading = !current || pendingPage === current;
   async function more() {
-    setError("");
-    setLoading(true);
+    if (!current) return;
+    if (current.next === null) {
+      setGeneration((value) => value + 1);
+      return;
+    }
+    setPendingPage(current);
     try {
-      const page = await api<EvidencePage>(`evidence?limit=50&offset=${next ?? 0}`);
-      setItems((previous) => [
-        ...new Map([...previous, ...page.items].map((item) => [item.id, item])).values(),
-      ]);
-      setNext(page.next_offset ?? null);
+      const page = await listSources(query, current.next);
+      setResults((latest) =>
+        latest === current
+          ? {
+              query,
+              generation,
+              items: mergeSources(current.items, page.items),
+              next: page.next_offset ?? null,
+            }
+          : latest,
+      );
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Unable to load evidence.");
+      setResults((latest) =>
+        latest === current
+          ? {
+              ...current,
+              error: cause instanceof Error ? cause.message : "Unable to load evidence.",
+            }
+          : latest,
+      );
     } finally {
-      setLoading(false);
+      setPendingPage((pending) => (pending === current ? undefined : pending));
     }
   }
-  const query = search.trim().toLowerCase();
-  const visible = items.filter((item) => item.title.toLowerCase().includes(query));
-  const byId = new Map(items.map((item) => [item.id, item]));
+  const resultsItems = current?.items ?? [];
+  const known = mergeSources(retained, resultsItems);
+  const visible = query ? resultsItems : known;
+  const byId = new Map(known.map((item) => [item.id, item]));
   const unresolved = selected.filter((id) => !byId.has(id));
   const remove = (id: string) => onChange(selected.filter((value) => value !== id));
   return (
@@ -112,7 +168,7 @@ export function EvidencePicker({
                     <small>
                       {item
                         ? `${availabilityLabels[item.availability ?? "available"]} · ${sourceMetadata(item)}`
-                        : loading
+                        : loadingDetails
                           ? "Loading source details…"
                           : "Source details unavailable"}
                     </small>
@@ -128,14 +184,12 @@ export function EvidencePicker({
               );
             })}
           </ul>
-          {!loading && unresolved.length > 0 && (
+          {!loadingDetails && unresolved.length > 0 && (
             <Button
               className="button small"
               onClick={async () => {
                 const recovered = await readSources(unresolved);
-                setItems((previous) => [
-                  ...new Map([...recovered, ...previous].map((item) => [item.id, item])).values(),
-                ]);
+                setRetained((previous) => mergeSources(recovered, previous));
               }}
             >
               Retry selected source details
@@ -143,15 +197,17 @@ export function EvidencePicker({
           )}
         </details>
       )}
-      {items.length > 5 && (
-        <input
-          aria-label="Filter loaded evidence"
-          type="search"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Filter loaded sources…"
-        />
-      )}
+      <input
+        aria-label="Search evidence library"
+        type="search"
+        maxLength={240}
+        value={search}
+        onChange={(event) => setSearch(event.target.value)}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") event.preventDefault();
+        }}
+        placeholder="Title, author, publisher, or date"
+      />
       <div className="evidence-options">
         {visible.map((item) => (
           <label className="evidence-option" key={item.id}>
@@ -161,13 +217,12 @@ export function EvidencePicker({
               aria-describedby={`${pickerId}-${item.id}-details`}
               checked={selected.includes(item.id)}
               disabled={disabled || (selected.length >= 100 && !selected.includes(item.id))}
-              onChange={(event) =>
-                onChange(
-                  event.target.checked
-                    ? [...selected, item.id]
-                    : selected.filter((id) => id !== item.id),
-                )
-              }
+              onChange={(event) => {
+                if (event.target.checked) {
+                  setRetained((previous) => mergeSources(previous, [item]));
+                  onChange([...selected, item.id]);
+                } else remove(item.id);
+              }}
             />
             <span className="evidence-option-copy">
               <span id={`${pickerId}-${item.id}-name`}>
@@ -178,11 +233,12 @@ export function EvidencePicker({
             </span>
           </label>
         ))}
-        {!loading && !items.length && (
-          <p className="muted">Add sources in the Evidence tab to include them here.</p>
-        )}
-        {!loading && items.length > 0 && !visible.length && (
-          <p className="muted">No matching loaded sources.</p>
+        {!loading && !current?.error && !visible.length && (
+          <p className="muted">
+            {query
+              ? "No matching sources."
+              : "Add sources in the Evidence tab to include them here."}
+          </p>
         )}
       </div>
       {loading && (
@@ -190,14 +246,14 @@ export function EvidencePicker({
           Loading evidence…
         </p>
       )}
-      {error && (
+      {current?.error && (
         <p className="error" role="alert">
-          {error}
+          {current.error}
         </p>
       )}
-      {(next !== null || error) && (
+      {current && (current.next !== null || current.error) && (
         <Button className="button small" disabled={loading || disabled} onClick={more}>
-          {error ? "Retry sources" : "Load more sources"}
+          {current.error ? "Retry sources" : "Load more sources"}
         </Button>
       )}
     </fieldset>

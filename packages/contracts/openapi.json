@@ -488,6 +488,17 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 240,
+              "default": "",
+              "title": "Search"
+            }
           }
         ],
         "responses": {

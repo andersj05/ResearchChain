@@ -135,6 +135,26 @@ def test_provenance_is_immutable_idempotent_and_restart_safe(
     assert client.get("/api/evidence?limit=1&offset=1").json()["items"][0] == record
 
 
+def test_evidence_search_filters_before_pagination(client: TestClient) -> None:
+    older = create(
+        client, title="Basis moved 5%", publisher="Fixture Desk", as_of_date="2026-10-01"
+    )
+    newer = create(client, title="Model assumptions", author="Fixture Desk")
+    create(client, title="Unrelated latest source")
+
+    first = client.get("/api/evidence", params={"search": " fixture DESK ", "limit": 1}).json()
+    assert first == {"items": [newer], "total": 2, "next_offset": 1}
+    second = client.get(
+        "/api/evidence", params={"search": "Fixture Desk", "limit": 1, "offset": 1}
+    ).json()
+    assert second == {"items": [older], "total": 2, "next_offset": None}
+    dated = client.get("/api/evidence", params={"search": "2026-10-01"}).json()
+    assert dated["items"] == [older]
+    literal = client.get("/api/evidence", params={"search": "%"}).json()
+    assert literal["items"] == [older]
+    assert client.get("/api/evidence", params={"search": "x" * 241}).status_code == 422
+
+
 @pytest.mark.parametrize("availability", ["reference_only", "missing", "paywalled"])
 def test_uncaptured_sources_do_not_invent_content(client: TestClient, availability: str) -> None:
     record = create(

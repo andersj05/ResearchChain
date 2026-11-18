@@ -232,7 +232,17 @@ test("run setup retains selected evidence outside the first library page", async
     as_of_date: "2026-11-18",
   }));
   await page.route("**/api/evidence?limit=50*", async (route) => {
-    const offset = new URL(route.request().url()).searchParams.get("offset");
+    const params = new URL(route.request().url()).searchParams;
+    const query = params.get("search");
+    if (query === "Recent") {
+      await route.fulfill({ json: { items: recent, total: recent.length, next_offset: null } });
+      return;
+    }
+    if (query) {
+      await route.fallback();
+      return;
+    }
+    const offset = params.get("offset");
     await route.fulfill({
       json:
         offset === "50"
@@ -259,7 +269,9 @@ test("run setup retains selected evidence outside the first library page", async
   await page.getByRole("button", { name: "Retry selected source details" }).click();
   const old = page.getByRole("checkbox", { name: "Older selected source Captured", exact: true });
   await expect(old).toBeChecked();
-  await page.getByRole("searchbox", { name: "Filter loaded evidence" }).fill("Recent");
+  const search = page.getByRole("searchbox", { name: "Search evidence library" });
+  await search.fill("Recent");
+  await expect(current).toBeVisible();
   await expect(old).toHaveCount(0);
   const selection = page.locator(".evidence-selected");
   const pinned = selection.getByRole("link", { name: "Older selected source", exact: true });
@@ -268,5 +280,9 @@ test("run setup retains selected evidence outside the first library page", async
   await expect(selection).toContainText("As of 2026-11-11");
   await selection.getByRole("button", { name: "Remove Older selected source" }).click();
   await expect(selection).toHaveCount(0);
+  await search.fill("2026-11-11");
+  await expect(old).toBeVisible();
+  await expect(old).not.toBeChecked();
+  await expect(current).toHaveCount(0);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
