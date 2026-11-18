@@ -1,0 +1,98 @@
+import { useState } from "react";
+import {
+  outputBindings,
+  reachableWorkflowGraphs,
+  scopeKey,
+  type GraphCrumb,
+} from "@/lib/workflow-editing";
+import type { Workflow } from "@/lib/workflow";
+import styles from "./workflow-plan.module.css";
+
+function reviewPlan(workflow: Workflow) {
+  return [...reachableWorkflowGraphs(workflow, { controlOnly: true })].flatMap(
+    ({ graph, nodes, path }) => {
+      const version = path.at(-1)?.ref.version;
+      const name = graph.name || (version ? "Subgraph" : "Workflow");
+      const location = version ? `${name} · v${version}` : name;
+      const feedback = outputBindings(graph).filter((binding) => binding.output === "feedback");
+      return nodes.flatMap((node) =>
+        node.kind === "review" &&
+        graph.nodes.filter((candidate) => candidate.id === node.id).length === 1
+          ? [
+              {
+                node,
+                path,
+                location,
+                bindings: feedback.filter((binding) => binding.sourceId === node.id),
+              },
+            ]
+          : [],
+      );
+    },
+  );
+}
+
+export function WorkflowReviewPlan({
+  workflow,
+  onSelect,
+}: {
+  workflow: Workflow;
+  onSelect: (id: string, path: GraphCrumb[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const reviews = open ? reviewPlan(workflow) : [];
+  return (
+    <details
+      className={styles.plan}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>Review plan</summary>
+      {open &&
+        (reviews.length ? (
+          <ul className={styles.list} aria-label="Reachable review steps">
+            {reviews.map(({ node, path, location, bindings }) => (
+              <li key={`${scopeKey(path.at(-1)?.ref ?? null)}/${node.id}`}>
+                <button
+                  className={styles.step}
+                  type="button"
+                  aria-label={`Edit ${node.label || node.id} in ${location}`}
+                  onClick={() => {
+                    setOpen(false);
+                    onSelect(node.id, path);
+                  }}
+                >
+                  {node.label || node.id}
+                </button>
+                <p className="muted">{location}</p>
+                {node.instructions && !node.instructions.trim() ? (
+                  <p className="muted">Question contains only whitespace.</p>
+                ) : (
+                  <p className={styles.question}>
+                    {node.instructions || "Continue this workflow?"}
+                    {!node.instructions && <span className="muted"> · Default question</span>}
+                  </p>
+                )}
+                {bindings.length ? (
+                  <>
+                    <p className="muted">Feedback bindings</p>
+                    <ul className={styles.bindings} aria-label="Feedback bindings">
+                      {bindings.map(({ target, input }, index) => (
+                        <li key={`${target.id}/${input}/${index}`}>
+                          {target.label || target.id} · {input}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="muted">No step inputs are wired to this feedback.</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">No review steps are reachable from the workflow start.</p>
+        ))}
+    </details>
+  );
+}

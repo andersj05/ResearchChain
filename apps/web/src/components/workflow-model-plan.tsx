@@ -2,7 +2,7 @@ import { useState } from "react";
 import { scopeKey, type GraphCrumb } from "@/lib/workflow-editing";
 import { workflowModelPlan } from "@/lib/workflow-model-plan";
 import type { Workflow } from "@/lib/workflow";
-import styles from "./workflow-model-plan.module.css";
+import styles from "./workflow-plan.module.css";
 
 export function WorkflowModelPlan({
   workflow,
