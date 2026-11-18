@@ -151,9 +151,11 @@ either panel from the canvas header. The outline selects and reveals offscreen
 nodes. **Find a step** searches names, instructions, and assigned models in the
 draft and its referenced subgraphs. Select a match to focus its step editor.
 Enter opens the first match and Escape clears the search.
-Zoom controls and Fit view change only the viewport; Reset view restores
-100% zoom. Workflow settings expand beneath the outline. On smaller screens,
-the library and inspector move below the canvas.
+Zoom controls and Fit view change only the viewport. In **Visible connections**,
+choose all connections, control flow, or data bindings to inspect the canvas.
+Ports stay available for editing in every view. **Reset view** restores 100%
+zoom and all connections. Workflow settings expand beneath the outline. On
+smaller screens, the library and inspector move below the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
 and the inputs wired to its feedback. Select a feedback recipient to open and
