@@ -94,6 +94,7 @@ export function PredicateFields({
   exclude,
   available,
   label,
+  name,
   onChange,
 }: {
   graph: Graph;
@@ -101,6 +102,7 @@ export function PredicateFields({
   exclude?: string;
   available?: ReadonlySet<string>;
   label: string;
+  name?: string;
   onChange: (predicate: Predicate, field: string) => void;
 }) {
   const options = sources(graph, exclude);
@@ -121,7 +123,12 @@ export function PredicateFields({
         ["contains", "Contains"],
       ];
   return (
-    <fieldset className="config-fields" aria-label={label}>
+    <fieldset
+      className="config-fields"
+      aria-label={label}
+      name={name}
+      tabIndex={name ? -1 : undefined}
+    >
       <legend>{label}</legend>
       <label>
         Value source
@@ -551,6 +558,7 @@ export function NodeConfiguration({
           exclude={node.id}
           available={available}
           label="Condition"
+          name="condition"
           onChange={(condition, field) =>
             onEdit({ config: { ...config, condition } }, `condition/${field}`)
           }
@@ -560,6 +568,7 @@ export function NodeConfiguration({
         <label>
           Join step
           <select
+            name="join"
             value={config.join}
             onChange={(event) => onEdit({ config: { ...config, join: event.target.value } })}
           >

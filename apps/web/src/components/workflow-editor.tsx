@@ -34,7 +34,7 @@ import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
 import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
 
 export type WorkflowEditorNavigation = {
-  openStep: (id: string, path: GraphCrumb[], input?: string) => void;
+  openStep: (id: string, path: GraphCrumb[], field?: string) => void;
 };
 
 type StepVisit = { id: string; path: GraphCrumb[] };
@@ -104,22 +104,22 @@ export function WorkflowEditor({
       ? previousScope.graph.nodes.find((item) => item.id === previousVisit.id)
       : undefined;
   const stepToFocus = useRef<string | null>(null);
-  const inputToFocus = useRef<string | null>(null);
+  const fieldToFocus = useRef<string | null>(null);
   const inspector = useRef<HTMLFieldSetElement>(null);
   const labelInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (stepToFocus.current === selectedId && inspectorOpen) {
       document.getElementById(`workflow-node-${selectedId}`)?.focus({ preventScroll: true });
-      const input =
-        inputToFocus.current && inspector.current?.elements.namedItem(inputToFocus.current);
-      if (input instanceof HTMLSelectElement) {
-        input.focus();
+      const field =
+        fieldToFocus.current && inspector.current?.elements.namedItem(fieldToFocus.current);
+      if (field instanceof HTMLSelectElement || field instanceof HTMLFieldSetElement) {
+        field.focus();
       } else {
         labelInput.current?.focus();
         labelInput.current?.select();
       }
       stepToFocus.current = null;
-      inputToFocus.current = null;
+      fieldToFocus.current = null;
     }
   }, [selectedId, inspectorOpen, path]);
   function selectNode(id: string) {
@@ -128,19 +128,19 @@ export function WorkflowEditor({
     setBeforeStep(undefined);
     onSelect(id);
   }
-  function focusStep(id: string, location: GraphCrumb[], input?: string) {
+  function focusStep(id: string, location: GraphCrumb[], field?: string) {
     stepToFocus.current = id;
-    inputToFocus.current = input ?? null;
+    fieldToFocus.current = field ?? null;
     setNotice("");
     // Repeat visits still need to move focus from the link to the inspector.
     setPath([...location]);
     selectNode(id);
   }
-  function openStep(id: string, location: GraphCrumb[], input?: string) {
+  function openStep(id: string, location: GraphCrumb[], field?: string) {
     if (node && (id !== selectedId || !samePath(location, validPath))) {
       setPreviousVisit({ id: selectedId, path: validPath });
     }
-    focusStep(id, location, input);
+    focusStep(id, location, field);
   }
   useImperativeHandle(navigationRef, () => ({ openStep }));
 
