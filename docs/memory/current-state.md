@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Follow the bindings behind a saved step
+
+**Data bindings** shows the saved step’s upstream sources and where its output
+goes. Each link opens the attached step in the same pinned graph and iteration.
+The synthetic macro test followed a binding from the discriminating test to the
+challenge step and back, then returned to the pending decision. CI passed 517
+backend tests with 2 skips and all 123 browser cases. Desktop at `3c5f5db`
+served the new controls with a healthy API and connected worker.
+[PR #103](https://github.com/andersj05/ResearchChain/pull/103).
+
 ## Compare the saved model passes you choose
 
 Run comparison lets you choose a saved conclusion, research lead, or

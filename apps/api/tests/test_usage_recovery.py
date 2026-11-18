@@ -83,6 +83,7 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
         with legacy.connection() as conn, conn.transaction():
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             before = inventory(conn, legacy.schema)
+            previous_runs = conn.execute("SELECT * FROM runs ORDER BY id").fetchall()
             previous_attempts = conn.execute(
                 "SELECT * FROM research_attempts ORDER BY id"
             ).fetchall()
@@ -104,6 +105,7 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
         legacy.migrate()
         with legacy.connection() as conn, conn.transaction():
             after = inventory(conn, legacy.schema)
+            upgraded_runs = conn.execute("SELECT * FROM runs ORDER BY id").fetchall()
             upgraded_attempts = conn.execute(
                 "SELECT * FROM research_attempts ORDER BY id"
             ).fetchall()
@@ -111,8 +113,9 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
                 "SELECT source,policy_revision FROM model_request_admissions"
             ).fetchall()
         for name, fingerprint in before.tables.items():
-            if name not in {"schema_migrations", "research_attempts"}:
+            if name not in {"schema_migrations", "research_attempts", "runs"}:
                 assert after.tables[name] == fingerprint
+        assert upgraded_runs == [{**run, "baseline_run_id": None} for run in previous_runs]
         assert upgraded_attempts == [
             {**attempt, "web_actions_completed": None} for attempt in previous_attempts
         ]
