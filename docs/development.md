@@ -162,10 +162,11 @@ beneath the outline. On smaller screens, the library and inspector move below
 the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
-and the inputs and conditions wired to its feedback. Follow a binding to focus
-the receiving field.
+and the inputs and conditions wired to its feedback. Follow a previous step to
+inspect what prepares the decision, or a binding to focus the receiving field.
 Open **Review plan** to read the questions and feedback bindings for reachable
-reviews across the workflow and its pinned subgraphs. Select a review to edit it.
+reviews across the workflow and its pinned subgraphs. Select a review or one of
+its previous control steps to inspect the editor.
 
 For other steps with data outputs, **Output bindings** shows the inputs and
 conditions that read each output in the current graph. Select a binding to focus

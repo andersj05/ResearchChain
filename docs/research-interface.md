@@ -45,6 +45,9 @@ path as part of the experiment and expose it before the draft is saved.
 Compare the draft with an exact saved version. Keep the draft available while
 the researcher reads the difference and opens the affected step. Show step
 names and identifiers together when two paths could be mistaken for each other.
+Inspect a review as a decision in the workflow. Follow the preceding control
+step to check how the proposal and contrary evidence are prepared, then follow
+the review’s feedback to see which later inputs or conditions use the answer.
 
 ## Run inspection references
 

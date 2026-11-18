@@ -1,4 +1,4 @@
-import { conditionBindings, outputBindings } from "@/lib/workflow-editing";
+import { conditionBindings, outputBindings, previousControlSteps } from "@/lib/workflow-editing";
 import type { Graph } from "@/lib/workflow";
 
 export function ReviewHandoff({
@@ -8,12 +8,9 @@ export function ReviewHandoff({
 }: {
   graph: Graph;
   reviewId: string;
-  onOpenField: (stepId: string, field: string) => void;
+  onOpenField: (stepId: string, field?: string) => void;
 }) {
-  const predecessors = new Set(
-    graph.edges.filter((edge) => edge.target === reviewId).map((edge) => edge.source),
-  );
-  const previous = graph.nodes.filter((step) => predecessors.has(step.id));
+  const previous = previousControlSteps(graph, reviewId);
   const usesFeedback = ({ sourceId, output }: { sourceId: string; output: string }) =>
     sourceId === reviewId && output === "feedback";
   const recipients = outputBindings(graph).filter(usesFeedback);
@@ -24,9 +21,13 @@ export function ReviewHandoff({
       <legend>Review handoff</legend>
       <h3>Previous control steps</h3>
       {previous.length ? (
-        <ul>
+        <ul className="review-recipients" aria-label="Previous control steps">
           {previous.map((step) => (
-            <li key={step.id}>{step.label}</li>
+            <li key={step.id}>
+              <button className="button small" type="button" onClick={() => onOpenField(step.id)}>
+                {step.label || step.id}
+              </button>
+            </li>
           ))}
         </ul>
       ) : (
@@ -34,7 +35,7 @@ export function ReviewHandoff({
       )}
       <h3>Feedback bindings</h3>
       {recipients.length ? (
-        <ul className="review-recipients">
+        <ul className="review-recipients" aria-label="Feedback bindings">
           {recipients.map(({ target, input }) => (
             <li key={`${target.id}/${input}`}>
               <button

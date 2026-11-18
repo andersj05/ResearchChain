@@ -107,8 +107,20 @@ test("inspect and follow a review handoff while building the macro workflow", as
     name: "Run the discriminating test · feedback",
   });
   await mandate.click();
-  await expect(handoff.getByText("Find the cross-asset tension", { exact: true })).toBeVisible();
-  await expect(handoff.getByRole("button")).toHaveText([
+  await handoff
+    .getByRole("list", { name: "Previous control steps" })
+    .getByRole("button", { name: "Find the cross-asset tension", exact: true })
+    .press("Enter");
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  await expect(stepName).toHaveValue("Find the cross-asset tension");
+  await expect(stepName).toBeFocused();
+  await page
+    .getByRole("button", { name: "Return to step Choose the question and horizon" })
+    .press("Enter");
+  await expect(stepName).toHaveValue("Choose the question and horizon");
+  await expect(
+    handoff.getByRole("list", { name: "Feedback bindings" }).getByRole("button"),
+  ).toHaveText([
     "Estimate what markets price · feedback",
     "Run the discriminating test · feedback",
     "Challenge the transmission story · feedback",

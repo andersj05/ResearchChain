@@ -225,6 +225,19 @@ export function outputBindings(graph: Graph) {
   );
 }
 
+export function previousControlSteps(graph: Graph, stepId: string) {
+  const predecessors = new Set(
+    graph.edges
+      .filter((edge) => edge.target === stepId && edge.source !== stepId)
+      .map((edge) => edge.source),
+  );
+  return graph.nodes.filter(
+    (step) =>
+      predecessors.has(step.id) &&
+      graph.nodes.filter((candidate) => candidate.id === step.id).length === 1,
+  );
+}
+
 export function conditionBindings(graph: Graph) {
   return graph.nodes.flatMap((target) => {
     if (target.kind !== "route" || target.config?.type !== "route") return [];
