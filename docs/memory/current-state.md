@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Workspace files at a review checkpoint
+
+**Files for this review** shows saved files from the work under review and the
+earlier steps that supplied its context. The phone-width macro test opened a CSV,
+kept its draft judgment, and verified that the saved judgment reached the
+downstream model request. CI passed 516 backend tests with 2 skips and all 118
+browser tests. Desktop at `58adbc6` served the controls with a healthy API and
+connected worker. [PR #87](https://github.com/andersj05/ResearchChain/pull/87).
+
 ## Saved CSV table previews
 
 Open a saved CSV from **Runs → Files** or **Output file changes** to read its
