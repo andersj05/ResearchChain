@@ -10,7 +10,11 @@ for (const width of [1440, 390]) {
     test.setTimeout(90000);
     const externalRequests: string[] = [];
     page.on("request", (request) => {
-      if (request.url().includes("unrecorded.invalid")) externalRequests.push(request.url());
+      if (
+        request.url().includes("unrecorded.invalid") ||
+        request.url() === "https://example.org/data"
+      )
+        externalRequests.push(request.url());
     });
     const agent = await (
       await request.post("/api/agents", {
@@ -129,6 +133,59 @@ for (const width of [1440, 390]) {
         .getByRole("link", { name: "Reference", exact: true }),
     ).toHaveAttribute("href", "https://example.org/data");
     await page.screenshot({ path: info.outputPath(`idea-research-${width}.png`), fullPage: true });
+    const openSource = researchAttempt.getByRole("button", {
+      name: "Save source link for Synthetic observations",
+    });
+    const sourceDialog = page.getByRole("dialog", { name: "Save a source link" });
+    const referenceTitle = `Saved synthetic reference ${width}`;
+    await openSource.press("Enter");
+    await expect(sourceDialog.getByLabel("Source title")).toHaveValue("Synthetic observations");
+    await expect(sourceDialog.getByLabel("Source title")).toBeFocused();
+    await sourceDialog.getByLabel("Source title").fill(referenceTitle);
+    await sourceDialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(openSource).toBeFocused();
+    await openSource.click();
+    const saveSource = sourceDialog.getByRole("button", { name: "Save source", exact: true });
+    let savedBeforeResponse: string | undefined;
+    if (width === 390) {
+      await page.route("**/api/evidence", async (route) => {
+        if (route.request().method() !== "POST" || savedBeforeResponse) {
+          await route.continue();
+          return;
+        }
+        const response = await route.fetch();
+        expect(response.status()).toBe(201);
+        savedBeforeResponse = (await response.json()).id;
+        await route.fulfill({ status: 503, json: { detail: "Temporarily unavailable" } });
+      });
+    }
+    await saveSource.click();
+    if (width === 390) {
+      await expect(sourceDialog.getByRole("alert")).toContainText("Temporarily unavailable");
+      await saveSource.click();
+    }
+    const savedSource = researchAttempt.getByRole("link", { name: "View saved source" });
+    await expect(savedSource).toBeFocused();
+    await expect(sourceDialog).toBeHidden();
+    const href = (await savedSource.getAttribute("href"))!;
+    const sourceId = new URL(href, page.url()).searchParams.get("evidence");
+    if (width === 390) {
+      expect(sourceId).toBe(savedBeforeResponse);
+      await page.unroute("**/api/evidence");
+    }
+    const saved = await (await request.get(`/api/evidence/${sourceId}`)).json();
+    expect(saved).toMatchObject({
+      title: referenceTitle,
+      kind: "link",
+      availability: "reference_only",
+      source_url: "https://example.org/data",
+      retrieved_at: null,
+    });
+    const sourceAttempt = snapshot.model_attempts!.find(
+      (attempt) => attempt.path === "root/research/analyst-pass-2",
+    )!;
+    expect(saved.notes).toContain(`Run ${runId}, attempt ${sourceAttempt.id}.`);
+    expect(externalRequests).toEqual([]);
     await page.getByRole("button", { name: "Return to review", exact: true }).click();
     await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
     await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {

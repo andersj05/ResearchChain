@@ -5,10 +5,19 @@ import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts } from "./research-tool-receipts";
 import { CopyRunLink } from "./copy-run-link";
 import { ModelRequestPreview } from "./model-request-preview";
+import { SaveRunSource } from "./save-run-source";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 
-function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) {
+function WebSources({
+  trace,
+  runId,
+  attemptId,
+}: {
+  trace: components["schemas"]["WebResearch"];
+  runId: string;
+  attemptId: string;
+}) {
   return (
     <details className="research-disclosure">
       <summary>
@@ -24,6 +33,16 @@ function WebSources({ trace }: { trace: components["schemas"]["WebResearch"] }) 
               {source.title || source.url}
             </a>{" "}
             · {source.cited ? "Cited by provider" : "Consulted by provider"}
+            {source.url.length <= 2000 && (
+              <div className="web-source-actions">
+                <SaveRunSource
+                  source={source}
+                  runId={runId}
+                  attemptId={attemptId}
+                  observedAt={trace.observed_at}
+                />
+              </div>
+            )}
           </li>
         ))}
       </ul>
@@ -135,7 +154,9 @@ export function ResearchAttempt({
               ))}
             </details>
           )}
-          {result.web_research && <WebSources trace={result.web_research} />}
+          {result.web_research && (
+            <WebSources trace={result.web_research} runId={runId} attemptId={attempt.id} />
+          )}
           <ResearchToolReceipts result={result} />
           {result.next_lead && (
             <div className="research-disclosure">
