@@ -902,6 +902,8 @@ export function Workbench() {
                       tab === "workflow" && diagnostics.draft === workflow
                         ? workflowStepAtValidationLocation(workflow, issue.location)
                         : undefined;
+                    const action = target?.input ? "Open input" : "Open step";
+                    const stepName = target?.step.label || target?.step.id;
                     return (
                       <li key={index}>
                         {issue.path && <code>{issue.path}: </code>}
@@ -912,12 +914,20 @@ export function Workbench() {
                             <Button
                               className="text-link"
                               disabled={busy}
-                              aria-label={`Open step ${target.step.label || target.step.id}`}
+                              aria-label={
+                                target.input
+                                  ? `${action} ${target.input} on ${stepName}`
+                                  : `${action} ${stepName}`
+                              }
                               onClick={() =>
-                                editorNavigation.current?.openStep(target.step.id, target.path)
+                                editorNavigation.current?.openStep(
+                                  target.step.id,
+                                  target.path,
+                                  target.input,
+                                )
                               }
                             >
-                              Open step
+                              {action}
                             </Button>
                           </>
                         )}

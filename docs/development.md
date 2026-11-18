@@ -170,8 +170,8 @@ control connections are incomplete.
 Open **Model and tool plan** to see each reachable research step’s effective
 model and enabled tools. The plan shows which steps inherit the workflow model
 and which override it. Select a step to edit it, including steps in subgraphs.
-When validation locates an issue in the current draft, use **Open step** beside
-the issue to go directly to the affected step.
+When validation locates an issue in the current draft, use **Open input** to
+focus the affected input or **Open step** to open the step.
 Following a step link from search, Review handoff, validation, or the model plan
 records the step you were editing. **Return to step** reopens it at its original
 location in the graph. Undo continues to track draft edits.
