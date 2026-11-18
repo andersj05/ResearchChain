@@ -212,6 +212,9 @@ runs** in the comparison picker for the current agent's archive. Search by brief
 agent, workflow, or run ID and filter by saved status. The recent run list still
 provides a quick view of the latest 20 runs.
 
+Selecting a comparison run puts both run IDs in the address bar. Use **Copy
+comparison link** to bookmark the pair, including a baseline from the archive.
+
 Open **Review inbox** in Runs to see unanswered checkpoint questions across agents,
 including runs outside Recent runs. It lists the oldest runs first, 20 per page, and
 refreshes while open. Opening a question checks the current checkpoint and takes
