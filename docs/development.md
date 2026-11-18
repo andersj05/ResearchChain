@@ -217,6 +217,10 @@ are undoable and still require server validation before saving.
 focuses its name. The copy starts with the same instructions, model, tools and
 input bindings. Edit the copy to try a different model or research approach.
 
+**Duplicate review** inserts a separate checkpoint after the selected review.
+Edit its question, then use the receiving step’s input picker to route feedback
+from the copy.
+
 **Duplicate loop** and **Duplicate subgraph** insert an editable copy after the
 selected step, including separate copies of the definitions it uses. References
 that share a definition within the original share the corresponding definition
@@ -229,6 +233,8 @@ can select one of its earlier versions while keeping the current draft. The
 preview lists changes to instructions, inputs, routing, and workflow settings.
 Input sources and control destinations show step names and IDs.
 Use **Open draft step** to inspect a changed or added step in its current graph.
+Choose **Use saved instructions** or **Use saved review question** to bring back
+only that text from the selected baseline. Undo reverses one restore at a time.
 The preview also identifies a matching draft or a change limited to canvas positions.
 Expand a changed or added step and choose **Open draft step** to open its
 current editor. **Return to step** takes you back to the step you were editing.
