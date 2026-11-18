@@ -186,6 +186,9 @@ stored in the owner's browser.
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
 
+Unsent feedback stays in the current browser tab when you switch runs or refresh.
+Drafts clear when the app observes a resolved checkpoint or a terminal run.
+
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
@@ -213,6 +216,9 @@ compares pinned source identities and order.
 **Output file changes** pairs the latest saved file at each step and filename.
 Open each side to preview or download the saved versions. File contents are
 matched by their stored artifact hashes.
+CSV previews use the first row as column headers and keep the cell text as saved.
+Use **Show raw CSV** for the full text when the table preview shows only the first
+50 data rows or 20 columns.
 
 Open **Search saved runs** in Runs for the full archive, or **Search comparison
 runs** in the comparison picker for the current agent's archive. Search by brief,

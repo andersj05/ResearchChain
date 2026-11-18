@@ -50,11 +50,21 @@ test("compare two saved research runs without switching the open run", async ({ 
     bodies.set(artifact_id, body);
     return { name, artifact_id, byte_size: Buffer.byteLength(body), media_type: "text/csv" };
   };
-  const oldTable = csv("pricing.csv", "horizon,change\n5,12");
-  const newTable = csv("pricing.csv", "horizon,change\n20,18");
+  const oldTable = csv("pricing.csv", 'horizon,change,note\r\n5,0.000,"basis, ""roll"""\r\n');
+  const extraHeaders = Array.from({ length: 18 }, (_, index) => `measure_${index + 1}`);
+  const extraValues = ",0".repeat(extraHeaders.length);
+  const newTable = csv(
+    "pricing.csv",
+    `horizon,change,note,${extraHeaders.join(",")}\r\n` +
+      `20,018.000,"first line\r\nsecond line"${extraValues}\r\n` +
+      Array.from(
+        { length: 50 },
+        (_, index) => `${index + 21},1.00,observed${extraValues}\r\n`,
+      ).join(""),
+  );
   const stable = csv("controls.csv", "control,base\npolicy,1");
   const intermediate = csv("controls.csv", "control,base\npolicy,2");
-  const oldOnly = csv("old-test.csv", "sample,estimate\nrest,5");
+  const oldOnly = csv("old-test.csv", "sample,estimate\nrest,5,ragged");
   const now = new Date().toISOString();
   const priorSource = crypto.randomUUID();
   const newSource = crypto.randomUUID();
@@ -206,8 +216,31 @@ test("compare two saved research runs without switching the open run", async ({ 
   const after = price.getByRole("region", { name: "Open run", exact: true });
   await before.getByText("Preview", { exact: true }).click();
   await after.getByText("Preview", { exact: true }).click();
-  await expect(before.locator("pre")).toHaveText(bodies.get(oldTable.artifact_id)!);
+  await expect(before.getByRole("columnheader", { name: "change" })).toBeVisible();
+  await expect(before.getByRole("cell", { name: "0.000", exact: true })).toBeVisible();
+  await expect(before.getByRole("cell", { name: 'basis, "roll"', exact: true })).toBeVisible();
+  await expect(after.getByRole("cell", { name: "018.000", exact: true })).toBeVisible();
+  await expect(
+    after.getByRole("cell", { name: "first line second line", exact: true }),
+  ).toBeVisible();
+  await expect(after.getByText("Showing 50 of 51 data rows and 20 of 21 columns.")).toBeVisible();
+  await expect(after.getByRole("columnheader", { name: "measure_17", exact: true })).toHaveCount(1);
+  await expect(after.getByRole("columnheader", { name: "measure_18", exact: true })).toHaveCount(0);
+  const csvTable = after.getByRole("region", { name: "CSV preview table" });
+  expect(await csvTable.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+    true,
+  );
+  const visibleArea = (await csvTable.boundingBox())!;
+  const changeHeader = (await after
+    .getByRole("columnheader", { name: "change", exact: true })
+    .boundingBox())!;
+  expect(changeHeader.x + changeHeader.width).toBeLessThanOrEqual(
+    visibleArea.x + visibleArea.width,
+  );
+  await expect(after.getByRole("cell", { name: "70", exact: true })).toHaveCount(0);
+  await after.getByText("Show raw CSV", { exact: true }).click();
   await expect(after.locator("pre")).toHaveText(bodies.get(newTable.artifact_id)!);
+  await after.getByText("Show raw CSV", { exact: true }).click();
   await expect(after).toContainText("Pass 2");
   const mobileBefore = (await before.boundingBox())!;
   expect((await after.boundingBox())!.y).toBeGreaterThanOrEqual(
@@ -222,7 +255,11 @@ test("compare two saved research runs without switching the open run", async ({ 
   await expect(outputs.getByRole("heading", { name: "controls.csv" })).toHaveCount(0);
   const removed = outputs.getByRole("listitem").filter({ hasText: "old-test.csv" });
   await expect(removed.getByRole("region", { name: "Open run" })).toContainText("No saved file");
-  const table = page.getByRole("table");
+  const raggedPreview = removed.getByRole("region", { name: "Comparison run" });
+  await raggedPreview.getByText("Preview", { exact: true }).click();
+  await expect(raggedPreview.getByText("Showing raw CSV.")).toBeVisible();
+  await expect(raggedPreview.locator("pre")).toHaveText(bodies.get(oldOnly.artifact_id)!);
+  const table = page.getByRole("region", { name: "Run comparison table" }).getByRole("table");
   const revisionsRow = table.getByRole("row", { name: "Workflow revision" });
   await expect(revisionsRow.getByRole("cell")).toHaveText(["13", "12"]);
   await expect(table.getByRole("row", { name: "Provider-reported models" })).toContainText(
