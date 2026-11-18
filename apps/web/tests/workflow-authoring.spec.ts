@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { expect, test, type Locator, type Page } from "./fixtures";
 import example from "../../../examples/research-workflow.json";
 import type { SubgraphRef, Workflow, WorkflowNode, WorkflowRevision } from "../src/lib/workflow";
+import { addTemplate } from "../src/lib/workflow-editing";
 
 test.beforeEach(async ({ page, request }) => {
   const saved = await request.post("/api/revisions", { data: example });
@@ -124,6 +125,91 @@ test("pointer wiring distinguishes data and control ports and serializes data bi
     node_id: "frame",
     port: "text",
   });
+});
+
+test("filter canvas connections without changing the draft or port gestures", async ({
+  page,
+  request,
+}) => {
+  const view = page.getByRole("combobox", { name: "Visible connections", exact: true });
+  const reset = page.getByRole("button", { name: "Reset view", exact: true });
+  const canvas = page.getByLabel("Workflow canvas", { exact: true });
+  const control = canvas.locator(".connection-control");
+  const text = canvas.locator(".connection-text");
+  const number = canvas.locator(".connection-number");
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+
+  // Older documents have control edges without explicit port names.
+  await view.selectOption("data");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(0);
+  await expect(undo).toBeDisabled();
+  await reset.click();
+  await expect(view).toHaveValue("all");
+  await expect(control).toHaveCount(example.edges.length);
+
+  const source = addTemplate(structuredClone(example) as Workflow, null, "code", "challenge");
+  const { workflow, selected } = addTemplate(source.workflow, null, "code", source.selected);
+  workflow.nodes.find((node) => node.id === "challenge")!.inputs = {
+    text: { source: "output", node_id: "frame", port: "text" },
+  };
+  workflow.nodes.find((node) => node.id === selected)!.inputs = {
+    number: { source: "output", node_id: source.selected, port: "number" },
+  };
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.ok(), await response.text()).toBe(true);
+  const revision: WorkflowRevision = await response.json();
+  await page.goto(`/?revision=${revision.id}`);
+
+  await expect(view).toHaveValue("all");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(1);
+  await expect(number).toHaveCount(1);
+  await page.getByRole("button", { name: "Zoom in", exact: true }).click();
+  await expect(canvas).toHaveCSS("background-size", "12.5px 12.5px");
+  await view.selectOption("control");
+  await expect(canvas).toHaveCSS("background-size", "12.5px 12.5px");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(0);
+  await expect(number).toHaveCount(0);
+
+  const output = page.getByRole("button", { name: "Frame the question: output text text" });
+  const input = page.getByRole("button", { name: "Challenge the thesis: input text text" });
+  await expect(input).toHaveAttribute("data-connected", "true");
+  await expect(input).toHaveAttribute(
+    "aria-description",
+    "Connected to Frame the question: output text text.",
+  );
+  await output.press("Enter");
+  await expect(output).toHaveAttribute("data-connect", "source");
+  await expect(canvas.locator(".connection-draft")).toHaveAttribute("d", /^M/);
+  await view.press("ArrowDown");
+  await expect(view).toHaveValue("data");
+  await expect(output).toHaveAttribute("data-connect", "source");
+  await output.press("Escape");
+  await expect(output).not.toHaveAttribute("data-connect", "source");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(1);
+  await expect(number).toHaveCount(1);
+
+  await page.setViewportSize({ width: 390, height: 880 });
+  const toolbar = await page.getByRole("group", { name: "Canvas view", exact: true }).boundingBox();
+  const surface = await canvas.boundingBox();
+  expect(toolbar!.x + toolbar!.width).toBeLessThanOrEqual(surface!.x + surface!.width);
+  await reset.click();
+  await expect(view).toHaveValue("all");
+  await expect(canvas).toHaveCSS("background-size", "10px 10px");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(1);
+  await expect(number).toHaveCount(1);
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+  await page.getByText("Local draft & export", { exact: true }).click();
+  const download = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Export JSON", exact: true }).click();
+  expect(JSON.parse(await readFile((await (await download).path())!, "utf8"))).toEqual(
+    revision.workflow,
+  );
 });
 
 test("typing and a full drag are grouped edits with live connection previews", async ({ page }) => {
