@@ -7,14 +7,17 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   page,
   request,
 }) => {
+  test.setTimeout(60_000);
+  const supportQuestion = "Does the priced path match your rates view?";
+  const dissentQuestion = "Which dissenting scenario deserves more work?";
   const analyst = { ...legacy, name: "Inbox rates editor" };
   const workflow = structuredClone(example);
   workflow.name = "Inbox macro analysis";
   workflow.schema_version = "0.3";
   workflow.nodes[1]!.kind = "review";
-  workflow.nodes[1]!.instructions = "Does the priced path match your rates view?";
+  workflow.nodes[1]!.instructions = supportQuestion;
   workflow.nodes[2]!.kind = "review";
-  workflow.nodes[2]!.instructions = "Which dissenting scenario deserves more work?";
+  workflow.nodes[2]!.instructions = dissentQuestion;
   const agents = await Promise.all(
     [analyst, workflow].map(async (document) => {
       const response = await request.post("/api/agents", {
@@ -24,6 +27,16 @@ test("the mobile inbox opens the exact parallel review across agents and handles
       return (await response.json()) as AgentDetail;
     }),
   );
+  const otherRun = crypto.randomUUID();
+  const otherAdmitted = await request.post("/api/runs", {
+    data: {
+      id: otherRun,
+      agent_id: agents[0]!.agent.id,
+      revision_id: agents[0]!.revision.id,
+      brief: "Synthetic comparison run",
+    },
+  });
+  expect(otherAdmitted.status()).toBe(202);
   const id = crypto.randomUUID();
   const runPath = `/api/runs/${id}`;
   const admitted = await request.post("/api/runs", {
@@ -48,8 +61,11 @@ test("the mobile inbox opens the exact parallel review across agents and handles
       name: "Open review",
       exact: true,
     });
-  const dissent = openQuestion("Which dissenting scenario deserves more work?");
-  await dissent.click();
+  const chooseQuestion = async (question: string) => {
+    await openQuestion(question).click();
+    await expect(page.locator("details.review-inbox")).not.toHaveAttribute("open", "");
+  };
+  await chooseQuestion(dissentQuestion);
   await expect(page.getByLabel("Review challenge", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Review support", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Agent", exact: true })).toHaveValue(
@@ -58,12 +74,48 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   const feedback = page.getByRole("textbox", { name: "Reviewer feedback" });
   await feedback.fill("Keep the liquidity explanation in the scenario set.");
   await page.getByText("Review inbox", { exact: true }).click();
-  await openQuestion("Does the priced path match your rates view?").click();
+  await chooseQuestion(supportQuestion);
   await expect(page.getByLabel("Review support", { exact: true })).toBeVisible();
   await expect(feedback).toHaveValue("");
+  await feedback.fill("Compare the priced path against the meeting calendar.");
+  let draftKey: string | undefined;
+  await expect
+    .poll(async () => {
+      draftKey = await page.evaluate(
+        (run) => Object.keys(sessionStorage).find((key) => key.endsWith(`.review-drafts.${run}`)),
+        id,
+      );
+      return draftKey;
+    })
+    .toBeTruthy();
+  const history = page.getByRole("complementary", { name: "Recent runs" });
+  await history.getByRole("button", { name: "Recent runs", exact: true }).click();
+  await history.getByRole("button", { name: /Inbox rates editor/ }).click();
+  await expect.poll(() => new URL(page.url()).searchParams.get("run")).toBe(otherRun);
   await page.getByText("Review inbox", { exact: true }).click();
-  await dissent.click();
+  await chooseQuestion(dissentQuestion);
   await expect(feedback).toHaveValue("Keep the liquidity explanation in the scenario set.");
+  await page.reload();
+  await page.getByText("Review inbox", { exact: true }).click();
+  await chooseQuestion(supportQuestion);
+  await expect(feedback).toHaveValue("Compare the priced path against the meeting calendar.");
+  await page.getByText("Review inbox", { exact: true }).click();
+  await chooseQuestion(dissentQuestion);
+  await expect(feedback).toHaveValue("Keep the liquidity explanation in the scenario set.");
+
+  await page.getByText("Review inbox", { exact: true }).click();
+  await chooseQuestion(supportQuestion);
+  await expect(page.getByLabel("Review support", { exact: true })).toBeVisible();
+  await expect(feedback).toHaveValue("Compare the priced path against the meeting calendar.");
+  await page.getByRole("button", { name: "Approve and continue", exact: true }).click();
+  await expect(page.getByLabel("Review challenge", { exact: true })).toBeVisible();
+  await expect(feedback).toHaveValue("Keep the liquidity explanation in the scenario set.");
+  await expect
+    .poll(async () => {
+      const stored = await page.evaluate((key) => sessionStorage.getItem(key), draftKey!);
+      return Object.values(JSON.parse(stored ?? "{}"));
+    })
+    .toEqual(["Keep the liquidity explanation in the scenario set."]);
 
   // Freeze one inbox response, then resolve it elsewhere before the owner clicks.
   const live: PendingReviewsPage = await (await request.get("/api/runs/reviews")).json();
@@ -72,7 +124,7 @@ test("the mobile inbox opens the exact parallel review across agents and handles
     route.fulfill({ json: { items: [old], has_more: false } }),
   );
   await page.getByText("Review inbox", { exact: true }).click();
-  await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
+  await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(1);
   expect((await request.post(`${runPath}/cancel`)).status()).toBe(200);
   await page.unroute("**/api/runs/reviews?*");
   await item.getByRole("button", { name: "Open review", exact: true }).first().click();
@@ -81,6 +133,10 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   ).toBeVisible();
   await expect(item).toHaveCount(0);
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Cancelled");
+  await expect
+    .poll(() => page.evaluate((key) => sessionStorage.getItem(key), draftKey!))
+    .toBeNull();
+  expect((await request.post(`/api/runs/${otherRun}/cancel`)).status()).toBe(200);
   await expect(page.getByRole("button", { name: "Approve and continue" })).toHaveCount(0);
   expect(new URL(page.url()).searchParams.get("run")).toBe(id);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -186,6 +186,9 @@ stored in the owner's browser.
 Use **Copy attempt link** in **Attempt details** to reopen the specific saved
 pass, including an earlier pass of the same step.
 
+Unsent feedback stays in the current browser tab when you switch runs or refresh.
+Drafts clear when the app observes a resolved checkpoint or a terminal run.
+
 Approve/reject is tied to a specific checkpoint and interrupt. Repeating a decision
 returns its saved receipt; a conflicting decision returns HTTP 409. The browser
 then reads current state so an old response cannot restore obsolete controls.
