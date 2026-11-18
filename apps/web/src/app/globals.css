@@ -3179,6 +3179,16 @@ td time {
 .step-model-fields select {
   width: 100%;
 }
+.run-limits fieldset {
+  margin-block: 8px;
+  padding: 0 10px 10px;
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.run-limits legend {
+  padding-inline: 4px;
+  font-size: 13px;
+}
 .run-model-summary {
   margin: 12px 0;
 }

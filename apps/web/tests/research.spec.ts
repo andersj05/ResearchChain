@@ -227,9 +227,27 @@ test("research settings survive structural edits and zero budgets", async ({ pag
   await page.getByRole("spinbutton", { name: "Maximum model attempts", exact: true }).fill("0");
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
   await expect(page.getByText("Connected as Synthetic", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Start run", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Start a research run" });
+  const limits = dialog.getByText(/^Run limits ·/);
+  const start = dialog.getByRole("button", { name: "Start run", exact: true });
+  await limits.click();
+  const modelAttempts = dialog.getByRole("spinbutton", { name: "Maximum model attempts" });
+  await expect(modelAttempts).toHaveValue("0");
+  await modelAttempts.fill("101");
+  await limits.click();
+  await expect(modelAttempts).toBeHidden();
+  await start.click();
+  await expect(modelAttempts).toBeFocused();
+  await modelAttempts.fill("0");
+  await dialog.getByRole("spinbutton", { name: "Maximum active seconds" }).fill("270");
+  await expect(limits).toHaveText("Run limits · 270s active · 0 model attempts");
+  await start.click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Limit reached");
   await expect(page.getByRole("region", { name: "Run inspector" })).toContainText(
     "Model-call budget reached.",
   );
+  const runId = new URL(page.url()).searchParams.get("run");
+  const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
+  expect(snapshot.workflow.budgets?.max_active_seconds).toBe(270);
+  expect(snapshot.research_manifest?.settings.limits?.max_model_calls).toBe(0);
 });

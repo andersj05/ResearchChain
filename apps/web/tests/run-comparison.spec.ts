@@ -7,6 +7,7 @@ import {
   type WorkflowRevision,
 } from "../src/lib/workflow";
 import { compareWorkflowGraphs } from "../src/lib/workflow-comparison";
+import { addTemplate, referenceOf } from "../src/lib/workflow-editing";
 import nested from "../../../examples/advanced-workflow.json";
 
 test("workflow deltas follow pinned subgraph versions and ignore presentation changes", () => {
@@ -69,9 +70,14 @@ test("compare two saved research runs without switching the open run", async ({ 
   const priorSource = crypto.randomUUID();
   const newSource = crypto.randomUUID();
   const sharedSources = [crypto.randomUUID(), crypto.randomUUID()];
+  const loop = addTemplate(structuredClone(discretionaryMacroWorkflow), null, "loop", "test");
+  const loopRef = referenceOf(loop.workflow.nodes.find((node) => node.id === loop.selected)!)!;
+  const body = addTemplate(loop.workflow, loopRef, "model", "step");
+  const iterationPath = (number: number) =>
+    `root/${loop.selected}/iteration-${number}/${body.selected}`;
   const base: RunSnapshot = {
     id: crypto.randomUUID(),
-    workflow: discretionaryMacroWorkflow,
+    workflow: body.workflow,
     workflow_name: discretionaryMacroWorkflow.name,
     revision_id: crypto.randomUUID(),
     revision_number: 12,
@@ -117,6 +123,15 @@ test("compare two saved research runs without switching the open run", async ({ 
   first.config.web_search = false;
   adjusted.research!.limits!.max_total_tokens = 65000;
   const original = base.model_attempts![0]!;
+  const modelOutput = (path: string, conclusion: string) => ({
+    ...original,
+    id: crypto.randomUUID(),
+    path,
+    result: { ...original.result!, conclusion, workspace_files: [] },
+  });
+  const baselinePass = modelOutput(iterationPath(1), "**Comparison first iteration.**");
+  const openPass = modelOutput(iterationPath(1), "**Open first iteration.**");
+  base.model_attempts!.unshift(baselinePass);
   const outputAttempt = (files: (typeof oldTable)[], path: string) => ({
     ...original,
     id: crypto.randomUUID(),
@@ -150,6 +165,8 @@ test("compare two saved research runs without switching the open run", async ({ 
       },
     ],
     model_attempts: [
+      openPass,
+      modelOutput(iterationPath(2), "**Open second iteration.**"),
       outputAttempt([newTable, intermediate], "root/memo"),
       outputAttempt([newTable, stable], "root/memo/analyst-pass-2"),
     ],
@@ -267,10 +284,27 @@ test("compare two saved research runs without switching the open run", async ({ 
   );
   await table.getByText("Reviewer feedback (1)", { exact: true }).click();
   await expect(table.getByText("Check the curve against the dollar.")).toBeVisible();
-  await table.getByText("Latest model output · Write the discretionary macro memo").click();
-  await expect(table.locator(".research-conclusion strong")).toHaveText(
-    "The rival mechanism survived.",
+  await page.getByText("Model outputs by step (3)", { exact: true }).click();
+  const comparisons = page.locator(".comparison-step-outputs");
+  const step = comparisons.getByRole("combobox", { name: "Comparison step" });
+  const beforeOutput = comparisons.getByRole("region", { name: "Comparison run" });
+  const openOutput = comparisons.getByRole("region", { name: "Open run" });
+  await expect(step).toHaveValue(iterationPath(1));
+  await expect(step.locator("option:checked")).toHaveText(
+    "Model prompt · Iteration 1 · New bounded loop",
   );
+  await expect(beforeOutput.locator("strong")).toHaveText("Comparison first iteration.");
+  await expect(openOutput.locator("strong")).toHaveText("Open first iteration.");
+  await expect(openOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
+    "href",
+    `?view=runs&run=${current.id}&attempt=${openPass.id}`,
+  );
+  await step.selectOption(iterationPath(2));
+  await expect(beforeOutput).toContainText("No saved model output for this step.");
+  await expect(openOutput.locator("strong")).toHaveText("Open second iteration.");
+  await step.selectOption("root/memo");
+  await expect(beforeOutput.locator("strong")).toHaveText("The rival mechanism survived.");
+  await expect(openOutput).toContainText("No saved model output for this step.");
   await expect(page).toHaveURL(new RegExp(`run=${current.id}`));
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await compare.selectOption(matchingOutputs.id);
