@@ -1,0 +1,152 @@
+{
+  "schema_version": "0.3",
+  "name": "Discretionary macro research",
+  "start_node": "map",
+  "nodes": [
+    {
+      "id": "map",
+      "kind": "research",
+      "label": "Find the cross-asset tension",
+      "instructions": "Start from the owner's brief, questions, charts and sources. Identify one consequential observation that needs explaining. Date the starting point, specify the policy or market catalyst and horizon, distinguish changes in levels from changes in expectations, and trace the apparent disagreement across rates, FX and risk assets where relevant. Check dated primary sources before stating material facts. Identify possible unit, timestamp, contract-roll or comparison-window artifacts. Pitch a lead mechanism and one materially different rival. In conclusion, show the proposed question, horizon, strongest observation, test that distinguishes the explanations, and choice for the owner.",
+      "position": { "x": 60, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto"
+      }
+    },
+    {
+      "id": "mandate",
+      "kind": "review",
+      "label": "Choose the question and horizon",
+      "instructions": "Which tension should we pursue? Confirm or change the market, event window and investment horizon. Name the comparison or evidence that would best separate the mechanisms. Your feedback commissions the pricing study.",
+      "position": { "x": 380, "y": 100 }
+    },
+    {
+      "id": "pricing",
+      "kind": "research",
+      "label": "Estimate what markets price",
+      "instructions": "Follow the direction in the owner's feedback and carry the selected question forward. Build a dated baseline for policy and inflation/growth expectations. Distinguish traded prices and instruments, market-implied expectations with assumptions, survey consensus, and your interpretation. Map the transmission from the proposed driver into the curve and relevant FX, equity or commodity markets. If observations conflict, identify session, tenor, currency and source differences. Use official releases and instrument documentation where possible and verify the effective date of each observation. Do not infer probabilities solely from a market move or substitute a forecast for a measured price. In conclusion, retain the leading and rival mechanisms, a compact sourced pricing snapshot with units, what appears priced, and the unresolved quantitative test.",
+      "position": { "x": 700, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto"
+      },
+      "inputs": {
+        "context": { "source": "output", "node_id": "map", "port": "text" },
+        "feedback": { "source": "output", "node_id": "mandate", "port": "feedback" }
+      }
+    },
+    {
+      "id": "test",
+      "kind": "research",
+      "label": "Run the discriminating test",
+      "instructions": "Use the pricing baseline and owner direction to choose one test with distinct predictions under the lead and rival mechanisms. Prefer an event-window comparison and one robustness check, such as an alternative window, a benchmark, or excluding an influential observation. In Python check timestamps, missing data, sample size, look-ahead risk, units and transformations. Do not treat a correlation as a causal estimate. If the numbers are insufficient, state what evidence would make the test possible. Where supported, save outputs/macro-observations.csv, outputs/macro-event-study.png, and outputs/macro-method.md with source URLs, release dates, series definitions, windows, missing data and robustness. Put the key comparison, pricing baseline, what it changes, and any data gap in conclusion for the next step. Use only data that can be traced to a source or explicitly labeled scenarios.",
+      "position": { "x": 1020, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto",
+        "analyst": {
+          "workspace": true,
+          "max_passes": 10,
+          "skill": "Retrieve documented observation values outside Python using enabled tools, then calculate locally using the supplied or retrieved data. Inspect the execution receipt and chart, repair errors, and try a robustness check. Keep hypothetical values visibly separate. Finish with findings and limits grounded in the files actually saved."
+        }
+      },
+      "inputs": {
+        "context": { "source": "output", "node_id": "pricing", "port": "text" },
+        "feedback": { "source": "output", "node_id": "mandate", "port": "feedback" }
+      }
+    },
+    {
+      "id": "challenge",
+      "kind": "research",
+      "label": "Challenge the transmission story",
+      "instructions": "Act as the reviewer trying to falsify the research view. Recheck the most decisive observation against an independent primary or market source when possible. Ask whether positioning, liquidity, common beta, concurrent announcements, revisions or an alternative policy reaction function explain the same pattern. Describe what the robustness test did and did not rule out. State the strongest dissent with a concrete observation that favors it. Carry forward the dated pricing baseline and measured comparison, preserving their provenance; give a provisional thesis, its strongest objection and the unresolved judgment for the owner. State what would overturn the view, even if the thesis survives.",
+      "position": { "x": 1340, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto"
+      },
+      "inputs": {
+        "context": { "source": "output", "node_id": "test", "port": "text" },
+        "feedback": { "source": "output", "node_id": "mandate", "port": "feedback" }
+      }
+    },
+    {
+      "id": "judgment",
+      "kind": "review",
+      "label": "Weigh the thesis and the dissent",
+      "instructions": "Which mechanism do you think is most plausible, and what does the market misunderstand? Give your conviction, the strongest objection you still take seriously, and what would change your view. You can ask for a wait-for-evidence conclusion. Your judgment goes into the scenario analysis as an attributed input.",
+      "position": { "x": 1660, "y": 100 }
+    },
+    {
+      "id": "scenarios",
+      "kind": "research",
+      "label": "Build catalyst and risk scenarios",
+      "instructions": "Compare a base case and two distinct conditional alternatives using the challenged evidence and attributed owner judgment. For each, show the trigger, horizon, policy or growth/inflation mechanism, expected cross-asset direction, what's priced, and the observation that invalidates it. If a dated upcoming release matters, verify its schedule. Provide a concise monitoring plan with measurable thresholds only where sourced or explicitly hypothetical. Address carry, liquidity, and timing when material. Do not invent probabilities, prices, exposures or portfolio positions. Include an asymmetry or wait-for-evidence case and carry the dated pricing, test, dissent and any owner-model disagreement into the scenario packet.",
+      "position": { "x": 1980, "y": 100 },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto"
+      },
+      "inputs": {
+        "context": { "source": "output", "node_id": "challenge", "port": "text" },
+        "feedback": { "source": "output", "node_id": "judgment", "port": "feedback" }
+      }
+    },
+    {
+      "id": "memo",
+      "kind": "research",
+      "label": "Write the discretionary macro memo",
+      "instructions": "Write the memo in conclusion. Open with a clear directional or wait-for-evidence view, the as-of date, horizon, and why this view differs from what appears priced. Explain the causal chain, quantitative result and limitations, the strongest dissent, the scenarios and nearest catalysts, and what changes the view. Cite the dated evidence that supports each material claim, preserve units, and identify file names only when recorded upstream. Keep the owner's judgment attributed and preserve any disagreement. Label conditional market implications and avoid presenting them as measured data or instructions to trade. Finish with the highest-value remaining test.",
+      "position": { "x": 2300, "y": 100 },
+      "config": { "type": "research", "stage": "custom", "prompt_version": "custom-1" },
+      "inputs": {
+        "context": { "source": "output", "node_id": "scenarios", "port": "text" },
+        "feedback": { "source": "output", "node_id": "judgment", "port": "feedback" }
+      }
+    },
+    {
+      "id": "editorial",
+      "kind": "review",
+      "label": "Decide whether the view is ready",
+      "instructions": "Does the memo defend a view you would stand behind, and is it specific about what would change your mind? Check the evidence, calculations and what is already priced. Approve the completed research or record the unresolved question for a revised experiment.",
+      "position": { "x": 2620, "y": 100 }
+    },
+    { "id": "finish", "kind": "finish", "label": "Finish", "position": { "x": 2940, "y": 100 } }
+  ],
+  "edges": [
+    { "source": "map", "target": "mandate" },
+    { "source": "mandate", "target": "pricing" },
+    { "source": "pricing", "target": "test" },
+    { "source": "test", "target": "challenge" },
+    { "source": "challenge", "target": "judgment" },
+    { "source": "judgment", "target": "scenarios" },
+    { "source": "scenarios", "target": "memo" },
+    { "source": "memo", "target": "editorial" },
+    { "source": "editorial", "target": "finish" }
+  ],
+  "research": {
+    "provider": "chatgpt_plan",
+    "model": "gpt-6.1-sol",
+    "billing": "included_plan",
+    "limits": {
+      "max_model_calls": 15,
+      "max_tool_calls": 15,
+      "max_input_bytes": 8000000,
+      "max_output_characters": 100000,
+      "max_response_seconds": 300,
+      "max_total_tokens": 1000000
+    }
+  },
+  "budgets": { "max_node_executions": 16, "max_active_seconds": 2700, "max_concurrency": 1 }
+}

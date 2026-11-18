@@ -91,6 +91,23 @@ export function RunStepInspector({
           previous.has(eventPath(event)) && ["note", "research", "code"].includes(event.kind),
       )
     : [];
+  const earlierInputs = new Set<string>();
+  for (const event of reviewInputs) {
+    let source = graph.nodes.find((item) => item.id === event.node_id)?.inputs?.context;
+    while (source?.source === "output" && source.node_id && !earlierInputs.has(source.node_id)) {
+      earlierInputs.add(source.node_id);
+      source = graph.nodes.find((item) => item.id === source?.node_id)?.inputs?.context;
+    }
+  }
+  const related = graph.nodes.filter((item) => earlierInputs.has(item.id));
+  const feedbackTargets = review
+    ? graph.nodes.filter((item) =>
+        Object.values(item.inputs ?? {}).some(
+          (input) =>
+            input.source === "output" && input.node_id === node.id && input.port === "feedback",
+        ),
+      )
+    : [];
   return (
     <section className="run-step-panel" aria-label="Selected step">
       <div className="step-detail-heading">
@@ -123,17 +140,24 @@ export function RunStepInspector({
               Your decision applies to revision {run.revision_number}.
             </p>
             {run.workflow.schema_version === "0.3" && (
-              <label>
-                Reviewer feedback
-                <textarea
-                  rows={3}
-                  maxLength={6000}
-                  disabled={busy}
-                  value={feedback[review.interrupt_id] ?? ""}
-                  onChange={(e) => changeFeedback(review.interrupt_id, e.target.value)}
-                  placeholder="What should the next step challenge or revise?"
-                />
-              </label>
+              <>
+                <label>
+                  Reviewer feedback
+                  <textarea
+                    rows={3}
+                    maxLength={6000}
+                    disabled={busy}
+                    value={feedback[review.interrupt_id] ?? ""}
+                    onChange={(e) => changeFeedback(review.interrupt_id, e.target.value)}
+                    placeholder="What should the next step challenge or revise?"
+                  />
+                </label>
+                {feedbackTargets.length > 0 && (
+                  <p className="field-hint">
+                    Feedback goes to {feedbackTargets.map((item) => item.label).join(", ")}.
+                  </p>
+                )}
+              </>
             )}
             <div className="actions">
               <Button
@@ -161,6 +185,24 @@ export function RunStepInspector({
           {!!reviewInputs.length && (
             <div className="review-inputs">
               <h4>Output to review</h4>
+              {!!related.length && (
+                <details className="review-earlier-inputs">
+                  <summary>Earlier evidence and analysis</summary>
+                  <ul>
+                    {related.map((item) => (
+                      <li key={item.id}>
+                        <button
+                          type="button"
+                          className="text-link"
+                          onClick={() => select(`${prefix}/${item.id}`)}
+                        >
+                          {item.label}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
               {reviewInputs.map((event) =>
                 event.kind === "research" ? (
                   <StepResearchResults

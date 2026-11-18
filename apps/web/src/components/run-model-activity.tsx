@@ -20,7 +20,10 @@ export function RunModelActivity({
     const label = node.label;
     const location = parents.length ? path.replaceAll("/", " › ") : "";
     const status = modelAttemptStatus(attempt);
-    return { attempt, path, pass, label, location, status };
+    const elapsed = attempt.finished_at
+      ? (Date.parse(attempt.finished_at) - Date.parse(attempt.created_at)) / 1000
+      : null;
+    return { attempt, path, pass, label, location, status, elapsed };
   });
   const search = query.trim().toLowerCase();
   const visible = rows
@@ -63,11 +66,12 @@ export function RunModelActivity({
                 <th scope="col">Requested model</th>
                 <th scope="col">Reported model</th>
                 <th scope="col">Input / output tokens</th>
+                <th scope="col">Elapsed</th>
                 <th scope="col">Started</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map(({ attempt, path, pass, label, location, status }) => (
+              {visible.map(({ attempt, path, pass, label, location, status, elapsed }) => (
                 <tr key={attempt.id}>
                   <th scope="row">
                     <button type="button" onClick={() => inspect(path, attempt.id)}>
@@ -84,9 +88,10 @@ export function RunModelActivity({
                   <td>{attempt.model}</td>
                   <td>{attempt.returned_model ?? "Not reported"}</td>
                   <td>
-                    {attempt.input_tokens?.toLocaleString() ?? "—"} /{" "}
-                    {attempt.output_tokens?.toLocaleString() ?? "—"}
+                    {attempt.input_tokens?.toLocaleString() ?? "Unreported"} /{" "}
+                    {attempt.output_tokens?.toLocaleString() ?? "Unreported"}
                   </td>
+                  <td>{elapsed !== null && elapsed >= 0 ? `${elapsed.toFixed(1)} s` : "—"}</td>
                   <td>
                     <time dateTime={attempt.created_at}>
                       {new Date(attempt.created_at).toLocaleString(undefined, {

@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/access";
 import type { components } from "@researchchain/contracts";
+import discretionaryMacroExample from "../../../../examples/discretionary-macro.json";
+import discretionaryMacroBriefLines from "../../../../examples/discretionary-macro-brief.json";
 import ideaGenerationExample from "../../../../examples/idea-generation.json";
 import ideaGenerationBriefLines from "../../../../examples/idea-generation-brief.json";
 import ideaExample from "../../../../examples/idea-research.json";
@@ -46,6 +48,8 @@ export const initialWorkflow: Workflow = {
 export const ideaWorkflow = ideaExample as Workflow;
 export const ideaGenerationWorkflow = ideaGenerationExample as Workflow;
 export const ideaGenerationBrief = ideaGenerationBriefLines.join("\n");
+export const discretionaryMacroWorkflow = discretionaryMacroExample as Workflow;
+export const discretionaryMacroBrief = discretionaryMacroBriefLines.join("\n");
 export const researchWorkflow = researchExample as Workflow;
 export type ResearchSettings = components["schemas"]["ResearchSettings"];
 export type ResearchLimits = components["schemas"]["ResearchLimits"];
