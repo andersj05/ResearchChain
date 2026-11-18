@@ -763,6 +763,19 @@ textarea {
 .canvas-toolbar .button + .button {
   border-left: 1px solid var(--line);
 }
+.build-canvas-tools {
+  max-width: calc(100% - 32px);
+  flex-wrap: wrap;
+}
+.canvas-connection-view {
+  width: auto;
+  max-width: 100%;
+  margin: 0;
+  padding: 4px 7px;
+  border: 0;
+  border-left: 1px solid var(--line);
+  font-size: 12px;
+}
 .editor-footer {
   min-height: 45px;
   flex-shrink: 0;
@@ -1466,6 +1479,9 @@ td time {
   border-bottom: 1px solid var(--line);
   background: var(--surface);
   font-size: 12px;
+}
+.graph-breadcrumbs nav {
+  min-width: 0;
 }
 .graph-breadcrumbs ol {
   display: flex;

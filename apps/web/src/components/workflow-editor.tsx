@@ -2,7 +2,7 @@
 
 import { Button } from "@ui-sdk/react/button";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
-import { Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
+import { ArrowLeft, Copy, Plus, PanelLeft, PanelRight, Trash2 } from "lucide-react";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
@@ -35,6 +35,32 @@ export type WorkflowEditorNavigation = {
   openStep: (id: string, path: GraphCrumb[]) => void;
 };
 
+type StepVisit = { id: string; path: GraphCrumb[] };
+
+function resolveGraphPath(workflow: Workflow, path: GraphCrumb[]) {
+  const validPath: GraphCrumb[] = [];
+  let graph: Graph = workflow;
+  for (const crumb of path) {
+    const parent = graph.nodes.find((node) => node.id === crumb.via);
+    const ref = parent && referenceOf(parent);
+    const body = graphAt(workflow, crumb.ref);
+    if (!ref || scopeKey(ref) !== scopeKey(crumb.ref) || !body) break;
+    validPath.push(crumb);
+    graph = body;
+  }
+  return { graph, validPath };
+}
+
+function samePath(left: GraphCrumb[], right: GraphCrumb[]) {
+  return (
+    left.length === right.length &&
+    left.every((crumb, index) => {
+      const other = right[index];
+      return !!other && crumb.via === other.via && scopeKey(crumb.ref) === scopeKey(other.ref);
+    })
+  );
+}
+
 export function WorkflowEditor({
   catalog,
   workflow,
@@ -57,23 +83,23 @@ export function WorkflowEditor({
   disabled: boolean;
 }) {
   const [path, setPath] = useState(initialPath);
+  const [previousVisit, setPreviousVisit] = useState<StepVisit>();
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
   const [notice, setNotice] = useState("");
   // Undo/import can remove a parent or change its reference. Discard stale navigation.
-  const validPath: GraphCrumb[] = [];
-  let graph: Graph = workflow;
-  for (const crumb of path) {
-    const parent = graph.nodes.find((node) => node.id === crumb.via);
-    const ref = parent && referenceOf(parent);
-    const body = graphAt(workflow, crumb.ref);
-    if (!ref || scopeKey(ref) !== scopeKey(crumb.ref) || !body) break;
-    validPath.push(crumb);
-    graph = body;
-  }
+  const { graph, validPath } = resolveGraphPath(workflow, path);
   const scope: GraphScope = validPath.at(-1)?.ref ?? null;
   const selectedId = graph.nodes.some((item) => item.id === selected) ? selected : graph.start_node;
   const node = graph.nodes.find((item) => item.id === selectedId);
+  // A return needs the exact saved path. The editor's fallback to a surviving ancestor is only for the current view.
+  const previousScope = previousVisit && resolveGraphPath(workflow, previousVisit.path);
+  const previousStep =
+    previousVisit &&
+    previousScope?.validPath.length === previousVisit.path.length &&
+    (previousVisit.id !== selectedId || !samePath(previousVisit.path, validPath))
+      ? previousScope.graph.nodes.find((item) => item.id === previousVisit.id)
+      : undefined;
   const stepToFocus = useRef<string | null>(null);
   const inputToFocus = useRef<string | null>(null);
   const inspector = useRef<HTMLFieldSetElement>(null);
@@ -98,11 +124,18 @@ export function WorkflowEditor({
     setInspectorOpen(true);
     onSelect(id);
   }
-  function openStep(id: string, location: GraphCrumb[]) {
+  function focusStep(id: string, location: GraphCrumb[], input?: string) {
     stepToFocus.current = id;
+    inputToFocus.current = input ?? null;
     setNotice("");
     setPath(location);
     selectNode(id);
+  }
+  function openStep(id: string, location: GraphCrumb[], input?: string) {
+    if (node && (id !== selectedId || !samePath(location, validPath))) {
+      setPreviousVisit({ id: selectedId, path: validPath });
+    }
+    focusStep(id, location, input);
   }
   useImperativeHandle(navigationRef, () => ({ openStep }));
 
@@ -162,47 +195,64 @@ export function WorkflowEditor({
     : 0;
   return (
     <>
-      {scope && (
-        <nav className="graph-breadcrumbs" aria-label="Graph breadcrumbs">
-          <ol>
-            <li>
-              <button
-                type="button"
-                disabled={disabled}
-                aria-current={!scope ? "page" : undefined}
-                onClick={() => {
-                  setPath([]);
-                  selectNode(validPath[0]?.via ?? workflow.start_node);
-                }}
-              >
-                {workflow.name || "Root workflow"}
-              </button>
-            </li>
-            {validPath.map((crumb, index) => (
-              <li key={`${index}/${scopeKey(crumb.ref)}`}>
-                <span aria-hidden="true">/</span>
-                <button
-                  type="button"
-                  disabled={disabled}
-                  aria-current={index === validPath.length - 1 ? "page" : undefined}
-                  onClick={() => {
-                    setPath(validPath.slice(0, index + 1));
-                    selectNode(
-                      validPath[index + 1]?.via ?? graphAt(workflow, crumb.ref)!.start_node,
-                    );
-                  }}
-                >
-                  {graphAt(workflow, crumb.ref)?.name} <small>v{crumb.ref.version}</small>
-                </button>
-              </li>
-            ))}
-          </ol>
+      {(scope || previousStep) && (
+        <div className="graph-breadcrumbs">
+          {previousVisit && previousStep && (
+            <Button
+              className="button small ghost"
+              aria-label={`Return to step ${previousStep.label || previousStep.id}`}
+              disabled={disabled}
+              onClick={() => {
+                setPreviousVisit(undefined);
+                focusStep(previousVisit.id, previousVisit.path);
+              }}
+            >
+              <ArrowLeft size={14} aria-hidden="true" /> Return to step
+            </Button>
+          )}
+          {scope && (
+            <nav aria-label="Graph breadcrumbs">
+              <ol>
+                <li>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    aria-current={!scope ? "page" : undefined}
+                    onClick={() => {
+                      setPath([]);
+                      selectNode(validPath[0]?.via ?? workflow.start_node);
+                    }}
+                  >
+                    {workflow.name || "Root workflow"}
+                  </button>
+                </li>
+                {validPath.map((crumb, index) => (
+                  <li key={`${index}/${scopeKey(crumb.ref)}`}>
+                    <span aria-hidden="true">/</span>
+                    <button
+                      type="button"
+                      disabled={disabled}
+                      aria-current={index === validPath.length - 1 ? "page" : undefined}
+                      onClick={() => {
+                        setPath(validPath.slice(0, index + 1));
+                        selectNode(
+                          validPath[index + 1]?.via ?? graphAt(workflow, crumb.ref)!.start_node,
+                        );
+                      }}
+                    >
+                      {graphAt(workflow, crumb.ref)?.name} <small>v{crumb.ref.version}</small>
+                    </button>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )}
           {scope && (
             <p>
               Editing a shared definition · {uses} draft {uses === 1 ? "reference" : "references"}
             </p>
           )}
-        </nav>
+        </div>
       )}
       {notice && (
         <p className="error" role="alert">
@@ -499,11 +549,7 @@ export function WorkflowEditor({
                   <ReviewHandoff
                     graph={graph}
                     reviewId={node.id}
-                    onOpenInput={(stepId, input) => {
-                      stepToFocus.current = stepId;
-                      inputToFocus.current = input;
-                      selectNode(stepId);
-                    }}
+                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
                   />
                 )}
                 {node.kind === "note" && (

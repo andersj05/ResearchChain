@@ -151,9 +151,11 @@ either panel from the canvas header. The outline selects and reveals offscreen
 nodes. **Find a step** searches names, instructions, and assigned models in the
 draft and its referenced subgraphs. Select a match to focus its step editor.
 Enter opens the first match and Escape clears the search.
-Zoom controls and Fit view change only the viewport; Reset view restores
-100% zoom. Workflow settings expand beneath the outline. On smaller screens,
-the library and inspector move below the canvas.
+Zoom controls and Fit view change only the viewport. In **Visible connections**,
+choose all connections, control flow, or data bindings to inspect the canvas.
+Ports stay available for editing in every view. **Reset view** restores 100%
+zoom and all connections. Workflow settings expand beneath the outline. On
+smaller screens, the library and inspector move below the canvas.
 
 On a human review, **Review handoff** shows the steps that lead into the review
 and the inputs wired to its feedback. Select a feedback recipient to open and
@@ -170,6 +172,9 @@ model and enabled tools. The plan shows which steps inherit the workflow model
 and which override it. Select a step to edit it, including steps in subgraphs.
 When validation locates an issue in the current draft, use **Open step** beside
 the issue to go directly to the affected step.
+Following a step link from search, Review handoff, validation, or the model plan
+records the step you were editing. **Return to step** reopens it at its original
+location in the graph. Undo continues to track draft edits.
 
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
