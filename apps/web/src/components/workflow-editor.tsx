@@ -74,6 +74,22 @@ function samePath(left: GraphCrumb[], right: GraphCrumb[]) {
   );
 }
 
+function sameVisit(left: StepVisit, right: StepVisit) {
+  return left.id === right.id && samePath(left.path, right.path);
+}
+
+function returnDestination(workflow: Workflow, visits: StepVisit[], current: StepVisit) {
+  for (let index = visits.length - 1; index >= 0; index--) {
+    const visit = visits[index]!;
+    if (sameVisit(visit, current)) continue;
+    const scope = resolveGraphPath(workflow, visit.path);
+    // The closest surviving ancestor is useful for display, but is not a valid return destination.
+    if (scope.validPath.length !== visit.path.length) continue;
+    const step = scope.graph.nodes.find((node) => node.id === visit.id);
+    if (step) return { visit, step, index };
+  }
+}
+
 export function WorkflowEditor({
   catalog,
   workflow,
@@ -127,7 +143,7 @@ export function WorkflowEditor({
   }
 
   const [path, setPath] = useState(initialPath);
-  const [previousVisit, setPreviousVisit] = useState<StepVisit>();
+  const [stepVisits, setStepVisits] = useState<StepVisit[]>([]);
   const [beforeStep, setBeforeStep] = useState<StepVisit>();
   const [libraryOpen, setLibraryOpen] = useState(true);
   const [inspectorOpen, setInspectorOpen] = useState(true);
@@ -138,14 +154,8 @@ export function WorkflowEditor({
   const scope: GraphScope = validPath.at(-1)?.ref ?? null;
   const selectedId = graph.nodes.some((item) => item.id === selected) ? selected : graph.start_node;
   const node = graph.nodes.find((item) => item.id === selectedId);
-  // A return needs the exact saved path. The editor's fallback to a surviving ancestor is only for the current view.
-  const previousScope = previousVisit && resolveGraphPath(workflow, previousVisit.path);
-  const previousStep =
-    previousVisit &&
-    previousScope?.validPath.length === previousVisit.path.length &&
-    (previousVisit.id !== selectedId || !samePath(previousVisit.path, validPath))
-      ? previousScope.graph.nodes.find((item) => item.id === previousVisit.id)
-      : undefined;
+  const currentVisit = { id: selectedId, path: validPath };
+  const returnTo = returnDestination(workflow, stepVisits, currentVisit);
   const stepToFocus = useRef<string | null>(null);
   const fieldToFocus = useRef<string | null>(null);
   const inspector = useRef<HTMLFieldSetElement>(null);
@@ -180,8 +190,11 @@ export function WorkflowEditor({
     selectNode(id);
   }
   function openStep(id: string, location: GraphCrumb[], field?: string) {
-    if (node && (id !== selectedId || !samePath(location, validPath))) {
-      setPreviousVisit({ id: selectedId, path: validPath });
+    if (node && !sameVisit(currentVisit, { id, path: location })) {
+      setStepVisits((visits) => {
+        const latest = visits.at(-1);
+        return latest && sameVisit(latest, currentVisit) ? visits : [...visits, currentVisit];
+      });
     }
     focusStep(id, location, field);
   }
@@ -254,16 +267,16 @@ export function WorkflowEditor({
     );
   return (
     <>
-      {(scope || previousStep) && (
+      {(scope || returnTo) && (
         <div className="graph-breadcrumbs">
-          {previousVisit && previousStep && (
+          {returnTo && (
             <Button
               className="button small ghost"
-              aria-label={`Return to step ${previousStep.label || previousStep.id}`}
+              aria-label={`Return to step ${returnTo.step.label || returnTo.step.id}`}
               disabled={disabled}
               onClick={() => {
-                setPreviousVisit(undefined);
-                focusStep(previousVisit.id, previousVisit.path);
+                setStepVisits((visits) => visits.slice(0, returnTo.index));
+                focusStep(returnTo.visit.id, returnTo.visit.path);
               }}
             >
               <ArrowLeft size={14} aria-hidden="true" /> Return to step
