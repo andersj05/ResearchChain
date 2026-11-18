@@ -85,6 +85,23 @@ test("macro starter asks for judgment and records it in downstream model request
   await page.getByRole("button", { name: "Decisions", exact: true }).click();
   await expect(needed).toHaveCount(0);
   await expect(recorded.getByRole("listitem")).toHaveCount(3);
+  const marketJudgment = recorded.getByRole("listitem").filter({ hasText: view });
+  await marketJudgment.getByText("Steps wired to this feedback (2)", { exact: true }).click();
+  const savedRequest = marketJudgment.getByRole("link", {
+    name: "Saved request for Build catalyst and risk scenarios",
+  });
+  const scenarioAttempt = run.model_attempts!.find((attempt) => attempt.path === "root/scenarios")!;
+  await expect(savedRequest).toHaveAttribute(
+    "href",
+    contentUrl(scenarioAttempt.input_artifact_id!),
+  );
+  await expect(marketJudgment.getByRole("link", { name: /^Saved request for/ })).toHaveCount(2);
+  await marketJudgment.getByRole("button", { name: "Build catalyst and risk scenarios" }).click();
+  const selected = page.getByRole("region", { name: "Selected step" });
+  await expect(
+    selected.getByRole("heading", { name: "Build catalyst and risk scenarios" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Decisions", exact: true }).click();
   await recorded
     .getByRole("listitem")
     .filter({ hasText: view })

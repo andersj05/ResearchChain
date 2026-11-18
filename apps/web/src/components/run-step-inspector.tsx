@@ -5,6 +5,7 @@ import {
   attemptPath,
   childGraphs,
   eventPath,
+  feedbackRecipients,
   graphLocation,
   pendingReviews,
   reviewPath,
@@ -100,14 +101,7 @@ export function RunStepInspector({
     }
   }
   const related = graph.nodes.filter((item) => earlierInputs.has(item.id));
-  const feedbackTargets = review
-    ? graph.nodes.filter((item) =>
-        Object.values(item.inputs ?? {}).some(
-          (input) =>
-            input.source === "output" && input.node_id === node.id && input.port === "feedback",
-        ),
-      )
-    : [];
+  const feedbackTargets = review ? feedbackRecipients(graph, node.id) : [];
   return (
     <section className="run-step-panel" aria-label="Selected step">
       <div className="step-detail-heading">

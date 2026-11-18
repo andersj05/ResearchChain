@@ -1,6 +1,62 @@
 import { Button } from "@ui-sdk/react/button";
-import { eventPath, graphLocation, pendingReviews, reviewPath } from "@/lib/run-inspection";
-import type { RunSnapshot } from "@/lib/workflow";
+import { contentUrl } from "@/lib/evidence";
+import {
+  attemptPath,
+  eventPath,
+  feedbackRecipients,
+  graphLocation,
+  pendingReviews,
+  reviewPath,
+} from "@/lib/run-inspection";
+import type { RunSnapshot, WorkflowNode } from "@/lib/workflow";
+
+function FeedbackInputs({
+  recipients,
+  prefix,
+  attempts,
+  inspect,
+}: {
+  recipients: WorkflowNode[];
+  prefix: string;
+  attempts: RunSnapshot["model_attempts"];
+  inspect: (path: string, attemptId?: string) => void;
+}) {
+  return (
+    <details className="decision-feedback-inputs">
+      <summary>Steps wired to this feedback ({recipients.length})</summary>
+      <ul>
+        {recipients.map((node) => {
+          const path = `${prefix}/${node.id}`;
+          const attempt = attempts?.findLast(
+            (item) => item.input_artifact_id && attemptPath(item) === path,
+          );
+          return (
+            <li key={node.id}>
+              <button
+                className="text-link"
+                type="button"
+                onClick={() => inspect(path, attempt?.id)}
+              >
+                {node.label}
+              </button>
+              {attempt?.input_artifact_id ? (
+                <a
+                  className="text-link"
+                  href={contentUrl(attempt.input_artifact_id)}
+                  aria-label={`Saved request for ${node.label}`}
+                >
+                  Saved request
+                </a>
+              ) : (
+                node.kind === "research" && <small>No saved request</small>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </details>
+  );
+}
 
 export function RunDecisions({
   run,
@@ -10,7 +66,7 @@ export function RunDecisions({
 }: {
   run: RunSnapshot;
   busy: boolean;
-  inspect: (path: string) => void;
+  inspect: (path: string, attemptId?: string) => void;
   iterate: (brief: string) => Promise<void>;
 }) {
   const pending = pendingReviews(run);
@@ -47,8 +103,9 @@ export function RunDecisions({
           <ul>
             {saved.map((event) => {
               const path = eventPath(event);
-              const { parents } = graphLocation(run, path);
+              const { graph, node, parents, prefix } = graphLocation(run, path);
               const feedback = event.review_response?.feedback.trim();
+              const recipients = feedback ? feedbackRecipients(graph, node.id) : [];
               const brief = `${run.brief.trimEnd()}\n\nReviewer feedback from ${event.label} (${run.id.slice(0, 8)}):\n${feedback ?? ""}`;
               return (
                 <li key={path}>
@@ -58,6 +115,14 @@ export function RunDecisions({
                   </div>
                   {parents.length > 0 && <small>{path.replaceAll("/", " › ")}</small>}
                   {feedback && <p>{feedback}</p>}
+                  {recipients.length > 0 && (
+                    <FeedbackInputs
+                      recipients={recipients}
+                      prefix={prefix}
+                      attempts={run.model_attempts}
+                      inspect={inspect}
+                    />
+                  )}
                   <div className="actions">
                     <button className="button small" type="button" onClick={() => inspect(path)}>
                       Inspect decision

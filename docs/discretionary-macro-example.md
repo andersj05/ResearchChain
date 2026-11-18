@@ -22,6 +22,7 @@ your recorded judgment. The sequence and checkpoint wording are an interpretatio
 the owner's rough framework. Edit them in **Build**, save a new version, and start a
 fresh run to try a different research process.
 
-**Runs → Decisions** shows open reviews and saved judgments. **Iterate with this
-feedback** copies the saved version and appends the selected judgment to the next
-editable brief.
+**Runs → Decisions** shows open reviews and saved judgments. Expand **Steps wired to
+this feedback** to inspect the downstream steps and their saved model requests.
+**Iterate with this feedback** copies the saved version and appends the selected
+judgment to the next editable brief.
