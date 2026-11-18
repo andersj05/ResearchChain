@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## See availability while wiring inputs
+
+Build groups outputs by availability under the current control wiring. A
+conditional join needs an output available from every branch, while a parallel
+join can use outputs from all its branches. Incomplete or ambiguous wiring
+keeps the ungrouped picker and existing selections. Seven focused Build cases
+passed together. CI passed 519 backend tests with 2 skips and all 130 browser
+cases. Desktop at `717436f` served the controls with the API and worker ready.
+[PR #109](https://github.com/andersj05/ResearchChain/pull/109).
+
 ## Reuse nested workflows and inspect a draft
 
 **Duplicate loop** and **Duplicate subgraph** copy the selected step and the
