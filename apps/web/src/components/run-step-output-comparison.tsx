@@ -24,6 +24,15 @@ function latestOutputs(run: RunSnapshot) {
   return outputs;
 }
 
+function stepLabel(run: RunSnapshot, path: string) {
+  const { node, parents } = graphLocation(run, path);
+  const context = parents.map((parent) => {
+    const iteration = /^iteration-(\d+)\//.exec(path.slice(parent.path.length + 1))?.[1];
+    return iteration ? `Iteration ${iteration} · ${parent.label}` : parent.label;
+  });
+  return [node.label, ...context].join(" · ");
+}
+
 function SavedOutput({
   run,
   title,
@@ -91,6 +100,14 @@ export function RunStepOutputComparison({
   const [open, setOpen] = useState(false);
   const path = selected && paths.has(selected) ? selected : defaultPath;
   if (!path) return null;
+  const options = open
+    ? [...paths].map((value) => ({
+        value,
+        label: stepLabel(current.has(value) ? run : baseline, value),
+      }))
+    : [];
+  const labelCounts = new Map<string, number>();
+  for (const { label } of options) labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
   return (
     <details
       className="comparison-step-outputs"
@@ -105,14 +122,12 @@ export function RunStepOutputComparison({
           <label>
             Comparison step
             <select value={path} onChange={(event) => setSelected(event.target.value)}>
-              {[...paths].map((item) => {
-                const label = graphLocation(current.has(item) ? run : baseline, item).node.label;
-                return (
-                  <option value={item} key={item}>
-                    {label} · {item.replace(/^root\//, "").replaceAll("/", " › ")}
-                  </option>
-                );
-              })}
+              {options.map(({ value, label }) => (
+                <option value={value} key={value}>
+                  {label}
+                  {(labelCounts.get(label) ?? 0) > 1 && ` · ${value.replace(/^root\//, "")}`}
+                </option>
+              ))}
             </select>
           </label>
           <div className="comparison-output-versions">

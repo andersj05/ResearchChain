@@ -290,6 +290,9 @@ test("compare two saved research runs without switching the open run", async ({ 
   const beforeOutput = comparisons.getByRole("region", { name: "Comparison run" });
   const openOutput = comparisons.getByRole("region", { name: "Open run" });
   await expect(step).toHaveValue(iterationPath(1));
+  await expect(step.locator("option:checked")).toHaveText(
+    "Model prompt · Iteration 1 · New bounded loop",
+  );
   await expect(beforeOutput.locator("strong")).toHaveText("Comparison first iteration.");
   await expect(openOutput.locator("strong")).toHaveText("Open first iteration.");
   await expect(openOutput.getByRole("link", { name: "Open attempt in new tab" })).toHaveAttribute(
