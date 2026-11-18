@@ -3401,6 +3401,10 @@ td time {
 .review-inbox-content {
   padding-bottom: 10px;
 }
+.review-inbox-scope select {
+  max-width: 100%;
+  width: 100%;
+}
 .review-inbox-toolbar {
   display: flex;
   align-items: center;

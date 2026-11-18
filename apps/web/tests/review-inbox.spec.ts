@@ -56,6 +56,19 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await page.getByText("Review inbox", { exact: true }).click();
   const item = page.getByRole("listitem").filter({ hasText: "Inbox macro analysis" });
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
+  const scope = page.getByRole("combobox", { name: "Show reviews for" });
+  await expect(scope).toHaveValue("all");
+  await scope.selectOption("agent");
+  const currentAgentReview = page.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
+  await expect(currentAgentReview.getByRole("button", { name: "Open review" })).toHaveCount(1);
+  await expect(item).toHaveCount(0);
+  await scope.selectOption("all");
+  await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
+  const scopedPage: PendingReviewsPage = await (
+    await request.get(`/api/runs/reviews?limit=1&agent_id=${agents[1]!.agent.id}`)
+  ).json();
+  expect(scopedPage.items.map((entry) => entry.id)).toEqual([id]);
+  expect(scopedPage.has_more).toBe(false);
   const openQuestion = (question: string) =>
     item.locator(".review-inbox-question").filter({ hasText: question }).getByRole("button", {
       name: "Open review",

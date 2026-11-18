@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Model activity timeline
+
+**Model activity → Timeline** shows the recorded overlap and gaps between model
+attempts. A hollow point marks a start with an unreported duration. The
+phone-width test verified overlap, a measured zero, the fixed axis through
+filtering, display preference restoration, and exact attempt links. CI passed
+516 backend tests with 2 skips and all 119 browser tests. Desktop at `67cc28a`
+served the timeline with a healthy API and connected worker.
+[PR #91](https://github.com/andersj05/ResearchChain/pull/91).
+
 ## Run limits in setup
 
 **Run workflow → Run limits** shows and edits execution, request, and evidence

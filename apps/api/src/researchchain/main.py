@@ -276,8 +276,9 @@ def create_app(
     def list_pending_reviews(
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
         offset: Annotated[int, Query(ge=0, le=2_147_483_647)] = 0,
+        agent_id: UUID | None = None,
     ) -> PendingReviewsPage:
-        return runs.pending_reviews(limit, offset)
+        return runs.pending_reviews(limit, offset, agent_id)
 
     @app.get("/api/runs/{run_id}", response_model=RunSnapshot, operation_id="get_run")
     def get_run(run_id: UUID) -> RunSnapshot:

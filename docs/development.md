@@ -244,6 +244,8 @@ including runs outside Recent runs. It lists the oldest runs first, 20 per page,
 refreshes while open. Opening a question checks the current checkpoint and takes
 you to its evidence and decision controls. An expired entry refreshes the inbox.
 
+In the review inbox, **Show reviews for** can limit the queue to the active agent.
+
 In **Runs → Decisions**, expand **Steps wired to this feedback** on a recorded
 judgment to inspect steps with a direct input binding. A model step links to the
 latest saved request for that exact step and iteration when one exists.
