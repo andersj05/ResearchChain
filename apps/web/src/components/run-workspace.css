@@ -287,6 +287,59 @@
   color: var(--ink);
   font-weight: 600;
 }
+.run-model-activity label {
+  display: grid;
+  gap: 4px;
+  max-width: 320px;
+  font-size: 12px;
+}
+.model-activity-scroll {
+  overflow-x: auto;
+  border-block: 1px solid var(--line);
+}
+.run-model-activity table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: start;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.run-model-activity :is(th, td) {
+  padding: 8px 10px;
+  text-align: start;
+  vertical-align: top;
+  border-bottom: 1px solid var(--line);
+}
+.run-model-activity thead {
+  color: var(--muted);
+}
+.run-model-activity tr:last-child td,
+.run-model-activity tbody tr:last-child th {
+  border-bottom: 0;
+}
+.run-model-activity th button {
+  min-width: 8rem;
+  padding: 0;
+  text-align: start;
+  background: transparent;
+  border: 0;
+  color: var(--blue);
+  font-weight: 600;
+}
+.run-model-activity th button:hover {
+  text-decoration: underline;
+}
+.run-model-activity small {
+  display: block;
+  min-width: 8rem;
+  margin-top: 4px;
+  font-weight: 400;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.run-model-activity time {
+  white-space: nowrap;
+}
 .run-workspace .run-reading-pane {
   flex: 1 1 auto;
   min-height: 168px;

@@ -65,6 +65,7 @@ test("configure a research workspace and inspect saved files during the next pas
     status: "requesting",
     input_bytes: 0,
     output_characters: 0,
+    input_tokens: 0,
     created_at: now,
   };
   const result: components["schemas"]["StoredResearchResult"] = {
@@ -148,4 +149,21 @@ test("configure a research workspace and inspect saved files during the next pas
     "href",
     scriptUrl,
   );
+  await page.getByRole("button", { name: "Hide workflow map" }).click();
+  await expect(page.getByRole("button", { name: "Inspect Research workspace" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Model activity", exact: true }).click();
+  const attempts = page.getByRole("region", { name: "Model attempts", exact: true });
+  await expect(attempts.getByRole("row")).toHaveCount(3);
+  const filter = attempts.getByRole("searchbox", { name: "Filter model activity" });
+  await filter.fill("completed");
+  await expect(attempts.getByRole("row")).toHaveCount(2);
+  await expect(attempts.getByRole("row").last()).toContainText("0 / —");
+  await attempts.getByRole("button", { name: "Research workspace · Pass 1" }).click();
+  await expect(page.getByText("Synthetic pass", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Step details", exact: true })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await page.getByRole("button", { name: "Show workflow map" }).click();
+  await expect(page.getByRole("button", { name: "Inspect Research workspace" })).toBeVisible();
 });

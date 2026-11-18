@@ -6,6 +6,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
+import { RunModelActivity } from "./run-model-activity";
 import {
   graphLocation,
   pendingReviews,
@@ -95,7 +96,9 @@ function RunWorkspace({
   onIterate,
 }: Actions & { run: RunSnapshot }) {
   const [manual, setManual] = useState<string | null>(null);
-  const [context, setContext] = useState(false);
+  const [view, setView] = useState<"step" | "activity" | "context">("step");
+  const [showGraph, setShowGraph] = useState(true);
+  const [attemptId, setAttemptId] = useState<string>();
   const [feedback, setFeedback] = useState<Record<string, string>>({});
   const states = stepStates(run);
   const current = preferredPath(run);
@@ -103,16 +106,18 @@ function RunWorkspace({
   const readingPane = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     if (readingPane.current) readingPane.current.scrollTop = 0;
-  }, [path, context]);
+  }, [path, view, attemptId]);
   const { node, graph, parents, prefix } = graphLocation(run, path);
   const reviews = pendingReviews(run);
   const select = (value: string) => {
     setManual(value);
-    setContext(false);
+    setAttemptId(undefined);
+    setView("step");
   };
   const follow = () => {
     setManual(null);
-    setContext(false);
+    setAttemptId(undefined);
+    setView("step");
   };
   const limits = run.research_manifest?.settings.limits ?? run.workflow.research?.limits;
   const tokens = (run.usage?.input_tokens ?? 0) + (run.usage?.output_tokens ?? 0);
@@ -198,6 +203,14 @@ function RunWorkspace({
               </>
             )}
           </div>
+          <button
+            className="button small"
+            type="button"
+            aria-expanded={showGraph}
+            onClick={() => setShowGraph(!showGraph)}
+          >
+            {showGraph ? "Hide workflow map" : "Show workflow map"}
+          </button>
         </div>
         {parents.length > 0 && (
           <nav className="run-graph-path" aria-label="Nested graph path">
@@ -216,13 +229,15 @@ function RunWorkspace({
             </span>
           </nav>
         )}
-        <RunCanvas
-          graph={graph}
-          prefix={prefix}
-          selected={node.id}
-          states={states}
-          onSelect={select}
-        />
+        {showGraph && (
+          <RunCanvas
+            graph={graph}
+            prefix={prefix}
+            selected={node.id}
+            states={states}
+            onSelect={select}
+          />
+        )}
         <div className="run-map-navigation">
           <label>
             <span>Inspect step</span>
@@ -237,7 +252,7 @@ function RunWorkspace({
               })}
             </select>
           </label>
-          {(manual || context) && (
+          {(manual || view !== "step") && (
             <button className="button small follow-run" type="button" onClick={follow}>
               <Activity size={14} aria-hidden />
               {reviews.length ? "Return to review" : live ? "Follow run" : "Latest activity"}
@@ -265,15 +280,31 @@ function RunWorkspace({
         </div>
       </div>
       <div className="run-section-switch" role="group" aria-label="Run inspection view">
-        <button type="button" aria-pressed={!context} onClick={() => setContext(false)}>
+        <button type="button" aria-pressed={view === "step"} onClick={() => setView("step")}>
           Step details
         </button>
-        <button type="button" aria-pressed={context} onClick={() => setContext(true)}>
+        <button
+          type="button"
+          aria-pressed={view === "activity"}
+          onClick={() => setView("activity")}
+        >
+          Model activity
+        </button>
+        <button type="button" aria-pressed={view === "context"} onClick={() => setView("context")}>
           Run context
         </button>
       </div>
       <div className="run-reading-pane" ref={readingPane}>
-        {context ? (
+        {view === "activity" && (
+          <RunModelActivity
+            run={run}
+            inspect={(step, id) => {
+              select(step);
+              setAttemptId(id);
+            }}
+          />
+        )}
+        {view === "context" && (
           <div className="run-context-panel">
             <details className="run-brief" open>
               <summary>Research brief</summary>
@@ -312,10 +343,12 @@ function RunWorkspace({
               </dl>
             </details>
           </div>
-        ) : (
+        )}
+        {view === "step" && (
           <RunStepInspector
             run={run}
             path={path}
+            attemptId={attemptId}
             states={states}
             busy={busy}
             feedback={feedback}
