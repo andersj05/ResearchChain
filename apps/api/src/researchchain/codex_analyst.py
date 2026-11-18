@@ -1,7 +1,7 @@
 """Isolated Codex app-server session for one owner-configured research step.
 
 The loopback provider relays the model's authenticated response items to Codex
-and handles its single read-only follow-up tool. Only the worker can perform inference.
+and supplies receipts for authorized research tools. Only the worker can perform inference.
 Codex gets a one-session loopback capability, never the owner's plan credentials.
 """
 
@@ -23,6 +23,7 @@ from typing import Any
 
 from pydantic import Field
 
+from researchchain.analyst_workspace import python_tool
 from researchchain.compiler import ExecutionStopped
 from researchchain.graph import StrictModel
 from researchchain.research_models import StoredResearchResult
@@ -57,7 +58,7 @@ def follow_tool(*, sec_financials: bool = True) -> dict[str, Any]:
     }
 
 
-def tool_call(response: dict[str, Any]) -> dict[str, Any] | None:
+def tool_call(response: dict[str, Any], *, workspace: bool = False) -> dict[str, Any] | None:
     calls = []
     items = response.get("output")
     if not isinstance(items, list):
@@ -68,7 +69,10 @@ def tool_call(response: dict[str, Any]) -> dict[str, Any] | None:
         kind = item.get("type")
         if (
             kind == "function_call"
-            and item.get("name") == "pursue_lead"
+            and (
+                item.get("name") == "pursue_lead"
+                or (workspace and item.get("name") == "run_python")
+            )
             and item.get("namespace") == "research"
         ):
             if not (
@@ -81,7 +85,7 @@ def tool_call(response: dict[str, Any]) -> dict[str, Any] | None:
         elif kind not in {"message", "web_search_call", "reasoning"}:
             raise ValueError("The model requested a capability outside this analyst step.")
     if len(calls) > 1:
-        raise ValueError("An analyst pass can pursue one next lead.")
+        raise ValueError("An analyst pass can request one research tool.")
     return calls[0] if calls else None
 
 
@@ -112,11 +116,13 @@ def retain_observations(result: StoredResearchResult, history: list[StoredResear
 
 
 class Session:
-    def __init__(self, model: str, passes: int, step: AnalystPass):
+    def __init__(self, model: str, passes: int, step: AnalystPass, *, workspace: bool = False):
         self.model, self.passes, self.step = model, passes, step
+        self.workspace = workspace
         self.token = secrets.token_urlsafe(32)
         self.history: list[StoredResearchResult] = []
         self.call_id = ""
+        self.call: dict[str, Any] | None = None
         self.received = False
         self.completed = False
         self.error: Exception | None = None
@@ -137,8 +143,8 @@ class Session:
         self.received = False
         result, response = self.step(self.history.copy(), body)
         self.history.append(result)
-        call = tool_call(response)
-        self.call_id = call["call_id"] if call else ""
+        self.call = tool_call(response, workspace=self.workspace)
+        self.call_id = self.call["call_id"] if self.call else ""
         # Codex's optional usage object requires all three totals. Keep partial
         # provider accounting in the DB and omit it only from this protocol frame.
         usage = response.get("usage")
@@ -247,7 +253,9 @@ def _protocol(process: subprocess.Popen[bytes], cwd: Path, session: Session) -> 
                                 "type": "namespace",
                                 "name": "research",
                                 "description": "ResearchChain analyst tools",
-                                "tools": [follow_tool()],
+                                "tools": [follow_tool(), python_tool()]
+                                if session.workspace
+                                else [follow_tool()],
                             }
                         ],
                     },
@@ -266,11 +274,12 @@ def _protocol(process: subprocess.Popen[bytes], cwd: Path, session: Session) -> 
                 if not (
                     current
                     and current.next_lead
-                    and params.get("tool") == "pursue_lead"
+                    and session.call
+                    and params.get("tool") == session.call["name"]
                     and params.get("callId") == session.call_id
                     and not session.received
                     and params.get("namespace") == "research"
-                    and params.get("arguments", {}).get("lead") == current.next_lead
+                    and params.get("arguments") == json.loads(session.call["arguments"])
                 ):
                     raise ValueError("Codex requested an unapproved research tool.")
                 session.received = True
@@ -334,7 +343,12 @@ def _process_tree(process: subprocess.Popen[bytes]) -> Iterator[None]:
 
 
 def run_codex_analyst(
-    model: str, passes: int, step: AnalystPass, guard: Callable[[], None]
+    model: str,
+    passes: int,
+    step: AnalystPass,
+    guard: Callable[[], None],
+    *,
+    workspace: bool = False,
 ) -> StoredResearchResult:
     executable = shutil.which("codex")
     if not executable:
@@ -342,7 +356,7 @@ def run_codex_analyst(
             "Install the Codex CLI on the worker PATH or disable Codex analyst on this step.",
             "failed",
         )
-    session = Session(model, passes, step)
+    session = Session(model, passes, step, workspace=workspace)
     try:
         with tempfile.TemporaryDirectory(prefix="researchchain-analyst-") as private:
             directory = Path(private)
