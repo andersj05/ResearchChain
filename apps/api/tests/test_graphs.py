@@ -2,7 +2,7 @@ from copy import deepcopy
 from typing import Any
 
 import pytest
-from graph_fixtures import chain, edge, nested, node, split
+from graph_fixtures import chain, edge, nested, node, predicate, split
 from pydantic import ValidationError
 
 from researchchain.graph import Workflow
@@ -38,6 +38,92 @@ def test_graph_wide_validation_has_no_step_location() -> None:
     with pytest.raises(ValidationError, match="Start node must exist") as raised:
         Workflow.model_validate(document)
     assert raised.value.errors()[0]["loc"] == ()
+
+
+@pytest.mark.parametrize("in_subgraph", [False, True])
+@pytest.mark.parametrize(
+    "port,source,message",
+    [
+        (
+            "text",
+            {"source": "output", "node_id": "consumer", "port": "text"},
+            "Output from 'consumer' is not available on every incoming path.",
+        ),
+        (
+            "text",
+            {"source": "output", "node_id": "source", "port": "missing"},
+            "Unknown output port source.missing.",
+        ),
+        (
+            "text",
+            {"source": "artifact_count"},
+            "Input consumer.text is unknown or has an incompatible type.",
+        ),
+        (
+            "unknown",
+            {"source": "output", "node_id": "missing", "port": "text"},
+            "Input consumer.unknown is unknown or has an incompatible type.",
+        ),
+    ],
+)
+def test_input_binding_errors_identify_the_invalid_input(
+    in_subgraph: bool, port: str, source: dict[str, str], message: str
+) -> None:
+    graph = chain(node("source"), node("consumer", inputs={port: source}), node("finish", "finish"))
+    # The diagnostic index follows the document order instead of the execution order.
+    graph["nodes"].append(graph["nodes"].pop(1))
+    document = graph
+    location: tuple[str | int, ...] = ("nodes", 2, "inputs", port)
+    if in_subgraph:
+        document = nested()
+        graph.pop("schema_version")
+        document["subgraphs"][0].update(graph)
+        location = ("subgraphs", 0, *location)
+
+    with pytest.raises(ValidationError) as raised:
+        Workflow.model_validate(document)
+
+    error = raised.value.errors()[0]
+    assert error["loc"] == location
+    assert error["msg"] == f"Value error, {message}"
+
+
+@pytest.mark.parametrize("in_subgraph", [False, True])
+@pytest.mark.parametrize(
+    "condition,message",
+    [
+        (predicate("brief", 2, "equals"), "Predicate values must match the input port type."),
+        (predicate("iteration", 2, "contains"), "Contains requires a text port."),
+        (predicate("brief", "yes", "gte"), "Numeric comparisons require a number port."),
+        (
+            {
+                "left": {"source": "output", "node_id": "left", "port": "text"},
+                "operator": "contains",
+                "value": "yes",
+            },
+            "Output from 'left' is not available on every incoming path.",
+        ),
+    ],
+)
+def test_route_predicate_errors_identify_the_invalid_condition(
+    in_subgraph: bool, condition: dict[str, Any], message: str
+) -> None:
+    graph = split("route")
+    graph["nodes"][0]["config"]["condition"] = condition
+    document = graph
+    location: tuple[str | int, ...] = ("nodes", 0, "config", "condition")
+    if in_subgraph:
+        document = nested()
+        graph.pop("schema_version")
+        document["subgraphs"][0].update(graph)
+        location = ("subgraphs", 0, *location)
+
+    with pytest.raises(ValidationError) as raised:
+        Workflow.model_validate(document)
+
+    error = raised.value.errors()[0]
+    assert error["loc"] == location
+    assert error["msg"] == f"Value error, {message}"
 
 
 @pytest.mark.parametrize(

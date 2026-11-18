@@ -1548,13 +1548,23 @@ td time {
   font-size: 12px;
   overflow-wrap: anywhere;
 }
-.review-handoff .review-recipients {
+.review-handoff .review-recipients,
+.output-binding-list {
   display: grid;
   gap: 4px;
   padding: 0;
   list-style: none;
 }
-.review-handoff .button {
+.step-output-bindings {
+  margin-top: 16px;
+  padding-top: 8px;
+}
+.output-binding-list {
+  margin: 8px 0 0;
+  overflow-wrap: anywhere;
+}
+.review-handoff .button,
+.output-binding-list .button {
   max-width: 100%;
   white-space: normal;
   text-align: left;

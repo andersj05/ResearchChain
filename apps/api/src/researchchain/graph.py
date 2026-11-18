@@ -238,6 +238,15 @@ def validate_predicate(
         raise ValueError("Numeric comparisons require a number port.")
 
 
+def _located_value_error(
+    error: ValueError, location: tuple[str | int, ...], value: object
+) -> ValidationError:
+    return ValidationError.from_exception_data(
+        "Workflow",
+        [{"type": "value_error", "loc": location, "input": value, "ctx": {"error": error}}],
+    )
+
+
 def validate_graph(
     graph: GraphDefinition, *, legacy: bool = False, location: tuple[str | int, ...] = ()
 ) -> None:
@@ -278,16 +287,8 @@ def validate_graph(
                 if legacy
                 else f"Node {node.id} must connect each declared control output exactly once."
             )
-            raise ValidationError.from_exception_data(
-                "Workflow",
-                [
-                    {
-                        "type": "value_error",
-                        "loc": (*location, "nodes", index),
-                        "input": node.model_dump(mode="json"),
-                        "ctx": {"error": ValueError(message)},
-                    }
-                ],
+            raise _located_value_error(
+                ValueError(message), (*location, "nodes", index), node.model_dump(mode="json")
             )
         if node.id == graph.start_node:
             if incoming[node.id]:
@@ -353,6 +354,7 @@ def validate_graph(
         raise ValueError("Every node must be reachable from the start.")
     # Availability follows actual join semantics, not mere reachability.
     available: dict[str, set[str]] = {}
+    indices = {node.id: index for index, node in enumerate(graph.nodes)}
     for node_id in order:
         predecessors = [available[p] | {p} for p in incoming[node_id]]
         if not predecessors:
@@ -363,12 +365,28 @@ def validate_graph(
             before = set.intersection(*predecessors)
         available[node_id] = before
         node = nodes[node_id]
+        node_location = (*location, "nodes", indices[node_id])
         for port, source in node.inputs.items():
-            expected = INPUT_PORTS.get(node.kind, {}).get(port)
-            if expected is None or source_type(source, nodes, before) != expected:
-                raise ValueError(f"Input {node_id}.{port} is unknown or has an incompatible type.")
+            try:
+                expected = INPUT_PORTS.get(node.kind, {}).get(port)
+                if expected is None or source_type(source, nodes, before) != expected:
+                    raise ValueError(
+                        f"Input {node_id}.{port} is unknown or has an incompatible type."
+                    )
+            except ValueError as error:
+                raise _located_value_error(
+                    error, (*node_location, "inputs", port), source.model_dump(mode="json")
+                ) from error
         if isinstance(node.config, RouteConfig):
-            validate_predicate(node.config.condition, nodes, before)
+            condition = node.config.condition
+            try:
+                validate_predicate(condition, nodes, before)
+            except ValueError as error:
+                raise _located_value_error(
+                    error,
+                    (*node_location, "config", "condition"),
+                    condition.model_dump(mode="json"),
+                ) from error
         # Loop predicates use the loop body's final outputs and are checked below.
 
 

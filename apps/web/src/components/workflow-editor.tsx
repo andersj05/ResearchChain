@@ -10,6 +10,7 @@ import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
+import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import {
@@ -33,7 +34,7 @@ import { WorkflowCanvas } from "@/components/canvas/workflow-canvas";
 import type { Graph, Workflow, WorkflowNode } from "@/lib/workflow";
 
 export type WorkflowEditorNavigation = {
-  openStep: (id: string, path: GraphCrumb[]) => void;
+  openStep: (id: string, path: GraphCrumb[], input?: string) => void;
 };
 
 type StepVisit = { id: string; path: GraphCrumb[] };
@@ -131,7 +132,8 @@ export function WorkflowEditor({
     stepToFocus.current = id;
     inputToFocus.current = input ?? null;
     setNotice("");
-    setPath(location);
+    // Repeat visits still need to move focus from the link to the inspector.
+    setPath([...location]);
     selectNode(id);
   }
   function openStep(id: string, location: GraphCrumb[], input?: string) {
@@ -577,10 +579,16 @@ export function WorkflowEditor({
                     />
                   </label>
                 )}
-                {node.kind === "review" && (
+                {node.kind === "review" ? (
                   <ReviewHandoff
                     graph={graph}
                     reviewId={node.id}
+                    onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
+                  />
+                ) : (
+                  <StepOutputBindings
+                    graph={graph}
+                    step={node}
                     onOpenInput={(stepId, input) => openStep(stepId, validPath, input)}
                   />
                 )}
