@@ -154,7 +154,9 @@ assigned models in the draft and referenced subgraphs. Choose **Reviews** or
 with an empty search restores the current graph's outline. Select a match to
 focus its step editor. Enter opens the first match and Escape clears the text.
 Long names wrap in the outline and search results. A result in a referenced
-subgraph shows its pinned version.
+subgraph shows its pinned version. When results have the same visible title,
+type, and location, the search shows the step or definition ID needed to tell
+them apart.
 Zoom controls and Fit view change only the viewport. In **Visible connections**,
 choose all connections, control flow, or data bindings to inspect the canvas.
 Build remembers that choice for the current owner in this browser, including
@@ -213,6 +215,10 @@ Undo continues to track draft edits.
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
 validation failures remain visible in the dialog. Visual conventions and the
 Vercel reference audit are recorded in [design.md](design.md).
+
+**Recent run** opens the newest known run for the exact saved version and agent
+from Build's recent history. Return to **Build** to continue your draft. Use
+**Runs** to search beyond the recent history window.
 
 The **Steps** palette adds after the selected step by default. It uses the paired
 join for a selected split and adds before a selected Finish. Use **Insert position**

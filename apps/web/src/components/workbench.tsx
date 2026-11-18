@@ -121,6 +121,16 @@ export function Workbench() {
   const [reviewFocus, setReviewFocus] = useState<ReviewFocus>();
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
+  const recentRevisionRun = revision
+    ? runs.find(
+        (item) =>
+          item.revision_id === revision.id && (item.agent_id ?? null) === (activeAgent?.id ?? null),
+      )
+    : undefined;
+  const recentAgentVersion =
+    activeAgent && recentRevisionRun
+      ? revisions.find((item) => item.id === recentRevisionRun.revision_id)?.agent_version
+      : undefined;
 
   useEffect(() => {
     let active = true;
@@ -845,6 +855,24 @@ export function Workbench() {
                   >
                     Save revision
                   </Button>
+                  {recentRevisionRun && (
+                    <Button
+                      className="button small"
+                      disabled={!loaded || busy}
+                      title={recentRevisionRun.brief_excerpt || undefined}
+                      onClick={() =>
+                        action(async () => {
+                          if (await openRun(recentRevisionRun.id))
+                            rememberRevision(recentRevisionRun.revision_id);
+                        })
+                      }
+                    >
+                      Recent run · saved{" "}
+                      {recentAgentVersion === undefined
+                        ? `revision ${recentRevisionRun.revision_number}`
+                        : `version ${recentAgentVersion}`}
+                    </Button>
+                  )}
                 </>
               )}
               <RunSetup
