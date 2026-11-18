@@ -209,6 +209,16 @@ test("compare two saved research runs without switching the open run", async ({ 
   await expect(before.locator("pre")).toHaveText(bodies.get(oldTable.artifact_id)!);
   await expect(after.locator("pre")).toHaveText(bodies.get(newTable.artifact_id)!);
   await expect(after).toContainText("Pass 2");
+  const mobileBefore = (await before.boundingBox())!;
+  expect((await after.boundingBox())!.y).toBeGreaterThanOrEqual(
+    mobileBefore.y + mobileBefore.height,
+  );
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  const wideBefore = (await before.boundingBox())!;
+  const wideAfter = (await after.boundingBox())!;
+  expect(wideAfter.y).toBeCloseTo(wideBefore.y, 0);
+  expect(wideAfter.x).toBeGreaterThanOrEqual(wideBefore.x + wideBefore.width);
+  await page.setViewportSize({ width: 390, height: 900 });
   await expect(outputs.getByRole("heading", { name: "controls.csv" })).toHaveCount(0);
   const removed = outputs.getByRole("listitem").filter({ hasText: "old-test.csv" });
   await expect(removed.getByRole("region", { name: "Open run" })).toContainText("No saved file");
