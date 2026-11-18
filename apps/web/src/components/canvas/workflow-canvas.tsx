@@ -9,7 +9,7 @@ import { Focus, Maximize, Minus, Plus, RotateCcw } from "lucide-react";
 import { nodePresentation } from "@/components/node-kind";
 
 const nodeWidth = 230;
-type ConnectionView = "all" | "control" | "data";
+export type ConnectionView = "all" | "control" | "data";
 
 const parts = createParts(workflowCanvas, {
   root: "div",
@@ -31,6 +31,8 @@ export function WorkflowCanvas({
   workflow,
   definitions = [],
   selected,
+  connectionView,
+  onConnectionViewChange,
   onSelect,
   onMove,
   onConnect,
@@ -39,6 +41,8 @@ export function WorkflowCanvas({
   workflow: Graph;
   definitions?: SubgraphDefinition[];
   selected: string;
+  connectionView: ConnectionView;
+  onConnectionViewChange: (view: ConnectionView) => void;
   onSelect: (id: string) => void;
   onMove: (
     positions: Record<string, { x: number; y: number }>,
@@ -48,7 +52,6 @@ export function WorkflowCanvas({
   onOpen?: (node: WorkflowNode, child?: string) => void;
 }) {
   const [expanded, setExpanded] = useState<string[]>([]);
-  const [connectionView, setConnectionView] = useState<ConnectionView>("all");
   const toggle = useCallback(
     (id: string) =>
       setExpanded((previous) =>
@@ -203,7 +206,7 @@ export function WorkflowCanvas({
           className="button icon-button"
           aria-label="Reset view"
           title="Reset zoom and show all connections"
-          onClick={() => setConnectionView("all")}
+          onClick={() => onConnectionViewChange("all")}
         >
           <RotateCcw size={15} aria-hidden="true" />
         </parts.Reset>
@@ -211,7 +214,7 @@ export function WorkflowCanvas({
           className="canvas-connection-view"
           aria-label="Visible connections"
           value={connectionView}
-          onChange={(event) => setConnectionView(event.target.value as ConnectionView)}
+          onChange={(event) => onConnectionViewChange(event.target.value as ConnectionView)}
           onKeyDown={(event) => {
             // Let the picker handle arrows and activation even during a keyboard wiring draft.
             if (event.key.startsWith("Arrow") || event.key === "Enter" || event.key === " ") {

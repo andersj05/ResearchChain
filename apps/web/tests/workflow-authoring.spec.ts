@@ -222,6 +222,102 @@ test("pointer wiring distinguishes data and control ports and serializes data bi
   });
 });
 
+test("remember visible connections across pinned subgraphs, reload, and reset", async ({
+  page,
+  request,
+}) => {
+  const root = addTemplate(structuredClone(advanced) as Workflow, null, "note", "split");
+  root.workflow.nodes.find((step) => step.id === root.selected)!.inputs = {
+    text: { source: "output", node_id: "support", port: "text" },
+  };
+  const { id, version } = root.workflow.subgraphs![0]!;
+  const nested = addTemplate(root.workflow, { id, version }, "note", "review");
+  const workflow = nested.workflow;
+  const body = workflow.subgraphs!.find((definition) => definition.id === id)!;
+  body.nodes.find((step) => step.id === nested.selected)!.inputs = {
+    text: { source: "output", node_id: "review", port: "decision" },
+  };
+  const response = await request.post("/api/revisions", { data: workflow });
+  expect(response.status(), await response.text()).toBe(201);
+  const revision: WorkflowRevision = await response.json();
+  const owner = await page.locator("[data-owner-workspace]").getAttribute("data-owner-workspace");
+  const key = `${owner}.build-visible-connections`;
+  const otherOwnerKey = "researchchain.owner.other-workspace.other-owner.build-visible-connections";
+  await page.evaluate(
+    ({ key, otherOwnerKey }) => {
+      localStorage.setItem(key, "invalid-view");
+      localStorage.setItem(otherOwnerKey, "control");
+    },
+    { key, otherOwnerKey },
+  );
+  await page.goto(`/?revision=${revision.id}`);
+
+  const view = page.getByRole("combobox", { name: "Visible connections", exact: true });
+  const canvas = page.getByLabel("Workflow canvas", { exact: true });
+  const control = canvas.locator(".connection-control");
+  const text = canvas.locator(".connection-text");
+  const crumbs = page.getByRole("navigation", { name: "Graph breadcrumbs" });
+  const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
+  const savedPreference = (key: string) => page.evaluate((key) => localStorage.getItem(key), key);
+  async function enterBody() {
+    await page
+      .locator(".node-outline")
+      .getByRole("button", { name: /Review_Loop/ })
+      .click();
+    await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+    await expect(crumbs).toContainText(`${body.name} v${version}`);
+  }
+
+  await expect(view).toHaveValue("all");
+  expect(await savedPreference(key)).toBe("invalid-view");
+  await view.selectOption("data");
+  expect(await savedPreference(key)).toBe("data");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(1);
+  await enterBody();
+  await expect(view).toHaveValue("data");
+  await expect(control).toHaveCount(0);
+  await expect(text).toHaveCount(1);
+  await view.selectOption("control");
+  await expect(control).toHaveCount(body.edges.length);
+  await expect(text).toHaveCount(0);
+  await crumbs.getByRole("button", { name: workflow.name, exact: true }).click();
+  await expect(view).toHaveValue("control");
+  await page.reload();
+  await expect(view).toHaveValue("control");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(0);
+
+  await page.getByRole("button", { name: "Reset view", exact: true }).click();
+  expect(await savedPreference(key)).toBe("all");
+  expect(await savedPreference(otherOwnerKey)).toBe("control");
+  await page.reload();
+  await expect(view).toHaveValue("all");
+  await expect(control).toHaveCount(workflow.edges.length);
+  await expect(text).toHaveCount(1);
+  await expect(undo).toBeDisabled();
+  await expect(page.locator(".save-state")).toHaveText(`Revision ${revision.number}`);
+
+  await page.addInitScript((key) => {
+    const { getItem, setItem } = Storage.prototype;
+    Storage.prototype.getItem = function (name: string) {
+      if (name === key) throw new DOMException("Storage unavailable", "SecurityError");
+      return getItem.call(this, name);
+    };
+    Storage.prototype.setItem = function (name: string, value: string) {
+      if (name === key) throw new DOMException("Storage unavailable", "SecurityError");
+      setItem.call(this, name, value);
+    };
+  }, key);
+  await page.evaluate((key) => localStorage.setItem(key, "data"), key);
+  await page.reload();
+  await expect(view).toHaveValue("all");
+  await view.selectOption("control");
+  await enterBody();
+  await expect(view).toHaveValue("control");
+  await expect(text).toHaveCount(0);
+});
+
 test("filter canvas connections without changing the draft or port gestures", async ({
   page,
   request,
