@@ -165,6 +165,12 @@ After a conditional join, an output must be available whichever branch runs.
 The picker keeps existing selections and shows the full source list while
 control connections are incomplete.
 
+Open **Model and tool plan** to see each reachable research step’s effective
+model and enabled tools. The plan shows which steps inherit the workflow model
+and which override it. Select a step to edit it, including steps in subgraphs.
+When validation locates an issue in the current draft, use **Open step** beside
+the issue to go directly to the affected step.
+
 **Run workflow** opens a focused setup dialog. Edit the research brief, then
 choose **Start run**. Escape or Cancel preserves the brief and returns focus;
 validation failures remain visible in the dialog. Visual conventions and the
