@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Review inbox agent filter
+
+**Review inbox → Show reviews for** switches between all agents and the active
+agent. The phone-width test verified filtering before pagination, restoring the
+full queue, and opening the exact review from a parallel branch. CI passed 516
+backend tests with 2 skips and all 119 browser tests. Desktop at `9e30067` served
+the filter with a healthy API and connected worker.
+[PR #92](https://github.com/andersj05/ResearchChain/pull/92).
+
 ## Model activity timeline
 
 **Model activity → Timeline** shows the recorded overlap and gaps between model
