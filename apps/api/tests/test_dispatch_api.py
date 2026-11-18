@@ -30,11 +30,29 @@ def test_http_returns_stable_receipt_before_worker_execution(
         assert first.json()["run_id"] == body["id"] and first.json()["kind"] == "start"
         assert set(first.json()) == {"command_id", "run_id", "kind", "accepted_at"}
         path = f"/api/runs/{body['id']}"
+        inbox = "/api/runs/reviews"
         assert client.get(path).json()["status"] == "queued"
+        assert client.get(inbox).json() == {"items": [], "has_more": False}
         assert client.post("/api/runs", json=body).json() == first.json()
         assert RunWorker(app.state.runs).run_once()
         paused = client.get(path).json()
         assert paused["status"] == "paused"
+        assert client.get(inbox).json() == {
+            "items": [
+                {
+                    key: paused[key]
+                    for key in (
+                        "id",
+                        "agent_name",
+                        "workflow_name",
+                        "created_at",
+                        "checkpoint_id",
+                        "reviews",
+                    )
+                }
+            ],
+            "has_more": False,
+        }
         assert client.post("/api/runs", json=body).json() == first.json()
         resume = client.post(
             f"{path}/resume",
@@ -46,8 +64,10 @@ def test_http_returns_stable_receipt_before_worker_execution(
         )
         assert resume.status_code == 202 and resume.json()["kind"] == "resume"
         assert client.get(path).json()["status"] == "queued"
+        assert client.get(inbox).json() == {"items": [], "has_more": False}
         assert RunWorker(app.state.runs).run_once()
         assert client.get(path).json()["status"] == "completed"
+        assert client.get(inbox).json() == {"items": [], "has_more": False}
         assert client.post(f"{path}/recover").json() == resume.json()
 
 

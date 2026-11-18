@@ -28,6 +28,8 @@ from researchchain.evidence import read_evidence
 from researchchain.models import (
     CancelResult,
     CheckpointStep,
+    PendingReviewRun,
+    PendingReviewsPage,
     ResumeRequest,
     ReviewPrompt,
     RunEvent,
@@ -546,6 +548,33 @@ class RunStore:
                 (agent_id, agent_id, limit),
             )
             return [RunSummary.model_validate(row) for row in rows]
+
+    def pending_reviews(self, limit: int, offset: int) -> PendingReviewsPage:
+        # Read the most recent command receipt. An admitted resume has no response
+        # yet and hides the old questions until the worker records its next pause.
+        with self.database.connection() as conn:
+            rows = conn.execute(
+                "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
+                "command.response->>'checkpoint_id' AS checkpoint_id, "
+                "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
+                "THEN command.response->'reviews' "
+                "ELSE jsonb_build_array(command.response->'review') END AS reviews "
+                "FROM runs r JOIN run_controls c ON c.run_id = r.id "
+                "JOIN workflow_revisions w ON w.id = r.revision_id "
+                "LEFT JOIN agent_runs a ON a.run_id = r.id "
+                "JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
+                "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
+                "WHERE c.terminal_status IS NULL AND command.response->>'status' = 'paused' "
+                "AND command.response->>'checkpoint_id' IS NOT NULL "
+                "AND (command.response->>'review' IS NOT NULL "
+                "OR command.response->'reviews'->0 IS NOT NULL) "
+                "ORDER BY r.created_at, r.id LIMIT %s OFFSET %s",
+                (limit + 1, offset),
+            ).fetchall()
+            return PendingReviewsPage(
+                items=[PendingReviewRun.model_validate(row) for row in rows[:limit]],
+                has_more=len(rows) > limit,
+            )
 
     def resume_command(
         self, conn: Connection[DictRow], run_id: UUID, request: ResumeRequest

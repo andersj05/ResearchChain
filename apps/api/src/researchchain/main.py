@@ -32,6 +32,7 @@ from researchchain.evidence_api import evidence_router
 from researchchain.models import (
     CancelResult,
     Health,
+    PendingReviewsPage,
     ResumeRequest,
     RevisionSummary,
     RunRequest,
@@ -262,6 +263,15 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20, agent_id: UUID | None = None
     ) -> list[RunSummary]:
         return runs.list(limit, agent_id)
+
+    @app.get(
+        "/api/runs/reviews", response_model=PendingReviewsPage, operation_id="list_pending_reviews"
+    )
+    def list_pending_reviews(
+        limit: Annotated[int, Query(ge=1, le=50)] = 20,
+        offset: Annotated[int, Query(ge=0, le=2_147_483_647)] = 0,
+    ) -> PendingReviewsPage:
+        return runs.pending_reviews(limit, offset)
 
     @app.get("/api/runs/{run_id}", response_model=RunSnapshot, operation_id="get_run")
     def get_run(run_id: UUID) -> RunSnapshot:
