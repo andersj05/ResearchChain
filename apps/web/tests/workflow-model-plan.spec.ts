@@ -4,7 +4,7 @@ import { addTemplate, referenceOf } from "../src/lib/workflow-editing";
 import type { ProviderStatus, Workflow, WorkflowRevision } from "../src/lib/workflow";
 
 const providersPath = "/api/providers/chatgpt";
-const unlisted = "Not listed for this account";
+const unlisted = "Unlisted for this account";
 
 test("model plan identifies unlisted effective models and opens the pinned step for editing", async ({
   page,

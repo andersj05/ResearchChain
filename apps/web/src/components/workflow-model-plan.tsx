@@ -77,7 +77,7 @@ export function WorkflowModelPlan({
                     {step.unlisted && (
                       <>
                         {" "}
-                        · <strong>Not listed for this account</strong>
+                        · <strong>Unlisted for this account</strong>
                       </>
                     )}
                   </p>
