@@ -4,6 +4,15 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Model activity ordering
+
+**Runs → Model activity** sorts attempts by time, elapsed duration, or complete
+reported token totals. Attempts with missing measurements follow measured rows.
+The phone-width browser check covered measured zero and preference restoration
+after reload. Full CI passed 516 backend tests with 2 skips and 118 browser tests.
+Desktop at `f3a2438` served the controls with a healthy API and connected worker.
+[PR #80](https://github.com/andersj05/ResearchChain/pull/80).
+
 ## Saved workspace files across a run
 
 **Runs → Files** finds saved charts, scripts, and methods files by filename, type,
