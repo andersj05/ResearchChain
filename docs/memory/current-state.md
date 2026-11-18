@@ -4,6 +4,16 @@ Updated 2026-11-18. The owner requested better visibility into model runs, more
 control over workflow iteration, and an editable discretionary macro agent.
 [Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
 
+## Pinned setup comparison
+
+**Runs → Run context → Compare a recent run → Setup changes** shows before and
+after values for the brief, models, limits, pinned inputs, workflow wiring, and
+recorded judgments. It follows versioned subgraphs and ignores canvas positioning.
+The synthetic comparison verified a changed model, source order, and nested
+review question. Full CI passed 515 backend tests with 2 skips and 116 browser
+tests. Desktop at `686b8a3` served the comparison with a healthy API and connected
+worker. [PR #75](https://github.com/andersj05/ResearchChain/pull/75).
+
 ## Workflow step search
 
 **Build → Find a step** searches names, instructions, and assigned models across
