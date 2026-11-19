@@ -10,7 +10,8 @@ in Build and Runs and to exercise a looped EquityCats research workflow.
 open for editing. Named branches follow the control wiring. **Collapse all**
 preserves the selected path, and **Canvas** reopens the same step. Browser checks
 covered shared loop definitions, search, selection, and draft edits at 1280px and
-390px.
+390px. A 128-step fixture exercised selecting a review near the end directly
+from Plan.
 
 **Runs → Outputs** finds saved model results, calculations, and notes by step,
 iteration, or text. **Compare iterations** opens recorded passes for the same

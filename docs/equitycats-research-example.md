@@ -36,10 +36,10 @@ saves the decision and ends that run. If all three passes find a blocking gap,
 the run reaches the loop limit with its audits and search receipts saved. Use the
 last audit’s named evidence gap to decide what to add for the next experiment.
 
-In **Runs → Outputs**, search for **Audit the case and the evidence**. Use
-**Compare iterations** to open the two audits and see which citations and saved
-inputs changed. Open each iteration’s **Check readiness for owner review** result
-to see why the agent retried or asked for judgment. The chosen iteration contains
+In **Runs → Outputs**, search for **Audit the case and the evidence**. When the
+run saves more than one audit, use **Compare iterations** to inspect citations
+and saved inputs from both. Open **Check readiness for owner review** in each
+iteration to see why the agent retried or asked for judgment. The chosen iteration contains
 the proposal, decision and memo. **Iterate from this step** opens the pinned body
 in Build with the original brief and sources available.
 

@@ -71,4 +71,25 @@ test("EquityCats starter retests the evidence and turns a saved judgment into a 
   const memo = attempts.find((attempt) => attempt.path === memoPath)!;
   const payload = await (await request.get(contentUrl(memo.input_artifact_id!))).json();
   expect(JSON.parse(payload.input[0].content[0].text).human_feedback).toBe(feedback);
+
+  await inspector.getByRole("button", { name: "Outputs", exact: true }).click();
+  const outputs = inspector.getByRole("region", { name: "Saved step outputs", exact: true });
+  await outputs
+    .getByRole("searchbox", { name: "Find an output", exact: true })
+    .fill("Audit the case and the evidence");
+  await outputs
+    .getByRole("button", {
+      name: /^Compare iterations for Audit the case and the evidence · Iteration 2/,
+    })
+    .click();
+  const comparison = inspector.getByRole("region", { name: "Compare saved iterations" });
+  await expect(
+    comparison.getByRole("region", { name: "Earlier iteration", exact: true }),
+  ).toContainText("Synthetic audit found a timestamp gap.");
+  await expect(
+    comparison.getByRole("region", { name: "Later iteration", exact: true }),
+  ).toContainText("Synthetic audit reproduced the matched-window comparison.");
+  await expect(
+    comparison.getByText("Recorded web sources · 1 shared", { exact: true }),
+  ).toBeVisible();
 });
