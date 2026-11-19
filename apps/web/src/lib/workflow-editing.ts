@@ -96,6 +96,16 @@ export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
 
 export type GraphCrumb = { ref: SubgraphRef; via: string };
 
+export function sameGraphPath(left: GraphCrumb[], right: GraphCrumb[]) {
+  return (
+    left.length === right.length &&
+    left.every((crumb, index) => {
+      const other = right[index]!;
+      return crumb.via === other.via && scopeKey(crumb.ref) === scopeKey(other.ref);
+    })
+  );
+}
+
 export function reachableControlNodes(graph: Graph) {
   const nodes = new Set(graph.nodes.map(({ id }) => id));
   if (!nodes.has(graph.start_node)) return [];

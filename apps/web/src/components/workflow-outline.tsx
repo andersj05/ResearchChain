@@ -1,16 +1,28 @@
-import { useState, type ReactElement } from "react";
+import type { ReactElement } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { nodePresentation } from "@/components/node-kind";
-import { referenceOf, scopeKey, type GraphCrumb } from "@/lib/workflow-editing";
+import { referenceOf, sameGraphPath, scopeKey, type GraphCrumb } from "@/lib/workflow-editing";
 import { workflowOutline, type OutlineStep } from "@/lib/workflow-outline";
 import type { Graph, Workflow } from "@/lib/workflow";
 import styles from "./workflow-outline.module.css";
+
+export type OutlineExpansion = { collapsed: boolean; overrides: Record<string, boolean> };
+
+function hasStep(steps: OutlineStep[], id: string): boolean {
+  return steps.some(
+    ({ node, branches }) => node.id === id || branches?.some(({ steps }) => hasStep(steps, id)),
+  );
+}
 
 export function WorkflowOutline({
   workflow,
   graph,
   path,
   selected,
+  selectedPath,
+  planMode,
+  expansion,
+  onExpansionChange,
   onSelect,
   onOpen,
 }: {
@@ -18,11 +30,14 @@ export function WorkflowOutline({
   graph: Graph;
   path: GraphCrumb[];
   selected: string;
+  selectedPath: GraphCrumb[];
+  planMode: boolean;
+  expansion: OutlineExpansion;
+  onExpansionChange: (expansion: OutlineExpansion) => void;
   onSelect: (id: string) => void;
   onOpen: (id: string, path: GraphCrumb[], field?: string) => void;
 }) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-
+  // Each occurrence of a pinned body is tracked by its callers.
   function renderStep(
     { node, branches, issue }: OutlineStep,
     location: GraphCrumb[],
@@ -40,11 +55,19 @@ export function WorkflowOutline({
       !location.some((crumb) => scopeKey(crumb.ref) === scopeKey(ref))
         ? matches[0]
         : undefined;
-    const key = JSON.stringify([location, node.id]);
+    const key = JSON.stringify([...location.map(({ ref, via }) => [via, scopeKey(ref)]), node.id]);
     const nestedLabel = branches ? "branches" : loop ? "loop body" : "subgraph body";
-    const open = expanded[key] ?? !!branches;
+    const inCurrentGraph = sameGraphPath(location, selectedPath);
+    const nextCaller = selectedPath[location.length];
+    const onSelectedPath =
+      planMode && sameGraphPath(location, selectedPath.slice(0, location.length));
+    const selectedInBody = onSelectedPath && nextCaller?.via === node.id;
+    const selectedInBranch =
+      onSelectedPath && branches?.some(({ steps }) => hasStep(steps, nextCaller?.via ?? selected));
+    const open =
+      expansion.overrides[key] ??
+      (selectedInBody || selectedInBranch || (Boolean(branches) && !expansion.collapsed));
     const Icon = open ? ChevronDown : ChevronRight;
-    const inCurrentGraph = location === path;
     return (
       <li key={key}>
         <div className={styles.row}>
@@ -54,7 +77,12 @@ export function WorkflowOutline({
               className={styles.toggle}
               aria-label={`${open ? "Hide" : "Show"} ${nestedLabel} for ${label}`}
               aria-expanded={open}
-              onClick={() => setExpanded((previous) => ({ ...previous, [key]: !open }))}
+              onClick={() =>
+                onExpansionChange({
+                  ...expansion,
+                  overrides: { ...expansion.overrides, [key]: !open },
+                })
+              }
             >
               <Icon size={14} aria-hidden="true" />
             </button>
@@ -137,8 +165,17 @@ export function WorkflowOutline({
 
   return (
     <>
-      <div className="outline-heading">
+      <div className={`outline-heading ${styles.heading}`}>
         <h3>{path.length ? "Subgraph outline" : "Workflow outline"}</h3>
+        {planMode && (
+          <button
+            type="button"
+            className="button small ghost"
+            onClick={() => onExpansionChange({ collapsed: true, overrides: {} })}
+          >
+            Collapse all
+          </button>
+        )}
       </div>
       <ol
         className="node-outline"
