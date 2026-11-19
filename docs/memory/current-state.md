@@ -1,8 +1,32 @@
 # Current state
 
-Updated 2026-11-18. The owner requested better visibility into model runs, more
-control over workflow iteration, and an editable discretionary macro agent.
-[Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
+Updated 2026-11-19. The owner asked to make complex agents easier to understand
+in Build and Runs and to exercise a looped EquityCats research workflow.
+[Research interface principles](../research-interface.md).
+
+## Read a long workflow and compare iterations
+
+**Build → Plan** keeps the full outline visible while an exact nested step is
+open for editing. Named branches follow the control wiring. **Collapse all**
+preserves the selected path, and **Canvas** reopens the same step. Browser checks
+covered shared loop definitions, search, selection, and draft edits at 1280px and
+390px.
+
+**Runs → Outputs** finds saved model results, calculations, and notes by step,
+iteration, or text. **Compare iterations** opens recorded passes for the same
+step when one loop level differs. Inspect both saved requests and recorded web
+sources, or copy a link to the exact pair. The workflow map starts collapsed in
+Outputs and the pending review remains accessible.
+
+**New agent → EquityCats cross-asset research** is an editable bounded workflow.
+An independent audit challenges the evidence, and an explicit readiness check
+decides whether to ask for the owner's judgment or continue testing. Isolated
+runs verified second-pass convergence, exhaustion at three passes, missing
+provenance, and the exact review feedback in the saved memo request. Numbered
+workflow iterations use the same pinned brief. The analyst can carry its findings
+into one follow-up within an iteration. The owner can assess research quality on
+their own case. [Starter guide](../equitycats-research-example.md) ·
+[Initial PR #126](https://github.com/andersj05/ResearchChain/pull/126).
 
 ## Test a chart signal
 
