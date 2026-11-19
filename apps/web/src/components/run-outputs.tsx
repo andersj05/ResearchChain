@@ -1,9 +1,12 @@
 import { useMemo } from "react";
 import {
   eventPath,
+  iterationPeers,
   runStepLabel,
   savedModelOutputs,
   selectedModelOutput,
+  type IterationComparison,
+  type SavedModelPass,
 } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ArrowUpRight } from "lucide-react";
@@ -26,7 +29,7 @@ type Output = {
 
 export type OutputFilter = { query: string; kind: OutputKind | ""; limit?: number };
 
-function savedOutputs(run: RunSnapshot) {
+function savedOutputs(run: RunSnapshot, modelOutputs: Map<string, SavedModelPass[]>) {
   const outputs = new Map<string, Output>();
   for (const event of run.events) {
     if (event.kind !== "note" && event.kind !== "code" && event.kind !== "research") continue;
@@ -38,7 +41,7 @@ function savedOutputs(run: RunSnapshot) {
       receipt: event.code ? `Number output: ${event.code.outputs.number}` : undefined,
     });
   }
-  for (const [path, passes] of savedModelOutputs(run)) {
+  for (const [path, passes] of modelOutputs) {
     const pass = selectedModelOutput(passes);
     const result = pass?.attempt.result;
     if (!pass || !result) continue;
@@ -69,20 +72,23 @@ export function RunOutputs({
   filter,
   onFilterChange,
   inspect,
+  onCompare,
 }: {
   run: RunSnapshot;
   filter: OutputFilter;
   onFilterChange: (filter: OutputFilter) => void;
   inspect: (path: string, attemptId?: string) => void;
+  onCompare: (selection: IterationComparison) => void;
 }) {
-  const { outputs, labelCounts } = useMemo(() => {
+  const { outputs, labelCounts, modelOutputs } = useMemo(() => {
     const labelCounts = new Map<string, number>();
-    const outputs = savedOutputs(run).map((output) => {
+    const modelOutputs = savedModelOutputs(run);
+    const outputs = savedOutputs(run, modelOutputs).map((output) => {
       const label = runStepLabel(run, output.path);
       labelCounts.set(label, (labelCounts.get(label) ?? 0) + 1);
       return { ...output, label };
     });
-    return { outputs, labelCounts };
+    return { outputs, labelCounts, modelOutputs };
   }, [run]);
   if (!outputs.length) return <p className="muted">No step outputs have been saved.</p>;
 
@@ -137,22 +143,54 @@ export function RunOutputs({
       </p>
       {page.length > 0 && (
         <ol className="run-output-list">
-          {page.map(({ path, kind, text, receipt, attemptId, label }) => (
-            <li key={path}>
-              <button className="text-link" type="button" onClick={() => inspect(path, attemptId)}>
-                <span>
-                  {label}
-                  {(labelCounts.get(label) ?? 0) > 1 && ` · ${path.replace(/^root\//, "")}`}
-                </span>
-                <ArrowUpRight size={14} aria-hidden />
-              </button>
-              <small>
-                {outputKinds[kind]}
-                {receipt && ` · ${receipt}`}
-              </small>
-              {text && <p>{excerpt(text, search)}</p>}
-            </li>
-          ))}
+          {page.map(({ path, kind, text, receipt, attemptId, label }) => {
+            const peers = attemptId ? iterationPeers(modelOutputs.keys(), path) : [];
+            const peer = peers.findLast(({ difference }) => difference < 0) ?? peers[0];
+            const peerPass = peer && selectedModelOutput(modelOutputs.get(peer.path) ?? []);
+            const compare = () => {
+              if (!attemptId || !peerPass || !peer) return;
+              const original = { path, attemptId };
+              const other = { path: peer.path, attemptId: peerPass.attempt.id };
+              onCompare(
+                peer.difference < 0
+                  ? { comparison: other, current: original }
+                  : { comparison: original, current: other },
+              );
+            };
+            const rowLabel =
+              (labelCounts.get(label) ?? 0) > 1
+                ? `${label} · ${path.replace(/^root\//, "")}`
+                : label;
+            return (
+              <li key={path}>
+                <div className="run-output-actions">
+                  <button
+                    className="text-link"
+                    type="button"
+                    onClick={() => inspect(path, attemptId)}
+                  >
+                    <span>{rowLabel}</span>
+                    <ArrowUpRight size={14} aria-hidden />
+                  </button>
+                  {peerPass && (
+                    <button
+                      className="button small"
+                      type="button"
+                      onClick={compare}
+                      aria-label={`Compare iterations for ${rowLabel}`}
+                    >
+                      Compare iterations
+                    </button>
+                  )}
+                </div>
+                <small>
+                  {outputKinds[kind]}
+                  {receipt && ` · ${receipt}`}
+                </small>
+                {text && <p>{excerpt(text, search)}</p>}
+              </li>
+            );
+          })}
         </ol>
       )}
       {hasMore && (

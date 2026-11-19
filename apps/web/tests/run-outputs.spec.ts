@@ -135,7 +135,7 @@ test("find saved outputs across iterations while a review is pending", async ({ 
   await expect(items.first()).toContainText("Original window verified.");
   await items
     .first()
-    .getByRole("button", { name: /Iteration 1/ })
+    .getByRole("button", { name: /^Model prompt · Iteration 1/ })
     .press("Enter");
   const step = page.getByRole("region", { name: "Selected step" });
   await expect(step.locator(".research-attempt[open] > summary")).toContainText("Pass 2");

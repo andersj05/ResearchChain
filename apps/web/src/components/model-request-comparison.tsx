@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { contentUrl } from "@/lib/evidence";
 import { changedSettings, type SettingChange } from "@/lib/workflow-comparison";
+import { defaultPassComparisonLabels, type PassComparisonLabels } from "@/lib/run-inspection";
 import {
   ModelInputExcerpt,
   useModelRequestPreview,
@@ -42,17 +43,23 @@ function inputChanges(comparison: SavedModelInputs, current: SavedModelInputs) {
   return { fields, sources };
 }
 
-function InputChange({ change: { name, before, after } }: { change: SettingChange }) {
+function InputChange({
+  change: { name, before, after },
+  labels,
+}: {
+  change: SettingChange;
+  labels: PassComparisonLabels;
+}) {
   return (
     <details>
       <summary>{name}</summary>
       <div className="comparison-inputs">
-        <section aria-label="Comparison pass input">
-          <h4>Comparison pass</h4>
+        <section aria-label={`${labels.comparison} input`}>
+          <h4>{labels.comparison}</h4>
           {before ? <ModelInputExcerpt value={before} /> : <p className="muted">No saved value</p>}
         </section>
-        <section aria-label="Open run pass input">
-          <h4>Open run pass</h4>
+        <section aria-label={`${labels.current} input`}>
+          <h4>{labels.current}</h4>
           {after ? <ModelInputExcerpt value={after} /> : <p className="muted">No saved value</p>}
         </section>
       </div>
@@ -63,9 +70,11 @@ function InputChange({ change: { name, before, after } }: { change: SettingChang
 function InputDifferences({
   comparison,
   current,
+  labels,
 }: {
   comparison: SavedModelInputs;
   current: SavedModelInputs;
+  labels: PassComparisonLabels;
 }) {
   const { fields, sources } = useMemo(
     () => inputChanges(comparison, current),
@@ -77,13 +86,13 @@ function InputDifferences({
   return (
     <>
       {fields.map((change) => (
-        <InputChange key={change.name} change={change} />
+        <InputChange key={change.name} change={change} labels={labels} />
       ))}
       {sources.length > 0 && (
         <details>
           <summary>Evidence records changed ({sources.length})</summary>
           {sources.map((change) => (
-            <InputChange key={change.id} change={change} />
+            <InputChange key={change.id} change={change} labels={labels} />
           ))}
         </details>
       )}
@@ -94,9 +103,11 @@ function InputDifferences({
 function RequestDifferences({
   comparison,
   current,
+  labels,
 }: {
   comparison: SavedRequestArtifact;
   current: SavedRequestArtifact;
+  labels: PassComparisonLabels;
 }) {
   const before = useModelRequestPreview(comparison);
   const after = useModelRequestPreview(current);
@@ -110,8 +121,8 @@ function RequestDifferences({
     typeof after.preview === "string"
   ) {
     const errors = [
-      { label: "Comparison pass", artifact: comparison, ...before },
-      { label: "Open run pass", artifact: current, ...after },
+      { label: labels.comparison, artifact: comparison, ...before },
+      { label: labels.current, artifact: current, ...after },
     ].filter(({ preview }) => !preview || typeof preview === "string");
     return errors.map(({ label, artifact, preview, retry }) => (
       <div key={label}>
@@ -136,15 +147,17 @@ function RequestDifferences({
       </div>
     ));
   }
-  return <InputDifferences comparison={before.preview} current={after.preview} />;
+  return <InputDifferences comparison={before.preview} current={after.preview} labels={labels} />;
 }
 
 export function ModelRequestComparison({
   comparison,
   current,
+  labels = defaultPassComparisonLabels,
 }: {
   comparison: SavedRequestArtifact;
   current: SavedRequestArtifact;
+  labels?: PassComparisonLabels;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -161,6 +174,7 @@ export function ModelRequestComparison({
             key={`${comparison.id}/${current.id}`}
             comparison={comparison}
             current={current}
+            labels={labels}
           />
         ))}
     </details>

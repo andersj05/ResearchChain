@@ -5,12 +5,17 @@ type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 export type ComparisonPasses = { baselineAttempt?: string; openAttempt?: string };
+export type PassComparisonLabels = { comparison: string; current: string };
+export const defaultPassComparisonLabels = {
+  comparison: "Comparison pass",
+  current: "Open run pass",
+};
 export type ReviewBookmark = { checkpointId: string; interruptId: string };
 
 export function runInspectionUrl(
   location: string,
   run: string,
-  key: "compare" | "attempt" | "review",
+  key: "compare" | "attempt" | "review" | "iterations",
   id: string,
 ) {
   const url = new URL(location);
@@ -90,6 +95,50 @@ export function selectedModelOutput(passes: SavedModelPass[], id?: string) {
     passes.findLast((item) => item.kind === "Conclusion") ??
     passes.at(-1)
   );
+}
+
+export function iterationDifference(left: string, right: string) {
+  const a = left.split("/");
+  const b = right.split("/");
+  if (a.length !== b.length) return 0;
+  let difference = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] === b[index]) continue;
+    if (difference || index < 2 || index % 2 !== 0) return 0;
+    const before = /^iteration-([1-9]\d*)$/.exec(a[index]!);
+    const after = /^iteration-([1-9]\d*)$/.exec(b[index]!);
+    if (!before || !after) return 0;
+    difference = Number(after[1]) - Number(before[1]);
+  }
+  return difference;
+}
+
+export function iterationPeers(paths: Iterable<string>, path: string) {
+  return [...paths]
+    .flatMap((candidate) => {
+      const difference = iterationDifference(path, candidate);
+      return difference ? [{ path: candidate, difference }] : [];
+    })
+    .sort((left, right) => left.difference - right.difference);
+}
+
+export type IterationOutput = { path: string; attemptId: string };
+export type IterationComparison = { comparison: IterationOutput; current: IterationOutput };
+
+export function linkedIterationComparison(run: RunSnapshot, value: string) {
+  const [before, after, extra] = value.toLowerCase().split(",");
+  if (!before || !after || extra !== undefined) return;
+  const paths = new Map<string, string>();
+  for (const [path, passes] of savedModelOutputs(run)) {
+    for (const { attempt } of passes) paths.set(attempt.id, path);
+  }
+  const earlier = paths.get(before);
+  const later = paths.get(after);
+  if (!earlier || !later || iterationDifference(earlier, later) <= 0) return;
+  return {
+    comparison: { path: earlier, attemptId: before },
+    current: { path: later, attemptId: after },
+  };
 }
 
 export function pendingReviews(run: RunSnapshot) {
