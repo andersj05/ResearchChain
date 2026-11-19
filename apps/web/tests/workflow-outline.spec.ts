@@ -105,6 +105,7 @@ for (const width of [1280, 390]) {
     const canvas = page.getByLabel("Workflow canvas", { exact: true });
     const undo = page.getByRole("button", { name: "Undo last edit", exact: true });
     await expect(canvasSwitch).toHaveAttribute("aria-pressed", "true");
+    await expect(planSwitch).toBeEnabled();
     await planSwitch.press("Enter");
     await expect(planSwitch).toHaveAttribute("aria-pressed", "true");
     await expect(canvas).toHaveCount(0);

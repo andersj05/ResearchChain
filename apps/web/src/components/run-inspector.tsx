@@ -131,13 +131,15 @@ function RunWorkspace({
   const staleReviewLink = reviewBookmark && !bookmarkedReview(run, reviewBookmark);
   const view = staleReviewLink ? "decisions" : selectedView;
   const navigation = useRef(0);
-  const [showGraph, setShowGraph] = useState(() => {
+  const [showStepMap, setShowStepMap] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
     } catch {
       return true;
     }
   });
+  const [showOutputMap, setShowOutputMap] = useState(false);
+  const showGraph = view === "outputs" ? showOutputMap : showStepMap;
   const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
   const [feedback, setFeedback] = useState(() => readReviewDrafts(reviewDraftKey));
   const [feedbackBrief, setFeedbackBrief] = useState<FeedbackBriefDraft | null>(null);
@@ -235,9 +237,13 @@ function RunWorkspace({
     changeView("step");
   };
   const toggleGraph = () => {
-    setShowGraph(!showGraph);
+    if (view === "outputs") {
+      setShowOutputMap(!showOutputMap);
+      return;
+    }
+    setShowStepMap(!showStepMap);
     try {
-      localStorage.setItem(mapPreference, String(!showGraph));
+      localStorage.setItem(mapPreference, String(!showStepMap));
     } catch {
       // The map remains usable if browser storage is disabled.
     }

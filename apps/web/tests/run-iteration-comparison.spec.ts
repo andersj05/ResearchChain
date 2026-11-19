@@ -17,6 +17,7 @@ test("compare exact saved passes across one loop coordinate on a phone", async (
   const outerBody = inner.workflow.subgraphs!.find((graph) => graph.id === outerRef.id)!;
   const innerStep = outerBody.nodes.find((node) => node.id === inner.selected)!;
   innerStep.label = "Challenge cycle";
+  if (innerStep.config?.type === "loop") innerStep.config.max_iterations = 3;
   // The same pinned body may be called by another step with the very same label.
   outerBody.nodes.push({ ...innerStep, id: "other_call" });
   const nested = addTemplate(inner.workflow, referenceOf(innerStep)!, "model", "pass");
@@ -42,7 +43,9 @@ test("compare exact saved passes across one loop coordinate on a phone", async (
   ): NonNullable<RunSnapshot["model_attempts"]>[number] => {
     const packet = JSON.stringify({
       brief: "Compare the curve evidence.",
+      additional_context: "",
       human_feedback: feedback,
+      sources: [],
     });
     const request = JSON.stringify({
       instructions: "Challenge the transmission mechanism.",
@@ -147,7 +150,16 @@ test("compare exact saved passes across one loop coordinate on a phone", async (
 
   const feedback = page.getByRole("textbox", { name: "Reviewer feedback", exact: true });
   await feedback.fill("Keep the latest conclusion under review.");
+  const map = page.getByRole("group", { name: "Run graph view", exact: true });
+  await expect(map).toBeVisible();
   await page.getByRole("button", { name: "Outputs", exact: true }).click();
+  await expect(map).toHaveCount(0);
+  await expect(page.getByRole("group", { name: "Latest workflow activity" })).toContainText(
+    "Waiting for review",
+  );
+  await page.getByRole("button", { name: "Show workflow map", exact: true }).click();
+  await expect(map).toBeVisible();
+  await page.getByRole("button", { name: "Hide workflow map", exact: true }).click();
   const outputs = page.getByRole("region", { name: "Saved step outputs" });
   const search = outputs.getByRole("searchbox", { name: "Find an output" });
   await search.fill("Revised test conclusion");
@@ -203,6 +215,7 @@ test("compare exact saved passes across one loop coordinate on a phone", async (
   await expect(laterOutput).toContainText("Revised test conclusion.");
   await page.getByRole("button", { name: "Return to review", exact: true }).click();
   await expect(feedback).toHaveValue("Keep the latest conclusion under review.");
+  await expect(map).toBeVisible();
 
   bookmark.searchParams.set("iterations", `${differentCycles.id},${second.id}`);
   await page.goto(bookmark.href);
