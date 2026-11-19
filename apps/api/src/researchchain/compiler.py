@@ -25,6 +25,7 @@ from researchchain.graph import (
 )
 
 STRUCTURED_COMPILER_VERSION = "structured-0.2.0"
+LOOP_INPUT_COMPILER_VERSION = "loop-inputs-0.1.0"
 
 
 class ExecutionStopped(Exception):
@@ -49,13 +50,34 @@ Guard = Callable[[str, bool], None]
 ResearchStep = Callable[[WorkflowNode, str, str, str], str]
 
 
-def read_value(source: ValueSource, state: StructuredState, prefix: str, iteration: int) -> Any:
+def read_value(
+    source: ValueSource,
+    state: StructuredState,
+    prefix: str,
+    iteration: int,
+    *,
+    initial: str | int = "",
+) -> Any:
     if source.source == "brief":
         return state["brief"]
     if source.source == "artifact_count":
         return len(state["artifact_ids"])
     if source.source == "iteration":
         return iteration
+    if source.source == "previous_iteration":
+        parent, _, slot = prefix.rpartition("/")
+        if iteration < 1 or slot != f"iteration-{iteration}":
+            raise ExecutionStopped("Previous iteration input is outside its loop body.", "failed")
+        if iteration == 1:
+            return initial
+        prior = f"{parent}/iteration-{iteration - 1}/{source.node_id}"
+        outputs = state["outputs"].get(prior, {})
+        port = source.port
+        if port is None or port not in outputs:
+            raise ExecutionStopped(
+                f"Previous iteration output {prior}.{source.port} is missing.", "failed"
+            )
+        return outputs[port]
     return state["outputs"][f"{prefix}/{source.node_id}"][source.port]  # type: ignore[index]
 
 
@@ -127,7 +149,9 @@ def node_function(
             assert isinstance(node.config, CodeConfig)
             inputs = CodeInputs(
                 **{
-                    key: read_value(value, state, prefix, iteration)
+                    key: read_value(
+                        value, state, prefix, iteration, initial=0 if key == "number" else ""
+                    )
                     for key, value in node.inputs.items()
                 },
                 brief=state["brief"],

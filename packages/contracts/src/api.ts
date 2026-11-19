@@ -3983,7 +3983,7 @@ export interface components {
        * Source
        * @enum {string}
        */
-      source: "brief" | "artifact_count" | "iteration" | "output";
+      source: "brief" | "artifact_count" | "iteration" | "output" | "previous_iteration";
       /** Node Id */
       node_id?: string | null;
       /** Port */

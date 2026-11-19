@@ -9460,7 +9460,7 @@
         "properties": {
           "source": {
             "type": "string",
-            "enum": ["brief", "artifact_count", "iteration", "output"],
+            "enum": ["brief", "artifact_count", "iteration", "output", "previous_iteration"],
             "title": "Source"
           },
           "node_id": {
