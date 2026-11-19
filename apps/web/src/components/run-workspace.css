@@ -335,10 +335,18 @@
 }
 .run-output-list button.text-link {
   display: inline-flex;
+  min-width: 0;
   justify-self: start;
   align-items: baseline;
   gap: 6px;
   font-weight: 600;
+}
+.run-output-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px 12px;
 }
 .run-output-list button svg {
   flex: none;
@@ -349,6 +357,26 @@
 }
 .run-output-list p {
   margin: 0;
+}
+.run-iteration-comparison {
+  min-width: 0;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.iteration-comparison-choices {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  gap: 6px 12px;
+  margin-block-end: 12px;
+}
+.run-iteration-comparison select {
+  max-width: 100%;
+}
+.run-iteration-comparison .comparison-output-versions {
+  margin-block-start: 8px;
+}
+.run-iteration-comparison > details {
+  margin-block: 8px;
 }
 .run-files ul {
   margin: 12px 0 0;

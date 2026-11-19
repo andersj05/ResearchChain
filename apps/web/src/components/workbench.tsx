@@ -329,6 +329,7 @@ export function Workbench() {
     url.searchParams.delete("attempt");
     url.searchParams.delete("review");
     url.searchParams.delete("checkpoint");
+    url.searchParams.delete("iterations");
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
     try {
@@ -518,6 +519,7 @@ export function Workbench() {
     if (changedRun || fromInbox) {
       url.searchParams.delete("review");
       url.searchParams.delete("checkpoint");
+      url.searchParams.delete("iterations");
     }
     if (fromInbox) {
       url.searchParams.delete("agent");

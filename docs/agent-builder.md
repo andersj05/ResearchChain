@@ -119,6 +119,11 @@ library and linked claims; **Runs** shows experiments for the selected agent;
 comparisons, saved workflow history and workspace health separate. Older bookmarks
 continue to work. Owner access is in **Settings**; manage the ChatGPT connection in run setup.
 
+In **Build**, switch to **Plan** to read the workflow in control order and edit the
+selected step in **Step details**. Expand a branch, loop, or subgraph to follow its
+steps from the root. **Collapse all** keeps the selected step's path open. Switch
+back to **Canvas** to see the same step and edit its connections.
+
 Sources can be filtered by availability and searched by title, author or publisher.
 Search applies to the loaded records; load more to include older sources. The linked
 claims checkbox shows only loaded claims connected to the selected source. Filtering

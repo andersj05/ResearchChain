@@ -5,6 +5,7 @@ import {
   savedModelOutputs,
   selectedModelOutput,
   type ComparisonPasses,
+  type PassComparisonLabels,
   type SavedModelPass,
 } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
@@ -58,21 +59,16 @@ function linkedPassSelection(
   };
 }
 
-function SavedOutput({
-  run,
-  title,
-  path,
-  passes,
-  pass,
-  onSelect,
-}: {
+type OutputSide = {
   run: RunSnapshot;
   title: string;
   path: string;
   passes: SavedModelPass[];
   pass?: SavedModelPass;
   onSelect: (id: string) => void;
-}) {
+};
+
+function SavedOutput({ run, title, path, passes, pass, onSelect }: OutputSide) {
   const attempt = pass?.attempt;
   const result = attempt?.result;
   const sources = new Set<string>();
@@ -139,6 +135,41 @@ function SavedOutput({
         <p className="muted">No saved model output for this step.</p>
       )}
     </section>
+  );
+}
+
+export function SavedModelPassComparison({
+  comparison,
+  current,
+  labels,
+}: {
+  comparison: OutputSide;
+  current: OutputSide;
+  labels?: PassComparisonLabels;
+}) {
+  const before = comparison.pass?.attempt;
+  const after = current.pass?.attempt;
+  return (
+    <>
+      {before?.input_artifact_id && after?.input_artifact_id && (
+        <ModelRequestComparison
+          comparison={{ id: before.input_artifact_id, bytes: before.input_bytes }}
+          current={{ id: after.input_artifact_id, bytes: after.input_bytes }}
+          labels={labels}
+        />
+      )}
+      {before && after && (
+        <RunPassSourceComparison
+          comparison={before.result?.web_research}
+          current={after.result?.web_research}
+          labels={labels}
+        />
+      )}
+      <div className="comparison-output-versions">
+        <SavedOutput key={`comparison/${comparison.path}`} {...comparison} />
+        <SavedOutput key={`current/${current.path}`} {...current} />
+      </div>
+    </>
   );
 }
 
@@ -221,52 +252,30 @@ export function RunStepOutputComparison({
               }}
             />
           </div>
-          {baselinePass?.attempt.input_artifact_id && openPass?.attempt.input_artifact_id && (
-            <ModelRequestComparison
-              comparison={{
-                id: baselinePass.attempt.input_artifact_id,
-                bytes: baselinePass.attempt.input_bytes,
-              }}
-              current={{
-                id: openPass.attempt.input_artifact_id,
-                bytes: openPass.attempt.input_bytes,
-              }}
-            />
-          )}
-          {baselinePass && openPass && (
-            <RunPassSourceComparison
-              comparison={baselinePass.attempt.result?.web_research}
-              current={openPass.attempt.result?.web_research}
-            />
-          )}
-          <div className="comparison-output-versions">
-            <SavedOutput
-              key={`baseline/${path}`}
-              run={baseline}
-              title="Comparison run"
-              path={path}
-              pass={baselinePass}
-              passes={baselinePasses}
-              onSelect={(id) =>
+          <SavedModelPassComparison
+            comparison={{
+              run: baseline,
+              title: "Comparison run",
+              path,
+              pass: baselinePass,
+              passes: baselinePasses,
+              onSelect: (id) =>
                 setSelection((previous) => ({
                   ...previous,
                   baselineAttempt: id,
                   unavailable: false,
-                }))
-              }
-            />
-            <SavedOutput
-              key={`current/${path}`}
-              run={run}
-              title="Open run"
-              path={path}
-              pass={openPass}
-              passes={openPasses}
-              onSelect={(id) =>
-                setSelection((previous) => ({ ...previous, openAttempt: id, unavailable: false }))
-              }
-            />
-          </div>
+                })),
+            }}
+            current={{
+              run,
+              title: "Open run",
+              path,
+              pass: openPass,
+              passes: openPasses,
+              onSelect: (id) =>
+                setSelection((previous) => ({ ...previous, openAttempt: id, unavailable: false })),
+            }}
+          />
         </>
       )}
     </details>

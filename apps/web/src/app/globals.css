@@ -3271,6 +3271,75 @@ td time {
   min-height: 0;
   min-width: 0;
 }
+.build-view-bar {
+  display: flex;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.build-view-switch {
+  display: flex;
+  border: 1px solid var(--line);
+}
+
+.build-view-switch > .button {
+  min-width: 64px;
+  border: 0;
+}
+
+.build-view-switch > .button + .button {
+  border-left: 1px solid var(--line);
+}
+
+.build-view-switch > .button[aria-pressed="true"] {
+  background: var(--soft);
+  font-weight: 600;
+}
+
+.plan-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 3fr) minmax(280px, 2fr);
+}
+
+.plan-layout > .library,
+.plan-layout > .inspector {
+  min-width: 0;
+  min-height: 0;
+}
+
+.plan-layout > .inspector {
+  border-left: 0;
+}
+
+.plan-layout .node-library {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.return-to-outline {
+  display: none;
+}
+
+@media (max-width: 850px) {
+  .plan-layout {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .plan-layout > .library,
+  .plan-layout > .inspector {
+    border: 0;
+    overflow: visible;
+  }
+
+  .plan-layout > .inspector {
+    border-top: 1px solid var(--line);
+  }
+
+  .return-to-outline {
+    display: inline-flex;
+  }
+}
+
 .workspace-panel {
   min-width: 0;
   min-height: 0;

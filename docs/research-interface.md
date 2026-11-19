@@ -56,6 +56,11 @@ body. The canvas and inspector follow an outline selection. Keep unresolved
 steps available when a draft’s control connections change.
 [Figma Layers and navigation](https://help.figma.com/hc/en-us/articles/360039831974-Explore-the-navigation-bar-and-left-sidebar).
 
+Give long workflows a Plan view that keeps the root outline visible while the
+researcher reads a nested step. Keep the same selection when switching to Canvas
+to inspect or reconnect its edges.
+[Figma UI3 design retrospective](https://www.figma.com/blog/our-approach-to-designing-ui3/).
+
 ## Run inspection references
 
 - Vercel’s workflow inspector keeps the recorded timeline, waits, step inputs,
@@ -63,6 +68,10 @@ steps available when a draft’s control connections change.
   link to the exact step occurrence and recorded model pass. Keep a pending
   decision accessible while the researcher looks back at earlier work.
   [Vercel Workflow observability](https://vercel.com/academy/workflow-foundations/observe-everything).
+- For a repeated research step, compare two saved outputs where one loop
+  iteration changes. Show each side’s conclusion, exact request and recorded
+  URLs. A pair should reopen the same records while the run remains available.
+  Start with the map collapsed in Outputs to give the recorded results room.
 - Braintrust uses an ordered trace and shared time axis to expose overlap, retries,
   and gaps. ResearchChain should show the latest recorded activity while a researcher
   reads an earlier output, and use recorded durations when accounting for latency.

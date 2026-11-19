@@ -122,6 +122,16 @@ test("measure 128-node canvas interaction and verify fit, movement, and history"
   const path = testInfo.outputPath("interaction-metrics.json");
   await writeFile(path, JSON.stringify(metrics, null, 2));
   await testInfo.attach("128-node interaction metrics", { path, contentType: "application/json" });
+
+  await page.getByRole("button", { name: "Plan", exact: true }).click();
+  const outline = page.getByRole("list", { name: "Workflow outline", exact: true });
+  await expect(outline.getByRole("listitem")).toHaveCount(128);
+  await outline.getByRole("button", { name: "Research step 125 Review", exact: true }).click();
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Research step 125",
+  );
+  await expect(page.getByLabel("Workflow canvas", { exact: true })).toHaveCount(0);
+
   console.log(
     JSON.stringify({
       mode: process.env.CI ? "production" : "development",

@@ -22,6 +22,7 @@ export function WorkspacePanels({
   library,
   canvas,
   inspector,
+  planMode,
   libraryOpen,
   inspectorOpen,
   onLibraryOpen,
@@ -31,6 +32,7 @@ export function WorkspacePanels({
   library: ReactNode;
   canvas: ReactNode;
   inspector: ReactNode;
+  planMode: boolean;
   libraryOpen: boolean;
   inspectorOpen: boolean;
   onLibraryOpen: (value: boolean) => void;
@@ -41,7 +43,7 @@ export function WorkspacePanels({
   const [panels] = useState(createResizableController);
   const narrow = useSyncExternalStore(subscribeNarrow, isNarrow, () => false);
   useEffect(() => {
-    if (narrow) return;
+    if (narrow || planMode) return;
     if (libraryOpen === panels.isCollapsed("workspace-steps")) {
       if (libraryOpen) panels.expand("workspace-steps");
       else panels.collapse("workspace-steps");
@@ -50,7 +52,16 @@ export function WorkspacePanels({
       if (inspectorOpen) panels.expand("workspace-details");
       else panels.collapse("workspace-details");
     }
-  }, [libraryOpen, inspectorOpen, narrow, panels]);
+  }, [libraryOpen, inspectorOpen, narrow, panels, planMode]);
+
+  if (planMode) {
+    return (
+      <div className="editor-grid plan-layout" onBlurCapture={onSeal}>
+        {library}
+        {inspector}
+      </div>
+    );
+  }
 
   // Small screens use document flow, with the canvas first. Desktop preferences
   // stay in their own persisted SDK layout and never enter the workflow document.

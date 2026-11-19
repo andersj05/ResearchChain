@@ -17,6 +17,11 @@ const copyText = {
     success: "Pass comparison link copied.",
     fallback: "Copy the pass comparison link from the address bar.",
   },
+  iterations: {
+    button: "Copy iteration comparison link",
+    success: "Iteration comparison link copied.",
+    fallback: "Copy the iteration comparison link from the address bar.",
+  },
   review: {
     button: "Copy review link",
     success: "Review link copied.",
@@ -34,7 +39,7 @@ export function CopyRunLink({
   runId: string;
   id: string;
 } & (
-  | { target: "compare" | "attempt"; passes?: never; checkpointId?: never }
+  | { target: "compare" | "attempt" | "iterations"; passes?: never; checkpointId?: never }
   | {
       target: "passes";
       passes: ComparisonPasses;

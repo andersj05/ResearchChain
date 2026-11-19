@@ -36,15 +36,16 @@ saves the decision and ends that run. If all three passes find a blocking gap,
 the run reaches the loop limit with its audits and search receipts saved. Use the
 last audit’s named evidence gap to decide what to add for the next experiment.
 
-In **Runs → Outputs**, search by step or iteration. Compare the **Audit the case
-and the evidence** outputs and the saved **Check readiness for owner review**
-results to see why the agent retried or asked for judgment.
-Open the audit’s web sources or saved request for its source record. The chosen
-iteration contains the proposal, decision and memo. **Iterate from this step**
-opens the pinned body in Build with the original brief and sources available.
+In **Runs → Outputs**, search for **Audit the case and the evidence**. When the
+run saves more than one audit, use **Compare iterations** to inspect citations
+and saved inputs from both. Open **Check readiness for owner review** in each
+iteration to see why the agent retried or asked for judgment. The chosen iteration contains
+the proposal, decision and memo. **Iterate from this step** opens the pinned body
+in Build with the original brief and sources available.
 
 The numbered workflow passes are independent tests against the same pinned
 brief and evidence. Within a pass, connections carry the latest finding from
 one researcher to the next. The baseline analyst can also pursue one follow-up
 with its prior result and tool records. Edit a prompt, the readiness check,
-or the pinned loop definition in Build and save a version to try a different plan.
+or the pinned loop definition in **Build → Plan** and save a version to try a
+different test.
