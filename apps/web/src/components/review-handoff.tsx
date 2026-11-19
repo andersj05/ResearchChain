@@ -14,6 +14,7 @@ export function ReviewHandoff({
   const usesFeedback = ({ sourceId, output }: { sourceId: string; output: string }) =>
     sourceId === reviewId && output === "feedback";
   const recipients = outputBindings(graph).filter(usesFeedback);
+  const carried = outputBindings(graph, "previous_iteration").filter(usesFeedback);
   const conditions = conditionBindings(graph).filter(usesFeedback);
 
   return (
@@ -34,7 +35,7 @@ export function ReviewHandoff({
         <p className="field-hint">No previous control steps.</p>
       )}
       <h3>Feedback bindings</h3>
-      {recipients.length ? (
+      {recipients.length || carried.length ? (
         <ul className="review-recipients" aria-label="Feedback bindings">
           {recipients.map(({ target, input }) => (
             <li key={`${target.id}/${input}`}>
@@ -44,6 +45,17 @@ export function ReviewHandoff({
                 onClick={() => onOpenField(target.id, input)}
               >
                 {target.label} · {input}
+              </button>
+            </li>
+          ))}
+          {carried.map(({ target, input }) => (
+            <li key={`${target.id}/${input}`}>
+              <button
+                className="button small"
+                type="button"
+                onClick={() => onOpenField(target.id, input)}
+              >
+                {target.label} · {input} · next iteration
               </button>
             </li>
           ))}

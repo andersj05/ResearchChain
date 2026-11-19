@@ -1,16 +1,20 @@
 import { Button } from "@ui-sdk/react/button";
 import { CopyRunLink } from "./copy-run-link";
 import { ArrowUpRight, Check, X } from "lucide-react";
-import type { RunSnapshot } from "@/lib/workflow";
-import { outputBindings } from "@/lib/workflow-editing";
+import type { Graph, RunSnapshot, ValueSource, WorkflowNode } from "@/lib/workflow";
+import { outputBindings, portsFor } from "@/lib/workflow-editing";
 import {
   attemptPath,
   childGraphs,
+  directLoopIteration,
   eventPath,
   feedbackRecipients,
   graphLocation,
+  nextLoopIteration,
   pendingReviews,
+  previousIterationOutput,
   reviewPath,
+  type DirectLoopIteration,
   type StepStatus,
 } from "@/lib/run-inspection";
 import { StepResearchResults } from "./research-results";
@@ -55,6 +59,58 @@ function StepEvent({ event }: { event: Event }) {
   );
 }
 
+function PreviousIterationSource({
+  run,
+  graph,
+  node,
+  input,
+  source,
+  iteration,
+  select,
+}: {
+  run: RunSnapshot;
+  graph: Graph;
+  node: WorkflowNode;
+  input: string;
+  source: ValueSource;
+  iteration?: DirectLoopIteration;
+  select: (path: string, attemptId?: string) => void;
+}) {
+  const producers = graph.nodes.filter((step) => step.id === source.node_id);
+  const producer = producers.length === 1 ? producers[0] : undefined;
+  const port =
+    producer &&
+    portsFor(producer).find(
+      (port) => port.direction === "output" && port.name === source.port && port.type !== "control",
+    );
+  const inputPort = portsFor(node).find(
+    (port) => port.direction === "input" && port.name === input,
+  );
+  if (!iteration) return "Saved loop iteration unavailable";
+  if (!producer || !port || port.type !== inputPort?.type)
+    return "Previous iteration source unavailable";
+  if (iteration.number === 1) {
+    return (
+      <span>
+        {producer.label} · {port.name} · Initial value in iteration 1 (
+        {port.type === "number" ? "0" : "empty text"})
+      </span>
+    );
+  }
+  const previous = previousIterationOutput(run, iteration, producer);
+  const label = `${producer.label} · ${port.name} · Iteration ${iteration.number - 1}`;
+  if (!previous) return <span>{label} (saved output unavailable)</span>;
+  return (
+    <button
+      type="button"
+      className="text-link"
+      onClick={() => select(previous.path, previous.attemptId)}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function RunStepInspector({
   run,
   path,
@@ -90,6 +146,15 @@ export function RunStepInspector({
   const children = childGraphs(run, node, path, states);
   const inputs = Object.entries(node.inputs ?? {});
   const outputs = outputBindings(graph).filter((binding) => binding.sourceId === node.id);
+  const nextIterationOutputs = outputBindings(graph, "previous_iteration").filter(
+    (binding) => binding.sourceId === node.id,
+  );
+  const iteration =
+    nextIterationOutputs.length ||
+    inputs.some(([, source]) => source.source === "previous_iteration")
+      ? directLoopIteration(run, path)
+      : undefined;
+  const next = nextLoopIteration(iteration);
   const kind = nodePresentation(node).label;
   const previous = new Set(
     graph.edges.filter((edge) => edge.target === node.id).map((edge) => `${prefix}/${edge.source}`),
@@ -117,6 +182,8 @@ export function RunStepInspector({
     ? [...latestWorkspaceFiles(run)].filter(([, file]) => reviewFilePaths.has(file.path))
     : [];
   const feedbackTargets = review ? feedbackRecipients(graph, node.id) : [];
+  const nextFeedbackTargets =
+    review && next ? feedbackRecipients(graph, node.id, "previous_iteration") : [];
   return (
     <section className="run-step-panel" aria-label="Selected step">
       <div className="step-detail-heading">
@@ -174,6 +241,13 @@ export function RunStepInspector({
                 {feedbackTargets.length > 0 && (
                   <p className="field-hint">
                     Feedback goes to {feedbackTargets.map((item) => item.label).join(", ")}.
+                  </p>
+                )}
+                {next && nextFeedbackTargets.length > 0 && (
+                  <p className="field-hint">
+                    If the loop continues, feedback goes to{" "}
+                    {nextFeedbackTargets.map((item) => item.label).join(", ")} in iteration{" "}
+                    {next.number}.
                   </p>
                 )}
               </>
@@ -286,7 +360,7 @@ export function RunStepInspector({
           ))}
         </div>
       )}
-      {(inputs.length > 0 || outputs.length > 0) && (
+      {(inputs.length > 0 || outputs.length > 0 || nextIterationOutputs.length > 0) && (
         <details className="step-configuration step-bindings">
           <summary>Data bindings</summary>
           {inputs.length > 0 && (
@@ -308,6 +382,16 @@ export function RunStepInspector({
                           {" · "}
                           {value.port}
                         </button>
+                      ) : value.source === "previous_iteration" ? (
+                        <PreviousIterationSource
+                          run={run}
+                          graph={graph}
+                          node={node}
+                          input={name}
+                          source={value}
+                          iteration={iteration}
+                          select={select}
+                        />
                       ) : (
                         value.source.replaceAll("_", " ")
                       )}
@@ -335,6 +419,35 @@ export function RunStepInspector({
                     </dd>
                   </div>
                 ))}
+              </dl>
+            </section>
+          )}
+          {nextIterationOutputs.length > 0 && (
+            <section aria-labelledby="step-next-iteration-bindings">
+              <h4 id="step-next-iteration-bindings">Next iteration bindings</h4>
+              <dl>
+                {nextIterationOutputs.map(({ target, input, output }) => {
+                  const nextPath = next && `${next.prefix}/${target.id}`;
+                  const label = `${target.label} · ${input}`;
+                  return (
+                    <div key={`${target.id}/${input}`}>
+                      <dt>{output}</dt>
+                      <dd>
+                        {next && nextPath && states.has(nextPath) ? (
+                          <button
+                            type="button"
+                            className="text-link"
+                            onClick={() => select(nextPath)}
+                          >
+                            {label} · Iteration {next.number}
+                          </button>
+                        ) : (
+                          <span>{label} (no recorded use in the next iteration)</span>
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })}
               </dl>
             </section>
           )}

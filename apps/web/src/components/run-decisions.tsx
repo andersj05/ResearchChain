@@ -2,9 +2,11 @@ import { Button } from "@ui-sdk/react/button";
 import { contentUrl } from "@/lib/evidence";
 import {
   attemptPath,
+  directLoopIteration,
   eventPath,
   feedbackRecipients,
   graphLocation,
+  nextLoopIteration,
   pendingReviews,
   reviewPath,
 } from "@/lib/run-inspection";
@@ -112,12 +114,10 @@ function FeedbackBrief({
 
 function FeedbackInputs({
   recipients,
-  prefix,
   attempts,
   inspect,
 }: {
-  recipients: WorkflowNode[];
-  prefix: string;
+  recipients: { node: WorkflowNode; path?: string; iteration?: number }[];
   attempts: RunSnapshot["model_attempts"];
   inspect: (path: string, attemptId?: string) => void;
 }) {
@@ -125,30 +125,34 @@ function FeedbackInputs({
     <details className="decision-feedback-inputs">
       <summary>Steps wired to this feedback ({recipients.length})</summary>
       <ul>
-        {recipients.map((node) => {
-          const path = `${prefix}/${node.id}`;
-          const attempt = attempts?.findLast(
-            (item) => item.input_artifact_id && attemptPath(item) === path,
-          );
+        {recipients.map(({ node, path, iteration }) => {
+          const attempt = path
+            ? attempts?.findLast((item) => item.input_artifact_id && attemptPath(item) === path)
+            : undefined;
+          const label = iteration ? `${node.label} · Iteration ${iteration}` : node.label;
           return (
-            <li key={node.id}>
-              <button
-                className="text-link"
-                type="button"
-                onClick={() => inspect(path, attempt?.id)}
-              >
-                {node.label}
-              </button>
-              {attempt?.input_artifact_id ? (
+            <li key={`${node.id}/${iteration ?? "current"}`}>
+              {path ? (
+                <button
+                  className="text-link"
+                  type="button"
+                  onClick={() => inspect(path, attempt?.id)}
+                >
+                  {label}
+                </button>
+              ) : (
+                <span>{label} (no recorded use)</span>
+              )}
+              {attempt && attempt.input_artifact_id ? (
                 <a
                   className="text-link"
                   href={contentUrl(attempt.input_artifact_id)}
-                  aria-label={`Saved request for ${node.label}`}
+                  aria-label={`Saved request for ${label}`}
                 >
                   Saved request
                 </a>
               ) : (
-                node.kind === "research" && <small>No saved request</small>
+                path && node.kind === "research" && <small>No saved request</small>
               )}
             </li>
           );
@@ -179,6 +183,10 @@ export function RunDecisions({
   if (!pending.length && !saved.length) {
     return <p className="muted">No review decisions yet.</p>;
   }
+  const observed = new Set([
+    ...run.events.map(eventPath),
+    ...(run.model_attempts ?? []).map(attemptPath),
+  ]);
   return (
     <div className="run-decisions">
       {pending.length > 0 && (
@@ -220,7 +228,26 @@ export function RunDecisions({
               const path = eventPath(event);
               const { graph, node, parents, prefix } = graphLocation(run, path);
               const feedback = event.review_response?.feedback.trim();
-              const recipients = feedback ? feedbackRecipients(graph, node.id) : [];
+              const current = feedback ? feedbackRecipients(graph, node.id) : [];
+              const later = feedback
+                ? feedbackRecipients(graph, node.id, "previous_iteration")
+                : [];
+              const next = later.length
+                ? nextLoopIteration(directLoopIteration(run, path))
+                : undefined;
+              const recipients = [
+                ...current.map((node) => ({ node, path: `${prefix}/${node.id}` })),
+                ...(next
+                  ? later.map((node) => {
+                      const path = `${next.prefix}/${node.id}`;
+                      return {
+                        node,
+                        path: observed.has(path) ? path : undefined,
+                        iteration: next.number,
+                      };
+                    })
+                  : []),
+              ];
               const brief = `${run.brief.trimEnd()}\n\nReviewer feedback from ${event.label} (${run.id.slice(0, 8)}):\n${feedback ?? ""}`;
               return (
                 <li key={path}>
@@ -233,7 +260,6 @@ export function RunDecisions({
                   {recipients.length > 0 && (
                     <FeedbackInputs
                       recipients={recipients}
-                      prefix={prefix}
                       attempts={run.model_attempts}
                       inspect={inspect}
                     />

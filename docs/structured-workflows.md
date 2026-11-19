@@ -49,6 +49,19 @@ a durable `limited` result, not a successful report. The predicate can inspect
 guaranteed body outputs or the one-based iteration number. Outside a loop,
 `iteration` is zero.
 
+A step in a direct loop body can use **Previous iteration outputs** for an input.
+Choose a text or number output available at the end of every successful pass.
+Iteration 1 receives empty text or zero. Later passes receive the value from the
+immediately preceding pass of the same loop caller. Each caller and each enclosing
+loop iteration starts with its own defaults. A definition with this binding can
+be pinned by multiple loops. Ordinary subgraph calls require a definition without
+carried inputs. An unused version can retain its binding for future loop callers.
+
+Choose the previous review’s **feedback** output when a model needs a human
+judgment. Use a custom model prompt for context that starts empty. The built-in
+Challenge and Revise presets require a structured research result on the first
+pass. Route and stop predicates continue to evaluate their own pass.
+
 The compiler lowers each subgraph invocation and bounded iteration into qualified
 LangGraph node paths. This keeps checkpoint/review identity explicit, e.g.
 `root/review_loop/iteration-2/review`, without invoking untrusted code or relying

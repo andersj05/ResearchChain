@@ -22,13 +22,13 @@ PortType = Literal["control", "text", "number"]
 
 
 class ValueSource(StrictModel):
-    source: Literal["brief", "artifact_count", "iteration", "output"]
+    source: Literal["brief", "artifact_count", "iteration", "output", "previous_iteration"]
     node_id: str | None = None
     port: str | None = None
 
     @model_validator(mode="after")
     def validate_reference(self) -> Self:
-        if self.source == "output":
+        if self.source in ("output", "previous_iteration"):
             if not self.node_id or not self.port:
                 raise ValueError("Output references require node_id and port.")
         elif self.node_id is not None or self.port is not None:
@@ -229,6 +229,8 @@ def source_type(
 def validate_predicate(
     predicate: Predicate, nodes: dict[str, WorkflowNode], available: set[str]
 ) -> None:
+    if predicate.left.source == "previous_iteration":
+        raise ValueError("Previous iteration outputs are available only to step inputs.")
     kind = source_type(predicate.left, nodes, available)
     if (kind == "text") != isinstance(predicate.value, str):
         raise ValueError("Predicate values must match the input port type.")
@@ -248,7 +250,11 @@ def _located_value_error(
 
 
 def validate_graph(
-    graph: GraphDefinition, *, legacy: bool = False, location: tuple[str | int, ...] = ()
+    graph: GraphDefinition,
+    *,
+    legacy: bool = False,
+    allow_previous_iteration: bool = False,
+    location: tuple[str | int, ...] = (),
 ) -> None:
     nodes = {node.id: node for node in graph.nodes}
     if len(nodes) != len(graph.nodes):
@@ -368,6 +374,16 @@ def validate_graph(
     walk(graph.start_node, None)
     if visited != set(nodes):
         raise ValueError("Every node must be reachable from the start.")
+    previous_outputs = (
+        guaranteed_outputs(graph)
+        if allow_previous_iteration
+        and any(
+            source.source == "previous_iteration"
+            for node in graph.nodes
+            for source in node.inputs.values()
+        )
+        else set()
+    )
     # Availability follows actual join semantics, not mere reachability.
     available: dict[str, set[str]] = {}
     for node_id in order:
@@ -384,7 +400,22 @@ def validate_graph(
         for port, source in node.inputs.items():
             try:
                 expected = INPUT_PORTS.get(node.kind, {}).get(port)
-                if expected is None or source_type(source, nodes, before) != expected:
+                sources = before
+                if source.source == "previous_iteration":
+                    if not allow_previous_iteration:
+                        raise ValueError(
+                            "Previous iteration outputs require a direct loop body with no "
+                            "ordinary subgraph callers."
+                        )
+                    if isinstance(node.config, ResearchConfig):
+                        if port == "context" and node.config.stage in ("challenge", "revise"):
+                            raise ValueError("This research preset needs context on iteration 1.")
+                        if port == "feedback" and source.port != "feedback":
+                            raise ValueError(
+                                "Reviewer feedback must come from a review's feedback port."
+                            )
+                    sources = previous_outputs
+                if expected is None or source_type(source, nodes, sources) != expected:
                     raise ValueError(
                         f"Input {node_id}.{port} is unknown or has an incompatible type."
                     )
@@ -438,8 +469,19 @@ class Workflow(GraphDefinition):
         }
         if len(definitions) != len(self.subgraphs):
             raise ValueError("Subgraph id/version pairs must be unique within the revision.")
+        ordinary_bodies = {
+            (node.config.ref.id, node.config.ref.version)
+            for graph in all_graphs
+            for node in graph.nodes
+            if isinstance(node.config, SubgraphConfig)
+        }
         for index, definition in enumerate(self.subgraphs):
-            validate_graph(definition, location=("subgraphs", index))
+            # An unused version can retain its inputs when a caller pins a newer version.
+            validate_graph(
+                definition,
+                allow_previous_iteration=(definition.id, definition.version) not in ordinary_bodies,
+                location=("subgraphs", index),
+            )
         visiting: set[tuple[str, int]] = set()
         costs: dict[tuple[str, int], int] = {}
 

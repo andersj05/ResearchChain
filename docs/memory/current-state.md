@@ -4,6 +4,21 @@ Updated 2026-11-19. The owner asked to make complex agents easier to understand
 in Build and Runs and to exercise a looped EquityCats research workflow.
 [Research interface principles](../research-interface.md).
 
+## Carry a finding into the next iteration
+
+Inside a pinned loop body, **Previous iteration outputs** offers text and number
+ports that are available when the pass finishes. Build shows the initial value
+and links to the producing step. **Runs → Step details → Data bindings** opens the
+previous saved occurrence under the same caller. Pending reviews show where
+feedback goes if the loop continues. Archived workflows keep their compiler pins.
+
+The updated EquityCats starter passes the prior audit’s objection and evidence
+requests into the next test. It keeps the original brief and cutoff and asks the
+challenger to verify what changed. Synthetic execution checked the exact context
+in the second pricing request, the later audit’s distinct source receipt, and the
+reviewer feedback in the memo. [Starter guide](../equitycats-research-example.md) ·
+[Bounded research workflow](https://github.com/andersj05/ResearchChain/issues/6).
+
 ## Read a long workflow and compare iterations
 
 **Build → Plan** keeps the full outline visible while an exact nested step is
@@ -22,11 +37,9 @@ Outputs and the pending review remains accessible.
 **New agent → EquityCats cross-asset research** is an editable bounded workflow.
 An independent audit challenges the evidence, and an explicit readiness check
 decides whether to ask for the owner's judgment or continue testing. Isolated
-runs verified second-pass convergence, exhaustion at three passes, missing
-provenance, and the exact review feedback in the saved memo request. Numbered
-workflow iterations use the same pinned brief. The analyst can carry its findings
-into one follow-up within an iteration. The owner can assess research quality on
-their own case. [Starter guide](../equitycats-research-example.md) ·
+runs verified second-pass convergence, exhaustion at three passes and missing
+provenance. The owner can assess research quality on their own case.
+[Starter guide](../equitycats-research-example.md) ·
 [Initial PR #126](https://github.com/andersj05/ResearchChain/pull/126).
 
 ## Test a chart signal

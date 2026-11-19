@@ -16,6 +16,7 @@ from psycopg.types.json import Jsonb
 from researchchain.agents import require_agent_revision, run_agent
 from researchchain.artifacts import EvidenceError, read_artifact
 from researchchain.compiler import (
+    LOOP_INPUT_COMPILER_VERSION,
     STRUCTURED_COMPILER_VERSION,
     ExecutionStopped,
     Guard,
@@ -94,9 +95,12 @@ def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
 
 
 def compiler_version(workflow: Workflow) -> str:
+    nodes = [node for graph in (workflow, *workflow.subgraphs) for node in graph.nodes]
     if any(
-        node.kind == "code" for graph in [workflow, *workflow.subgraphs] for node in graph.nodes
+        source.source == "previous_iteration" for node in nodes for source in node.inputs.values()
     ):
+        return LOOP_INPUT_COMPILER_VERSION
+    if any(node.kind == "code" for node in nodes):
         return CODE_COMPILER_VERSION
     return {
         "0.1": COMPILER_VERSION,
@@ -202,6 +206,7 @@ class RunStore:
             CODE_COMPILER_VERSION,
             STRUCTURED_COMPILER_VERSION,
             RESEARCH_COMPILER_VERSION,
+            LOOP_INPUT_COMPILER_VERSION,
         ):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row

@@ -271,6 +271,72 @@ export function graphLocation(run: RunSnapshot, path: string) {
   return { graph, prefix, parents, node };
 }
 
+export type DirectLoopIteration = { caller: string; number: number; limit: number };
+
+export function directLoopIteration(
+  run: RunSnapshot,
+  path: string,
+): DirectLoopIteration | undefined {
+  const { prefix, node, parents } = graphLocation(run, path);
+  if (path !== `${prefix}/${node.id}`) return;
+  let iteration: DirectLoopIteration | undefined;
+  for (const parent of parents) {
+    const caller = graphLocation(run, parent.path);
+    if (parent.path !== `${caller.prefix}/${caller.node.id}`) return;
+    const selector = path.slice(parent.path.length + 1).split("/", 1)[0]!;
+    const config = caller.node.config;
+    if (config?.type === "subgraph" && selector === "body") {
+      iteration = undefined;
+    } else if (config?.type === "loop") {
+      const number = Number(/^iteration-([1-9]\d*)$/.exec(selector)?.[1]);
+      if (!Number.isInteger(number) || number > config.max_iterations) return;
+      iteration = { caller: parent.path, number, limit: config.max_iterations };
+    } else {
+      return;
+    }
+  }
+  return iteration;
+}
+
+export function nextLoopIteration(iteration?: DirectLoopIteration) {
+  if (!iteration || iteration.number >= iteration.limit) return;
+  const number = iteration.number + 1;
+  return { number, prefix: `${iteration.caller}/iteration-${number}` };
+}
+
+export function previousIterationOutput(
+  run: RunSnapshot,
+  iteration: DirectLoopIteration,
+  node: WorkflowNode,
+) {
+  const number = iteration.number - 1;
+  const path = `${iteration.caller}/iteration-${number}/${node.id}`;
+  const checkPath = `${iteration.caller}/check-${number}`;
+  const callerId = iteration.caller.split("/").at(-1);
+  if (
+    number < 1 ||
+    !run.events.some(
+      (event) => event.kind === "loop" && event.node_id === callerId && event.path === checkPath,
+    )
+  )
+    return;
+  const event = run.events.find(
+    (event) => event.kind === node.kind && event.node_id === node.id && eventPath(event) === path,
+  );
+  if (!event || (node.kind === "code" && !event.code)) return;
+  if (node.kind === "review" && event.review_response?.decision !== "approve") return;
+  if (node.kind !== "research") return { path };
+  const attempt = run.model_attempts?.findLast(
+    (item) =>
+      item.status === "completed" &&
+      item.result &&
+      !item.result.next_lead &&
+      !item.result.workspace_activity &&
+      attemptPath(item) === path,
+  );
+  return attempt ? { path, attemptId: attempt.id } : undefined;
+}
+
 export function runStepLabel(run: RunSnapshot, path: string) {
   const { node, parents } = graphLocation(run, path);
   const context = parents.map((parent) => {
@@ -280,11 +346,14 @@ export function runStepLabel(run: RunSnapshot, path: string) {
   return [node.label, ...context].join(" · ");
 }
 
-export function feedbackRecipients(graph: Graph, reviewId: string) {
+export function feedbackRecipients(
+  graph: Graph,
+  reviewId: string,
+  timing: "output" | "previous_iteration" = "output",
+) {
   return graph.nodes.filter((node) =>
     Object.values(node.inputs ?? {}).some(
-      (input) =>
-        input.source === "output" && input.node_id === reviewId && input.port === "feedback",
+      (input) => input.source === timing && input.node_id === reviewId && input.port === "feedback",
     ),
   );
 }

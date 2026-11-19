@@ -1,11 +1,34 @@
-import type { Graph, ValueSource } from "./workflow";
-import { controlOutputs } from "./workflow-editing";
+import type { Graph, ValueSource, Workflow } from "./workflow";
+import { controlOutputs, referenceOf, scopeKey, type GraphScope } from "./workflow-editing";
 
-export const builtInSourceLabels: Record<Exclude<ValueSource["source"], "output">, string> = {
+export const builtInSourceLabels: Record<
+  Exclude<ValueSource["source"], "output" | "previous_iteration">,
+  string
+> = {
   brief: "Research brief",
   artifact_count: "Artifact count",
   iteration: "Current iteration",
 };
+
+export function previousIterationOutputSteps(workflow: Workflow, graph: Graph, scope: GraphScope) {
+  if (!scope) return;
+  const definitions = workflow.subgraphs ?? [];
+  const key = scopeKey(scope);
+  if (definitions.filter((definition) => scopeKey(definition) === key).length !== 1) return;
+  const callers = [workflow, ...definitions].flatMap(({ nodes }) =>
+    nodes.filter((step) => {
+      const ref = referenceOf(step);
+      return ref && scopeKey(ref) === key;
+    }),
+  );
+  if (
+    !callers.length ||
+    callers.some((step) => step.kind !== "loop" || step.config?.type !== "loop")
+  ) {
+    return;
+  }
+  return availableOutputSteps(graph, graph.nodes.find((node) => node.kind === "finish")?.id);
+}
 
 export function availableOutputSteps(graph: Graph, stepId: string | undefined) {
   const nodes = new Map(graph.nodes.map((node) => [node.id, node]));
