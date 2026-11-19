@@ -57,6 +57,41 @@ export function attemptPath(attempt: Attempt) {
     : attempt.path;
 }
 
+export type SavedModelPass = {
+  attempt: Attempt;
+  number: number;
+  kind: "Conclusion" | "Research lead" | "Workspace activity";
+};
+
+export function savedModelOutputs(run: RunSnapshot) {
+  const outputs = new Map<string, SavedModelPass[]>();
+  const counts = new Map<string, number>();
+  for (const attempt of run.model_attempts ?? []) {
+    const path = attemptPath(attempt);
+    const number = (counts.get(path) ?? 0) + 1;
+    counts.set(path, number);
+    const result = attempt.result;
+    if (attempt.status !== "completed" || !result) continue;
+    const passes = outputs.get(path) ?? [];
+    const kind = result.workspace_activity
+      ? "Workspace activity"
+      : result.next_lead
+        ? "Research lead"
+        : "Conclusion";
+    passes.push({ attempt, number, kind });
+    outputs.set(path, passes);
+  }
+  return outputs;
+}
+
+export function selectedModelOutput(passes: SavedModelPass[], id?: string) {
+  return (
+    passes.find((item) => item.attempt.id === id) ??
+    passes.findLast((item) => item.kind === "Conclusion") ??
+    passes.at(-1)
+  );
+}
+
 export function pendingReviews(run: RunSnapshot) {
   return run.status === "paused"
     ? run.reviews?.length

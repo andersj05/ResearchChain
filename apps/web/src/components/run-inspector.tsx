@@ -9,6 +9,7 @@ import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity, type ModelActivityFilter } from "./run-model-activity";
 import { RunDecisions, type FeedbackBriefDraft } from "./run-decisions";
 import { RunFiles, savedRunFiles } from "./run-files";
+import { RunOutputs, type OutputFilter } from "./run-outputs";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
@@ -31,7 +32,7 @@ import type { RecentRunSummary, RunSnapshot } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
-type RunView = "step" | "activity" | "decisions" | "files" | "context" | "comparison";
+type RunView = "step" | "outputs" | "activity" | "decisions" | "files" | "context" | "comparison";
 
 function runLinkTarget(run: RunSnapshot) {
   if (typeof window === "undefined") return {};
@@ -130,6 +131,7 @@ function RunWorkspace({
     fitFiltered: false,
   });
   const [fileQuery, setFileQuery] = useState("");
+  const [outputFilter, setOutputFilter] = useState<OutputFilter>({ query: "", kind: "" });
   const pendingFeedback = pruneReviewDrafts(run, feedback);
   if (pendingFeedback !== feedback) setFeedback(pendingFeedback);
   const reviewDrafts = JSON.stringify(pendingFeedback);
@@ -404,6 +406,13 @@ function RunWorkspace({
         </button>
         <button
           type="button"
+          aria-pressed={view === "outputs"}
+          onClick={() => changeView("outputs")}
+        >
+          Outputs
+        </button>
+        <button
+          type="button"
           aria-pressed={view === "activity"}
           onClick={() => changeView("activity")}
         >
@@ -438,6 +447,14 @@ function RunWorkspace({
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
         {staleReviewLink && <p role="status">This review link is out of date.</p>}
+        {view === "outputs" && (
+          <RunOutputs
+            run={run}
+            inspect={inspectFromPanel}
+            filter={outputFilter}
+            onFilterChange={setOutputFilter}
+          />
+        )}
         {view === "activity" && (
           <RunModelActivity
             run={run}
