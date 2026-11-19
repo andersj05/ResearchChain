@@ -276,6 +276,9 @@ test("wire an exact previous-iteration output to a loop body input", async ({ pa
 
   await page.getByRole("button", { name: "Draft changes", exact: true }).click();
   const changes = page.getByRole("dialog", { name: "Draft changes", exact: true });
+  await changes
+    .getByRole("searchbox", { name: "Find changes", exact: true })
+    .fill("Choose the next test");
   await expect(
     changes.getByText("Previous iteration · Synthesize findings (synthesis) · text", {
       exact: true,

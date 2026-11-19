@@ -61,6 +61,13 @@ researcher reads a nested step. Keep the same selection when switching to Canvas
 to inspect or reconnect its edges.
 [Figma UI3 design retrospective](https://www.figma.com/blog/our-approach-to-designing-ui3/).
 
+Put the previous iteration’s output beside the step input that uses it. Show the
+initial value and link to the editable source. During a run, use the same binding
+to reach the producing occurrence and its saved result. For reviewer feedback,
+show the next recipient when there is a possible follow-up.
+[Figma component properties](https://help.figma.com/hc/en-us/articles/5579474826519-Explore-component-properties) ·
+[Vercel Workflow observability](https://vercel.com/academy/workflow-foundations/observe-everything).
+
 ## Run inspection references
 
 - Vercel’s workflow inspector keeps the recorded timeline, waits, step inputs,
