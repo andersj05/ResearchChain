@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from equitycats_fixture import equitycats_completion
 from test_provider_signin import BrowserHarness
 from test_web_research import WebProvider
 
@@ -38,7 +39,7 @@ class BrowserProvider(WebProvider):
                 "<button>Model control</button>"
             )
             return replace(result, text=json.dumps(document))
-        return result
+        return equitycats_completion(prepared, result)
 
 
 # The real loopback flow uses fake OAuth and a disposable credential store.
