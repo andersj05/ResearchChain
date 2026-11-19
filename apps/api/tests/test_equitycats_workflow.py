@@ -5,7 +5,13 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from equitycats_fixture import BRIEF_PREFIX, equitycats_completion
+from equitycats_fixture import (
+    BRIEF_PREFIX,
+    MATCHED_CLOSE_URL,
+    equitycats_completion,
+    matched_close,
+    timestamp_gap,
+)
 from test_research_runtime import approve
 from test_web_research import WebProvider
 
@@ -36,7 +42,7 @@ class EquityCatsProvider(WebProvider):
     [(2, True), (None, True), (1, False)],
     ids=["converges", "unresolved", "missing-provenance"],
 )
-def test_equitycats_research_retests_only_until_evidence_ready(database, ready_on, record_sources):
+def test_equitycats_research_revises_only_until_evidence_ready(database, ready_on, record_sources):
     workflow = Workflow.model_validate_json(EXAMPLE.read_bytes())
     workflow.research.model = "test-model"
     revision = RevisionStore(database).save(workflow)
@@ -61,6 +67,7 @@ def test_equitycats_research_retests_only_until_evidence_ready(database, ready_o
         first = attempts[f"{prefix}/pricing"]
         followup = attempts[f"{prefix}/pricing/analyst-pass-2"]
         audit = attempts[f"{prefix}/audit"]
+        method = events[f"{prefix}/method"].code
         gate = events[f"{prefix}/gate"].code
         assert first.result.next_lead == "Check contrary evidence"
         assert followup.result.conclusion.startswith(f"Pass {index}.")
@@ -68,8 +75,12 @@ def test_equitycats_research_retests_only_until_evidence_ready(database, ready_o
             "ready" if ready_on and index >= ready_on else "needs_more"
         )
         if record_sources:
-            assert audit.result.web_research.sources[0].url == "https://example.org/data"
-            assert audit.result.web_research.sources[0].cited
+            trace = audit.result.web_research
+            expected_urls = {"https://example.org/data"}
+            if completed and index == count:
+                expected_urls.add(MATCHED_CLOSE_URL)
+                assert any(action.url == MATCHED_CLOSE_URL for action in trace.actions)
+            assert {source.url for source in trace.sources if source.cited} == expected_urls
         assert gate.outputs.number == int(completed and index == count)
         if not record_sources:
             assert "no substantive captured citation or provider-recorded web citation" in (
@@ -77,11 +88,28 @@ def test_equitycats_research_retests_only_until_evidence_ready(database, ready_o
             )
         elif index == 1:
             assert "blocking entries remain" in gate.outputs.text
-        with database.connection() as conn:
-            payload = json.loads(read_content(conn, followup.input_artifact_id))
-        context = json.loads(payload["input"][0]["content"][0]["text"])["additional_context"]
-        assert context.startswith(f"Pass {index}.")
-        assert any(item.get("type") == "function_call_output" for item in payload["input"])
+        if index == 1:
+            assert method.inputs.text == ""
+            assert "Prior case to revisit" not in method.outputs.text
+        else:
+            prior_gate = events[f"{loop}/iteration-{index - 1}/gate"].code
+            assert method.inputs.text == prior_gate.outputs.text
+            assert prior_gate.outputs.text in method.outputs.text
+            if ready_on != 1:
+                assert timestamp_gap(index - 1) in method.outputs.text
+                assert "different session closes" in method.outputs.text
+            if index == 3:
+                assert timestamp_gap(1) not in method.outputs.text
+        for attempt in (first, followup):
+            with database.connection() as conn:
+                payload = json.loads(read_content(conn, attempt.input_artifact_id))
+            packet = json.loads(payload["input"][0]["content"][0]["text"])
+            assert packet["brief"] == run.brief
+            assert packet["additional_context"] == method.outputs.text
+            assert packet["human_feedback"] == ""
+            assert any(item.get("type") == "function_call_output" for item in payload["input"]) == (
+                attempt is followup
+            )
 
     prefix = f"{loop}/iteration-{count}"
     if not completed:
@@ -93,6 +121,9 @@ def test_equitycats_research_retests_only_until_evidence_ready(database, ready_o
         return
 
     assert run.review.path == f"{prefix}/owner_verdict"
+    assert matched_close(1) in attempts[f"{prefix}/pricing/analyst-pass-2"].result.conclusion
+    assert matched_close(1) in attempts[f"{prefix}/challenge"].result.conclusion
+    assert matched_close(1) in attempts[f"{prefix}/audit"].result.conclusion
     assert attempts[f"{prefix}/proposal"].result.conclusion.startswith("Pass 2.")
     assert not any(path.startswith(f"{loop}/iteration-3/") for path in attempts)
     feedback = "Favor the rival until the second series confirms the signal."

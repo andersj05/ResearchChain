@@ -3,7 +3,7 @@ import sample from "../../../examples/equitycats-research-brief.json";
 import { contentUrl } from "../src/lib/evidence";
 import type { RunSnapshot } from "../src/lib/workflow";
 
-test("EquityCats starter retests the evidence and turns a saved judgment into a memo", async ({
+test("EquityCats starter carries the prior gap forward and turns a saved judgment into a memo", async ({
   page,
   request,
 }) => {
@@ -63,14 +63,29 @@ test("EquityCats starter retests the evidence and turns a saved judgment into a 
   const attempts = run.model_attempts!;
   expect(attempts).toHaveLength(10);
   expect(attempts.some((attempt) => attempt.path.includes("iteration-3"))).toBe(false);
+  const matchedCloseSource = "https://example.org/synthetic/matched-close";
   expect(
     attempts.find((attempt) => attempt.path === `${loop}/iteration-2/audit`)?.result,
   ).toMatchObject({
-    web_research: { sources: [{ url: "https://example.org/data", cited: true }] },
+    web_research: {
+      sources: [
+        { url: "https://example.org/data", cited: true },
+        { url: matchedCloseSource, cited: true },
+      ],
+    },
   });
   const memo = attempts.find((attempt) => attempt.path === memoPath)!;
   const payload = await (await request.get(contentUrl(memo.input_artifact_id!))).json();
   expect(JSON.parse(payload.input[0].content[0].text).human_feedback).toBe(feedback);
+  const followup = attempts.find((attempt) => attempt.path === `${loop}/iteration-2/pricing`)!;
+  const followupPayload = await (await request.get(contentUrl(followup.input_artifact_id!))).json();
+  const followupContext = JSON.parse(followupPayload.input[0].content[0].text).additional_context;
+  expect(followupContext).toContain(
+    "Which prices were available at a common cutoff for synthetic session 1?",
+  );
+  expect(followupContext).toContain("different session closes could explain");
+  expect(followupContext).not.toContain(matchedCloseSource);
+  expect(followupPayload.instructions).toContain("Treat its claim and cited sources as leads");
 
   await inspector.getByRole("button", { name: "Outputs", exact: true }).click();
   const outputs = inspector.getByRole("region", { name: "Saved step outputs", exact: true });
@@ -88,8 +103,15 @@ test("EquityCats starter retests the evidence and turns a saved judgment into a 
   ).toContainText("Synthetic audit found a timestamp gap.");
   await expect(
     comparison.getByRole("region", { name: "Later iteration", exact: true }),
-  ).toContainText("Synthetic audit reproduced the matched-window comparison.");
+  ).toContainText(
+    "The new comparison matches both instruments at 16:00 Eastern for synthetic session 1.",
+  );
+  await comparison.getByText("Recorded web sources · 1 shared", { exact: true }).click();
+  const laterSources = comparison.getByRole("region", { name: "Later iteration web sources" });
   await expect(
-    comparison.getByText("Recorded web sources · 1 shared", { exact: true }),
-  ).toBeVisible();
+    laterSources.getByRole("link", { name: "Synthetic synchronized-close observations" }),
+  ).toHaveAttribute("href", matchedCloseSource);
+  await expect(
+    comparison.getByRole("region", { name: "Earlier iteration web sources" }),
+  ).toContainText("No unique web sources recorded.");
 });
