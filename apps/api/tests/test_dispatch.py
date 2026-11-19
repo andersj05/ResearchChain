@@ -52,6 +52,31 @@ def test_admission_commits_before_execution_and_retries_keep_receipt(
     assert queue.runs.get(request.id) == paused
 
 
+def test_early_progress_read_does_not_lock_new_admission(
+    database: Database, workflow: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    queue, request = setup_queue(database, workflow)
+    reader = RunStore(database)
+    read_started, release_reader = Event(), Event()
+    read_manifest = reader._manifest
+
+    def wait_for_admission(conn, run_id):
+        read_started.set()
+        assert release_reader.wait(5)
+        return read_manifest(conn, run_id)
+
+    monkeypatch.setattr(reader, "_manifest", wait_for_admission)
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        progress = executor.submit(reader.get, request.id)
+        try:
+            assert read_started.wait(5)
+            receipt = queue.start(request)
+        finally:
+            release_reader.set()
+        assert progress.result(timeout=5).status == "queued"
+    assert queue.start(request) == receipt
+
+
 def test_full_queue_rolls_back_new_run_and_cancellation_releases_capacity(
     database: Database, workflow: dict
 ) -> None:
