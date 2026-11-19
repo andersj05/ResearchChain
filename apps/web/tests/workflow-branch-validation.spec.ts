@@ -68,7 +68,7 @@ test("branch validation focuses a split's conflicting join setting", async ({ pa
   await openBuild(page, request, second.workflow);
 
   const outline = page.locator(".node-outline");
-  await outline.getByRole("button", { name: new RegExp(secondSplit.label) }).click();
+  await outline.getByRole("button", { name: `${secondSplit.label} Parallel`, exact: true }).click();
   const join = page.getByRole("combobox", { name: "Join step", exact: true });
   await join.selectOption(firstSplit.config.join);
   await outline.getByRole("button", { name: "Frame the question" }).click();

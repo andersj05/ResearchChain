@@ -500,6 +500,9 @@ class RunStore:
 
     def get(self, run_id: UUID) -> RunSnapshot:
         with self.database.connection() as conn:
+            # Progress can be requested before the start transaction commits.
+            # Only use the run lock after a saved run is visible to the reader.
+            manifest = self._manifest(conn, run_id)
             # Readers never wait for a model call. A live writer owns the run's
             # advisory lock; checkpoint reads and the attempt journal use MVCC.
             lock = conn.execute(
@@ -519,7 +522,7 @@ class RunStore:
             unfinished = command is not None
             return self._snapshot(
                 conn,
-                self._manifest(conn, run_id),
+                manifest,
                 interrupted=unfinished,
                 # Other readers briefly own this lock too. Only an unfinished
                 # command indicates that a worker may still be executing.

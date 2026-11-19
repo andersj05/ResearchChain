@@ -51,7 +51,7 @@ test("open macro input sources and keep stale bindings editable on a phone", asy
   await source("Choose the question and horizon", "Reviewer feedback").click();
   await expect(stepName).toHaveValue("Choose the question and horizon");
 
-  const openCondition = outline.getByRole("button", { name: /Test evidence threshold/ });
+  const openCondition = outline.getByRole("button", { name: /^Test evidence threshold/ });
   const condition = page.getByRole("combobox", { name: "Condition value source", exact: true });
   await openCondition.click();
   await expect(condition).toHaveValue(`${code.selected}:number`);
@@ -109,7 +109,7 @@ test("open a loop stop source through its owning instance and pinned body", asyn
 
   await page
     .locator(".node-outline")
-    .getByRole("button", { name: /Second review loop/ })
+    .getByRole("button", { name: /^Second review loop/ })
     .click();
   const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
   const stop = page.getByRole("combobox", { name: "Stop condition value source", exact: true });

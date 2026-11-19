@@ -45,6 +45,8 @@ import {
   chartSignalWorkflow,
   chartSignalBrief,
   discretionaryMacroBrief,
+  equityCatsWorkflow,
+  equityCatsBrief,
   exampleWorkflow,
   admissionTimeout,
   type CommandReceipt,
@@ -375,6 +377,7 @@ export function Workbench() {
       ideas: ideaGenerationWorkflow,
       macro: discretionaryMacroWorkflow,
       chart: chartSignalWorkflow,
+      equitycats: equityCatsWorkflow,
     };
     const document = { ...structuredClone(starters[starter]), name };
     const created = await api<AgentDetail>("agents", { id, workflow: document });
@@ -391,6 +394,9 @@ export function Workbench() {
       setMessage(
         `Agent “${name}” created. Open Run workflow to attach your chart and describe your idea.`,
       );
+    } else if (starter === "equitycats") {
+      setBrief(equityCatsBrief);
+      setMessage(`Agent “${name}” created. Open Run workflow to define the cross-asset test.`);
     } else setMessage(`Agent “${name}” created. Add your steps and save a version.`);
   }
   async function loadLatestAgent() {

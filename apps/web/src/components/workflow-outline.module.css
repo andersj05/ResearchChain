@@ -1,0 +1,74 @@
+.row {
+  position: relative;
+  padding-left: 18px;
+}
+
+.toggle {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  min-height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.toggle:hover {
+  color: var(--ink);
+  background: var(--soft);
+}
+
+.children {
+  margin: 2px 0 6px 9px;
+  padding-left: 6px;
+  border-left: 1px solid var(--line);
+}
+
+.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.caption,
+.loop,
+.issue {
+  padding: 4px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.caption {
+  font-weight: 500;
+}
+
+.loop {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.loop button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.issue {
+  margin-left: 18px;
+  color: var(--amber);
+}
+
+.other {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--line);
+}

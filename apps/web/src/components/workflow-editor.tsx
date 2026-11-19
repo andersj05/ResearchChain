@@ -14,6 +14,7 @@ import { ReviewHandoff } from "@/components/review-handoff";
 import { StepBranchPaths } from "@/components/step-branch-paths";
 import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
+import { WorkflowOutline } from "@/components/workflow-outline";
 import { WorkflowReviewPlan } from "@/components/workflow-review-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import { WorkflowStepText } from "@/components/workflow-step-text";
@@ -438,32 +439,17 @@ export function WorkflowEditor({
                 </div>
               }
             >
-              <div className="outline-heading">
-                <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
-                <span className="muted">{graph.edges.length} control connections</span>
-              </div>
-              <ol className="node-outline">
-                {graph.nodes.map((item) => (
-                  <li key={item.id}>
-                    <Button
-                      className="outline-row"
-                      aria-pressed={selectedId === item.id}
-                      onClick={() => {
-                        selectNode(item.id);
-                        document
-                          .getElementById(`workflow-node-${item.id}`)
-                          ?.focus({ preventScroll: true });
-                      }}
-                    >
-                      <span className="outline-label">{item.label}</span>
-                      <span className={`outline-kind kind-${item.kind}`}>
-                        {nodePresentation(item).shortLabel}
-                      </span>
-                      {graph.start_node === item.id && <small>Start</small>}
-                    </Button>
-                  </li>
-                ))}
-              </ol>
+              <WorkflowOutline
+                workflow={workflow}
+                graph={graph}
+                path={validPath}
+                selected={selectedId}
+                onSelect={(id) => {
+                  selectNode(id);
+                  document.getElementById(`workflow-node-${id}`)?.focus({ preventScroll: true });
+                }}
+                onOpen={openStep}
+              />
             </WorkflowStepSearch>
             <details className="workflow-settings">
               <summary>{scope ? "Subgraph settings" : "Workflow settings"}</summary>

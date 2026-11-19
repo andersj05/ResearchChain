@@ -135,6 +135,7 @@
 .run-step-panel button.text-link,
 .decision-feedback-inputs .text-link,
 .run-files button.text-link,
+.run-outputs button.text-link,
 .run-graph-path button.text-link {
   border: 0;
   padding: 0;
@@ -147,6 +148,7 @@
 .run-step-panel button.text-link:hover,
 .decision-feedback-inputs .text-link:hover,
 .run-files button.text-link:hover,
+.run-outputs button.text-link:hover,
 .run-graph-path button.text-link:hover {
   text-decoration: underline;
 }
@@ -302,11 +304,51 @@
   font-weight: 600;
 }
 .run-model-activity label,
-.run-files label {
+.run-files label,
+.run-output-filters label {
   display: grid;
   gap: 4px;
   max-width: 320px;
   font-size: 12px;
+}
+.run-output-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 12px;
+}
+.run-output-filters label:first-child {
+  flex: 1 1 230px;
+}
+.run-output-list {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+.run-output-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 4px;
+  padding-block: 12px;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.run-output-list button.text-link {
+  display: inline-flex;
+  justify-self: start;
+  align-items: baseline;
+  gap: 6px;
+  font-weight: 600;
+}
+.run-output-list button svg {
+  flex: none;
+  align-self: center;
+}
+.run-output-list small {
+  color: var(--muted);
+}
+.run-output-list p {
+  margin: 0;
 }
 .run-files ul {
   margin: 12px 0 0;

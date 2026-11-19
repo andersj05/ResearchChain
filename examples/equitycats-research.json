@@ -1,0 +1,204 @@
+{
+  "schema_version": "0.3",
+  "name": "EquityCats cross-asset research",
+  "start_node": "evidence_loop",
+  "nodes": [
+    {
+      "id": "evidence_loop",
+      "kind": "loop",
+      "label": "Test the view against the evidence",
+      "instructions": "Try a dated baseline, a rival-friendly comparison, then the decisive observation. Open each pass to see what held up and what is missing. A case with a reviewable evidence trail goes to the owner.",
+      "position": { "x": 60, "y": 140 },
+      "config": {
+        "type": "loop",
+        "ref": { "id": "cross_asset_evidence", "version": 1 },
+        "max_iterations": 3,
+        "until": {
+          "left": { "source": "output", "node_id": "gate", "port": "number" },
+          "operator": "equals",
+          "value": 1
+        }
+      }
+    },
+    {
+      "id": "finish",
+      "kind": "finish",
+      "label": "Research complete",
+      "position": { "x": 390, "y": 140 }
+    }
+  ],
+  "edges": [{ "source": "evidence_loop", "target": "finish" }],
+  "subgraphs": [
+    {
+      "id": "cross_asset_evidence",
+      "version": 1,
+      "name": "Cross-asset evidence and judgment",
+      "start_node": "method",
+      "nodes": [
+        {
+          "id": "method",
+          "kind": "code",
+          "label": "Choose this pass’s test",
+          "instructions": "Give each pass a different job while holding the brief and as-of date fixed.",
+          "position": { "x": 60, "y": 180 },
+          "config": {
+            "type": "code",
+            "language": "javascript",
+            "runtime": "quickjs-ng-0.18.0.1",
+            "source": "const tests = [\n  'Dated baseline: reconcile the cross-asset moves against the information and expectations observable at the cutoff.',\n  'Rival-friendly comparison: use a matched window, instrument or benchmark where the competing mechanism makes a different prediction.',\n  'Decisive observation: seek direct evidence that separates the two mechanisms and test sensitivity to a confounder.'\n];\nconst index = Math.max(0, Math.min(inputs.iteration, tests.length) - 1);\nreturn { text: `Pass ${inputs.iteration}. ${tests[index]}`, number: inputs.iteration };"
+          }
+        },
+        {
+          "id": "pricing",
+          "kind": "research",
+          "label": "Reconstruct the priced baseline",
+          "instructions": "Use the owner's brief and this pass's test. Frame one cross-asset tension as a testable claim, with a cutoff, event window, market and horizon. Find the original observations for the instruments that matter. Give instrument and tenor, timestamp and time zone, units, benchmark and provenance. Separate traded levels, estimates of what is priced, external forecasts and your own inference. Show why the lead and rival mechanisms imply different observations. Use an aligned comparison, name any confounder and record missing data. Do not import conclusions from a published EquityCats report. In conclusion, retain the pass's test, the sourcing and the discriminating observation for the next analyst.",
+          "position": { "x": 390, "y": 180 },
+          "config": {
+            "type": "research",
+            "stage": "custom",
+            "prompt_version": "custom-1",
+            "web_search": "auto",
+            "analyst": {
+              "max_passes": 2,
+              "skill": "Use one follow-up when a specific missing original observation could change the comparison. Keep the cutoff fixed. Stop with the findings and gap when the source is unavailable."
+            }
+          },
+          "inputs": { "context": { "source": "output", "node_id": "method", "port": "text" } }
+        },
+        {
+          "id": "challenge",
+          "kind": "research",
+          "label": "Test the strongest competing explanation",
+          "instructions": "Act as a second analyst. Retain the same as-of date, horizon and exact comparison. Identify the observation a skeptical reader would verify first and try to reproduce it from an independent primary source or pinned data. Test the strongest genuinely different mechanism, such as shared duration exposure, positioning, currency translation, release timing or thin liquidity when relevant. State what would favor each story and whether an alternative window or benchmark changes the ranking. Distinguish two reports using the same data from independent measurements. Keep a compact comparison of both views, dated sources, the narrowest defensible view and the remaining evidence gaps in conclusion.",
+          "position": { "x": 720, "y": 180 },
+          "config": {
+            "type": "research",
+            "stage": "custom",
+            "prompt_version": "custom-1",
+            "web_search": "auto"
+          },
+          "inputs": { "context": { "source": "output", "node_id": "pricing", "port": "text" } }
+        },
+        {
+          "id": "audit",
+          "kind": "research",
+          "label": "Audit the case and the evidence",
+          "instructions": "Review the competing explanations and verify the decisive evidence in this step against a supplied captured source or a primary page actually returned by search. If using pinned evidence, attach at least one valid substantive hypothesis citation. If using a web source, cite the returned source in conclusion. Check release and observation timestamps against the owner's cutoff. Give the date, horizon, what appears priced, the best view and rival, why they differ, the measured comparison with units or a precise reason it could not be measured, and a measurable invalidation condition. A carefully bounded wait-for-evidence view can qualify if the claimed facts and limitation can be substantiated. Set revision_summary to exactly ready only if a named, verifiable observation can support the proposed judgment and no evidence gap blocks review. Otherwise set revision_summary to exactly needs_more and put the specific blocking gaps in evidence_requests and unresolved_questions. Keep nonblocking uncertainties in limitations. Never hide a gap or promote an unverified number to pass the check.",
+          "position": { "x": 1050, "y": 180 },
+          "config": {
+            "type": "research",
+            "stage": "custom",
+            "prompt_version": "custom-1",
+            "web_search": "auto"
+          },
+          "inputs": { "context": { "source": "output", "node_id": "challenge", "port": "text" } }
+        },
+        {
+          "id": "gate",
+          "kind": "code",
+          "label": "Check readiness for owner review",
+          "instructions": "Require an explicit readiness verdict, no blocking gap and a recorded source. This checks the audit’s handoff, while the owner judges its substance.",
+          "position": { "x": 1380, "y": 180 },
+          "config": {
+            "type": "code",
+            "language": "javascript",
+            "runtime": "quickjs-ng-0.18.0.1",
+            "source": "const audit = JSON.parse(inputs.text);\nconst substantive = citation => citation.basis !== 'metadata_only' && citation.relation !== 'context';\nconst capturedCitation = audit.hypotheses.some(hypothesis => hypothesis.citations.some(substantive));\nconst recordedWebCitation = audit.web_research?.sources.some(source => source.cited) ?? false;\nconst blockers = audit.evidence_requests.length + audit.unresolved_questions.length;\nconst reasons = [];\nif (audit.revision_summary !== 'ready') reasons.push('the auditor asked for more evidence');\nif (blockers) reasons.push(`${blockers} blocking entries remain`);\nif (!capturedCitation && !recordedWebCitation) reasons.push('no substantive captured citation or provider-recorded web citation');\nreturn reasons.length\n  ? { text: `Pass ${inputs.iteration} needs another test because ${reasons.join(', ')}.`, number: 0 }\n  : { text: `Pass ${inputs.iteration} is ready for owner review.`, number: 1 };"
+          },
+          "inputs": { "text": { "source": "output", "node_id": "audit", "port": "text" } }
+        },
+        {
+          "id": "ready_route",
+          "kind": "route",
+          "label": "Present the case or test again",
+          "position": { "x": 1710, "y": 180 },
+          "config": {
+            "type": "route",
+            "condition": {
+              "left": { "source": "output", "node_id": "gate", "port": "number" },
+              "operator": "equals",
+              "value": 1
+            },
+            "join": "join"
+          }
+        },
+        {
+          "id": "proposal",
+          "kind": "research",
+          "label": "Propose a view for judgment",
+          "instructions": "Prepare a short decision brief from the audited case. Lead with a defensible directional or wait view, as-of date and horizon. Explain the market's priced baseline, the evidence and units, the lead mechanism, the strongest dissent, and the observation that would overturn the view. State how choosing the rival or waiting would change the next research action. Preserve provenance and uncertainty. Only name figures, dates, and source references carried through the audit, and identify the consequential choice in one sentence.",
+          "position": { "x": 2040, "y": 70 },
+          "config": { "type": "research", "stage": "custom", "prompt_version": "custom-1" },
+          "inputs": { "context": { "source": "output", "node_id": "audit", "port": "text" } }
+        },
+        {
+          "id": "owner_verdict",
+          "kind": "review",
+          "label": "Decide which view to defend",
+          "instructions": "Which view would you defend at this horizon, and what observation would change your mind? Check the priced baseline and strongest dissent. Approve to turn your attributed judgment into a memo. Reject if a different research question or missing evidence warrants another experiment.",
+          "position": { "x": 2370, "y": 70 }
+        },
+        {
+          "id": "memo",
+          "kind": "research",
+          "label": "Write the research memo",
+          "instructions": "Write the report draft in conclusion. Start with the view, date, horizon, and what the market may have wrong. Connect the causal mechanism to the strongest dated comparisons and the plausible rival. Attribute the owner's feedback, distinguish it from measured evidence and keep any material disagreement visible. If the owner chooses to wait, give the concrete observation that would reopen the case. Preserve source names, dates, units and limitations. Finish with a catalyst, an invalidation condition and a monitoring question. Use short concrete sentences and make no claim of publication or instruction to trade.",
+          "position": { "x": 2700, "y": 70 },
+          "config": { "type": "research", "stage": "custom", "prompt_version": "custom-1" },
+          "inputs": {
+            "context": { "source": "output", "node_id": "proposal", "port": "text" },
+            "feedback": { "source": "output", "node_id": "owner_verdict", "port": "feedback" }
+          }
+        },
+        {
+          "id": "retry_reason",
+          "kind": "note",
+          "label": "Record why this pass falls short",
+          "position": { "x": 2210, "y": 305 },
+          "inputs": { "text": { "source": "output", "node_id": "gate", "port": "text" } }
+        },
+        {
+          "id": "join",
+          "kind": "join",
+          "label": "Rejoin the evidence pass",
+          "position": { "x": 3030, "y": 180 }
+        },
+        {
+          "id": "done",
+          "kind": "finish",
+          "label": "End this pass",
+          "position": { "x": 3360, "y": 180 }
+        }
+      ],
+      "edges": [
+        { "source": "method", "target": "pricing" },
+        { "source": "pricing", "target": "challenge" },
+        { "source": "challenge", "target": "audit" },
+        { "source": "audit", "target": "gate" },
+        { "source": "gate", "target": "ready_route" },
+        { "source": "ready_route", "target": "proposal", "source_port": "true" },
+        { "source": "ready_route", "target": "retry_reason", "source_port": "false" },
+        { "source": "proposal", "target": "owner_verdict" },
+        { "source": "owner_verdict", "target": "memo" },
+        { "source": "memo", "target": "join" },
+        { "source": "retry_reason", "target": "join" },
+        { "source": "join", "target": "done" }
+      ]
+    }
+  ],
+  "research": {
+    "provider": "chatgpt_plan",
+    "model": "gpt-6.1-sol",
+    "billing": "included_plan",
+    "limits": {
+      "max_model_calls": 14,
+      "max_tool_calls": 14,
+      "max_input_bytes": 8000000,
+      "max_output_characters": 100000,
+      "max_response_seconds": 300,
+      "max_total_tokens": 1000000
+    }
+  },
+  "budgets": { "max_node_executions": 45, "max_active_seconds": 3600, "max_concurrency": 1 }
+}
