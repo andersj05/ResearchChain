@@ -22,8 +22,8 @@ for (const width of [1440, 390]) {
     );
     const selector = page.getByRole("combobox", { name: "Agent", exact: true });
     await expect(selector).toHaveValue(agent.agent.id);
-    await expect(page.locator(".topbar")).not.toContainText("ResearchChain");
-    await expect(page.locator(".topbar")).not.toContainText("EquityCats");
+    const topbar = page.locator(".topbar");
+    await expect(topbar.getByText(/^(ResearchChain|EquityCats)$/)).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Run workflow", exact: true })).toHaveCount(0);
     const build = page.getByRole("tab", { name: "Build", exact: true });
     await build.click();

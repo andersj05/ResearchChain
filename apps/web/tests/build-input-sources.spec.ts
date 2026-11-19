@@ -56,7 +56,10 @@ async function openBuild(page: Page, request: APIRequestContext, workflow: Workf
 }
 
 function selectStep(page: Page, name: string) {
-  return page.locator(".node-outline").getByRole("button", { name }).click();
+  return page
+    .locator(".node-outline .outline-row")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .click();
 }
 
 function outputGroup(select: Locator, label: string) {
