@@ -1,4 +1,9 @@
-import type { Graph, Workflow, WorkflowNode } from "../src/lib/workflow";
+import {
+  researchDefaults,
+  type Graph,
+  type Workflow,
+  type WorkflowNode,
+} from "../src/lib/workflow";
 import { expect, test, type APIRequestContext, type Locator, type Page } from "./fixtures";
 
 function step(id: string, kind: WorkflowNode["kind"], label: string, x: number): WorkflowNode {
@@ -157,4 +162,140 @@ test("group loop stop sources by the referenced body's completion", async ({ pag
     "Collect dissent · text",
   ]);
   await expect(input.locator('option[value="parent_note:text"]')).toHaveCount(0);
+});
+
+function iterationInputsWorkflow(shared = false): Workflow {
+  const body = branches("route");
+  const ref = { id: "scenario_body", version: 1 };
+  const receiver: WorkflowNode = {
+    ...step("receiver", "code", "Choose the next test", 60),
+    config: {
+      type: "code",
+      language: "javascript",
+      runtime: "quickjs-ng-0.18.0.1",
+      source: "return { text: inputs.text, number: inputs.number + 1 };",
+      timeout_seconds: 1,
+    },
+  };
+  const model: WorkflowNode = {
+    ...step("model", "research", "Investigate the next test", 350),
+    config: {
+      type: "research",
+      stage: "custom",
+      prompt_version: "custom-1",
+      web_search: false,
+      sec_financials: false,
+    },
+  };
+  return {
+    schema_version: "0.3",
+    name: "Research with iteration inputs",
+    start_node: "loop",
+    research: researchDefaults,
+    nodes: [
+      {
+        ...step("loop", "loop", "Repeat the research", 60),
+        config: { type: "loop", ref, max_iterations: 3 },
+      },
+      ...(shared
+        ? [
+            {
+              ...step("caller", "subgraph", "Run this definition once", 350),
+              config: { type: "subgraph" as const, ref },
+            },
+          ]
+        : []),
+      step("finish", "finish", "Finish", 650),
+    ],
+    edges: shared ? [link("loop", "caller"), link("caller", "finish")] : [link("loop", "finish")],
+    subgraphs: [
+      {
+        ...body,
+        ...ref,
+        start_node: receiver.id,
+        nodes: [receiver, model, ...body.nodes, step("review", "review", "Owner review", 2160)],
+        edges: [
+          link(receiver.id, model.id),
+          link(model.id, body.start_node),
+          ...body.edges.map((edge) =>
+            edge.target === "finish" ? { ...edge, target: "review" } : edge,
+          ),
+          link("review", "finish"),
+        ],
+      },
+    ],
+  };
+}
+
+test("wire an exact previous-iteration output to a loop body input", async ({ page, request }) => {
+  await openBuild(page, request, iterationInputsWorkflow());
+  await selectStep(page, "Repeat the research");
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  const text = page.getByRole("combobox", { name: "Code text input", exact: true });
+  const number = page.getByRole("combobox", { name: "Code number input", exact: true });
+  const previousText = outputGroup(text, "Previous iteration outputs");
+  await expect(previousText).toContainText(["Synthesize findings · text · previous iteration"]);
+  await expect(previousText.filter({ hasText: "Collect support" })).toHaveCount(0);
+  await expect(outputGroup(number, "Previous iteration outputs")).toHaveText([
+    "Choose the next test · number · previous iteration",
+  ]);
+  await text.selectOption("previous_iteration:synthesis:text");
+  await number.selectOption("previous_iteration:receiver:number");
+  await expect(text).toHaveAccessibleDescription("Iteration 1 uses empty text.");
+  await expect(number).toHaveAccessibleDescription("Iteration 1 uses 0.");
+
+  await page
+    .getByRole("button", { name: "Open source Synthesize findings for Code text input" })
+    .click();
+  await expect(page.getByRole("textbox", { name: "Step name", exact: true })).toHaveValue(
+    "Synthesize findings",
+  );
+  await page.getByText("Output bindings", { exact: true }).click();
+  await page
+    .getByRole("button", {
+      name: "text → Choose the next test · text · next iteration",
+      exact: true,
+    })
+    .click();
+  await expect(text).toBeFocused();
+  await expect(text).toHaveValue("previous_iteration:synthesis:text");
+
+  await selectStep(page, "Investigate the next test");
+  const feedback = page.getByRole("combobox", { name: "Reviewer feedback", exact: true });
+  await expect(outputGroup(feedback, "Previous iteration outputs")).toHaveText([
+    "Owner review · feedback · previous iteration",
+  ]);
+  await feedback.selectOption("previous_iteration:review:feedback");
+  await expect(feedback).toHaveAccessibleDescription("Iteration 1 uses empty text.");
+  const behavior = page.getByRole("combobox", { name: "Step behavior", exact: true });
+  const context = page.getByRole("combobox", { name: "Context input", exact: true });
+  await expect(outputGroup(context, "Previous iteration outputs").first()).toBeAttached();
+  await behavior.selectOption("challenge");
+  await expect(outputGroup(context, "Previous iteration outputs")).toHaveCount(0);
+  await behavior.selectOption("custom");
+
+  await page.getByRole("button", { name: "Draft changes", exact: true }).click();
+  const changes = page.getByRole("dialog", { name: "Draft changes", exact: true });
+  await expect(
+    changes.getByText("Previous iteration · Synthesize findings (synthesis) · text", {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await changes.getByRole("button", { name: "Close draft changes", exact: true }).click();
+  await page.getByRole("button", { name: "Validate workflow", exact: true }).click();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toHaveText(
+    "Workflow valid. Ready to run.",
+  );
+});
+
+test("omit previous iteration options from a body shared with a subgraph caller", async ({
+  page,
+  request,
+}) => {
+  await openBuild(page, request, iterationInputsWorkflow(true));
+  await selectStep(page, "Repeat the research");
+  await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
+  const input = page.getByRole("combobox", { name: "Code text input", exact: true });
+  await expect(outputGroup(input, "Previous iteration outputs")).toHaveCount(0);
+  await expect(outputGroup(input, "Outputs that need different wiring").first()).toBeAttached();
 });

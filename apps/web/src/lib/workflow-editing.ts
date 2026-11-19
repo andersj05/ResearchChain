@@ -220,16 +220,16 @@ export function compatiblePorts(a?: Port, b?: Port): boolean {
   return !!a && !!b && a.node !== b.node && a.direction !== b.direction && a.type === b.type;
 }
 
-function outputReference(value: ValueSource) {
-  if (value.source === "output" && value.node_id && value.port) {
+function outputReference(value: ValueSource, timing: "output" | "previous_iteration" = "output") {
+  if (value.source === timing && value.node_id && value.port) {
     return { sourceId: value.node_id, output: value.port };
   }
 }
 
-export function outputBindings(graph: Graph) {
+export function outputBindings(graph: Graph, timing: "output" | "previous_iteration" = "output") {
   return graph.nodes.flatMap((target) =>
     Object.entries(target.inputs ?? {}).flatMap(([input, value]) => {
-      const reference = outputReference(value);
+      const reference = outputReference(value, timing);
       return reference ? [{ target, input, ...reference }] : [];
     }),
   );
@@ -749,7 +749,7 @@ export function removeStep<G extends Graph>(graph: G, id: string): G {
         ...item,
         inputs: Object.fromEntries(
           Object.entries(item.inputs ?? {}).filter(
-            ([, source]) => source.source !== "output" || !removed.has(source.node_id ?? ""),
+            ([, source]) => !removed.has(source.node_id ?? ""),
           ),
         ),
       })),

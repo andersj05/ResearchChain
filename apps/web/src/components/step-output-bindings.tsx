@@ -21,6 +21,7 @@ export function StepOutputBindings({
   const usesOutput = ({ sourceId, output }: { sourceId: string; output: string }) =>
     sourceId === step.id && outputs.has(output);
   const bindings = outputBindings(graph).filter(usesOutput);
+  const carried = outputBindings(graph, "previous_iteration").filter(usesOutput);
   const conditions = conditionBindings(graph).filter(usesOutput);
 
   return (
@@ -62,7 +63,22 @@ export function StepOutputBindings({
           ))}
         </ul>
       )}
-      {!bindings.length && !conditions.length && (
+      {carried.length > 0 && (
+        <ul className="output-binding-list" aria-label="Inputs in the next iteration">
+          {carried.map(({ target, input, output }) => (
+            <li key={`${target.id}/${input}`}>
+              <button
+                className="button small"
+                type="button"
+                onClick={() => onOpenField(target.id, input)}
+              >
+                {output} → {target.label} · {input} · next iteration
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!bindings.length && !conditions.length && !carried.length && (
         <p className="field-hint">No step inputs or conditions in this graph use these outputs.</p>
       )}
     </details>
