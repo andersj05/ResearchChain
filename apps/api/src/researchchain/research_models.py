@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, StringConstraints, model_validator
 
 from researchchain.graph import ResearchSettings, ResearchStage, StrictModel
 from researchchain.sec_financials import SecFinancials, SecLookup
@@ -116,6 +116,29 @@ class WorkspaceActivity(StrictModel):
     files: list[WorkspaceFile] = Field(default_factory=list)
 
 
+OwnerQuestion = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)
+]
+
+
+class TeamAssignment(ResearchModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    objective: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
+    ]
+
+
+class TeamPlan(ResearchModel):
+    assignments: list[TeamAssignment] = Field(min_length=1, max_length=4)
+    review_question: OwnerQuestion | None = None
+
+    @model_validator(mode="after")
+    def distinct_assignments(self) -> Self:
+        if len({a.title.casefold() for a in self.assignments}) != len(self.assignments):
+            raise ValueError("Each research assignment needs its own title.")
+        return self
+
+
 class StoredResearchResult(ResearchResult):
     """Metadata added by the server; never part of the model output schema."""
 
@@ -128,6 +151,8 @@ class StoredResearchResult(ResearchResult):
         default=None, exclude_if=lambda x: x is None
     )
     workspace_files: list[WorkspaceFile] = Field(default_factory=list, exclude_if=lambda x: not x)
+    team_plan: TeamPlan | None = Field(default=None, exclude_if=lambda x: x is None)
+    review_question: OwnerQuestion | None = Field(default=None, exclude_if=lambda x: x is None)
 
 
 class EvidenceSnapshot(StrictModel):

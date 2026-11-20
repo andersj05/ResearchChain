@@ -77,7 +77,7 @@ test("typed canvas ports match the server registry and reject cross-type wiring"
   expect(response.ok()).toBe(true);
   const registry: NodeTypeSpec[] = await response.json();
   for (const spec of registry) {
-    const node = {
+    const node: Workflow["nodes"][number] = {
       ...initialWorkflow.nodes[0]!,
       kind: spec.kind,
       config:
@@ -95,6 +95,18 @@ test("typed canvas ports match the server registry and reject cross-type wiring"
               }
             : null,
     };
+    if (spec.kind === "research") {
+      expect(portsFor(node).map((port) => port.name)).not.toContain("review_question");
+      node.config = {
+        type: "research",
+        stage: "custom",
+        prompt_version: "custom-1",
+        web_search: false,
+        sec_financials: false,
+        analyst: { workspace: true, max_passes: 4, skill: "" },
+        team: { max_agents: 2 },
+      };
+    }
     const ports = portsFor(node);
     for (const direction of ["input", "output"] as const) {
       const expected = (direction === "input" ? spec.inputs : spec.outputs).flatMap((port) =>
@@ -115,6 +127,14 @@ test("typed canvas ports match the server registry and reject cross-type wiring"
   const workflow: Workflow = { ...structuredClone(initialWorkflow), schema_version: "0.2" };
   const from = portsFor(workflow.nodes[0]!);
   const to = portsFor(workflow.nodes[1]!);
+  const review = portsFor({ ...workflow.nodes[1]!, kind: "review", config: null });
+  expect(
+    connectPorts(
+      workflow,
+      from.find((p) => p.name === "text" && p.direction === "output")!,
+      review.find((p) => p.name === "question")!,
+    ),
+  ).toBe(workflow);
   expect(
     connectPorts(
       workflow,

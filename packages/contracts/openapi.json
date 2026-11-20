@@ -2555,6 +2555,169 @@
         }
       }
     },
+    "/api/research-sessions": {
+      "post": {
+        "summary": "Start Research Session",
+        "operationId": "start_research_session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchSessionStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Research Sessions",
+        "operationId": "list_research_sessions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecentRunSummary"
+                  },
+                  "title": "Response List Research Sessions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/research-sessions/{run_id}/setup": {
+      "get": {
+        "summary": "Get Research Session Setup",
+        "operationId": "get_research_session_setup",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSessionSetup"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/research-sessions/{run_id}/report.zip": {
+      "get": {
+        "summary": "Download Session Report",
+        "operationId": "export_research_session_report",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/search": {
       "get": {
         "summary": "Search Runs",
@@ -7435,6 +7598,19 @@
             "title": "Prompt Version",
             "default": "research-1"
           },
+          "style_excerpt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32000,
+                "pattern": "^[^\\x00]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Excerpt"
+          },
           "model": {
             "anyOf": [
               {
@@ -7469,6 +7645,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/AnalystConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchTeamConfig"
               },
               {
                 "type": "null"
@@ -7614,6 +7800,176 @@
         ],
         "title": "ResearchManifest"
       },
+      "ResearchSessionSetup": {
+        "properties": {
+          "brief": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]*$",
+            "title": "Brief"
+          },
+          "style_excerpt": {
+            "type": "string",
+            "maxLength": 32000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Style Excerpt",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
+            "title": "Model"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Evidence Ids"
+          },
+          "max_agents": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Agents",
+            "default": 3
+          },
+          "max_passes": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Max Passes",
+            "default": 6
+          },
+          "max_active_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Max Active Seconds",
+            "default": 1800
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false
+          },
+          "review_mode": {
+            "type": "string",
+            "enum": ["when_needed", "always", "never"],
+            "title": "Review Mode",
+            "default": "when_needed"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["brief", "model"],
+        "title": "ResearchSessionSetup"
+      },
+      "ResearchSessionStart": {
+        "properties": {
+          "brief": {
+            "type": "string",
+            "maxLength": 10000,
+            "minLength": 1,
+            "pattern": "^[^\\x00]*$",
+            "title": "Brief"
+          },
+          "style_excerpt": {
+            "type": "string",
+            "maxLength": 32000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Style Excerpt",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
+            "title": "Model"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Evidence Ids"
+          },
+          "max_agents": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Agents",
+            "default": 3
+          },
+          "max_passes": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Max Passes",
+            "default": 6
+          },
+          "max_active_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Max Active Seconds",
+            "default": 1800
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false
+          },
+          "review_mode": {
+            "type": "string",
+            "enum": ["when_needed", "always", "never"],
+            "title": "Review Mode",
+            "default": "when_needed"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "provider_account_id": {
+            "type": "string",
+            "pattern": "^oaiapp_[a-zA-Z0-9_-]{1,180}$",
+            "title": "Provider Account Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["brief", "model", "id", "provider_account_id"],
+        "title": "ResearchSessionStart"
+      },
       "ResearchSettings": {
         "properties": {
           "provider": {
@@ -7641,6 +7997,20 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ResearchSettings"
+      },
+      "ResearchTeamConfig": {
+        "properties": {
+          "max_agents": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Agents"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["max_agents"],
+        "title": "ResearchTeamConfig"
       },
       "ResumeRequest": {
         "properties": {
@@ -8942,6 +9312,29 @@
             },
             "type": "array",
             "title": "Workspace Files"
+          },
+          "team_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "review_question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Question"
           }
         },
         "additionalProperties": false,
@@ -9252,6 +9645,56 @@
         "type": "object",
         "required": ["id", "version"],
         "title": "SubgraphRef"
+      },
+      "TeamAssignment": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Objective"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["title", "objective"],
+        "title": "TeamAssignment"
+      },
+      "TeamPlan": {
+        "properties": {
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAssignment"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Assignments"
+          },
+          "review_question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["assignments"],
+        "title": "TeamPlan"
       },
       "UsageOperations": {
         "properties": {

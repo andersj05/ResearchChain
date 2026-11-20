@@ -1,8 +1,9 @@
 """Compile bounded structured documents to checkpointable LangGraph execution."""
 
+import json
 import operator
 from collections.abc import Callable
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Protocol, TypedDict
 
 from langchain_core.runnables import RunnableLambda
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -17,6 +18,7 @@ from researchchain.graph import (
     GraphDefinition,
     LoopConfig,
     Predicate,
+    ResearchConfig,
     RouteConfig,
     SubgraphConfig,
     ValueSource,
@@ -47,7 +49,17 @@ class StructuredState(TypedDict):
 
 
 Guard = Callable[[str, bool], None]
-ResearchStep = Callable[[WorkflowNode, str, str, str], str]
+
+
+class ResearchStep(Protocol):
+    def __call__(
+        self,
+        node: WorkflowNode,
+        path: str,
+        context: str,
+        feedback: str,
+        team_source: str | None = None,
+    ) -> str: ...
 
 
 def read_value(
@@ -108,6 +120,7 @@ def node_function(
     iteration: int,
     guard: Guard,
     research: ResearchStep | None = None,
+    team_source: str | None = None,
 ) -> Callable[[StructuredState], dict[str, Any]]:
     def execute(state: StructuredState) -> dict[str, Any]:
         if state.get("rejected"):
@@ -117,19 +130,23 @@ def node_function(
         rejected = False
         code: CodeExecution | None = None
         if node.kind == "review":
-            decision = interrupt(
-                {
-                    "node_id": node.id,
-                    "path": path,
-                    "question": node.instructions or "Continue this workflow?",
-                }
+            bound_question = node.inputs.get("question")
+            question = (
+                read_value(bound_question, state, prefix, iteration) or node.instructions
+                if bound_question
+                else node.instructions or "Continue this workflow?"
             )
-            if isinstance(decision, dict):
-                outputs["feedback"] = decision.get("feedback", "")
-                decision = decision["decision"]
-            rejected = decision == "reject"
-            outputs["decision"] = decision
-            detail = "Rejected by reviewer" if rejected else "Approved by reviewer"
+            if question:
+                decision = interrupt({"node_id": node.id, "path": path, "question": question})
+                if isinstance(decision, dict):
+                    outputs["feedback"] = decision.get("feedback", "")
+                    decision = decision["decision"]
+                rejected = decision == "reject"
+                outputs["decision"] = decision
+                detail = "Rejected by reviewer" if rejected else "Approved by reviewer"
+            else:
+                outputs.update(decision="skipped", feedback="")
+                detail = "The team did not request an owner decision."
         elif node.kind == "research":
             if research is None:
                 raise ExecutionStopped("A research executor is required for this run.", "failed")
@@ -143,8 +160,16 @@ def node_function(
                 if "feedback" in node.inputs
                 else ""
             )
-            outputs["text"] = research(node, path, context, feedback)
+            outputs["text"] = (
+                research(node, path, context, feedback, team_source)
+                if team_source is not None
+                else research(node, path, context, feedback)
+            )
             detail = "Validated research result saved for review."
+            if isinstance(node.config, ResearchConfig) and node.config.team:
+                handoff = json.loads(outputs["text"])
+                outputs["review_question"] = handoff["review_question"] or ""
+                detail = f"Collected {len(handoff['agents'])} researcher workspaces."
         elif node.kind == "code":
             assert isinstance(node.config, CodeConfig)
             inputs = CodeInputs(
@@ -271,12 +296,27 @@ class StructuredCompiler:
             if isinstance(node.config, (RouteConfig, ForkConfig))
         }
         finish = ""
+        teams = {
+            node.id
+            for node in graph.nodes
+            if isinstance(node.config, ResearchConfig) and node.config.team
+        }
         for node in graph.nodes:
             path = entries[node.id]
+            binding = node.inputs.get("context")
+            team_source = None
+            if binding and binding.node_id in teams and binding.port == "text":
+                if binding.source == "output":
+                    team_source = f"{prefix}/{binding.node_id}"
+                elif binding.source == "previous_iteration" and iteration > 1:
+                    parent, _, _ = prefix.rpartition("/")
+                    team_source = f"{parent}/iteration-{iteration - 1}/{binding.node_id}"
             self.builder.add_node(
                 path,
                 RunnableLambda(
-                    node_function(node, path, prefix, iteration, self.guard, self.research)
+                    node_function(
+                        node, path, prefix, iteration, self.guard, self.research, team_source
+                    )
                 ),
             )
             if node.kind == "finish":

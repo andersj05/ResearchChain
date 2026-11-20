@@ -1,6 +1,8 @@
 """Resolve Python inputs from pinned evidence and this run's confirmed research receipts."""
 
 import base64
+import re
+from pathlib import PurePosixPath
 from uuid import UUID
 
 from psycopg import Connection
@@ -9,7 +11,7 @@ from psycopg.types.json import Jsonb
 
 from researchchain.analyst_workspace import MAX_FILES, MAX_INPUT_BYTES, MAX_INPUT_FILE_BYTES
 from researchchain.artifacts import put_artifact, read_content
-from researchchain.research_models import StoredResearchResult, WorkspaceFile
+from researchchain.research_models import StoredResearchResult, TeamPlan, WorkspaceFile
 from researchchain.research_prompt import PreparedResearch, json_bytes
 
 
@@ -37,8 +39,125 @@ def generated_files(
     return files
 
 
-def staged_files(prepared: PreparedResearch, generated: dict[str, WorkspaceFile]) -> dict[str, str]:
+def _recorded_team(
+    conn: Connection[DictRow], run_id: UUID, path: str
+) -> tuple[TeamPlan, list[tuple[UUID, str, StoredResearchResult]]]:
+    """Resolve the plan and one final receipt per assigned lane at this exact occurrence."""
+    prefix = path + "/"
+    rows = conn.execute(
+        "SELECT id, path, result FROM research_attempts WHERE run_id = %s "
+        "AND starts_with(path, %s) AND status = 'completed' AND result->>'next_lead' IS NULL",
+        (run_id, prefix),
+    ).fetchall()
+    plan: TeamPlan | None = None
+    lanes: dict[int, tuple[UUID, str, StoredResearchResult]] = {}
+    for row in rows:
+        relative = row["path"][len(prefix) :]
+        if relative == "plan":
+            plan = StoredResearchResult.model_validate(row["result"]).team_plan
+            continue
+        lane = re.fullmatch(r"agent-([1-4])(?:/analyst-pass-(?:[2-9]|[1-9][0-9]+))?", relative)
+        if lane:
+            index = int(lane[1])
+            result = StoredResearchResult.model_validate(row["result"])
+            if index in lanes or result.workspace_activity or result.team_plan:
+                raise ValueError("Expected one final research result per assigned agent.")
+            lanes[index] = (row["id"], row["path"], result)
+    if plan is None or set(lanes) != set(range(1, len(plan.assignments) + 1)):
+        raise ValueError("The research team is missing its recorded plan or final agent results.")
+    return plan, [lanes[index] for index in range(1, len(lanes) + 1)]
+
+
+def _handoff_material(
+    path: str, plan: TeamPlan, lanes: list[tuple[UUID, str, StoredResearchResult]]
+) -> tuple[str, dict[str, WorkspaceFile]]:
+    agents = []
+    files: dict[str, WorkspaceFile] = {}
+    questions = [plan.review_question] if plan.review_question else []
+    for index, (assignment, receipt) in enumerate(zip(plan.assignments, lanes, strict=True), 1):
+        attempt_id, attempt_path, result = receipt
+        if result.review_question:
+            questions.append(result.review_question)
+        manifest = []
+        for number, file in enumerate(sorted(result.workspace_files, key=lambda f: f.name), 1):
+            prefix = f"agent-{index}-{number}-"
+            filename = PurePosixPath(file.name)
+            # The ordinal keeps aliases distinct even when long names share their first 96 bytes.
+            stem = filename.stem[: 96 - len(prefix) - len(filename.suffix)]
+            alias = f"{prefix}{stem}{filename.suffix}"
+            files[alias] = file.model_copy(update={"name": alias})
+            manifest.append(
+                {
+                    "workspace_name": file.name,
+                    "input_name": alias,
+                    **file.model_dump(mode="json", exclude={"name"}),
+                }
+            )
+        trace = result.web_research
+        agents.append(
+            {
+                "title": assignment.title,
+                "objective": assignment.objective,
+                "attempt_id": str(attempt_id),
+                "attempt_path": attempt_path,
+                "findings": result.conclusion,
+                "limitations": result.limitations,
+                "hypotheses": [h.model_dump(mode="json") for h in result.hypotheses],
+                "unresolved_questions": result.unresolved_questions,
+                "evidence_requests": [r.model_dump(mode="json") for r in result.evidence_requests],
+                "review_question": result.review_question,
+                "web_sources": [s.model_dump(mode="json") for s in trace.sources] if trace else [],
+                "web_observed_at": trace.observed_at.isoformat() if trace else None,
+                "web_receipt_truncated": trace.truncated if trace else False,
+                "sec_financials": result.sec_financials.model_dump(mode="json")
+                if result.sec_financials
+                else None,
+                "files": manifest,
+            }
+        )
+    distinct = dict.fromkeys(question.strip() for question in questions if question.strip())
+    packet = {
+        "format": "research-team-handoff-1",
+        "team_path": path,
+        "review_question": "\n".join(list(distinct)[:4]) or None,
+        "agents": agents,
+    }
+    return json_bytes(packet).decode(), files
+
+
+def team_handoff(
+    conn: Connection[DictRow],
+    run_id: UUID,
+    path: str,
+    plan: TeamPlan,
+    results: list[StoredResearchResult],
+) -> str:
+    recorded, lanes = _recorded_team(conn, run_id, path)
+    if plan != recorded or results != [result for _, _, result in lanes]:
+        raise ValueError("The research team handoff differs from its recorded plan or findings.")
+    packet, _ = _handoff_material(path, recorded, lanes)
+    return packet
+
+
+def team_workspace_files(
+    conn: Connection[DictRow], run_id: UUID, source_path: str, context: str
+) -> dict[str, WorkspaceFile]:
+    """source_path comes from the pinned binding. Never resolve a path or blob ID from context."""
+    plan, lanes = _recorded_team(conn, run_id, source_path)
+    packet, files = _handoff_material(source_path, plan, lanes)
+    if packet != context:
+        raise ValueError("The bound team output differs from the confirmed research handoff.")
+    return files
+
+
+def staged_files(
+    prepared: PreparedResearch,
+    generated: dict[str, WorkspaceFile],
+    *,
+    team_files: dict[str, WorkspaceFile] | None = None,
+) -> dict[str, str]:
     files = {name: file.artifact_id for name, file in generated.items()}
+    sizes = {name: file.byte_size for name, file in generated.items()}
     for evidence_id, source in prepared.sources.items():
         artifact = source.get("artifact")
         if not artifact or source["availability"] != "available":
@@ -53,7 +172,30 @@ def staged_files(prepared: PreparedResearch, generated: dict[str, WorkspaceFile]
             "application/pdf": "pdf",
         }.get(artifact["media_type"])
         if suffix:
-            files[f"evidence-{evidence_id}.{suffix}"] = artifact["id"]
+            name = f"evidence-{evidence_id}.{suffix}"
+            files[name] = artifact["id"]
+            sizes[name] = artifact["byte_size"]
+    if team_files:
+        used = sum(sizes.values())
+        omitted = []
+        for alias, file in team_files.items():
+            if (
+                alias in files
+                or len(files) >= MAX_FILES
+                or file.byte_size > MAX_INPUT_FILE_BYTES
+                or used + file.byte_size > MAX_INPUT_BYTES
+            ):
+                omitted.append(alias)
+                continue
+            files[alias] = file.artifact_id
+            used += file.byte_size
+        if omitted:
+            prepared.instructions += (
+                "\nThese team inputs could not be staged alongside the current files within "
+                "the Python workspace limits or share a name with a local file: "
+                + ", ".join(omitted)
+                + ". Their originals remain in the producing agents' receipts."
+            )
     return files
 
 

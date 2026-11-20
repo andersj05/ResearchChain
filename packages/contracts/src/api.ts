@@ -936,6 +936,58 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/research-sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Research Sessions */
+    get: operations["list_research_sessions"];
+    put?: never;
+    /** Start Research Session */
+    post: operations["start_research_session"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/research-sessions/{run_id}/setup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Research Session Setup */
+    get: operations["get_research_session_setup"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/research-sessions/{run_id}/report.zip": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Session Report */
+    get: operations["export_research_session_report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/runs/search": {
     parameters: {
       query?: never;
@@ -3074,6 +3126,8 @@ export interface components {
        * @enum {string}
        */
       prompt_version: "research-1" | "custom-1";
+      /** Style Excerpt */
+      style_excerpt?: string | null;
       /** Model */
       model?: string | null;
       /**
@@ -3087,6 +3141,7 @@ export interface components {
        */
       sec_financials: boolean;
       analyst?: components["schemas"]["AnalystConfig"] | null;
+      team?: components["schemas"]["ResearchTeamConfig"] | null;
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -3165,6 +3220,97 @@ export interface components {
        */
       created_at: string;
     };
+    /** ResearchSessionSetup */
+    ResearchSessionSetup: {
+      /** Brief */
+      brief: string;
+      /**
+       * Style Excerpt
+       * @default
+       */
+      style_excerpt: string;
+      /** Model */
+      model: string;
+      /** Evidence Ids */
+      evidence_ids?: string[];
+      /**
+       * Max Agents
+       * @default 3
+       */
+      max_agents: number;
+      /**
+       * Max Passes
+       * @default 6
+       */
+      max_passes: number;
+      /**
+       * Max Active Seconds
+       * @default 1800
+       */
+      max_active_seconds: number;
+      /**
+       * Web Search
+       * @default false
+       */
+      web_search: boolean;
+      /**
+       * Review Mode
+       * @default when_needed
+       * @enum {string}
+       */
+      review_mode: "when_needed" | "always" | "never";
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
+    };
+    /** ResearchSessionStart */
+    ResearchSessionStart: {
+      /** Brief */
+      brief: string;
+      /**
+       * Style Excerpt
+       * @default
+       */
+      style_excerpt: string;
+      /** Model */
+      model: string;
+      /** Evidence Ids */
+      evidence_ids?: string[];
+      /**
+       * Max Agents
+       * @default 3
+       */
+      max_agents: number;
+      /**
+       * Max Passes
+       * @default 6
+       */
+      max_passes: number;
+      /**
+       * Max Active Seconds
+       * @default 1800
+       */
+      max_active_seconds: number;
+      /**
+       * Web Search
+       * @default false
+       */
+      web_search: boolean;
+      /**
+       * Review Mode
+       * @default when_needed
+       * @enum {string}
+       */
+      review_mode: "when_needed" | "always" | "never";
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Provider Account Id */
+      provider_account_id: string;
+    };
     /** ResearchSettings */
     ResearchSettings: {
       /**
@@ -3185,6 +3331,11 @@ export interface components {
        */
       billing: "included_plan";
       limits?: components["schemas"]["ResearchLimits"];
+    };
+    /** ResearchTeamConfig */
+    ResearchTeamConfig: {
+      /** Max Agents */
+      max_agents: number;
     };
     /** ResumeRequest */
     ResumeRequest: {
@@ -3779,6 +3930,9 @@ export interface components {
       workspace_activity?: components["schemas"]["WorkspaceActivity"] | null;
       /** Workspace Files */
       workspace_files?: components["schemas"]["WorkspaceFile"][];
+      team_plan?: components["schemas"]["TeamPlan"] | null;
+      /** Review Question */
+      review_question?: string | null;
     };
     /** StyleExample */
     StyleExample: {
@@ -3890,6 +4044,20 @@ export interface components {
       id: string;
       /** Version */
       version: number;
+    };
+    /** TeamAssignment */
+    TeamAssignment: {
+      /** Title */
+      title: string;
+      /** Objective */
+      objective: string;
+    };
+    /** TeamPlan */
+    TeamPlan: {
+      /** Assignments */
+      assignments: components["schemas"]["TeamAssignment"][];
+      /** Review Question */
+      review_question?: string | null;
     };
     /** UsageOperations */
     UsageOperations: {
@@ -6167,6 +6335,132 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["CommandReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  list_research_sessions: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RecentRunSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_research_session: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResearchSessionStart"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CommandReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_research_session_setup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResearchSessionSetup"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_research_session_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/zip": string;
         };
       };
       /** @description Validation Error */
