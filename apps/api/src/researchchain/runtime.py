@@ -443,8 +443,11 @@ class RunStore:
         if existing is None:
             if request.baseline_run_id is not None:
                 if research_session:
-                    source = read_manifest(conn, request.baseline_run_id)
-                    if not source or source.tool_config.get("session") != SESSION_VERSION:
+                    baseline_manifest = read_manifest(conn, request.baseline_run_id)
+                    if (
+                        not baseline_manifest
+                        or baseline_manifest.tool_config.get("session") != SESSION_VERSION
+                    ):
                         raise NotFoundError("Baseline research session not found.")
                 baseline = conn.execute(
                     "SELECT a.agent_id FROM runs r LEFT JOIN agent_runs a ON a.run_id = r.id "
