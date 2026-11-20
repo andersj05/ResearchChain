@@ -223,6 +223,7 @@ class PreparedResearch:
         return body
 
 
+MODEL_SETTINGS_VERSION = "model-settings-1"
 ANALYST_VERSION = "codex-analyst-1"
 WORKSPACE_VERSION = "codex-python-1"
 ANALYST_PROMPT = (
@@ -421,6 +422,13 @@ def prepare_research(
         **({"writing_style_reference": style_excerpt} if style_excerpt else {}),
     }
     content_items = [{"type": "input_text", "text": json_bytes(packet).decode()}, *attachments]
+    # A new run delegates an unset field to the account's actual model. Older
+    # analyst runs retain the Codex-supplied effort present in their saved passes.
+    model_default: Literal["model_default"] | None = (
+        "model_default"
+        if manifest.tool_config.get("model_settings_version") == MODEL_SETTINGS_VERSION
+        else None
+    )
     prepared = PreparedResearch(
         instructions=(
             AUTO_WEB_PROMPT
@@ -450,8 +458,8 @@ def prepare_research(
         sources=sources,
         previous=previous,
         model=model or manifest.settings.model,
-        reasoning_effort=reasoning_effort or manifest.settings.reasoning_effort,
-        verbosity=verbosity or manifest.settings.verbosity,
+        reasoning_effort=reasoning_effort or manifest.settings.reasoning_effort or model_default,
+        verbosity=verbosity or manifest.settings.verbosity or model_default,
         web_search=web_search,
         sec_financials=sec_financials,
     )

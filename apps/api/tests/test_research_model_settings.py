@@ -7,7 +7,7 @@ import httpx
 import pytest
 from graph_fixtures import chain, node
 from test_research_contracts import result_document
-from test_research_runtime import FakeProvider
+from test_research_runtime import FakeProvider, approve
 from test_research_team import analyst
 
 from researchchain.artifacts import read_content
@@ -17,7 +17,7 @@ from researchchain.models import RunRequest
 from researchchain.providers.chatgpt_auth import ChatGPTAuth
 from researchchain.providers.credentials import ConnectionError
 from researchchain.research import ChatGPTResearchProvider
-from researchchain.research_prompt import PreparedResearch, json_bytes
+from researchchain.research_prompt import MODEL_SETTINGS_VERSION, PreparedResearch, json_bytes
 from researchchain.revisions import RevisionStore
 from researchchain.runtime import RunStore
 
@@ -242,3 +242,70 @@ def test_unconfigured_documents_and_codex_requests_keep_their_legacy_bytes():
     }
     prepared.analyst_options = harness
     assert json_bytes(prepared.request_body()) == json_bytes({**original, **harness})
+
+
+@pytest.mark.parametrize("historical", [False, True])
+def test_unset_fields_follow_the_wire_version_pinned_before_a_durable_review(
+    database, monkeypatch, historical
+):
+    from researchchain import runtime
+
+    provider = FakeProvider()
+    harness = provider.run_analyst
+    reasoning_item = {"type": "reasoning", "id": "synthetic-history", "encrypted_content": "opaque"}
+
+    def using_native_settings(model, passes, step, guard, *, workspace=False):
+        def relay(history, request):
+            native = {
+                **request,
+                "input": [reasoning_item, *request["input"]],
+                "reasoning": {"effort": "medium", "summary": "auto"},
+                "text": {"verbosity": "high", "format": {"type": "text"}},
+            }
+            return step(history, native)
+
+        return harness(model, passes, relay, guard, workspace=workspace)
+
+    monkeypatch.setattr(provider, "run_analyst", using_native_settings)
+    # This model's catalog advertises low/high/xhigh and no verbosity. The local
+    # harness suggests medium/high independently of the account's actual catalog.
+    runs, setup = study(
+        database, provider, node("review", "review"), analyst("analyst", model="analysis-model")
+    )
+    setup = setup.model_copy(update={"brief": "Follow an analyst lead"})
+    make_manifest = runtime.make_manifest
+
+    def historical_manifest(*args):
+        manifest = make_manifest(*args)
+        manifest.tool_config.pop("model_settings_version")
+        return manifest
+
+    with monkeypatch.context() as before_upgrade:
+        if historical:
+            before_upgrade.setattr(runtime, "make_manifest", historical_manifest)
+        paused = runs.start(setup)
+    assert paused.status == "paused" and not provider.calls
+    assert paused.research_manifest.tool_config.get("model_settings_version") == (
+        None if historical else MODEL_SETTINGS_VERSION
+    )
+
+    def unexpected():
+        raise AssertionError("Retry and resume must use the already pinned model settings.")
+
+    monkeypatch.setattr(provider, "status", unexpected)
+    assert runs.start(setup).research_manifest == paused.research_manifest
+    done = runs.resume(setup.id, approve(paused))
+    assert done.status == "completed" and len(done.model_attempts) == 2
+    with database.connection() as conn:
+        for attempt in done.model_attempts:
+            body = json.loads(read_content(conn, attempt.input_artifact_id))
+            assert body["model"] == "analysis-model"
+            expected = (
+                {"effort": "medium", "summary": "auto"} if historical else {"summary": "auto"}
+            )
+            assert body["reasoning"] == expected and "verbosity" not in body["text"]
+            assert body["text"]["format"]["type"] == "json_schema"
+            assert (
+                reasoning_item in body["input"] and "reasoning.encrypted_content" in body["include"]
+            )
+        assert any(item.get("type") == "function_call_output" for item in body["input"])

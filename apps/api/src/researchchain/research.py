@@ -57,6 +57,7 @@ from researchchain.research_models import (
 )
 from researchchain.research_prompt import (
     ANALYST_VERSION,
+    MODEL_SETTINGS_VERSION,
     PROMPT_VERSION,
     WORKSPACE_VERSION,
     PreparedResearch,
@@ -263,6 +264,7 @@ def make_manifest(
         evidence=snapshots,
         created_at=datetime.now(UTC),
         tool_config={
+            "model_settings_version": MODEL_SETTINGS_VERSION,
             **(
                 {"team_version": TEAM_VERSION, "team_prompt_hash": team_prompt_hash()}
                 if any(c.team for c in configs)
@@ -511,6 +513,9 @@ class ResearchExecutor:
 
     def verify_implementation(self, node: WorkflowNode) -> None:
         assert isinstance(node.config, ResearchConfig)
+        settings_version = self.manifest.tool_config.get("model_settings_version")
+        if settings_version is not None and settings_version != MODEL_SETTINGS_VERSION:
+            raise ExecutionStopped("This run requires its pinned model settings support.", "failed")
         if "owner_directions_version" in self.manifest.tool_config and not self.guided:
             raise ExecutionStopped(
                 "This session requires its pinned owner guidance support.", "failed"
