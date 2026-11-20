@@ -195,7 +195,12 @@ def test_http_expiry_and_revoke_all_remove_resource_access(database: Database) -
         clock[0] += 59
         assert first.get("/api/access/status").json()["authenticated"]
         clock[0] += 1  # Status polling must not renew an idle session.
-        assert first.get("/api/revisions").status_code == 401
+        expired = first.get("/api/access/status")
+        assert not expired.json()["authenticated"]
+        assert "set-cookie" not in expired.headers
+        denied = first.get("/api/revisions")
+        assert denied.status_code == 401
+        assert "set-cookie" not in denied.headers
         assert not access.status(token).authenticated
         assert other.get("/api/revisions").status_code == 401
     with owner_client(app) as first, owner_client(app) as other:
