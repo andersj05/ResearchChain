@@ -45,7 +45,15 @@ def export_session_report(database: Database, run_id: UUID) -> bytes:
                 finals.append(result)
         if len(finals) != 1:
             raise NotFoundError("The session has no final report editor receipt.")
-        files = finals[0].workspace_files
+        final = finals[0]
+        files = final.workspace_files
+        if final.report_artifact is not None:
+            report = final.report_artifact
+            if report.name != "report.md" or report not in files:
+                raise EvidenceError(
+                    "The report editor's saved Markdown differs from its inventory."
+                )
+            produced.add((report.name, report.artifact_id))
         if not any(file.name.lower().endswith(".md") for file in files):
             raise NotFoundError("The report editor did not save a Markdown file.")
         if sum(file.byte_size for file in files) > MAX_EXPORT_BYTES:

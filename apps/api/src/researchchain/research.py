@@ -33,9 +33,11 @@ from researchchain.graph import ResearchConfig, Workflow, WorkflowNode
 from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
+from researchchain.research_directions import DIRECTIONS_VERSION, pin_directions
 from researchchain.research_models import (
     EvidenceSnapshot,
     ModelAttempt,
+    OwnerDirection,
     ProviderAccount,
     ProviderModel,
     ProviderStatus,
@@ -59,6 +61,13 @@ from researchchain.research_prompt import (
     validate_result,
     web_prompt_hash,
 )
+from researchchain.research_session_report import (
+    REPORT_VERSION,
+    confirm_editor_report,
+    editor_output,
+    prepare_editor,
+)
+from researchchain.research_sessions import SESSION_VERSION
 from researchchain.research_team import (
     TEAM_VERSION,
     member_output,
@@ -334,6 +343,10 @@ class ResearchExecutor:
         )
         self.sessions = threading.BoundedSemaphore(self.max_sessions)
         self.failure: tuple[str, str] | None = None
+        self.guided = (
+            manifest.tool_config.get("session") == SESSION_VERSION
+            and manifest.tool_config.get("owner_directions_version") == DIRECTIONS_VERSION
+        )
 
     def guard(self, path: str, count: bool = False) -> None:
         if self.failure:
@@ -381,7 +394,7 @@ class ResearchExecutor:
 
     def reserve(
         self, node: WorkflowNode, path: str, model: str
-    ) -> tuple[UUID, ResearchResult | None]:
+    ) -> tuple[UUID, StoredResearchResult | None, list[OwnerDirection]]:
         assert isinstance(node.config, ResearchConfig)
         limits = self.manifest.settings.limits
         with self.control.lock:
@@ -391,7 +404,11 @@ class ResearchExecutor:
             ).fetchone()
             if previous:
                 if previous["status"] == "completed":
-                    return previous["id"], StoredResearchResult.model_validate(previous["result"])
+                    return (
+                        previous["id"],
+                        StoredResearchResult.model_validate(previous["result"]),
+                        [],
+                    )
                 if previous["status"] in {"preparing", "requesting"}:
                     reason = UNCERTAIN
                     self.conn.execute(
@@ -427,12 +444,14 @@ class ResearchExecutor:
                         f"{token_limit:,} tokens before the next model call."
                     )
             attempt_id = uuid4()
-            self.conn.execute(
-                "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
-                "VALUES (%s, %s, %s, %s, %s, 'preparing')",
-                (attempt_id, self.run_id, path, node.config.stage, model),
-            )
-            return attempt_id, None
+            with self.conn.transaction():
+                directions = pin_directions(self.conn, self.run_id) if self.guided else []
+                self.conn.execute(
+                    "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
+                    "VALUES (%s, %s, %s, %s, %s, 'preparing')",
+                    (attempt_id, self.run_id, path, node.config.stage, model),
+                )
+            return attempt_id, None, directions
 
     async def controlled(
         self,
@@ -468,6 +487,10 @@ class ResearchExecutor:
 
     def verify_implementation(self, node: WorkflowNode) -> None:
         assert isinstance(node.config, ResearchConfig)
+        if "owner_directions_version" in self.manifest.tool_config and not self.guided:
+            raise ExecutionStopped(
+                "This session requires its pinned owner guidance support.", "failed"
+            )
         if (
             any(
                 prompt_hashes(include_custom=True).get(stage) != value
@@ -589,6 +612,15 @@ class ResearchExecutor:
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
         model = node.config.model or self.manifest.settings.model
+        tools = self.manifest.tool_config
+        report_version = tools.get("session_report_version")
+        session_editor = (
+            path == "root/report"
+            and tools.get("session") == SESSION_VERSION
+            and report_version is not None
+        )
+        if session_editor and report_version != REPORT_VERSION:
+            raise ExecutionStopped("This session requires its pinned report editor.", "failed")
         if node.config.analyst:
 
             def step(
@@ -605,6 +637,7 @@ class ResearchExecutor:
                     body,
                     assignment=assignment,
                     team_source=team_source,
+                    session_editor=session_editor,
                 )
                 with self.control.lock:
                     row = self.conn.execute(
@@ -623,7 +656,16 @@ class ResearchExecutor:
                 lambda: self.guard(path),
                 workspace=node.config.analyst.workspace,
             )
-        return self.execute_pass(node, path, context, feedback, model, [], team_source=team_source)
+        return self.execute_pass(
+            node,
+            path,
+            context,
+            feedback,
+            model,
+            [],
+            team_source=team_source,
+            session_editor=session_editor,
+        )
 
     def execute_pass(
         self,
@@ -638,11 +680,12 @@ class ResearchExecutor:
         assignment: TeamAssignment | None = None,
         director: ResearchConfig | None = None,
         team_source: str | None = None,
+        session_editor: bool = False,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
-        attempt_id, previous = self.reserve(node, path, model)
+        attempt_id, previous, directions = self.reserve(node, path, model)
         if previous:
-            return StoredResearchResult.model_validate(previous)
+            return previous
         partial = ""
         completion: Completion | None = None
         interim: StoredResearchResult | None = None
@@ -683,6 +726,7 @@ class ResearchExecutor:
                     web_search=node.config.web_search,
                     sec_financials=node.config.sec_financials,
                     style_excerpt=node.config.style_excerpt,
+                    owner_directions=directions,
                 )
                 if director:
                     assert director.analyst and director.team
@@ -694,6 +738,14 @@ class ResearchExecutor:
                     )
                 if assignment:
                     prepare_assignment(prepared, assignment)
+                if session_editor:
+                    prepare_editor(prepared, self.manifest.settings.limits.max_output_characters)
+                if directions:
+                    prepared.instructions += (
+                        "\nThe packet's owner_directions are the owner's guidance added during "
+                        "this session, in the order received. Apply relevant directions to this "
+                        "pass and distinguish editorial judgment from evidence."
+                    )
                 available = (
                     generated_files(self.conn, self.run_id, prepared, history) if workspace else {}
                 )
@@ -716,7 +768,7 @@ class ResearchExecutor:
                             self.manifest.settings.limits.max_input_bytes,
                         )
                 payload = json_bytes(prepared.request_body())
-                if (node.config.analyst or director) and len(
+                if (node.config.analyst or director or directions) and len(
                     payload
                 ) > self.manifest.settings.limits.max_input_bytes:
                     raise ValueError(
@@ -725,8 +777,8 @@ class ResearchExecutor:
                 original = put_artifact(self.conn, payload, f"research-request-{attempt_id}.json")
                 self.conn.execute(
                     "UPDATE research_attempts SET input_artifact_id = %s, input_bytes = %s, "
-                    "status = 'requesting' WHERE id = %s",
-                    (original.id, len(payload), attempt_id),
+                    "status = 'requesting', owner_direction_ids = %s::uuid[] WHERE id = %s",
+                    (original.id, len(payload), [note.id for note in directions], attempt_id),
                 )
             self.guard(path)
             with self.control.lock:
@@ -744,6 +796,7 @@ class ResearchExecutor:
             lead = None
             python = None
             review_question = None
+            markdown = None
             if node.config.analyst:
                 if completion.analyst_response is None:
                     raise ValueError("The analyst provider did not return a Codex response.")
@@ -777,6 +830,10 @@ class ResearchExecutor:
                 answer = completion.text
                 if assignment:
                     answer, review_question = member_output(answer)
+                if session_editor:
+                    answer, markdown = editor_output(
+                        answer, self.manifest.settings.limits.max_output_characters
+                    )
                 validated = validate_result(answer, node.config.stage, prepared)
             result = StoredResearchResult(
                 **validated.model_dump(exclude={"sec_lookup"}),
@@ -824,7 +881,14 @@ class ResearchExecutor:
             if workspace and not lead:
                 result.workspace_files = list(available.values())
             self.finish(
-                attempt_id, "completed", partial, completion, result=result, exports=exports
+                attempt_id,
+                "completed",
+                partial,
+                completion,
+                result=result,
+                exports=exports,
+                session_report=session_editor and not lead,
+                markdown=markdown,
             )
             return result
         except ExecutionStopped as error:
@@ -863,6 +927,8 @@ class ResearchExecutor:
         reason: str | None = None,
         result: ResearchResult | None = None,
         exports: dict[str, bytes] | None = None,
+        session_report: bool = False,
+        markdown: bytes | None = None,
     ) -> None:
         def tokens(name: str) -> int | None:
             value = completion.usage.get(name) if completion else None
@@ -874,6 +940,9 @@ class ResearchExecutor:
 
         output_characters = len(text)
         with self.control.lock, self.conn.transaction():
+            if session_report:
+                assert isinstance(result, StoredResearchResult)
+                confirm_editor_report(self.conn, result, markdown)
             if isinstance(result, StoredResearchResult) and result.workspace_activity:
                 activity = result.workspace_activity
                 if exports:

@@ -52,7 +52,8 @@ from researchchain.providers.credentials import ConnectionError as ProviderConne
 from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.report_api import ZIP_RESPONSE, report_router, zip_download
 from researchchain.research import ResearchProvider
-from researchchain.research_models import ProviderStatus
+from researchchain.research_directions import record_direction
+from researchchain.research_models import OwnerDirection, OwnerDirectionInput, ProviderStatus
 from researchchain.research_session_export import export_session_report
 from researchchain.research_sessions import (
     ResearchSessionSetup,
@@ -292,6 +293,16 @@ def create_app(
     )
     def get_research_session_setup(run_id: UUID) -> ResearchSessionSetup:
         return session_setup(runs.get(run_id))
+
+    @app.post(
+        "/api/research-sessions/{run_id}/directions",
+        response_model=OwnerDirection,
+        operation_id="add_research_session_direction",
+    )
+    def add_research_session_direction(
+        run_id: UUID, request: OwnerDirectionInput
+    ) -> OwnerDirection:
+        return record_direction(runs.database, run_id, request)
 
     @app.get(
         "/api/research-sessions/{run_id}/report.zip",

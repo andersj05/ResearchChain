@@ -139,6 +139,21 @@ class TeamPlan(ResearchModel):
         return self
 
 
+class OwnerDirectionInput(ResearchModel):
+    id: UUID
+    text: str = Field(min_length=1, max_length=3000)
+
+    @model_validator(mode="after")
+    def nonblank_text(self) -> Self:
+        if not self.text.strip():
+            raise ValueError("Write a direction for the team.")
+        return self
+
+
+class OwnerDirection(OwnerDirectionInput):
+    created_at: datetime
+
+
 class StoredResearchResult(ResearchResult):
     """Metadata added by the server; never part of the model output schema."""
 
@@ -151,6 +166,7 @@ class StoredResearchResult(ResearchResult):
         default=None, exclude_if=lambda x: x is None
     )
     workspace_files: list[WorkspaceFile] = Field(default_factory=list, exclude_if=lambda x: not x)
+    report_artifact: WorkspaceFile | None = Field(default=None, exclude_if=lambda x: x is None)
     team_plan: TeamPlan | None = Field(default=None, exclude_if=lambda x: x is None)
     review_question: OwnerQuestion | None = Field(default=None, exclude_if=lambda x: x is None)
 
@@ -180,6 +196,7 @@ class ResearchManifest(StrictModel):
 
 
 class ModelAttempt(StrictModel):
+    owner_direction_ids: list[UUID] = Field(default_factory=list, exclude_if=lambda x: not x)
     web_actions_completed: int | None = Field(default=None, ge=0)
     admission_policy_revision: int | None = Field(default=None, ge=1)
     id: UUID

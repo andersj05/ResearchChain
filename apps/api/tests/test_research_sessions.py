@@ -7,9 +7,15 @@ from access_fixtures import owner_client
 from pydantic import ValidationError
 from test_research_runtime import FakeProvider, approve
 
+from researchchain.artifacts import read_content
 from researchchain.graph import Workflow
 from researchchain.main import create_app
+from researchchain.models import RunRequest
+from researchchain.research_directions import record_direction
+from researchchain.research_models import OwnerDirectionInput
+from researchchain.research_session_export import export_session_report
 from researchchain.research_sessions import ResearchSessionStart, session_workflow
+from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
 from researchchain.runtime import RunStore
 from researchchain.worker import RunWorker
 
@@ -29,6 +35,18 @@ class SessionProvider(FakeProvider):
                 "Which horizon should the editor use?"
                 if "Ambiguous horizon" in str(prepared.input_items)
                 else None
+            )
+            return replace(completion, text=json.dumps(result))
+        if "report_markdown" in prepared.schema["properties"]:
+            packet = json.loads(prepared.input_items[0]["content"][0]["text"])
+            result = json.loads(completion.text)
+            result["report_markdown"] = (
+                None
+                if packet["brief"] == "No report"
+                else "# Synthetic report\n\n"
+                + "Verified synthetic observation. " * 240
+                + "\n\n"
+                + packet["human_feedback"]
             )
             return replace(completion, text=json.dumps(result))
         return completion
@@ -88,6 +106,17 @@ def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(
         assert packet["human_feedback"] == feedback
         assert json.loads(packet["additional_context"])["agents"][0]["title"] == "Pricing"
         assert packet["sources"] == []
+        final = done.model_attempts[-1]
+        report = final.result.report_artifact
+        assert report.name == "report.md" and final.result.workspace_files == [report]
+        with database.connection() as conn:
+            content = read_content(conn, report.artifact_id).decode()
+            response = json.loads(read_content(conn, final.response_artifact_id))
+            assert content == json.loads(response["model_text"])["report_markdown"]
+        assert len(content) > 6000 and content.endswith(feedback)
+        assert all(
+            "report_markdown" not in call.schema["properties"] for call in provider.calls[:-1]
+        )
         revised = request(brief="Second experiment", baseline_run_id=original.id)
         assert client.post(path, json=revised.model_dump(mode="json")).status_code == 202
         assert runs.get(revised.id).baseline_run_id == original.id
@@ -147,3 +176,63 @@ def test_review_questions_require_an_actual_upstream_team():
     del workflow["nodes"][0]["config"]["team"]
     with pytest.raises(ValidationError, match="Only a research team"):
         Workflow.model_validate(workflow)
+
+
+def test_session_cannot_finish_without_its_report_and_retains_editor_response(database):
+    provider = SessionProvider()
+    runs = RunStore(database, provider)
+    with owner_client(create_app(database, provider), workers=False) as client:
+        start = request(brief="No report", review_mode="never")
+        assert (
+            client.post("/api/research-sessions", json=start.model_dump(mode="json")).status_code
+            == 202
+        )
+        assert RunWorker(runs).run_once()
+        run = runs.get(start.id)
+        assert run.status == "failed" and "nonempty report.md" in run.stop_reason
+        final = run.model_attempts[-1]
+        assert final.status == "failed" and final.path == "root/report"
+        with database.connection() as conn:
+            output = json.loads(read_content(conn, final.response_artifact_id))
+        assert json.loads(output["model_text"])["report_markdown"] is None
+        assert client.get(f"/api/research-sessions/{start.id}/report.zip").status_code == 409
+
+
+@pytest.mark.parametrize("old_session", [False, True])
+def test_ordinary_and_previous_session_editors_keep_original_result_schema(
+    database, monkeypatch, old_session
+):
+    from researchchain import runtime
+    from researchchain.research_sessions import SESSION_VERSION
+
+    if old_session:
+        original = runtime.make_manifest
+
+        def older_manifest(*args, **kwargs):
+            manifest = original(*args, **kwargs)
+            manifest.tool_config["session"] = SESSION_VERSION
+            return manifest
+
+        monkeypatch.setattr(runtime, "make_manifest", older_manifest)
+    provider = SessionProvider()
+    runs = RunStore(database, provider)
+    workflow = session_workflow(request(review_mode="never"))
+    revision = RevisionStore(database).save(workflow)
+    result = runs.start(
+        RunRequest(
+            id=uuid4(),
+            brief="No report",
+            revision_id=revision.id,
+            provider_account_id=provider.account.id,
+        )
+    )
+    assert result.status == "completed", result.stop_reason
+    assert result.model_attempts[-1].result.report_artifact is None
+    assert "report_markdown" not in provider.calls[-1].schema["properties"]
+    if old_session:
+        with pytest.raises(NotFoundError, match="did not save a Markdown file"):
+            export_session_report(database, result.id)
+    with pytest.raises(ConflictError if old_session else NotFoundError):
+        record_direction(
+            database, result.id, OwnerDirectionInput(id=uuid4(), text="A new direction.")
+        )

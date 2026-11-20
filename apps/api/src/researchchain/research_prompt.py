@@ -16,6 +16,7 @@ from researchchain.codex_analyst import follow_tool
 from researchchain.evidence import read_evidence
 from researchchain.graph import AnalystConfig, ResearchStage
 from researchchain.research_models import (
+    OwnerDirection,
     ResearchManifest,
     ResearchResult,
     ResearchWithLookup,
@@ -304,6 +305,7 @@ def prepare_research(
     *,
     model: str | None = None,
     style_excerpt: str | None = None,
+    owner_directions: list[OwnerDirection] | None = None,
 ) -> PreparedResearch:
     sources: dict[UUID, dict[str, Any]] = {}
     attachments: list[dict[str, Any]] = []
@@ -392,6 +394,11 @@ def prepare_research(
         "prior_result": previous.model_dump(mode="json") if previous else None,
         "additional_context": context if previous is None else "",
         "human_feedback": feedback,
+        **(
+            {"owner_directions": [note.model_dump(mode="json") for note in owner_directions]}
+            if owner_directions
+            else {}
+        ),
         "sources": list(sources.values()),
         **({"writing_style_reference": style_excerpt} if style_excerpt else {}),
     }
