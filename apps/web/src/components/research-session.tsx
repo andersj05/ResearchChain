@@ -6,13 +6,16 @@ import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
 import { api, ApiError, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
+import { evidenceUrl } from "@/lib/evidence";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import {
   activityLabel,
+  SessionActivity,
   sessionWorkspaces,
   SessionWorkspaceDetail,
 } from "./research-session-workspace";
 import { formatTime, RunStatus } from "./run-status";
+import { SessionDirections } from "./session-directions";
 import styles from "./research-session.module.css";
 
 type Props = { runId: string; onNewStudy: (fromSession?: string) => void };
@@ -74,11 +77,24 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [acceptedReview, setAcceptedReview] = useState("");
   const [chosen, setChosen] = useState(() =>
     typeof window === "undefined"
       ? null
       : new URLSearchParams(window.location.search).get("workspace"),
   );
+  const [passId, setPassId] = useState(() =>
+    typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pass"),
+  );
+  function selectWorkspace(key: string, pass: string | null = null) {
+    setChosen(key);
+    setPassId(pass);
+    const url = new URL(window.location.href);
+    url.searchParams.set("workspace", key);
+    if (pass) url.searchParams.set("pass", pass);
+    else url.searchParams.delete("pass");
+    window.history.replaceState(null, "", url);
+  }
   useEffect(() => {
     if (!active || busy) return;
     let current = true;
@@ -122,8 +138,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     try {
       await api(`runs/${encodeURIComponent(runId)}/${action}`, body);
       setConfirmStop(false);
-      if (action === "resume")
+      if (action === "resume") {
+        setAcceptedReview(run?.review?.interrupt_id ?? "");
         storeReviewDrafts(ownerStoragePrefix(owner) + ".research.review." + runId, "{}");
+      }
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The action could not be confirmed.");
     } finally {
@@ -160,7 +178,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         ) ??
         team[0] ??
         lanes[0]!));
-  const question = pendingReviews(run)[0];
+  const question = pendingReviews(run).find((review) => review.interrupt_id !== acceptedReview);
   const recordedJudgment = run.events.find((event) => event.review_response)?.review_response;
   const title = run.brief.trim().split("\n")[0]!.slice(0, 120);
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
@@ -183,7 +201,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               : "Research lead"}
           </span>
           <span>
-            {started} model request{started === 1 ? "" : "s"}
+            {started} recorded {started === 1 ? "pass" : "passes"}
           </span>
           <span>
             {Math.floor((run.usage?.active_seconds ?? 0) / 60)}m{" "}
@@ -202,8 +220,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             <ul>
               {run.research_manifest?.evidence.map((source) => (
                 <li key={source.evidence_id}>
-                  <a href={`/?view=evidence&evidence=${encodeURIComponent(source.evidence_id)}`}>
-                    {source.publisher || source.evidence_id}
+                  <a href={evidenceUrl(source.evidence_id)}>
+                    {run.artifacts.find((item) => item.id === source.original)?.name ||
+                      source.publisher ||
+                      source.source_url ||
+                      source.evidence_id}
                   </a>
                   {source.as_of_date && ` · ${source.as_of_date}`}
                 </li>
@@ -226,6 +247,19 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         </div>
       )}
       {run.stop_reason && <p className={styles.notice}>{run.stop_reason}</p>}
+      <SessionDirections
+        run={run}
+        lanes={lanes}
+        onSelect={selectWorkspace}
+        onRecorded={(note) => {
+          setRun((value) => {
+            if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
+              return value;
+            return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
+          });
+          setRefresh((n) => n + 1);
+        }}
+      />
       {question && run.checkpoint_id && (
         <OwnerQuestion key={question.interrupt_id} run={run} busy={busy || !active} act={act} />
       )}
@@ -240,7 +274,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           </p>
         </details>
       )}
-      <div className={styles.work}>
+      <div className={styles.work} id="research-workspaces">
         <nav aria-label="Agent workspaces" className={styles.roster}>
           <h2>Workspaces</h2>
           {lanes.map((lane) => (
@@ -248,12 +282,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               type="button"
               key={lane.key}
               aria-current={workspace.key === lane.key ? "true" : undefined}
-              onClick={() => {
-                setChosen(lane.key);
-                const url = new URL(window.location.href);
-                url.searchParams.set("workspace", lane.key);
-                window.history.replaceState(null, "", url);
-              }}
+              onClick={() => selectWorkspace(lane.key)}
             >
               <strong>{lane.title}</strong>
               <span>
@@ -263,8 +292,15 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             </button>
           ))}
         </nav>
-        <SessionWorkspaceDetail key={workspace.key} lane={workspace} run={run} />
+        <SessionWorkspaceDetail
+          key={workspace.key}
+          lane={workspace}
+          run={run}
+          passId={passId}
+          onPass={(id) => selectWorkspace(workspace.key, id)}
+        />
       </div>
+      <SessionActivity lanes={lanes} select={selectWorkspace} />
       <footer className={styles.footer}>
         <a href={fullRun}>Open run inspector</a>
         <div className={styles.actions}>

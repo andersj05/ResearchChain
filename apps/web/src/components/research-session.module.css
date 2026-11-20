@@ -193,6 +193,109 @@
   color: var(--muted);
   font-size: 13px;
 }
+.pass {
+  display: grid;
+  gap: 8px;
+  padding-block: 12px 0;
+}
+.guidance {
+  border-left: 2px solid var(--blue);
+  padding: 7px 14px;
+  background: var(--surface);
+}
+.guidance > summary {
+  width: fit-content;
+  font-weight: 500;
+}
+.guidanceBody,
+.guidance form {
+  display: grid;
+  gap: 8px;
+}
+.guidanceBody {
+  padding-top: 12px;
+}
+.guidance ol {
+  margin: 0;
+  padding-inline-start: 22px;
+}
+.guidance li + li {
+  margin-top: 9px;
+}
+.guidance li p {
+  white-space: pre-wrap;
+}
+.guidance time,
+.guidance li > span,
+.guidance form p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.guidance form label {
+  font-weight: 500;
+  font-size: 13px;
+}
+.guidance textarea {
+  resize: vertical;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+}
+.guidance form button {
+  justify-self: start;
+}
+.pass label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pass select {
+  max-width: 100%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  padding: 4px 8px;
+}
+.pass > span,
+.activity time,
+.activity small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.activity {
+  border-block: 1px solid var(--line);
+  padding-block: 12px;
+}
+.activity summary {
+  width: fit-content;
+  font-weight: 500;
+}
+.activity ol {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.activity li + li {
+  border-top: 1px solid var(--line);
+}
+.activity li button {
+  display: grid;
+  grid-template-columns: 6.3rem minmax(0, 1fr);
+  width: 100%;
+  text-align: left;
+  align-items: baseline;
+  gap: 8px;
+  border: 0;
+  padding: 8px 4px;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+.activity li button:hover {
+  background: var(--surface);
+}
+.activity small {
+  display: block;
+}
 @media (max-width: 680px) {
   .page {
     gap: 16px;
