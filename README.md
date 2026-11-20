@@ -18,7 +18,8 @@ save versions for further experiments. [Agent builder guide](docs/agent-builder.
 
 The foundation uses Next.js + TypeScript + UI SDK for the editor, and Python +
 LangGraph + FastAPI for execution, with Postgres revisions and checkpoints. Runs
-survive API restarts and stay pinned to their original workflow. New workspaces start blank; the no-model demo is a deterministic exercise. The
+survive API restarts and stay pinned to their original workflow. New graphs in the
+workflow editor start blank. The no-model demo is a deterministic exercise. The
 [research template](docs/hypothesis-research.md) uses the connected ChatGPT plan to
 form, challenge, and revise hypotheses against captured evidence, with human review.
 
