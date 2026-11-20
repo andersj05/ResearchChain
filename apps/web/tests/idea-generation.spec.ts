@@ -7,7 +7,7 @@ test("create the idea generation demo with its own saved graph and sample brief"
   page,
   request,
 }) => {
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.getByRole("button", { name: "New agent", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create an agent" });
   await dialog.getByLabel("Starting workflow").selectOption({ label: "Idea generation demo" });

@@ -56,6 +56,8 @@ from researchchain.research import (
     read_attempts,
     read_manifest,
 )
+from researchchain.research_directions import DIRECTIONS_VERSION
+from researchchain.research_session_report import REPORT_VERSION
 from researchchain.research_sessions import SESSION_VERSION
 from researchchain.research_team import TEAM_VERSION
 from researchchain.retention_guards import require_retained_run
@@ -294,6 +296,7 @@ class RunStore:
             events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
             reviews=reviews,
+            owner_directions=control["owner_directions"],
             stop_reason=control["reason"] or worker_error,
             usage=RunUsage(
                 node_executions=control["node_executions"],
@@ -486,6 +489,8 @@ class RunStore:
                 )
                 if research_session:
                     research_manifest.tool_config["session"] = SESSION_VERSION
+                    research_manifest.tool_config["session_report_version"] = REPORT_VERSION
+                    research_manifest.tool_config["owner_directions_version"] = DIRECTIONS_VERSION
             elif request.provider_account_id:
                 raise EvidenceError("Provider selection is only valid for a research workflow.")
             with conn.transaction():

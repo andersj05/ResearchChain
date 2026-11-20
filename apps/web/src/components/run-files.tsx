@@ -47,15 +47,22 @@ export function latestWorkspaceFiles(run: RunSnapshot) {
   return files;
 }
 
-export function workspaceFileSources(run: RunSnapshot, path: string, attemptId: string) {
+export function workspaceFileContext(run: RunSnapshot, path: string, attemptId: string) {
   const sources = new Set<string>();
+  const files = new Map<string, SavedFile["file"]>();
   for (const attempt of run.model_attempts ?? []) {
     if (attemptPath(attempt) !== path) continue;
-    for (const source of attempt.result?.web_research?.sources ?? []) sources.add(source.url);
-    for (const url of researchToolUrls(attempt.result)) sources.add(url);
-    if (attempt.id === attemptId) break;
+    const result = attempt.result;
+    for (const source of result?.web_research?.sources ?? []) sources.add(source.url);
+    for (const url of researchToolUrls(result)) sources.add(url);
+    for (const file of [
+      ...(result?.workspace_activity?.files ?? []),
+      ...(result?.workspace_files ?? []),
+    ])
+      files.set(file.name, file);
+    if (attempt.id === attemptId) return { sources, files: [...files.values()] };
   }
-  return sources;
+  return { sources: new Set<string>(), files: [] };
 }
 
 export function RunFiles({
@@ -150,7 +157,7 @@ export function RunFiles({
                 >
                   <WorkspaceFilePreview
                     file={file}
-                    sources={workspaceFileSources(run, path, attemptId)}
+                    {...workspaceFileContext(run, path, attemptId)}
                   />
                 </div>
               )}

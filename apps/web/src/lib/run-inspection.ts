@@ -57,7 +57,8 @@ export function attemptPath(attempt: Attempt) {
   const segments = attempt.path.split("/");
   // Step IDs can themselves be named analyst-pass-2. Only strip the receipt
   // suffix one segment beyond the normal node path (root/id[/body/id…]).
-  return segments.length % 2 === 1 && /^analyst-pass-\d+$/.test(segments.at(-1)!)
+  const teamMember = /^agent-[1-4]$/.test(segments.at(-2) ?? "");
+  return (segments.length % 2 === 1 || teamMember) && /^analyst-pass-\d+$/.test(segments.at(-1)!)
     ? segments.slice(0, -1).join("/")
     : attempt.path;
 }
@@ -257,6 +258,9 @@ export function graphLocation(run: RunSnapshot, path: string) {
   for (let i = 1; i < parts.length - 1; i += 2) {
     const node = graph.nodes.find((item) => item.id === parts[i]);
     if (!node) break;
+    if (node.config?.type === "research" && node.config.team) {
+      return { graph, prefix, parents, node };
+    }
     const ref = referenceOf(node);
     const body = run.workflow.subgraphs?.find(
       (item) => item.id === ref?.id && item.version === ref.version,

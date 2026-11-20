@@ -3,17 +3,23 @@
 A customizable research workbench for EquityCats: develop hypotheses, inspect evidence,
 challenge conclusions, and write reports with human editorial judgment in the loop.
 
-## Build your own agent
+## Start a research session
 
-Start with [the agent builder guide](docs/agent-builder.md). This first pass delivers
-the environment for you to design and iterate on your own agent. Templates, pilots
-and evaluation studies are optional; your judgments shape the agent you build.
+Open the Research desk and write the question you want investigated. You can give
+the editor a sample of your writing, pin sources, and allow live web search.
+The research lead proposes assignments. Each researcher has a workspace you can
+follow as it works. Send direction, answer editorial questions and open the
+finished report with its figures. [Research desk guide](docs/research-sessions.md).
+
+Open **Workflows** to design an agent step by step, wire inputs and reviews, and
+save versions for further experiments. [Agent builder guide](docs/agent-builder.md).
 
 ## Development
 
 The foundation uses Next.js + TypeScript + UI SDK for the editor, and Python +
 LangGraph + FastAPI for execution, with Postgres revisions and checkpoints. Runs
-survive API restarts and stay pinned to their original workflow. New workspaces start blank; the no-model demo is a deterministic exercise. The
+survive API restarts and stay pinned to their original workflow. New graphs in the
+workflow editor start blank. The no-model demo is a deterministic exercise. The
 [research template](docs/hypothesis-research.md) uses the connected ChatGPT plan to
 form, challenge, and revise hypotheses against captured evidence, with human review.
 

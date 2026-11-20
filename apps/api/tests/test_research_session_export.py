@@ -9,6 +9,7 @@ from access_fixtures import owner_client
 from test_research_sessions import SessionProvider, request
 
 from researchchain.analyst_workspace import PythonRun
+from researchchain.artifacts import read_content
 from researchchain.main import create_app
 from researchchain.runtime import RunStore
 from researchchain.worker import RunWorker
@@ -27,7 +28,7 @@ class FileProvider(SessionProvider):
             return completion
         packet = json.loads(prepared.input_items[0]["content"][0]["text"])
         author = "researcher" if "research_assignment" in str(prepared.input_items) else "editor"
-        if packet["brief"] == "No report":
+        if packet["brief"] == "Text report":
             return completion
         call = {
             "type": "function_call",
@@ -69,7 +70,7 @@ def test_download_contains_only_the_completed_sessions_final_editor_workspace(
     sessions = "/api/research-sessions"
     with owner_client(app, workers=False) as client:
         outputs = []
-        for brief in ("First study", "Different study", "No report"):
+        for brief in ("First study", "Different study", "Text report"):
             start = request(brief=brief, review_mode="never")
             assert client.post(sessions, json=start.model_dump(mode="json")).status_code == 202
             url = f"{sessions}/{start.id}/report.zip"
@@ -98,7 +99,16 @@ def test_download_contains_only_the_completed_sessions_final_editor_workspace(
                 )
                 assert archive.read("figure.png") == CHART
                 assert archive.read("series.csv") == b"period,value\n1,4"
-        assert client.get(outputs[2][1]).status_code == 404
+        editor = final.model_attempts[-1]
+        with database.connection() as conn:
+            recorded = json.loads(read_content(conn, editor.response_artifact_id))
+        body = json.loads(recorded["model_text"])["report_markdown"].encode()
+        assert len(body) > 6000 and editor.result.report_artifact is not None
+        response = client.get(outputs[2][1])
+        assert response.status_code == 200
+        with ZipFile(io.BytesIO(response.content)) as archive:
+            assert archive.namelist() == ["report.md"]
+            assert archive.read("report.md") == body
         ordinary_id = str(uuid4())
         assert (
             client.post(

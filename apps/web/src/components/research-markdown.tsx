@@ -1,8 +1,23 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { components } from "@researchchain/contracts";
+import { contentUrl } from "@/lib/evidence";
 import styles from "./research-reader.module.css";
 
-export function ResearchMarkdown({ text, sources }: { text: string; sources: Set<string> }) {
+type WorkspaceFile = components["schemas"]["WorkspaceFile"];
+
+export function ResearchMarkdown({
+  text,
+  sources,
+  files = [],
+}: {
+  text: string;
+  sources: Set<string>;
+  files?: WorkspaceFile[];
+}) {
+  const charts = new Map(
+    files.filter((file) => file.media_type === "image/png").map((file) => [file.name, file]),
+  );
   return (
     <div className={styles.prose}>
       <Markdown
@@ -15,8 +30,8 @@ export function ResearchMarkdown({ text, sources }: { text: string; sources: Set
           h4: ({ children }) => <h6>{children}</h6>,
           h5: ({ children }) => <h6>{children}</h6>,
           h6: ({ children }) => <h6>{children}</h6>,
-          // Only recorded provider URLs become outgoing links. Model-authored
-          // images must not send a browser request, even when their URL is known.
+          // Outgoing links require a recorded source. Figures can only reference
+          // authenticated PNGs in this workspace's saved file inventory.
           a: ({ href, children }) =>
             href && sources.has(href) ? (
               <a href={href} target="_blank" rel="noreferrer">
@@ -28,7 +43,20 @@ export function ResearchMarkdown({ text, sources }: { text: string; sources: Set
                 {href && typeof children === "string" && children !== href && ` (${href})`}
               </>
             ),
-          img: ({ alt }) => <>{alt}</>,
+          img: ({ alt, src }) => {
+            const name = typeof src === "string" ? src.replace(/^\.\//, "") : "";
+            const chart = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/.test(name) && charts.get(name);
+            return chart ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={`${contentUrl(chart.artifact_id)}?preview=true`}
+                alt={alt || name}
+                loading="lazy"
+              />
+            ) : (
+              <>{alt}</>
+            );
+          },
           table: ({ children }) => (
             <div
               className={styles.tableScroll}

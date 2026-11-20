@@ -8,7 +8,7 @@ test("EquityCats starter carries the prior gap forward and turns a saved judgmen
   request,
 }) => {
   test.setTimeout(90_000);
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.getByRole("button", { name: "New agent", exact: true }).click();
   const create = page.getByRole("dialog", { name: "Create an agent" });
   await create

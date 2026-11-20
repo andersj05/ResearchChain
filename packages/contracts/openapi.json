@@ -2677,6 +2677,56 @@
         }
       }
     },
+    "/api/research-sessions/{run_id}/directions": {
+      "post": {
+        "summary": "Add Research Session Direction",
+        "operationId": "add_research_session_direction",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerDirectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerDirection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/research-sessions/{run_id}/report.zip": {
       "get": {
         "summary": "Download Session Report",
@@ -6136,6 +6186,14 @@
       },
       "ModelAttempt": {
         "properties": {
+          "owner_direction_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Owner Direction Ids"
+          },
           "web_actions_completed": {
             "anyOf": [
               {
@@ -6389,6 +6447,49 @@
         "type": "object",
         "required": ["observed_at", "window_started_at", "workers", "queue", "storage", "usage"],
         "title": "OperationsSnapshot"
+      },
+      "OwnerDirection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "text", "created_at"],
+        "title": "OwnerDirection"
+      },
+      "OwnerDirectionInput": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "text"],
+        "title": "OwnerDirectionInput"
       },
       "OwnerSession": {
         "properties": {
@@ -8634,6 +8735,13 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "owner_directions": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerDirection"
+            },
+            "type": "array",
+            "title": "Owner Directions"
+          },
           "execution_pending": {
             "type": "boolean",
             "title": "Execution Pending",
@@ -9312,6 +9420,16 @@
             },
             "type": "array",
             "title": "Workspace Files"
+          },
+          "report_artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceFile"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "team_plan": {
             "anyOf": [

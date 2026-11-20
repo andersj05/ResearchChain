@@ -29,7 +29,7 @@ test("macro starter asks for judgment and records it in downstream model request
     const response = await request.post("/api/evidence", { data: source });
     expect(response.status(), await response.text()).toBe(201);
   }
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.getByRole("button", { name: "New agent", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "Create an agent" });
   await dialog.getByLabel("Starting workflow").selectOption("macro");

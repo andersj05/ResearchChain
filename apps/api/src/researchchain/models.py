@@ -25,7 +25,7 @@ from researchchain.graph import (
 from researchchain.graph import (
     WorkflowNode as WorkflowNode,
 )
-from researchchain.research_models import ModelAttempt, ResearchManifest
+from researchchain.research_models import ModelAttempt, OwnerDirection, ResearchManifest
 
 
 class RevisionSummary(StrictModel):
@@ -189,6 +189,7 @@ class CheckpointStep(StrictModel):
 
 
 class RunSnapshot(RunSummary):
+    owner_directions: list[OwnerDirection] = Field(default_factory=list, exclude_if=lambda x: not x)
     execution_pending: bool = Field(
         default=False, description="An accepted command is still queued or held by a worker."
     )

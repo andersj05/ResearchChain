@@ -971,6 +971,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/research-sessions/{run_id}/directions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Add Research Session Direction */
+    post: operations["add_research_session_direction"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/research-sessions/{run_id}/report.zip": {
     parameters: {
       query?: never;
@@ -2460,6 +2477,8 @@ export interface components {
     };
     /** ModelAttempt */
     ModelAttempt: {
+      /** Owner Direction Ids */
+      owner_direction_ids?: string[];
       /** Web Actions Completed */
       web_actions_completed?: number | null;
       /** Admission Policy Revision */
@@ -2561,6 +2580,31 @@ export interface components {
       queue: components["schemas"]["QueueOperations"];
       storage: components["schemas"]["StorageOperations"];
       usage: components["schemas"]["UsageOperations"];
+    };
+    /** OwnerDirection */
+    OwnerDirection: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Text */
+      text: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** OwnerDirectionInput */
+    OwnerDirectionInput: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Text */
+      text: string;
     };
     /** OwnerSession */
     OwnerSession: {
@@ -3635,6 +3679,8 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Owner Directions */
+      owner_directions?: components["schemas"]["OwnerDirection"][];
       /**
        * Execution Pending
        * @description An accepted command is still queued or held by a worker.
@@ -3930,6 +3976,7 @@ export interface components {
       workspace_activity?: components["schemas"]["WorkspaceActivity"] | null;
       /** Workspace Files */
       workspace_files?: components["schemas"]["WorkspaceFile"][];
+      report_artifact?: components["schemas"]["WorkspaceFile"] | null;
       team_plan?: components["schemas"]["TeamPlan"] | null;
       /** Review Question */
       review_question?: string | null;
@@ -6430,6 +6477,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ResearchSessionSetup"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_research_session_direction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OwnerDirectionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnerDirection"];
         };
       };
       /** @description Validation Error */

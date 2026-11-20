@@ -6,7 +6,7 @@ saved pilots are optional examples. Evaluating them is not required to start.
 
 ## First experiment
 
-1. Select **New agent**, enter a name and choose a **Starting workflow**. Start
+1. From the Research desk, open **Workflows**. Select **New agent**, enter a name and choose a **Starting workflow**. Start
    with a blank graph, copy the current graph, or try the idea generation demo.
    The **Agent** selector switches between agents. Saved versions and runs belong
    to each agent. [Try the idea generation demo](idea-generation-demo.md),
