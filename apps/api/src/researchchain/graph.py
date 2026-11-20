@@ -99,18 +99,28 @@ class AnalystConfig(StrictModel):
         return self
 
 
+class ResearchTeamConfig(StrictModel):
+    max_agents: int = Field(ge=1, le=4)
+
+
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
+    style_excerpt: str = Field(
+        default="", max_length=32000, pattern=r"^[^\x00]*$", exclude_if=lambda value: not value
+    )
     model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
 
     web_search: bool | Literal["auto"] = False
     sec_financials: bool = False
     analyst: AnalystConfig | None = Field(default=None, exclude_if=lambda value: value is None)
+    team: ResearchTeamConfig | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
+        if self.team and not (self.stage == "custom" and self.analyst and self.analyst.workspace):
+            raise ValueError("A research team requires a custom Codex analyst with a workspace.")
         if (self.web_search or self.sec_financials or self.analyst) and self.stage != "custom":
             raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
@@ -193,11 +203,12 @@ OUTPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
     "code": {"text": "text", "number": "number"},
     "review": {"decision": "text", "feedback": "text"},
-    "research": {"text": "text"},
+    "research": {"text": "text", "review_question": "text"},
     "loop": {"iterations": "number"},
 }
 INPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
+    "review": {"question": "text"},
     "code": {"text": "text", "number": "number"},
     "research": {"context": "text", "feedback": "text"},
 }
@@ -223,6 +234,10 @@ def source_type(
     ports = OUTPUT_PORTS.get(nodes[source.node_id].kind, {})
     if source.port not in ports:
         raise ValueError(f"Unknown output port {source.node_id}.{source.port}.")
+    if source.port == "review_question":
+        config = nodes[source.node_id].config
+        if not isinstance(config, ResearchConfig) or config.team is None:
+            raise ValueError("Only a research team can supply a review question.")
     return ports[source.port]
 
 
@@ -400,6 +415,10 @@ def validate_graph(
         for port, source in node.inputs.items():
             try:
                 expected = INPUT_PORTS.get(node.kind, {}).get(port)
+                if node.kind == "review" and port == "question" and (
+                    source.source != "output" or source.port != "review_question"
+                ):
+                    raise ValueError("Connect the review question to a research team's question.")
                 sources = before
                 if source.source == "previous_iteration":
                     if not allow_previous_iteration:
