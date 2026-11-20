@@ -6,7 +6,7 @@ import { expect, test } from "./fixtures";
 test("configure a research workspace and inspect saved files during the next pass", async ({
   page,
 }) => {
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.getByRole("button", { name: "New workflow", exact: true }).click();
   await page.getByRole("button", { name: "Add research workspace", exact: true }).click();
   const python = page.getByRole("checkbox", { name: "Python workspace" });
@@ -42,10 +42,20 @@ test("configure a research workspace and inspect saved files during the next pas
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3VkAAAAASUVORK5CYII=",
     "base64",
   );
+  const memo = Buffer.from(
+    "# Synthetic results\n\n![Quarterly chart](./chart.png)\n\n" +
+      "![External image](https://unrecorded.invalid/chart.png)\n\n![Missing figure](missing.png)",
+  );
+  const revisedImage = Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  );
   const outputs = [
     { name: "analysis.py", body: Buffer.from(script), media: "text/plain" },
     { name: "chart.png", body: image, media: "image/png" },
     { name: "analysis.py", body: Buffer.from(revisedScript), media: "text/plain" },
+    { name: "memo.md", body: memo, media: "text/plain" },
+    { name: "chart.png", body: revisedImage, media: "image/png" },
   ];
   const files = outputs.map(({ name, body, media }) => ({
     name,
@@ -103,7 +113,7 @@ test("configure a research workspace and inspect saved files during the next pas
       summary: "Chart the synthetic observations",
       status: finishedPython ? "completed" : "requested",
       output: finishedPython ? "Synthetic observations" : "",
-      files: finishedPython ? files.slice(0, 2) : [files[0]!],
+      files: finishedPython ? [files[0]!, files[1]!, files[3]!] : [files[0]!],
     };
     return route.fulfill({
       json: {
@@ -124,7 +134,7 @@ test("configure a research workspace and inspect saved files during the next pas
                   result: {
                     ...result,
                     conclusion: "Repeated inventory",
-                    workspace_files: [files[1]!, files[2]!],
+                    workspace_files: [files[4]!, files[2]!, files[3]!],
                   },
                 },
               ]
@@ -167,9 +177,9 @@ test("configure a research workspace and inspect saved files during the next pas
   await page.getByRole("button", { name: "Hide workflow map" }).click();
   await expect(page.getByRole("button", { name: "Inspect Research workspace" })).toHaveCount(0);
   await page.setViewportSize({ width: 390, height: 900 });
-  await page.getByRole("button", { name: "Files (3)", exact: true }).click();
+  await page.getByRole("button", { name: "Files (5)", exact: true }).click();
   const savedFiles = page.getByRole("region", { name: "Saved workspace files" });
-  await expect(savedFiles.getByRole("listitem")).toHaveCount(3);
+  await expect(savedFiles.getByRole("listitem")).toHaveCount(5);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   const chartPreview = savedFiles.getByRole("button", {
     name: "Preview chart.png from Research workspace, pass 1",
@@ -179,6 +189,16 @@ test("configure a research workspace and inspect saved files during the next pas
   await expect
     .poll(() => chartImage.evaluate((image) => (image as HTMLImageElement).naturalWidth))
     .toBe(1);
+  await savedFiles
+    .getByRole("button", { name: "Preview memo.md from Research workspace, pass 1" })
+    .click();
+  const preview = savedFiles.getByRole("region", { name: "Preview of memo.md from pass 1" });
+  await expect(preview.getByRole("img", { name: "Quarterly chart" })).toHaveAttribute(
+    "src",
+    `/api/artifacts/${encodeURIComponent(files[1]!.artifact_id)}/content?preview=true`,
+  );
+  await expect(preview.getByRole("img")).toHaveCount(1);
+  await expect(preview).toContainText("Missing figure");
   await savedFiles.getByRole("searchbox", { name: "Filter run files" }).fill("analysis.py");
   await expect(savedFiles.getByRole("listitem")).toHaveCount(2);
   await expect(
@@ -204,7 +224,7 @@ test("configure a research workspace and inspect saved files during the next pas
   await expect(revisedPreview.locator("pre")).toHaveText(revisedScript);
   await savedFiles.getByRole("button", { name: "Research workspace · Pass 1" }).click();
   await expect(page.getByText("Synthetic pass", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Files (3)", exact: true }).click();
+  await page.getByRole("button", { name: "Files (5)", exact: true }).click();
   await expect(savedFiles.getByRole("searchbox", { name: "Filter run files" })).toHaveValue(
     "analysis.py",
   );

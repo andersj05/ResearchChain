@@ -4,7 +4,7 @@ import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ResearchChain · Workflow studio",
+  title: "ResearchChain · Research desk",
   description: "A workbench for research, critical thinking, and human judgment.",
 };
 

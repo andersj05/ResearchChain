@@ -3498,6 +3498,19 @@ td time {
 }
 
 /* Compact owner workspace: identity first, predictable task navigation. */
+.workbench-destinations {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+@media (max-width: 600px) {
+  .workbench-destinations {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 6px;
+  }
+}
 .topbar {
   height: 50px;
   gap: 12px;

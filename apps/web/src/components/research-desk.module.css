@@ -1,0 +1,315 @@
+.desk {
+  min-height: 100dvh;
+  color: var(--ink);
+  background: var(--paper);
+}
+.header {
+  padding-inline: clamp(14px, 4vw, 56px);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+}
+.headerInner {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.header nav {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: clamp(14px, 2.4vw, 32px);
+}
+.header nav a {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+}
+.header nav a:hover {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.header nav .homeLink {
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 650;
+  letter-spacing: -0.6px;
+}
+.page {
+  max-width: 840px;
+  margin: 0 auto;
+  padding: clamp(26px, 5vw, 65px) 24px 64px;
+}
+.launch h1 {
+  font-size: clamp(28px, 4vw, 38px);
+  font-weight: 560;
+  line-height: 1.14;
+  letter-spacing: -1.5px;
+}
+.origin {
+  margin-top: 8px;
+  color: var(--muted);
+}
+.composer {
+  margin-top: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+}
+.composer > fieldset {
+  padding: clamp(16px, 3vw, 26px) clamp(16px, 3vw, 28px) 16px;
+}
+.briefLabel {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.brief {
+  display: block;
+  width: 100%;
+  min-height: 140px;
+  padding: 3px 0;
+  resize: vertical;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font-size: 16px;
+  line-height: 1.55;
+}
+.brief::placeholder {
+  color: var(--muted);
+}
+.options {
+  margin-top: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.option {
+  border-top: 1px solid var(--line);
+}
+.option summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 43px;
+  list-style: none;
+  font-weight: 520;
+}
+.option summary::-webkit-details-marker {
+  display: none;
+}
+.option summary::before {
+  content: "";
+  display: block;
+  width: 6px;
+  height: 6px;
+  border-top: 1.5px solid var(--muted);
+  border-right: 1.5px solid var(--muted);
+  transform: rotate(45deg);
+  margin: 0 3px 0 1px;
+  flex: none;
+}
+.option[open] > summary::before {
+  transform: rotate(135deg);
+}
+.option summary > span,
+.planNote,
+.account > span,
+.empty,
+.historyRows time {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+.option summary > span {
+  margin-left: auto;
+  text-align: right;
+}
+.optionBody,
+.settingGrid {
+  display: grid;
+  gap: 10px;
+  padding: 4px 0 16px;
+}
+.optionBody > label,
+.settingGrid label {
+  font-size: 13px;
+  font-weight: 500;
+}
+.optionBody > textarea,
+.optionBody input[type="search"],
+.settingGrid input,
+.settingGrid select {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 7px 8px;
+}
+.optionBody > textarea {
+  resize: vertical;
+}
+.fileLabel,
+.settingGrid label {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.fileLabel input {
+  width: 100%;
+  font-size: 12px;
+}
+.settingGrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px 18px;
+}
+.web {
+  display: inline-flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 16px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.web input {
+  margin: 0;
+  accent-color: var(--ink);
+}
+.launchFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px clamp(16px, 3vw, 28px);
+  border-top: 1px solid var(--line);
+  background: var(--paper);
+}
+.account {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  overflow-wrap: anywhere;
+}
+.accountButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 550;
+  color: var(--ink);
+}
+.accountButton:hover {
+  text-decoration: underline;
+}
+.launchFooter :global(.button) {
+  flex: none;
+  min-height: 38px;
+  padding-inline: 15px;
+}
+.connectPrompt,
+.composer > .connection,
+.composer > .planNote,
+.composer > .notice,
+.recovery {
+  padding: 10px clamp(16px, 3vw, 28px);
+}
+.connectPrompt,
+.recovery {
+  background: var(--amber-soft);
+}
+.connection,
+.notice {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.notice {
+  color: var(--red);
+}
+.connection {
+  margin-top: 6px;
+}
+.recovery button + button {
+  margin-left: 14px;
+}
+.history {
+  margin-top: clamp(28px, 4vw, 46px);
+}
+.history h2 {
+  font-size: 19px;
+  letter-spacing: -0.5px;
+}
+.historyRows {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 0;
+  border-top: 1px solid var(--line);
+}
+.historyRows li {
+  border-bottom: 1px solid var(--line);
+}
+.historyRows a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px 120px;
+  align-items: center;
+  justify-items: start;
+  gap: 16px;
+  padding: 12px 6px 12px 0;
+  text-decoration: none;
+}
+.historyRows a:hover .studyTitle {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.studyTitle {
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+.empty {
+  margin-top: 12px;
+  padding-block: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+@media (max-width: 600px) {
+  .page {
+    padding: 26px 14px 40px;
+  }
+  .headerInner {
+    gap: 8px;
+    min-height: 52px;
+  }
+  .header nav {
+    gap: 7px 11px;
+    padding-block: 8px;
+  }
+  .header nav a {
+    font-size: 12px;
+  }
+  .header nav .homeLink {
+    font-size: 14px;
+  }
+  .composer {
+    margin-top: 16px;
+  }
+  .historyRows a {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 4px 10px;
+  }
+  .historyRows time {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 380px) {
+  .settingGrid {
+    grid-template-columns: 1fr;
+  }
+  .option summary > span {
+    max-width: 50%;
+  }
+}

@@ -8,7 +8,7 @@ test("attach a chart and carry the frozen design and owner's verdict through the
   request,
 }) => {
   test.setTimeout(90_000);
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.getByRole("button", { name: "New agent", exact: true }).click();
   const create = page.getByRole("dialog", { name: "Create an agent" });
   await create.getByLabel("Starting workflow").selectOption({ label: "Chart signal research" });

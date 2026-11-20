@@ -30,7 +30,7 @@ function operator(command: string): { code?: string } {
 async function login(page: Page, value = password) {
   await page.getByLabel("Owner password", { exact: true }).fill(value);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
 }
 
 async function ownerApi(
@@ -69,7 +69,7 @@ for (const width of [1440, 390]) {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
+    await page.goto("/?view=workflow");
     await expect(page.getByRole("heading", { name: "Owner sign-in", exact: true })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Build", exact: true })).toHaveCount(0);
     expect((await request.get("/api/revisions")).status()).toBe(401);
@@ -136,7 +136,7 @@ test("first owner setup exchanges a link once and removes it from the address", 
     if (request.url().endsWith("/api/access/exchange")) exchanges += 1;
   });
   await page.goto(`/#owner-link=${code}`);
-  await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "Research brief", exact: true })).toBeVisible();
   expect(page.url()).not.toContain(code);
   expect(exchanges).toBe(1);
   expect(requestUrls.every((url) => !url.includes(code!))).toBe(true);
@@ -253,10 +253,10 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
   const api = await ownerApi(playwright);
   try {
     await page.context().addCookies((await api.storageState()).cookies);
-    await page.goto("/");
+    await page.goto("/?view=workflow");
     await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
     const other = await page.context().newPage();
-    await other.goto("/");
+    await other.goto("/?view=workflow");
     await expect(
       other.getByRole("button", { name: "Validate workflow", exact: true }),
     ).toBeEnabled();
@@ -279,7 +279,7 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
 });
 
 test("pre-sign-in drafts require an explicit owner import", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.evaluate(
     (workflow) => {
       localStorage.setItem("researchchain.workflow.v0.1", JSON.stringify(workflow));

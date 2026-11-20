@@ -805,7 +805,12 @@ export function Workbench() {
             void action(loadLatestAgent);
           }}
         />
-        <AccessControls key={accessActive ? "active" : "locked"} />
+        <div className="workbench-destinations">
+          <a className="button small" href="?view=research">
+            Research desk
+          </a>
+          <AccessControls key={accessActive ? "active" : "locked"} />
+        </div>
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">

@@ -8,7 +8,7 @@ for (const width of [1440, 390]) {
   }, info) => {
     test.setTimeout(90000);
     await page.setViewportSize({ width, height: 1000 });
-    await page.goto("/");
+    await page.goto("/?view=workflow");
     await page.getByRole("button", { name: "New workflow", exact: true }).click();
     await page.getByRole("button", { name: "Add custom code", exact: true }).click();
     await page.getByRole("textbox", { name: "Step name", exact: true }).fill("My transform");
