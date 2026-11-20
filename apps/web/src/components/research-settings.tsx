@@ -2,7 +2,7 @@
 
 import { researchDefaults, type ResearchSettings, type Workflow } from "@/lib/workflow";
 import { useEffect } from "react";
-import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
+import { ModelOptionFields, ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { ChatGPTSignIn } from "@/components/chatgpt-signin";
 import { Button } from "@ui-sdk/react/button";
 
@@ -165,6 +165,13 @@ export function ResearchConnection({
         catalog={catalog}
         value={settings.model}
         onChange={(model) => onSettings({ ...settings, model })}
+      />
+      <ModelOptionFields
+        scope="Run default"
+        catalog={catalog}
+        settings={settings}
+        disabled={disabled}
+        onChange={(patch) => onSettings({ ...settings, ...patch })}
       />
       <p className="field-hint" aria-label="Model selection scope">
         Workflow default for steps without an override.

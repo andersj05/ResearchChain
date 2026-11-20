@@ -9,7 +9,8 @@ import {
   type ResearchSettings,
   type Workflow,
 } from "@/lib/workflow";
-import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
+import { StepModelFields, type ModelCatalog } from "@/components/model-picker";
+import { hasModelOverride, modelProfileProblem, stepModelProblem } from "@/lib/model-settings";
 import { scopeKey, type StepModelChange } from "@/lib/workflow-editing";
 import { researchToolLabels } from "@/lib/workflow-model-plan";
 import { EvidencePicker } from "@/components/evidence-picker";
@@ -144,7 +145,7 @@ export function RunSetup({
       uploadTrigger.current = null;
     }
   }, [chartSources, open]);
-  const available = new Set(catalog.status?.models?.map((model) => model.slug));
+  const models = catalog.status?.models ?? [];
   const stepModels =
     open && research
       ? [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) => {
@@ -156,15 +157,26 @@ export function RunSetup({
                     scope,
                     nodeId: node.id,
                     label: scope ? `${node.label} · ${graph.name} v${scope.version}` : node.label,
-                    model: node.config.model ?? "",
+                    config: node.config,
                   },
                 ]
               : [],
           );
         })
       : [];
-  const overrides = stepModels.filter((step) => step.model);
-  const unavailable = overrides.filter((step) => !available.has(step.model));
+  const overrides = stepModels.filter(
+    ({ config }) =>
+      hasModelOverride(config) ||
+      hasModelOverride(config.team?.lead) ||
+      hasModelOverride(config.team?.researcher),
+  );
+  const sharedProblem = research ? modelProfileProblem(models, { model: research.model }) : "";
+  const incompatible = research
+    ? stepModels.flatMap(({ config, label }) => {
+        const problem = stepModelProblem(models, research, config);
+        return problem ? [`${label} · ${problem}`] : [];
+      })
+    : [];
   const activeSeconds = (workflow.budgets ?? executionDefaults).max_active_seconds;
   const attempts = research?.limits?.max_model_calls ?? researchDefaults.limits.max_model_calls;
   const sampleBrief = [brief.trimEnd(), ideaGenerationBrief].filter(Boolean).join("\n\n");
@@ -176,8 +188,8 @@ export function RunSetup({
     (!!accountId &&
       !catalog.loading &&
       !catalog.error &&
-      available.has(research.model) &&
-      unavailable.length === 0);
+      !sharedProblem &&
+      incompatible.length === 0);
   return (
     <Dialog
       open={open}
@@ -294,20 +306,34 @@ export function RunSetup({
                 disabled={busy || !overrides.length}
                 focusableWhenDisabled
                 onClick={() =>
-                  onStepModels(overrides.map(({ scope, nodeId }) => ({ scope, nodeId, model: "" })))
+                  onStepModels(
+                    overrides.map(({ scope, nodeId, config }) => ({
+                      scope,
+                      nodeId,
+                      settings: {
+                        model: undefined,
+                        reasoning_effort: undefined,
+                        verbosity: undefined,
+                        ...(config.team
+                          ? { team: { ...config.team, lead: undefined, researcher: undefined } }
+                          : {}),
+                      },
+                    })),
+                  )
                 }
               >
                 Use workflow default for all steps
               </Button>
               <div className="step-model-fields">
-                {stepModels.map(({ scope, nodeId, label, model }) => (
-                  <ModelPicker
+                {stepModels.map(({ scope, nodeId, label, config }) => (
+                  <StepModelFields
                     key={`${scopeKey(scope)}/${nodeId}`}
                     label={label}
+                    modelLabel={label}
                     catalog={catalog}
-                    value={model}
-                    inherited={research.model}
-                    onChange={(model) => onStepModels([{ scope, nodeId, model }])}
+                    shared={research}
+                    step={config}
+                    onChange={(settings) => onStepModels([{ scope, nodeId, settings }])}
                     disabled={busy}
                   />
                 ))}
@@ -316,9 +342,8 @@ export function RunSetup({
           )}
           {research && accountId && !catalog.loading && !catalog.error && !ready && (
             <p role="alert" className="error">
-              {!available.has(research.model) && "Choose an available research model. "}
-              {!!unavailable.length &&
-                `In Step models, choose a replacement or use the workflow default for ${unavailable.map((step) => step.label).join(", ")}.`}
+              {sharedProblem ||
+                `In Step models, choose a replacement for the unavailable setting. ${incompatible[0]}`}
             </p>
           )}
           {open && (

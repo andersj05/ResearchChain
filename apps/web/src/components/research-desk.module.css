@@ -92,7 +92,7 @@
 .option {
   border-top: 1px solid var(--line);
 }
-.option summary {
+.option > summary {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -101,10 +101,10 @@
   font-weight: 520;
   white-space: nowrap;
 }
-.option summary::-webkit-details-marker {
+.option > summary::-webkit-details-marker {
   display: none;
 }
-.option summary::before {
+.option > summary::before {
   content: "";
   display: block;
   width: 6px;
@@ -118,7 +118,7 @@
 .option[open] > summary::before {
   transform: rotate(135deg);
 }
-.option summary > span,
+.option > summary > span,
 .planNote,
 .account > span,
 .empty,
@@ -127,7 +127,7 @@
   font-size: 12px;
   font-weight: 400;
 }
-.option summary > span {
+.option > summary > span {
   margin-left: auto;
   text-align: right;
   white-space: normal;
@@ -138,6 +138,23 @@
   display: grid;
   gap: 10px;
   padding: 4px 0 16px;
+}
+.sharedProfile,
+.settingGrid > :global(.role-model-settings) {
+  grid-column: 1 / -1;
+}
+.sharedProfile {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.sharedProfile legend {
+  padding: 0 0 8px;
+  font-weight: 600;
+  font-size: 13px;
 }
 .optionBody > label,
 .settingGrid label {

@@ -7,7 +7,12 @@ import { useOwner } from "@/components/access-context";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
-import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
+import {
+  ModelOptionFields,
+  ModelPicker,
+  StepModelFields,
+  type ModelCatalog,
+} from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
@@ -597,6 +602,18 @@ export function WorkflowEditor({
                       onChange({ ...workflow, research: { ...workflow.research!, model } })
                     }
                   />
+                  <details className="canvas-response-settings">
+                    <summary>Response settings</summary>
+                    <ModelOptionFields
+                      scope="Workflow"
+                      settings={workflow.research}
+                      catalog={catalog}
+                      disabled={disabled}
+                      onChange={(patch) =>
+                        onChange({ ...workflow, research: { ...workflow.research!, ...patch } })
+                      }
+                    />
+                  </details>
                 </div>
               )}
               <Button
@@ -745,14 +762,16 @@ export function WorkflowEditor({
                 )}
                 {node.config?.type === "research" && workflow.research && (
                   <>
-                    <ModelPicker
-                      label="Step model"
+                    <StepModelFields
+                      label="Selected step"
+                      modelLabel="Step model"
                       catalog={catalog}
-                      inherited={workflow.research.model}
-                      value={node.config.model ?? ""}
-                      onChange={(model) =>
+                      shared={workflow.research}
+                      step={node.config}
+                      disabled={disabled}
+                      onChange={(patch) =>
                         node.config?.type === "research" &&
-                        editNode({ config: { ...node.config, model: model || undefined } })
+                        editNode({ config: { ...node.config, ...patch } })
                       }
                     />
                     {!catalog.loading && !catalog.status?.models?.length && (

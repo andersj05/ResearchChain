@@ -1,6 +1,13 @@
 import { expect, test, type Page } from "./fixtures";
 import type { ResearchSessionStart } from "../src/lib/research-sessions";
 import type { RecentRunSummary } from "../src/lib/workflow";
+import {
+  sessionModelProblem,
+  stepModelProblem,
+  type ModelProfile,
+  type ModelOverride,
+  type ProviderModel,
+} from "../src/lib/model-settings";
 import example from "../../../examples/research-workflow.json";
 
 const account = {
@@ -10,12 +17,55 @@ const account = {
   plan_enabled: true,
   active: true,
 };
+
+test("only settings used by an executable research role constrain admission", () => {
+  const models: ProviderModel[] = [
+    {
+      slug: "limited",
+      display_name: "Limited",
+      reasoning_efforts: ["low"],
+      supports_verbosity: false,
+    },
+  ];
+  const shared: ModelProfile = { model: "limited", reasoning_effort: "high", verbosity: "high" };
+  const override: ModelOverride = { reasoning_effort: "low", verbosity: "model_default" };
+  const roles = { lead: override, researcher: override, editor: override };
+  expect(sessionModelProblem(models, shared, roles)).toBe("");
+  expect(sessionModelProblem(models, { ...shared, model: "retired" }, roles)).toContain("retired");
+  expect(sessionModelProblem(models, shared, { ...roles, lead: null })).toContain("Research lead");
+  expect(
+    stepModelProblem(models, shared, {
+      team: { max_agents: 2, lead: override, researcher: override },
+    }),
+  ).toBe("");
+  expect(stepModelProblem(models, shared, { team: { max_agents: 2, lead: override } })).toContain(
+    "Researchers",
+  );
+  expect(stepModelProblem(models, shared, {})).toContain("High thinking effort");
+});
+
 async function connection(page: Page) {
   await page.route("**/api/providers/chatgpt", (route) =>
     route.fulfill({
       json: {
         accounts: [account],
-        models: [{ slug: "test-model", display_name: "Research fixture" }],
+        models: [
+          {
+            slug: "test-model",
+            display_name: "Research fixture",
+            reasoning_efforts: ["medium", "high"],
+            default_reasoning_effort: "medium",
+            supports_verbosity: true,
+            default_verbosity: "low",
+          },
+          {
+            slug: "compact-model",
+            display_name: "Compact fixture",
+            reasoning_efforts: ["low"],
+            default_reasoning_effort: "low",
+            supports_verbosity: false,
+          },
+        ],
       },
     }),
   );
@@ -108,6 +158,37 @@ for (const width of [1280, 390]) {
     await page.getByLabel("Passes per agent").fill("5");
     await page.getByLabel("Active time limit (seconds)").fill("1200");
     await page.getByLabel("Expert review").selectOption("always");
+    const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
+    const effort = shared.getByRole("combobox", { name: "Thinking effort" });
+    const detail = shared.getByRole("combobox", { name: "Response detail" });
+    await expect(effort.locator("option:checked")).toHaveText("Model default · Medium");
+    await expect(detail.locator("option:checked")).toHaveText("Model default · Low");
+    await expect(effort.getByRole("option", { name: "Ultra", exact: true })).toHaveCount(0);
+    await effort.selectOption("high");
+    await detail.selectOption("high");
+    await page.locator("summary").filter({ hasText: "Models by role" }).click();
+    const researchers = page.getByRole("group", { name: "Researchers", exact: true });
+    await researchers
+      .getByRole("combobox", { name: "Researchers model" })
+      .selectOption("compact-model");
+    await expect(start).toBeDisabled();
+    await expect(page.locator("form").getByRole("alert")).toContainText("Researchers");
+    const researcherEffort = researchers.getByRole("combobox", { name: "Thinking effort" });
+    const researcherDetail = researchers.getByRole("combobox", { name: "Response detail" });
+    await expect(researcherEffort.getByRole("option", { name: "High", exact: true })).toHaveCount(
+      0,
+    );
+    await researcherEffort.selectOption("low");
+    await expect(researcherDetail.locator("option")).toHaveCount(2);
+    await researcherDetail.selectOption("model_default");
+    await page
+      .getByRole("group", { name: "Report editor", exact: true })
+      .getByRole("combobox", { name: "Response detail" })
+      .selectOption("medium");
+    await expect(start).toBeEnabled();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
     await page.locator("summary").filter({ hasText: "Research settings" }).click();
     await page.getByLabel("Allow live web search").check();
     await expect(start).toBeEnabled();
@@ -129,6 +210,10 @@ for (const width of [1280, 390]) {
     expect(posts[1]).toEqual(posts[0]);
     expect(posts[0]).toMatchObject({
       model: "test-model",
+      reasoning_effort: "high",
+      verbosity: "high",
+      researcher: { model: "compact-model", reasoning_effort: "low", verbosity: "model_default" },
+      editor: { verbosity: "medium" },
       provider_account_id: account.id,
       evidence_ids: [sourceId],
       max_agents: 2,
@@ -141,45 +226,68 @@ for (const width of [1280, 390]) {
   });
 }
 
-test("revise a pinned session setup and recover its accepted start after a lost response", async ({
-  page,
-}) => {
-  await connection(page);
-  const previous = crypto.randomUUID();
-  const setup = {
-    model: "test-model",
-    brief: "Use the original horizon.",
-    style_excerpt: "Start with the observation.",
-    max_agents: 4,
-    max_passes: 7,
-    max_active_seconds: 1800,
-    web_search: false,
-    review_mode: "when_needed",
-    evidence_ids: [],
-  };
-  await page.route("**/api/research-sessions/*/setup", (route) => route.fulfill({ json: setup }));
-  const admitted: ResearchSessionStart[] = [];
-  await page.route("**/api/research-sessions", (route) => {
-    if (route.request().method() === "GET") return route.fulfill({ json: [] });
-    admitted.push(route.request().postDataJSON());
-    return route.abort();
+for (const width of [1280, 390]) {
+  test(`revise a pinned session setup and recover its accepted start after a lost response at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await connection(page);
+    const previous = crypto.randomUUID();
+    const setup = {
+      model: "test-model",
+      reasoning_effort: "high",
+      verbosity: "low",
+      lead: { model: "retired-model", reasoning_effort: "ultra", verbosity: "model_default" },
+      editor: { verbosity: "medium" },
+      brief: "Use the original horizon.",
+      style_excerpt: "Start with the observation.",
+      max_agents: 4,
+      max_passes: 7,
+      max_active_seconds: 1800,
+      web_search: false,
+      review_mode: "when_needed",
+      evidence_ids: [],
+    };
+    await page.route("**/api/research-sessions/*/setup", (route) => route.fulfill({ json: setup }));
+    const admitted: ResearchSessionStart[] = [];
+    await page.route("**/api/research-sessions", (route) => {
+      if (route.request().method() === "GET") return route.fulfill({ json: [] });
+      admitted.push(route.request().postDataJSON());
+      return route.abort();
+    });
+    await page.goto(`/?fromSession=${previous}`);
+    const brief = page.getByLabel("Research brief", { exact: true });
+    await expect(brief).toHaveValue(setup.brief);
+    await brief.fill("Extend the original horizon.");
+    await page.reload();
+    await expect(brief).toHaveValue("Extend the original horizon.");
+    await expect(page.getByRole("button", { name: "Start research", exact: true })).toBeDisabled();
+    await expect(page.locator("form").getByRole("alert")).toContainText("retired-model");
+    await page.locator("summary").filter({ hasText: "Research settings" }).click();
+    await page.locator("summary").filter({ hasText: "Models by role" }).click();
+    const lead = page.getByRole("group", { name: "Research lead", exact: true });
+    const model = lead.getByRole("combobox", { name: "Research lead model" });
+    const effort = lead.getByRole("combobox", { name: "Thinking effort" });
+    await expect(model.locator("option:checked")).toHaveText("retired-model (unavailable)");
+    await model.selectOption("test-model");
+    await expect(effort.locator("option:checked")).toHaveText("Ultra (unavailable)");
+    await expect(page.getByRole("button", { name: "Start research", exact: true })).toBeDisabled();
+    await effort.selectOption("medium");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await page.getByRole("button", { name: "Start research", exact: true }).click();
+    await expect.poll(() => admitted.length).toBe(1);
+    await expect(page).toHaveURL(new RegExp(`session=${admitted[0]!.id}`));
+    expect(admitted[0]).toMatchObject({
+      ...setup,
+      lead: { ...setup.lead, model: "test-model", reasoning_effort: "medium" },
+      brief: "Extend the original horizon.",
+      baseline_run_id: previous,
+    });
+    expect(admitted[0]!.id).not.toBe(previous);
   });
-  await page.goto(`/?fromSession=${previous}`);
-  const brief = page.getByLabel("Research brief", { exact: true });
-  await expect(brief).toHaveValue(setup.brief);
-  await brief.fill("Extend the original horizon.");
-  await page.reload();
-  await expect(brief).toHaveValue("Extend the original horizon.");
-  await page.getByRole("button", { name: "Start research", exact: true }).click();
-  await expect.poll(() => admitted.length).toBe(1);
-  await expect(page).toHaveURL(new RegExp(`session=${admitted[0]!.id}`));
-  expect(admitted[0]).toMatchObject({
-    ...setup,
-    brief: "Extend the original horizon.",
-    baseline_run_id: previous,
-  });
-  expect(admitted[0]!.id).not.toBe(previous);
-});
+}
 
 test("find an older research session in the run archive and return to its workspaces", async ({
   page,

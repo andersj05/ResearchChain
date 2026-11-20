@@ -3442,6 +3442,57 @@ td time {
   min-width: 0;
   max-width: 100%;
 }
+.model-option-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+  gap: 8px 12px;
+  min-width: 0;
+}
+.model-option-fields .model-picker,
+.model-override-fields > .model-picker {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  margin: 0;
+}
+.model-option-fields select {
+  width: 100%;
+}
+.model-override-fields {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+.role-model-settings {
+  min-width: 0;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+.role-model-settings > summary,
+.canvas-response-settings > summary {
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--muted);
+}
+.role-model-section {
+  padding-block: 12px;
+}
+.role-model-section + .role-model-section {
+  border-top: 1px solid var(--line);
+}
+.role-model-section h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+}
+.canvas-response-settings {
+  margin-top: 3px;
+}
+.canvas-response-settings .model-option-fields {
+  margin-top: 6px;
+}
+.canvas-response-settings .model-picker {
+  display: grid;
+}
 .canvas-model-picker select {
   width: auto;
   max-width: min(100%, 16rem);
