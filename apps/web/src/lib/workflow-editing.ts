@@ -198,6 +198,9 @@ export function portsFor(node: WorkflowNode): Port[] {
     ...(node.kind === "note" ? [port("input", "text", "text")] : []),
     ...controlOutputs(node).map((name) => port("output", name, "control")),
     ...(node.kind === "note" || node.kind === "research" ? [port("output", "text", "text")] : []),
+    ...(node.config?.type === "research" && node.config.team
+      ? [port("output", "review_question", "text")]
+      : []),
     ...(node.kind === "research"
       ? [port("input", "context", "text"), port("input", "feedback", "text")]
       : []),
@@ -210,14 +213,21 @@ export function portsFor(node: WorkflowNode): Port[] {
         ]
       : []),
     ...(node.kind === "review"
-      ? [port("output", "decision", "text"), port("output", "feedback", "text")]
+      ? [
+          port("input", "question", "text"),
+          port("output", "decision", "text"),
+          port("output", "feedback", "text"),
+        ]
       : []),
     ...(node.kind === "loop" ? [port("output", "iterations", "number")] : []),
   ];
 }
 
 export function compatiblePorts(a?: Port, b?: Port): boolean {
-  return !!a && !!b && a.node !== b.node && a.direction !== b.direction && a.type === b.type;
+  if (!a || !b || a.node === b.node || a.direction === b.direction || a.type !== b.type)
+    return false;
+  const [source, target] = a.direction === "output" ? [a, b] : [b, a];
+  return target.name !== "question" || source.name === "review_question";
 }
 
 function outputReference(value: ValueSource, timing: "output" | "previous_iteration" = "output") {
