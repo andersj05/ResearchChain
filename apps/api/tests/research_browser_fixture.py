@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from equitycats_fixture import equitycats_completion
+from session_browser_fixture import BrowserTeam
 from test_provider_signin import BrowserHarness
 from test_web_research import WebProvider
 
@@ -19,7 +20,14 @@ if not os.environ.get("DATABASE_SCHEMA", "").startswith("e2e_"):
 
 
 class BrowserProvider(WebProvider):
+    def __init__(self):
+        super().__init__()
+        self.team = BrowserTeam()
+
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
+        team_response = await self.team.complete_study(manifest, prepared, on_delta)
+        if team_response is not None:
+            return team_response
         on_delta('{"schema_version":')
         if "Wait for cancellation" in str(prepared.input_items):
             await asyncio.sleep(60)
