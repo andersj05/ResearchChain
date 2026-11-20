@@ -303,7 +303,7 @@ def prepare_research(
     sec_financials: bool = False,
     *,
     model: str | None = None,
-    style_excerpt: str = "",
+    style_excerpt: str | None = None,
 ) -> PreparedResearch:
     sources: dict[UUID, dict[str, Any]] = {}
     attachments: list[dict[str, Any]] = []

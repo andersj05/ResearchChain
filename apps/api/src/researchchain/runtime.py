@@ -26,6 +26,7 @@ from researchchain.compiler import (
 from researchchain.controls import ExecutionControl, control_state, set_terminal
 from researchchain.database import Database
 from researchchain.evidence import read_evidence
+from researchchain.graph import ResearchConfig
 from researchchain.models import (
     CancelResult,
     CheckpointStep,
@@ -50,10 +51,13 @@ from researchchain.research import (
     ChatGPTResearchProvider,
     ResearchExecutor,
     ResearchProvider,
+    fence_uncertain_effects,
     make_manifest,
     read_attempts,
     read_manifest,
 )
+from researchchain.research_sessions import SESSION_VERSION
+from researchchain.research_team import TEAM_VERSION
 from researchchain.retention_guards import require_retained_run
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
@@ -88,7 +92,10 @@ def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
     outputs = state.values.get("outputs", {})
     events = []
     for path, event in state.values.get("records", {}).items():
-        if event["kind"] == "review" and "decision" in outputs.get(path, {}):
+        if event["kind"] == "review" and outputs.get(path, {}).get("decision") in {
+            "approve",
+            "reject",
+        }:
             event = {**event, "review_response": outputs[path]}
         events.append(RunEvent.model_validate(event))
     return events
@@ -96,6 +103,11 @@ def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
 
 def compiler_version(workflow: Workflow) -> str:
     nodes = [node for graph in (workflow, *workflow.subgraphs) for node in graph.nodes]
+    if any(
+        isinstance(node.config, ResearchConfig) and (node.config.team or node.config.style_excerpt)
+        for node in nodes
+    ):
+        return TEAM_VERSION
     if any(
         source.source == "previous_iteration" for node in nodes for source in node.inputs.values()
     ):
@@ -207,6 +219,7 @@ class RunStore:
             STRUCTURED_COMPILER_VERSION,
             RESEARCH_COMPILER_VERSION,
             LOOP_INPUT_COMPILER_VERSION,
+            TEAM_VERSION,
         ):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row
@@ -309,6 +322,7 @@ class RunStore:
     def _drive(self, conn: Connection[DictRow], manifest: DictRow, command: DictRow) -> RunSnapshot:
         if command["response"] is not None:
             return RunSnapshot.model_validate(command["response"])
+        fence_uncertain_effects(conn, manifest["id"])
         control = control_state(conn, manifest["id"])
         if control["terminal_status"]:
             snapshot = self._snapshot(conn, manifest)
@@ -392,7 +406,9 @@ class RunStore:
             )
         ]
 
-    def start_command(self, conn: Connection[DictRow], request: RunRequest) -> DictRow:
+    def start_command(
+        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+    ) -> DictRow:
         """Validate and journal inputs; the caller serializes admission and commits."""
         require_retained_run(conn, request.id)
         existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
@@ -405,6 +421,15 @@ class RunStore:
         ):
             raise ConflictError("This run ID already belongs to different inputs.")
         existing_research = read_manifest(conn, request.id) if existing else None
+        if (
+            research_session
+            and existing
+            and (
+                not existing_research
+                or existing_research.tool_config.get("session") != SESSION_VERSION
+            )
+        ):
+            raise ConflictError("This ID already belongs to a different run.")
         if existing and request.provider_account_id != (
             existing_research.account_id if existing_research else None
         ):
@@ -417,6 +442,10 @@ class RunStore:
         artifacts = [item.model_dump() for item in request.artifacts]
         if existing is None:
             if request.baseline_run_id is not None:
+                if research_session:
+                    source = read_manifest(conn, request.baseline_run_id)
+                    if not source or source.tool_config.get("session") != SESSION_VERSION:
+                        raise NotFoundError("Baseline research session not found.")
                 baseline = conn.execute(
                     "SELECT a.agent_id FROM runs r LEFT JOIN agent_runs a ON a.run_id = r.id "
                     "WHERE r.id = %s",
@@ -452,6 +481,8 @@ class RunStore:
                 research_manifest = make_manifest(
                     conn, workflow, request.revision_id, request.evidence_ids, account
                 )
+                if research_session:
+                    research_manifest.tool_config["session"] = SESSION_VERSION
             elif request.provider_account_id:
                 raise EvidenceError("Provider selection is only valid for a research workflow.")
             with conn.transaction():
@@ -547,7 +578,7 @@ class RunStore:
         return RunArchivePage(items=matches[: query.limit], has_more=len(matches) > query.limit)
 
     def _search_runs(
-        self, query: RunArchiveQuery, *, look_ahead: bool = False
+        self, query: RunArchiveQuery, *, look_ahead: bool = False, sessions_only: bool = False
     ) -> list[RunArchiveItem]:
         # History reads journaled summaries, not every graph/checkpoint. A live
         # advisory lock distinguishes executing commands from abandoned ones.
@@ -575,6 +606,9 @@ class RunStore:
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
                 "WHERE (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(sessions_only)s OR EXISTS (SELECT 1 FROM run_research_manifests rm "
+                "WHERE rm.run_id = r.id AND rm.manifest->'tool_config'->>'session' "
+                "= %(session_version)s)) "
                 "AND (NOT %(unassigned)s OR a.agent_id IS NULL) "
                 "AND (%(exclude_id)s::uuid IS NULL OR r.id <> %(exclude_id)s) "
                 "AND (%(before_created_at)s::timestamptz IS NULL "
@@ -585,6 +619,8 @@ class RunStore:
                 "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
                 {
                     **query.model_dump(),
+                    "sessions_only": sessions_only,
+                    "session_version": SESSION_VERSION,
                     "search": query.search.strip(),
                     "limit": query.limit + int(look_ahead),
                 },
@@ -596,10 +632,14 @@ class RunStore:
                 for row in rows
             ]
 
-    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RecentRunSummary]:
+    def list(
+        self, limit: int = 20, agent_id: UUID | None = None, *, sessions_only: bool = False
+    ) -> list[RecentRunSummary]:
         return [
             RecentRunSummary(**item.run.model_dump(), brief_excerpt=item.brief_excerpt)
-            for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
+            for item in self._search_runs(
+                RunArchiveQuery(limit=limit, agent_id=agent_id), sessions_only=sessions_only
+            )
         ]
 
     def pending_reviews(

@@ -11,7 +11,6 @@ import psycopg
 from psycopg import Connection
 from psycopg.rows import DictRow
 
-from researchchain.controls import set_terminal
 from researchchain.database import Database
 from researchchain.dispatch import RunQueue, presence_key, queue_limits, slot_key
 from researchchain.dispatch_models import DispatchError, QueueLimits
@@ -20,10 +19,6 @@ from researchchain.runtime import RunStore
 LOG = logging.getLogger(__name__)
 MAX_AUTOMATIC_ATTEMPTS = 3
 INTERRUPTED = "Worker execution stopped unexpectedly. Recover from the saved checkpoint."
-UNCERTAIN = (
-    "The prior model attempt has an uncertain outcome. It will not be resent. "
-    "Start a new run after review."
-)
 
 
 class RunWorker:
@@ -83,23 +78,6 @@ class RunWorker:
             )
             return True
 
-    @staticmethod
-    def _fence_uncertain_effects(conn: Connection[DictRow], run_id: UUID) -> None:
-        unsafe = conn.execute(
-            "SELECT 1 FROM research_attempts WHERE run_id = %s "
-            "AND status IN ('preparing', 'requesting', 'unknown') LIMIT 1",
-            (run_id,),
-        ).fetchone()
-        if unsafe:
-            with conn.transaction():
-                conn.execute(
-                    "UPDATE research_attempts SET status = 'unknown', reason = %s, "
-                    "finished_at = clock_timestamp() WHERE run_id = %s "
-                    "AND status IN ('preparing', 'requesting')",
-                    (UNCERTAIN, run_id),
-                )
-                set_terminal(conn, run_id, "failed", UNCERTAIN)
-
     def run_once(self) -> bool:
         # One connection owns both the workspace slot and run lock for the entire
         # execution. Never reconnect a running command after losing this session.
@@ -128,7 +106,6 @@ class RunWorker:
                     if not self._claim(conn, command_id):
                         continue
                     try:
-                        self._fence_uncertain_effects(conn, run_id)
                         command = conn.execute(
                             "SELECT * FROM run_commands WHERE id = %s", (command_id,)
                         ).fetchone()

@@ -107,8 +107,8 @@ class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
-    style_excerpt: str = Field(
-        default="", max_length=32000, pattern=r"^[^\x00]*$", exclude_if=lambda value: not value
+    style_excerpt: str | None = Field(
+        default=None, max_length=32000, pattern=r"^[^\x00]*$", exclude_if=lambda value: not value
     )
     model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
 
@@ -119,6 +119,8 @@ class ResearchConfig(StrictModel):
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
+        if self.style_excerpt and (self.stage != "custom" or self.team):
+            raise ValueError("A writing sample belongs to an individual custom writing step.")
         if self.team and not (self.stage == "custom" and self.analyst and self.analyst.workspace):
             raise ValueError("A research team requires a custom Codex analyst with a workspace.")
         if (self.web_search or self.sec_financials or self.analyst) and self.stage != "custom":
@@ -415,8 +417,10 @@ def validate_graph(
         for port, source in node.inputs.items():
             try:
                 expected = INPUT_PORTS.get(node.kind, {}).get(port)
-                if node.kind == "review" and port == "question" and (
-                    source.source != "output" or source.port != "review_question"
+                if (
+                    node.kind == "review"
+                    and port == "question"
+                    and (source.source != "output" or source.port != "review_question")
                 ):
                     raise ValueError("Connect the review question to a research team's question.")
                 sources = before
