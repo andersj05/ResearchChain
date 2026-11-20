@@ -144,6 +144,69 @@ def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(
             )
 
 
+def test_session_model_choices_round_trip_and_reach_each_role(database):
+    provider = SessionProvider()
+    runs = RunStore(database, provider)
+    start = request(
+        review_mode="never",
+        reasoning_effort="high",
+        verbosity="low",
+        lead={"reasoning_effort": "low"},
+        researcher={
+            "model": "analysis-model",
+            "reasoning_effort": "xhigh",
+            "verbosity": "model_default",
+        },
+        editor={"reasoning_effort": "model_default", "verbosity": "high"},
+    )
+    url = "/api/research-sessions"
+    payload = start.model_dump(mode="json")
+    with owner_client(create_app(database, provider), workers=False) as client:
+        queued = client.post(url, json=payload)
+        assert queued.status_code == 202, queued.text
+        assert client.post(url, json=payload).json() == queued.json()
+        assert (
+            client.post(url, json={**payload, "lead": {"reasoning_effort": "high"}}).status_code
+            == 409
+        )
+        assert not provider.calls
+        assert RunWorker(runs).run_once()
+        run = runs.get(start.id)
+        assert run.status == "completed", run.stop_reason
+        expected = {
+            "root/team/plan": ("test-model", "low", "low"),
+            "root/team/agent-1": ("analysis-model", "xhigh", None),
+            "root/report": ("test-model", None, "high"),
+        }
+        assert {item.path for item in run.model_attempts} == expected.keys()
+        with database.connection() as conn:
+            for attempt in run.model_attempts:
+                body = json.loads(read_content(conn, attempt.input_artifact_id))
+                assert (
+                    body["model"],
+                    body.get("reasoning", {}).get("effort"),
+                    body["text"].get("verbosity"),
+                ) == expected[attempt.path]
+                assert body["text"]["format"]["strict"] is True
+        setup = client.get(f"{url}/{start.id}/setup").json()
+        assert setup == start.model_dump(mode="json", exclude={"id", "provider_account_id"})
+        revised = {
+            **payload,
+            **setup,
+            "id": str(uuid4()),
+            "baseline_run_id": str(start.id),
+            "editor": {},
+        }
+        assert client.post(url, json=revised).status_code == 202
+        revised_setup = client.get(f"{url}/{revised['id']}/setup").json()
+        assert revised_setup.get("editor") is None
+        assert (
+            revised_setup["lead"] == setup["lead"]
+            and revised_setup["researcher"] == setup["researcher"]
+        )
+        assert client.get(f"{url}/{start.id}/setup").json() == setup
+
+
 @pytest.mark.parametrize(
     ("mode", "brief", "status"),
     [

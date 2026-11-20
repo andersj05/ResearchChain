@@ -2536,6 +2536,18 @@ export interface components {
       /** Finished At */
       finished_at?: string | null;
     };
+    /** ModelOverride */
+    ModelOverride: {
+      /** Model */
+      model?: string | null;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        | ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra")
+        | "model_default"
+        | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | "model_default" | null;
+    };
     /** NodeTypeSpec */
     NodeTypeSpec: {
       /**
@@ -2731,6 +2743,20 @@ export interface components {
       slug: string;
       /** Display Name */
       display_name: string;
+      /** Reasoning Efforts */
+      reasoning_efforts?: (
+        "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra"
+      )[];
+      /** Default Reasoning Effort */
+      default_reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /**
+       * Supports Verbosity
+       * @default false
+       */
+      supports_verbosity: boolean;
+      /** Default Verbosity */
+      default_verbosity?: ("low" | "medium" | "high") | null;
     };
     /** ProviderStatus */
     ProviderStatus: {
@@ -3174,6 +3200,13 @@ export interface components {
       style_excerpt?: string | null;
       /** Model */
       model?: string | null;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        | ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra")
+        | "model_default"
+        | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | "model_default" | null;
       /**
        * Web Search
        * @default false
@@ -3275,6 +3308,14 @@ export interface components {
       style_excerpt: string;
       /** Model */
       model: string;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | null;
+      lead?: components["schemas"]["ModelOverride"] | null;
+      researcher?: components["schemas"]["ModelOverride"] | null;
+      editor?: components["schemas"]["ModelOverride"] | null;
       /** Evidence Ids */
       evidence_ids?: string[];
       /**
@@ -3317,6 +3358,14 @@ export interface components {
       style_excerpt: string;
       /** Model */
       model: string;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | null;
+      lead?: components["schemas"]["ModelOverride"] | null;
+      researcher?: components["schemas"]["ModelOverride"] | null;
+      editor?: components["schemas"]["ModelOverride"] | null;
       /** Evidence Ids */
       evidence_ids?: string[];
       /**
@@ -3368,6 +3417,11 @@ export interface components {
        * @default gpt-6.1-sol
        */
       model: string;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | null;
       /**
        * Billing
        * @default included_plan
@@ -3380,6 +3434,8 @@ export interface components {
     ResearchTeamConfig: {
       /** Max Agents */
       max_agents: number;
+      lead?: components["schemas"]["ModelOverride"] | null;
+      researcher?: components["schemas"]["ModelOverride"] | null;
     };
     /** ResumeRequest */
     ResumeRequest: {
