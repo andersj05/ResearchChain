@@ -24,6 +24,20 @@ test("follow parallel research from a brief through owner judgment to an illustr
   await page
     .getByRole("combobox", { name: "Research model", exact: true })
     .selectOption("test-model");
+  const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
+  const lead = page.getByRole("group", { name: "Research lead", exact: true });
+  const researchers = page.getByRole("group", { name: "Researchers", exact: true });
+  const writerControls = page.getByRole("group", { name: "Report editor", exact: true });
+  const roleSettings = page.locator("summary").filter({ hasText: "Models by role" });
+  await shared.getByLabel("Thinking effort").selectOption("high");
+  await shared.getByLabel("Response detail").selectOption("low");
+  await roleSettings.click();
+  await lead.getByLabel("Thinking effort").selectOption("low");
+  await researchers.getByLabel("Researchers model").selectOption("analysis-model");
+  await researchers.getByLabel("Thinking effort").selectOption("xhigh");
+  await researchers.getByLabel("Response detail").selectOption("model_default");
+  await writerControls.getByLabel("Thinking effort").selectOption("model_default");
+  await writerControls.getByLabel("Response detail").selectOption("high");
   await expect(page.getByLabel("Expert review")).toHaveValue("when_needed");
   await page.getByRole("button", { name: "Start research", exact: true }).click();
   await expect(page).toHaveURL(/\?session=[\da-f-]{36}/);
@@ -41,7 +55,21 @@ test("follow parallel research from a brief through owner judgment to an illustr
     await expect(page).toHaveURL(/workspace=agent-2/);
     await page.reload();
     await expect(inventories).toHaveAttribute("aria-current", "true");
-    await expect(inventory).toContainText("Pass 1 · test-model");
+    await expect(inventory).toContainText("Pass 1 · analysis-model");
+    const briefSettings = page.getByText("Brief and settings", { exact: true });
+    await briefSettings.click();
+    const profiles = page.getByRole("table", { name: "Pinned model settings" });
+    for (const [role, model, effort, detail] of [
+      ["Research lead", "test-model", "Low", "Low"],
+      ["Researchers", "analysis-model", "Extra high", "Model default"],
+      ["Report editor", "test-model", "Model default", "High"],
+    ] as const) {
+      const row = profiles
+        .getByRole("row")
+        .filter({ has: page.getByRole("rowheader", { name: role, exact: true }) });
+      await expect(row.getByRole("cell")).toHaveText([model, effort, detail]);
+    }
+    await briefSettings.click();
     await expect(demand).toContainText("Requesting");
     const live: RunSnapshot = await (await request.get(runUrl)).json();
     expect(
@@ -85,6 +113,17 @@ test("follow parallel research from a brief through owner judgment to an illustr
   await page.reload();
   await expect(selector).toHaveValue(secondId);
   const passTwo = await (await request.get((await savedRequest.getAttribute("href"))!)).json();
+  for (const pass of [passOne, passTwo]) {
+    expect(pass).toMatchObject({
+      model: "analysis-model",
+      reasoning: { effort: "xhigh" },
+      text: { format: { strict: true } },
+    });
+    expect(pass.text.verbosity).toBeUndefined();
+  }
+  await expect(inventory).toContainText(
+    "Thinking effort · Extra high · Response detail · Model default",
+  );
   expect(passOne.input).not.toEqual(
     expect.arrayContaining([expect.objectContaining({ type: "function_call_output" })]),
   );
@@ -142,6 +181,8 @@ test("follow parallel research from a brief through owner judgment to an illustr
   const editorRequest = await (
     await request.get(`/api/artifacts/${encodeURIComponent(writer.input_artifact_id!)}/content`)
   ).json();
+  expect(editorRequest).toMatchObject({ model: "test-model", text: { verbosity: "high" } });
+  expect(editorRequest.reasoning?.effort).toBeUndefined();
   expect(JSON.parse(editorRequest.input[0].content[0].text)).toMatchObject({
     human_feedback: feedback,
     owner_directions: [note],
@@ -156,6 +197,17 @@ test("follow parallel research from a brief through owner judgment to an illustr
   await page.screenshot({ path: info.outputPath("illustrated-report-mobile.png"), fullPage: true });
   await page.getByRole("button", { name: "Revise brief" }).click();
   await expect(page.getByLabel("Research brief", { exact: true })).toHaveValue(brief);
+  const researchSettings = page.locator("summary").filter({ hasText: "Research settings" });
+  if (!(await shared.isVisible())) await researchSettings.click();
+  await expect(shared.getByLabel("Thinking effort")).toHaveValue("high");
+  await expect(shared.getByLabel("Response detail")).toHaveValue("low");
+  if (!(await researchers.isVisible())) await roleSettings.click();
+  await expect(lead.getByLabel("Thinking effort")).toHaveValue("low");
+  await expect(researchers.getByLabel("Researchers model")).toHaveValue("analysis-model");
+  await expect(researchers.getByLabel("Thinking effort")).toHaveValue("xhigh");
+  await expect(researchers.getByLabel("Response detail")).toHaveValue("model_default");
+  await expect(writerControls.getByLabel("Thinking effort")).toHaveValue("model_default");
+  await expect(writerControls.getByLabel("Response detail")).toHaveValue("high");
   await expect(page.getByRole("link", { name: "previous study" })).toHaveAttribute(
     "href",
     `/?session=${sessionId}`,

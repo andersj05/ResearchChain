@@ -99,11 +99,14 @@ and outputs. It is separate from model prompts and uses no model allowance. Read
 
 ## Where the model is used
 
-Choose **Workflow model** above the graph. Model steps inherit it, including steps
-in subgraphs. To assign a different model to a single step, select the step and
-choose its **Step model**. Select **Workflow default** to restore inheritance.
-Run setup lets you change the default, inspect overrides and manage the connected
-ChatGPT plan. Starting a run pins these choices in its saved revision.
+Choose **Workflow model** above the graph. Set **Thinking effort** and **Response
+detail** using the options advertised for that model. Model steps inherit these
+settings independently, including steps in subgraphs. Select a step to change
+its model, effort or detail. **Workflow default** restores inheritance, and
+**Model default** uses that model's own handling for effort or detail.
+Team steps also offer **Models by role** for the lead and researchers.
+Run setup lets you review and change these choices before the run pins them
+in its saved revision.
 
 Saved runs show their pinned selected model and the model identifiers actually
 reported by the provider, with per-attempt details. Missing provider metadata says

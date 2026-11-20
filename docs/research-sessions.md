@@ -22,6 +22,24 @@ report should help you decide. The lead chooses how to divide the investigation.
 Select **Start research** to queue the study and open its session. You can return
 to it from **Recent research** or the run archive.
 
+### Choose the model and thinking effort
+
+Under **Research settings**, the **Research model**, **Thinking effort** and
+**Response detail** apply to the whole study. The choices come from the connected
+account. A higher thinking effort gives the model more room to reason and can
+take longer. Response detail asks for more or less detail in the answer. Leave
+either at **Model default** to use the model's own handling.
+
+Open **Models by role** to configure the **Research lead**, **Researchers** or
+**Report editor**. Each setting inherits independently. For example, you can
+give the researchers a higher thinking effort and ask only the editor for a
+more detailed response. If a role's model lacks a shared setting, select
+**Model default** for that field or choose a level the model offers.
+
+During a study, **Brief and settings** shows the model, effort and detail
+pinned for each role. A workspace's **Model passes** includes the saved request
+for each pass. **Revise brief** restores your choices for the next experiment.
+
 ## Follow and direct the investigation
 
 The lead's saved plan lists each assignment and its objective. Select a researcher

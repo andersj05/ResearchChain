@@ -44,6 +44,35 @@
 }
 .settings {
   font-size: 13px;
+  min-width: 0;
+}
+.profileList {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-top: 14px;
+}
+.profileList table {
+  width: 100%;
+  max-width: 48rem;
+  border-collapse: collapse;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.profileList caption {
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
+  padding-bottom: 6px;
+}
+.profileList th,
+.profileList td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 10px 6px 0;
+  vertical-align: top;
+}
+.profileList th {
+  color: var(--ink);
+  font-weight: 500;
 }
 .settings summary,
 .receipts summary,

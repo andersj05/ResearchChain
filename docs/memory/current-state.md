@@ -2,6 +2,23 @@
 
 Updated 2026-11-20.
 
+## Thinking effort and response detail
+
+The Research desk takes its model choices and supported thinking levels from
+the connected account. The owner can set a shared model, thinking effort and
+response detail, then override each field for the lead, researchers or editor.
+The workflow builder also supports defaults and step overrides. New studies
+pin these choices, and revising a brief restores them. Older runs retain the
+request behavior pinned when they started.
+
+Synthetic HTTP tests compared the saved request bytes with the director,
+researcher and editor requests, including tool continuations. Session tests
+verified exact admission retries and restoration of per-role settings. A browser
+rehearsal followed two researchers with extra-high effort through to a report
+written with high response detail, then reopened the role settings on a phone.
+[Research desk guide](../research-sessions.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/132).
+
 ## Brief-led research with independent workspaces
 
 The Research desk now starts a study from a brief, optional writing sample and
