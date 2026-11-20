@@ -33,6 +33,13 @@ same original name remain distinguishable. A writing example is supplied only
 to the editor as style material. Evidence and provider observations retain
 their own identities.
 
+The owner can send direction before the editor's first request is reserved.
+The worker includes accepted notes when preparing subsequent requests and records
+their IDs on each attempt. Requests already sent keep the inputs they received.
+An editor finishes by saving a nonempty `report.md` or returning the complete
+Markdown for the worker to save. The export resolves figures against the files
+recorded with that editor's work.
+
 ## Workbench
 
 The first screen is a brief and recent studies. The session view shows the

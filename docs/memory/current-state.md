@@ -1,6 +1,26 @@
 # Current state
 
-Updated 2026-11-19. The owner asked to make complex agents easier to understand
+Updated 2026-11-20.
+
+## Brief-led research with independent workspaces
+
+The Research desk now starts a study from a brief, optional writing sample and
+pinned sources. A lead records a plan and dispatches up to four independent
+researchers. The session shows each request, saved lead, tool result and file.
+The owner can send directions to upcoming passes and answer the team's editorial
+question. The editor produces a full Markdown report and can include saved figures.
+Revisions link to the original study. Workflows retains the visual agent builder.
+
+A browser rehearsal followed two overlapping model requests through isolated
+Python workspaces, two same-named CSVs, live owner direction, expert review and
+a downloaded illustrated report. It also reopened a saved pass and the revised
+brief. Model replies and owner inputs were synthetic. [Research desk guide](../research-sessions.md) ·
+[Decision](../decisions/0023-adaptive-research-teams.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/129).
+
+## Workflow inspection work on 2026-11-19
+
+The owner asked to make complex agents easier to understand
 in Build and Runs and to exercise a looped EquityCats research workflow.
 [Research interface principles](../research-interface.md).
 
