@@ -269,7 +269,7 @@ export function ResearchBriefOptions({
             values={draft}
             catalog={catalog}
             includeEditor
-            inheritedLabel="Shared setting"
+            inheritedLabel="Shared"
             disabled={disabled}
             onChange={(role, value) => update({ [role]: value })}
           />

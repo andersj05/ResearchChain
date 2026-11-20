@@ -329,6 +329,11 @@
   .composer {
     margin-top: 16px;
   }
+  .settingGrid {
+    grid-template-columns: minmax(0, 1fr) minmax(12.5rem, 1fr);
+    column-gap: 12px;
+    align-items: end;
+  }
   .historyRows a {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 4px 10px;

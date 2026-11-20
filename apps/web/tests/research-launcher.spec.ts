@@ -157,16 +157,40 @@ for (const width of [1280, 390]) {
     await page.getByLabel("Maximum research agents").selectOption("2");
     await page.getByLabel("Passes per agent").fill("5");
     await page.getByLabel("Active time limit (seconds)").fill("1200");
-    await page.getByLabel("Expert review").selectOption("always");
     const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
     const effort = shared.getByRole("combobox", { name: "Thinking effort" });
     const detail = shared.getByRole("combobox", { name: "Response detail" });
     await expect(effort.locator("option:checked")).toHaveText("Model default · Medium");
     await expect(detail.locator("option:checked")).toHaveText("Model default · Low");
     await expect(effort.getByRole("option", { name: "Ultra", exact: true })).toHaveCount(0);
+    await page.locator("summary").filter({ hasText: "Models by role" }).click();
+    if (width === 390) {
+      await page.getByLabel("Expert review").selectOption("never");
+      const expanded = page.locator("details", { has: page.getByLabel("Maximum research agents") });
+      for (const phoneWidth of [320, width]) {
+        await page.setViewportSize({ width: phoneWidth, height: 920 });
+        const clipped = await expanded.locator("select:visible").evaluateAll((controls) => {
+          const context = document.createElement("canvas").getContext("2d")!;
+          return controls.flatMap((element) => {
+            const select = element as HTMLSelectElement;
+            const style = getComputedStyle(select);
+            const text = select.selectedOptions[0]!.text;
+            context.font = [style.fontWeight, style.fontSize, style.fontFamily].join(" ");
+            // Reserve the select's padding and native dropdown arrow.
+            const interior =
+              select.clientWidth -
+              parseFloat(style.paddingLeft) -
+              parseFloat(style.paddingRight) -
+              16;
+            return context.measureText(text).width > interior ? [text] : [];
+          });
+        });
+        expect(clipped, `Selected settings at ${phoneWidth}px`).toEqual([]);
+      }
+    }
+    await page.getByLabel("Expert review").selectOption("always");
     await effort.selectOption("high");
     await detail.selectOption("high");
-    await page.locator("summary").filter({ hasText: "Models by role" }).click();
     const researchers = page.getByRole("group", { name: "Researchers", exact: true });
     await researchers
       .getByRole("combobox", { name: "Researchers model" })
