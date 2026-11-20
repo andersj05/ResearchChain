@@ -6,7 +6,13 @@ from uuid import UUID
 
 from pydantic import Field, StringConstraints, model_validator
 
-from researchchain.graph import ResearchSettings, ResearchStage, StrictModel
+from researchchain.graph import (
+    ReasoningEffort,
+    ResearchSettings,
+    ResearchStage,
+    ResponseVerbosity,
+    StrictModel,
+)
 from researchchain.sec_financials import SecFinancials, SecLookup
 from researchchain.web_research import WebResearch
 
@@ -232,6 +238,10 @@ class ProviderAccount(StrictModel):
 class ProviderModel(StrictModel):
     slug: str
     display_name: str
+    reasoning_efforts: list[ReasoningEffort] = Field(default_factory=list)
+    default_reasoning_effort: ReasoningEffort | None = None
+    supports_verbosity: bool = False
+    default_verbosity: ResponseVerbosity | None = None
 
 
 class ProviderStatus(StrictModel):

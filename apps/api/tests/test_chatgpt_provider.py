@@ -29,6 +29,8 @@ from researchchain.providers.chatgpt_auth import (
 from researchchain.providers.chatgpt_login import browser_login
 from researchchain.providers.chatgpt_plan import ChatGPTPlan
 from researchchain.providers.credentials import ConnectionError, CredentialStore
+from researchchain.research import ChatGPTResearchProvider
+from researchchain.research_prompt import json_bytes
 
 CLIENT = "oaiapp_synthetic_test_registration"
 
@@ -45,6 +47,10 @@ class Harness:
         self.fail_status = 400
         self.revoked = 0
         self.revocation_fails = False
+        self.models: list[dict[str, Any]] = [
+            {"slug": "test-model", "display_name": "Test model", "visibility": "list"},
+            {"slug": "hidden", "display_name": "Hidden", "visibility": "hide"},
+        ]
         self.client = httpx.Client(transport=httpx.MockTransport(self.handle))
         self.auth = ChatGPTAuth(self.store, self.client)
 
@@ -101,15 +107,7 @@ class Harness:
             )
         if str(request.url) == f"{RESOURCE}/models":
             assert request.headers["authorization"].startswith("Bearer synthetic-access-")
-            return httpx.Response(
-                200,
-                json={
-                    "models": [
-                        {"slug": "test-model", "display_name": "Test model", "visibility": "list"},
-                        {"slug": "hidden", "display_name": "Hidden", "visibility": "hide"},
-                    ]
-                },
-            )
+            return httpx.Response(200, json={"models": self.models})
         raise AssertionError("Unexpected network route")
 
     def begin(self, **kwargs: Any) -> PendingLogin:
@@ -374,6 +372,189 @@ def test_loopback_browser_binding_and_success(harness: Harness) -> None:
 
 def events(*items: dict[str, Any]) -> bytes:
     return b"".join(b"data: " + json.dumps(item).encode() + b"\n\n" for item in items)
+
+
+def test_account_status_projects_only_advertised_model_controls(
+    harness: Harness, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    harness.complete()
+    common = {"display_name": "Fixture", "visibility": "list"}
+    harness.models = [
+        {
+            **common,
+            "slug": "advertised",
+            "supported_reasoning_levels": [
+                {"effort": "high", "description": "Nested catalog metadata"},
+                {"effort": "none"},
+                {"effort": "high"},
+                {"effort": "future"},
+                {"effort": []},
+                {"level": "low"},
+                "medium",
+                None,
+            ],
+            "default_reasoning_level": "none",
+            "support_verbosity": True,
+            "default_verbosity": "medium",
+        },
+        {**common, "slug": "legacy"},
+        {
+            **common,
+            "slug": "malformed",
+            "supported_reasoning_levels": {"effort": "high"},
+            "default_reasoning_level": "high",
+            "support_verbosity": 1,
+            "default_verbosity": "low",
+        },
+        {
+            **common,
+            "slug": "unknown-defaults",
+            "supported_reasoning_levels": [{"effort": "low"}],
+            "default_reasoning_level": "medium",
+            "support_verbosity": True,
+            "default_verbosity": {},
+        },
+        {**common, "slug": "hidden", "visibility": "hide", "support_verbosity": True},
+    ]
+    client = httpx.Client
+    monkeypatch.setattr(
+        httpx,
+        "Client",
+        lambda **kwargs: client(transport=httpx.MockTransport(harness.handle), **kwargs),
+    )
+    status = ChatGPTResearchProvider(harness.store).status()
+    assert status.error is None and status.accounts[0].id == CLIENT
+    models = {item.slug: item for item in status.models}
+    assert list(models) == ["advertised", "legacy", "malformed", "unknown-defaults"]
+    assert models["advertised"].reasoning_efforts == ["high", "none"]
+    assert models["advertised"].default_reasoning_effort == "none"
+    assert (
+        models["advertised"].supports_verbosity
+        and models["advertised"].default_verbosity == "medium"
+    )
+    for slug in ("legacy", "malformed"):
+        assert models[slug].reasoning_efforts == []
+        assert models[slug].default_reasoning_effort is None
+        assert not models[slug].supports_verbosity and models[slug].default_verbosity is None
+    assert models["unknown-defaults"].reasoning_efforts == ["low"]
+    assert models["unknown-defaults"].default_reasoning_effort is None
+    assert (
+        models["unknown-defaults"].supports_verbosity
+        and models["unknown-defaults"].default_verbosity is None
+    )
+
+
+def test_duplicate_catalog_rows_share_only_common_capabilities(harness: Harness) -> None:
+    harness.complete()
+    source = {
+        "slug": "duplicate",
+        "display_name": "First display name",
+        "visibility": "list",
+        "supported_reasoning_levels": [{"effort": "low"}, {"effort": "high"}],
+        "default_reasoning_level": "high",
+        "support_verbosity": True,
+        "default_verbosity": "low",
+    }
+    harness.models = [source, dict(source)]
+    plan = ChatGPTPlan(harness.auth)
+    account, choices = plan.models()
+    assert account == CLIENT and len(choices) == 1
+    assert (
+        choices[0].reasoning_efforts == ("low", "high")
+        and choices[0].default_reasoning_effort == "high"
+    )
+    assert choices[0].supports_verbosity and choices[0].default_verbosity == "low"
+    harness.models.append(
+        {
+            **source,
+            "display_name": "Second display name",
+            "supported_reasoning_levels": [{"effort": "medium"}, {"effort": "low"}],
+            "default_reasoning_level": "low",
+            "support_verbosity": False,
+        }
+    )
+    _, choices = plan.models()
+    assert len(choices) == 1 and choices[0].display_name == "First display name"
+    assert choices[0].reasoning_efforts == ("low",) and choices[0].default_reasoning_effort is None
+    assert not choices[0].supports_verbosity and choices[0].default_verbosity is None
+
+
+@pytest.mark.parametrize("analyst", [False, True])
+def test_saved_research_request_matches_http_bytes(harness: Harness, analyst: bool) -> None:
+    harness.complete()
+    schema = {"type": "object", "properties": {}, "additionalProperties": False}
+    saved: dict[str, Any] = {
+        "model": "test-model",
+        "store": False,
+        "stream": True,
+        "instructions": "Use checked sources.",
+        "input": [{"role": "user", "content": [{"type": "input_text", "text": "Résumé"}]}],
+        "text": {
+            "format": {
+                "type": "json_schema",
+                "name": "research_result",
+                "strict": True,
+                "schema": schema,
+            },
+            "verbosity": "low",
+        },
+        "reasoning": {"effort": "high"},
+    }
+    if analyst:
+        saved["reasoning"]["summary"] = "auto"
+        saved["input"].append(
+            {
+                "type": "reasoning",
+                "id": "synthetic-item",
+                "summary": [],
+                "encrypted_content": "synthetic-opaque-item",
+            }
+        )
+        saved["tools"] = [{"type": "web_search"}]
+        saved["include"] = ["web_search_call.action.sources", "reasoning.encrypted_content"]
+    expected = json_bytes(saved)
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        assert request.url == f"{RESOURCE}/responses"
+        assert request.headers["content-type"] == "application/json"
+        assert request.content == expected
+        return httpx.Response(
+            200,
+            content=events(
+                {"type": "response.output_text.delta", "delta": "ok"},
+                {
+                    "type": "response.completed",
+                    "response": {"id": "resp_test", "status": "completed"},
+                },
+            ),
+        )
+
+    response = asyncio.run(
+        ChatGPTPlan(harness.auth).complete(
+            "test-model",
+            "",
+            account_id=CLIENT,
+            request_body=saved,
+            web_search=analyst,
+            analyst_options={} if analyst else None,
+            transport=httpx.MockTransport(handle),
+        )
+    )
+    assert response.text == "ok" and (response.analyst_response is not None) == analyst
+
+
+@pytest.mark.parametrize("change", [{"model": "another"}, {"stream": False}, {"store": True}])
+def test_saved_request_checks_model_and_plan_boundaries_before_access(
+    harness: Harness, change: dict[str, Any]
+) -> None:
+    body = {"model": "test-model", "stream": True, "store": False, **change}
+    with pytest.raises(ValueError, match="pinned model"):
+        asyncio.run(
+            ChatGPTPlan(harness.auth).complete(
+                "test-model", "", account_id=CLIENT, request_body=body
+            )
+        )
+    assert harness.forms == []
 
 
 def run_response(harness: Harness, content: bytes, **kwargs: Any) -> Any:

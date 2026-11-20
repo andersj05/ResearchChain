@@ -1,6 +1,7 @@
 """Versioned workflow documents and server-side structured-control validation."""
 
 from collections import deque
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -83,6 +84,16 @@ class LoopConfig(StrictModel):
 
 ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
 ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+ResponseVerbosity = Literal["low", "medium", "high"]
+EffortOverride = ReasoningEffort | Literal["model_default"]
+VerbosityOverride = ResponseVerbosity | Literal["model_default"]
+
+
+class ModelOverride(StrictModel):
+    model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
+    reasoning_effort: EffortOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: VerbosityOverride | None = Field(default=None, exclude_if=lambda x: x is None)
 
 
 class AnalystConfig(StrictModel):
@@ -101,6 +112,12 @@ class AnalystConfig(StrictModel):
 
 class ResearchTeamConfig(StrictModel):
     max_agents: int = Field(ge=1, le=4)
+    lead: ModelOverride | None = Field(
+        default=None, exclude_if=lambda v: not v or not v.model_dump()
+    )
+    researcher: ModelOverride | None = Field(
+        default=None, exclude_if=lambda v: not v or not v.model_dump()
+    )
 
 
 class ResearchConfig(StrictModel):
@@ -111,6 +128,8 @@ class ResearchConfig(StrictModel):
         default=None, max_length=32000, pattern=r"^[^\x00]*$", exclude_if=lambda value: not value
     )
     model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
+    reasoning_effort: EffortOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: VerbosityOverride | None = Field(default=None, exclude_if=lambda x: x is None)
 
     web_search: bool | Literal["auto"] = False
     sec_financials: bool = False
@@ -156,8 +175,32 @@ class ResearchLimits(StrictModel):
 class ResearchSettings(StrictModel):
     provider: Literal["chatgpt_plan"] = "chatgpt_plan"
     model: ModelSlug = "gpt-6.1-sol"
+    reasoning_effort: ReasoningEffort | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: ResponseVerbosity | None = Field(default=None, exclude_if=lambda x: x is None)
     billing: Literal["included_plan"] = "included_plan"
     limits: ResearchLimits = Field(default_factory=ResearchLimits)
+
+
+@dataclass(frozen=True)
+class ModelSelection:
+    model: str
+    reasoning_effort: EffortOverride | None = None
+    verbosity: VerbosityOverride | None = None
+
+
+def resolve_model(
+    settings: ResearchSettings, config: ResearchConfig, role: ModelOverride | None = None
+) -> ModelSelection:
+    """Resolve each choice independently. Keep explicit model defaults for the wire request."""
+    selected = ModelSelection(settings.model, settings.reasoning_effort, settings.verbosity)
+    for override in (config, role):
+        if override is not None:
+            selected = ModelSelection(
+                override.model or selected.model,
+                override.reasoning_effort or selected.reasoning_effort,
+                override.verbosity or selected.verbosity,
+            )
+    return selected
 
 
 NodeConfig = Annotated[
@@ -554,22 +597,30 @@ class Workflow(GraphDefinition):
                 visiting.remove(key)
         return self
 
-    def research_models(self) -> set[str]:
-        """Models to validate at start, excluding archived subgraph versions."""
+    def research_selections(self) -> set[ModelSelection]:
+        """Settings for executable roles, excluding archived subgraph versions."""
         assert self.research is not None
-        models = {self.research.model}
+        # The workflow's pinned model must remain available even if every step overrides it.
+        selections = {ModelSelection(self.research.model)}
         definitions = {(item.id, item.version): item for item in self.subgraphs}
         pending: list[GraphDefinition] = [self]
         while pending:
             for node in pending.pop().nodes:
                 config = node.config
-                if isinstance(config, ResearchConfig) and config.model:
-                    models.add(config.model)
+                if isinstance(config, ResearchConfig):
+                    if config.team:
+                        selections.add(resolve_model(self.research, config, config.team.lead))
+                        selections.add(resolve_model(self.research, config, config.team.researcher))
+                    else:
+                        selections.add(resolve_model(self.research, config))
                 elif isinstance(config, (LoopConfig, SubgraphConfig)):
                     body = definitions.pop((config.ref.id, config.ref.version), None)
                     if body:
                         pending.append(body)
-        return models
+        return selections
+
+    def research_models(self) -> set[str]:
+        return {selection.model for selection in self.research_selections()}
 
     def canonical_document(self) -> dict[str, Any]:
         """Keep legacy content hashes stable; API responses include normalized defaults."""
