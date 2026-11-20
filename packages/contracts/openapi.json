@@ -6371,6 +6371,57 @@
         "required": ["id", "path", "stage", "model", "status", "created_at"],
         "title": "ModelAttempt"
       },
+      "ModelOverride": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9._:-]{1,120}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ModelOverride"
+      },
       "NodeTypeSpec": {
         "properties": {
           "kind": {
@@ -6777,6 +6828,43 @@
           "display_name": {
             "type": "string",
             "title": "Display Name"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "type": "string",
+              "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+            },
+            "type": "array",
+            "title": "Reasoning Efforts"
+          },
+          "default_reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Reasoning Effort"
+          },
+          "supports_verbosity": {
+            "type": "boolean",
+            "title": "Supports Verbosity",
+            "default": false
+          },
+          "default_verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Verbosity"
           }
         },
         "additionalProperties": false,
@@ -7724,6 +7812,38 @@
             ],
             "title": "Model"
           },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
           "web_search": {
             "anyOf": [
               {
@@ -7922,6 +8042,60 @@
             "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
             "title": "Model"
           },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "researcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence_ids": {
             "items": {
               "type": "string",
@@ -8001,6 +8175,60 @@
             "type": "string",
             "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
             "title": "Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "researcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "evidence_ids": {
             "items": {
@@ -8085,6 +8313,30 @@
             "title": "Model",
             "default": "gpt-6.1-sol"
           },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
           "billing": {
             "type": "string",
             "const": "included_plan",
@@ -8106,6 +8358,26 @@
             "maximum": 4.0,
             "minimum": 1.0,
             "title": "Max Agents"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "researcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,

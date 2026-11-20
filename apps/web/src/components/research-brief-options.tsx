@@ -1,7 +1,12 @@
 import { useRef, useState } from "react";
 import { ChatGPTSignIn } from "./chatgpt-signin";
 import { EvidencePicker } from "./evidence-picker";
-import { ModelPicker, type ModelCatalog } from "./model-picker";
+import {
+  ModelOptionFields,
+  ModelPicker,
+  RoleModelSettings,
+  type ModelCatalog,
+} from "./model-picker";
 import type { ResearchBrief } from "@/lib/research-sessions";
 import styles from "./research-desk.module.css";
 
@@ -242,12 +247,31 @@ export function ResearchBriefOptions({
               ))}
             </select>
           </label>
-          <ModelPicker
-            label="Research model"
+          <fieldset className={styles.sharedProfile}>
+            <legend>Team defaults</legend>
+            <ModelPicker
+              label="Research model"
+              catalog={catalog}
+              value={model}
+              onChange={(selected) => update({ model: selected })}
+              disabled={disabled}
+            />
+            <ModelOptionFields
+              scope="Shared"
+              catalog={catalog}
+              settings={{ ...draft, model }}
+              onChange={update}
+              disabled={disabled}
+            />
+          </fieldset>
+          <RoleModelSettings
+            shared={{ ...draft, model }}
+            values={draft}
             catalog={catalog}
-            value={model}
-            onChange={(selected) => update({ model: selected })}
+            includeEditor
+            inheritedLabel="Shared"
             disabled={disabled}
+            onChange={(role, value) => update({ [role]: value })}
           />
         </div>
       </details>

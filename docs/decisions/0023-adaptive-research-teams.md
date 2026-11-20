@@ -22,6 +22,21 @@ requires the previous request's returned usage before the next admission.
 Stored plans and completed requests can be replayed. An uncertain provider
 request stops recovery for inspection.
 
+### Per-role model settings
+
+The workflow default, research step and team role each contribute a model,
+thinking effort and response verbosity. Each field inherits independently.
+A role can explicitly return effort or verbosity to the selected model's
+default. Admission validates the choices used by each executable role against
+the connected account's model catalog. A retry of an admitted command reuses
+its saved revision and manifest.
+
+Research manifests with `model_settings_version: model-settings-1` use these
+rules for every pass, including requests prepared by the Codex harness. The
+worker applies the effective effort and verbosity before saving and sending
+the request. Selecting the model's default omits that request field. Earlier
+manifests retain their original harness behavior on resume.
+
 ## Judgment and writing
 
 The owner can ask to review every study before writing, review when the team

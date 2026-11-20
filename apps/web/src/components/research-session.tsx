@@ -7,10 +7,12 @@ import { ownerStoragePrefix } from "@/lib/access";
 import { api, ApiError, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
 import { evidenceUrl } from "@/lib/evidence";
+import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import {
   activityLabel,
   SessionActivity,
+  sessionModelProfiles,
   sessionWorkspaces,
   SessionWorkspaceDetail,
 } from "./research-session-workspace";
@@ -166,7 +168,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         )}
       </main>
     );
-  const lanes = sessionWorkspaces(run);
+  const profiles = sessionModelProfiles(run);
+  const lanes = sessionWorkspaces(run, profiles);
   const editor = lanes.at(-1)!;
   const team = lanes.slice(1, -1);
   const workspace =
@@ -216,6 +219,36 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             active-time limit · {run.research_manifest?.settings.limits?.max_model_calls} model
             requests maximum
           </p>
+          {profiles ? (
+            <div className={styles.profileList}>
+              <table>
+                <caption>Pinned model settings</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">Role</th>
+                    <th scope="col">Model</th>
+                    <th scope="col">Thinking effort</th>
+                    <th scope="col">Response detail</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {researchRoles.map(({ key, label }) => (
+                    <tr key={key}>
+                      <th scope="row">{label}</th>
+                      <td>{profiles[key].model}</td>
+                      <td>{modelSettingLabel(profiles[key].reasoning_effort)}</td>
+                      <td>{modelSettingLabel(profiles[key].verbosity)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <p>
+              This study predates saved role settings. Open a model pass to see its original
+              request.
+            </p>
+          )}
           {!!run.evidence_ids?.length && (
             <ul>
               {run.research_manifest?.evidence.map((source) => (

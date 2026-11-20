@@ -29,7 +29,14 @@ from researchchain.codex_analyst import (
 from researchchain.compiler import ExecutionStopped
 from researchchain.controls import ExecutionControl, set_terminal
 from researchchain.evidence import read_evidence
-from researchchain.graph import ResearchConfig, Workflow, WorkflowNode
+from researchchain.graph import (
+    ModelOverride,
+    ModelSelection,
+    ResearchConfig,
+    Workflow,
+    WorkflowNode,
+    resolve_model,
+)
 from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
@@ -50,6 +57,7 @@ from researchchain.research_models import (
 )
 from researchchain.research_prompt import (
     ANALYST_VERSION,
+    MODEL_SETTINGS_VERSION,
     PROMPT_VERSION,
     WORKSPACE_VERSION,
     PreparedResearch,
@@ -107,7 +115,7 @@ class ResearchProvider(Protocol):
         *,
         workspace: bool = False,
     ) -> StoredResearchResult: ...
-    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount: ...
+    def pin_account(self, account_id: str, selections: set[ModelSelection]) -> ProviderAccount: ...
     def status(self) -> ProviderStatus: ...
     async def complete(
         self,
@@ -149,26 +157,45 @@ class ChatGPTResearchProvider:
                 if account_id != saved.active_client_id:
                     raise ConnectionError("The active account changed. Refresh its models.")
                 result.models = [
-                    ProviderModel(slug=model.slug, display_name=model.display_name)
-                    for model in models
+                    ProviderModel.model_validate(model, from_attributes=True) for model in models
                 ]
             except ConnectionError as error:
                 result.error = str(error)
         return result
 
-    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount:
+    def pin_account(self, account_id: str, selections: set[ModelSelection]) -> ProviderAccount:
         status = self.status()
         if status.error:
             raise ConnectionError(status.error)
         account = next((item for item in status.accounts if item.id == account_id), None)
         if not account or not account.active or not account.plan_enabled:
             raise ConnectionError("Select the connected ChatGPT account before starting research.")
-        unavailable = models.difference(item.slug for item in status.models)
+        catalog = {item.slug: item for item in status.models}
+        unavailable = {item.model for item in selections}.difference(catalog)
         if unavailable:
             raise ConnectionError(
                 "Choose an available model for this account. Unavailable: "
                 + ", ".join(sorted(unavailable))
             )
+        for selected in sorted(
+            selections, key=lambda s: (s.model, s.reasoning_effort or "", s.verbosity or "")
+        ):
+            model = catalog[selected.model]
+            effort = selected.reasoning_effort
+            if (
+                effort is not None
+                and effort != "model_default"
+                and effort not in model.reasoning_efforts
+            ):
+                allowed = ", ".join(["model default", *model.reasoning_efforts])
+                raise ConnectionError(
+                    f"{model.slug} does not support reasoning effort '{effort}'. Choose {allowed}."
+                )
+            if selected.verbosity not in (None, "model_default") and not model.supports_verbosity:
+                raise ConnectionError(
+                    f"{model.slug} does not support response verbosity '{selected.verbosity}'. "
+                    "Choose model default for verbosity."
+                )
         return account
 
     async def complete(
@@ -186,9 +213,7 @@ class ChatGPTResearchProvider:
                 account_id=manifest.account_id,
                 timeout_seconds=limits.max_response_seconds,
                 output_chars=limits.max_output_characters,
-                input_items=prepared.input_items,
-                instructions=prepared.instructions,
-                output_schema=prepared.schema,
+                request_body=prepared.request_body(),
                 on_delta=on_delta,
                 on_web_progress=on_delta,
                 web_search=prepared.web_search,
@@ -239,6 +264,7 @@ def make_manifest(
         evidence=snapshots,
         created_at=datetime.now(UTC),
         tool_config={
+            "model_settings_version": MODEL_SETTINGS_VERSION,
             **(
                 {"team_version": TEAM_VERSION, "team_prompt_hash": team_prompt_hash()}
                 if any(c.team for c in configs)
@@ -487,6 +513,9 @@ class ResearchExecutor:
 
     def verify_implementation(self, node: WorkflowNode) -> None:
         assert isinstance(node.config, ResearchConfig)
+        settings_version = self.manifest.tool_config.get("model_settings_version")
+        if settings_version is not None and settings_version != MODEL_SETTINGS_VERSION:
+            raise ExecutionStopped("This run requires its pinned model settings support.", "failed")
         if "owner_directions_version" in self.manifest.tool_config and not self.guided:
             raise ExecutionStopped(
                 "This session requires its pinned owner guidance support.", "failed"
@@ -546,7 +575,7 @@ class ResearchExecutor:
     ) -> str:
         config = node.config
         assert isinstance(config, ResearchConfig) and config.team and config.analyst
-        model = config.model or self.manifest.settings.model
+        lead_model = resolve_model(self.manifest.settings, config, config.team.lead)
         director = node.model_copy(
             update={
                 "config": config.model_copy(
@@ -563,7 +592,7 @@ class ResearchExecutor:
         plan_path = f"{path}/plan"
         with self.session(plan_path, count=True):
             saved = self.execute_pass(
-                director, plan_path, context, feedback, model, [], director=config
+                director, plan_path, context, feedback, lead_model, [], director=config
             )
         plan = saved.team_plan
         if plan is None or len(plan.assignments) > config.team.max_agents:
@@ -574,6 +603,7 @@ class ResearchExecutor:
         member = node.model_copy(
             update={"config": config.model_copy(update={"team": None, "style_excerpt": ""})}
         )
+        researcher = config.team.researcher
 
         def investigate(index_assignment: tuple[int, TeamAssignment]) -> StoredResearchResult:
             index, assignment = index_assignment
@@ -586,6 +616,7 @@ class ResearchExecutor:
                     feedback,
                     assignment=assignment,
                     team_source=team_source,
+                    role=researcher,
                 )
 
         with ThreadPoolExecutor(max_workers=min(self.max_sessions, len(plan.assignments))) as pool:
@@ -609,9 +640,10 @@ class ResearchExecutor:
         *,
         assignment: TeamAssignment | None = None,
         team_source: str | None = None,
+        role: ModelOverride | None = None,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
-        model = node.config.model or self.manifest.settings.model
+        selected = resolve_model(self.manifest.settings, node.config, role)
         tools = self.manifest.tool_config
         report_version = tools.get("session_report_version")
         session_editor = (
@@ -632,7 +664,7 @@ class ResearchExecutor:
                     pass_path,
                     context,
                     feedback,
-                    model,
+                    selected,
                     history,
                     body,
                     assignment=assignment,
@@ -650,7 +682,7 @@ class ResearchExecutor:
                 return result, receipt["analyst_response"]
 
             return self.provider.run_analyst(
-                model,
+                selected.model,
                 node.config.analyst.max_passes,
                 step,
                 lambda: self.guard(path),
@@ -661,7 +693,7 @@ class ResearchExecutor:
             path,
             context,
             feedback,
-            model,
+            selected,
             [],
             team_source=team_source,
             session_editor=session_editor,
@@ -673,7 +705,7 @@ class ResearchExecutor:
         path: str,
         context: str,
         feedback: str,
-        model: str,
+        selected: ModelSelection,
         history: list[StoredResearchResult],
         body: dict[str, Any] | None = None,
         *,
@@ -683,7 +715,7 @@ class ResearchExecutor:
         session_editor: bool = False,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
-        attempt_id, previous, directions = self.reserve(node, path, model)
+        attempt_id, previous, directions = self.reserve(node, path, selected.model)
         if previous:
             return previous
         partial = ""
@@ -722,7 +754,9 @@ class ResearchExecutor:
                     context,
                     feedback,
                     node.instructions,
-                    model=model,
+                    model=selected.model,
+                    reasoning_effort=selected.reasoning_effort,
+                    verbosity=selected.verbosity,
                     web_search=node.config.web_search,
                     sec_financials=node.config.sec_financials,
                     style_excerpt=node.config.style_excerpt,

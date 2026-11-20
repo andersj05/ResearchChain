@@ -3,17 +3,20 @@
 from typing import Literal, Self
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from researchchain.graph import (
     AnalystConfig,
     ExecutionBudgets,
+    ModelOverride,
     ModelSlug,
     Position,
+    ReasoningEffort,
     ResearchConfig,
     ResearchLimits,
     ResearchSettings,
     ResearchTeamConfig,
+    ResponseVerbosity,
     StrictModel,
     ValueSource,
     Workflow,
@@ -31,6 +34,11 @@ class ResearchSessionSetup(StrictModel):
     brief: str = Field(min_length=1, max_length=10000, pattern=r"^[^\x00]*$")
     style_excerpt: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
     model: ModelSlug
+    reasoning_effort: ReasoningEffort | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: ResponseVerbosity | None = Field(default=None, exclude_if=lambda x: x is None)
+    lead: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    researcher: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    editor: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
     evidence_ids: list[UUID] = Field(default_factory=list, max_length=100)
     max_agents: int = Field(default=3, ge=1, le=4)
     max_passes: int = Field(default=6, ge=2, le=12)
@@ -38,6 +46,11 @@ class ResearchSessionSetup(StrictModel):
     web_search: bool = False
     review_mode: ReviewMode = "when_needed"
     baseline_run_id: UUID | None = None
+
+    @field_validator("lead", "researcher", "editor")
+    @classmethod
+    def omit_empty_override(cls, value: ModelOverride | None) -> ModelOverride | None:
+        return value if value and value.model_dump(exclude_none=True) else None
 
     @model_validator(mode="after")
     def validate_inputs(self) -> Self:
@@ -74,7 +87,9 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
         config=ResearchConfig(
             stage="custom",
             prompt_version="custom-1",
-            team=ResearchTeamConfig(max_agents=setup.max_agents),
+            team=ResearchTeamConfig(
+                max_agents=setup.max_agents, lead=setup.lead, researcher=setup.researcher
+            ),
             analyst=analyst,
             web_search="auto" if setup.web_search else False,
         ),
@@ -122,6 +137,7 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
                 analyst=analyst,
                 style_excerpt=setup.style_excerpt,
                 web_search="auto" if setup.web_search else False,
+                **(setup.editor.model_dump(exclude_none=True) if setup.editor else {}),
             ),
             position=Position(x=300 * len(nodes), y=0),
             inputs=report_inputs,
@@ -146,6 +162,8 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
         ),
         research=ResearchSettings(
             model=setup.model,
+            reasoning_effort=setup.reasoning_effort,
+            verbosity=setup.verbosity,
             limits=ResearchLimits(
                 max_model_calls=calls,
                 max_tool_calls=calls,
@@ -172,6 +190,13 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
         brief=run.brief,
         style_excerpt=editor.style_excerpt or "",
         model=run.research_manifest.settings.model,
+        reasoning_effort=run.research_manifest.settings.reasoning_effort,
+        verbosity=run.research_manifest.settings.verbosity,
+        lead=team.team.lead,
+        researcher=team.team.researcher,
+        editor=ModelOverride(
+            model=editor.model, reasoning_effort=editor.reasoning_effort, verbosity=editor.verbosity
+        ),
         evidence_ids=run.evidence_ids,
         max_agents=team.team.max_agents,
         max_passes=team.analyst.max_passes,

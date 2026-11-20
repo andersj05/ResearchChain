@@ -482,7 +482,7 @@ class RunStore:
                         "Select the connected provider account for this research run."
                     )
                 account = self.provider.pin_account(
-                    request.provider_account_id, workflow.research_models()
+                    request.provider_account_id, workflow.research_selections()
                 )
                 research_manifest = make_manifest(
                     conn, workflow, request.revision_id, request.evidence_ids, account

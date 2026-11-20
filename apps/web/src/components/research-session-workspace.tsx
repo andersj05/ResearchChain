@@ -1,6 +1,7 @@
 import type { components } from "@researchchain/contracts";
 import { useState } from "react";
 import { contentDownloadUrl } from "@/lib/evidence";
+import { modelSettingLabel, resolveModelProfile, type ModelProfile } from "@/lib/model-settings";
 import { modelAttemptStatus } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
@@ -15,9 +16,28 @@ export type SessionWorkspace = {
   title: string;
   objective: string;
   attempts: Attempt[];
+  profile?: ModelProfile;
 };
 
-export function sessionWorkspaces(run: RunSnapshot): SessionWorkspace[] {
+export function sessionModelProfiles(run: RunSnapshot) {
+  const shared = run.research_manifest?.settings;
+  if (!shared || run.research_manifest?.tool_config.model_settings_version !== "model-settings-1")
+    return;
+  const team = run.workflow.nodes?.find((node) => node.id === "team")?.config;
+  const editor = run.workflow.nodes?.find((node) => node.id === "report")?.config;
+  const teamConfig = team?.type === "research" ? team : undefined;
+  const teamProfile = resolveModelProfile(shared, teamConfig);
+  return {
+    lead: resolveModelProfile(teamProfile, teamConfig?.team?.lead),
+    researcher: resolveModelProfile(teamProfile, teamConfig?.team?.researcher),
+    editor: resolveModelProfile(shared, editor?.type === "research" ? editor : undefined),
+  };
+}
+
+export function sessionWorkspaces(
+  run: RunSnapshot,
+  profiles: ReturnType<typeof sessionModelProfiles>,
+): SessionWorkspace[] {
   const attempts = run.model_attempts ?? [];
   const director = attempts.find((item) => item.path === "root/team/plan");
   const plan = director?.result?.team_plan;
@@ -32,18 +52,21 @@ export function sessionWorkspaces(run: RunSnapshot): SessionWorkspace[] {
       title: "Research lead",
       objective: "Choose investigations for the brief.",
       attempts: director ? [director] : [],
+      profile: profiles?.lead,
     },
     ...(plan?.assignments ?? []).map((assignment, index) => ({
       key: `agent-${index + 1}`,
       title: assignment.title,
       objective: assignment.objective,
       attempts: passes(`root/team/agent-${index + 1}`),
+      profile: profiles?.researcher,
     })),
     {
       key: "editor",
       title: "Report editor",
       objective: "Write the report from the team's findings and files.",
       attempts: passes("root/report"),
+      profile: profiles?.editor,
     },
   ];
 }
@@ -69,7 +92,12 @@ function sourceUrls(attempts: Attempt[]) {
 
 type PassSelection = { passId: string | null; onPass: (id: string) => void };
 
-function PassReceipts({ attempts, passId, onPass }: { attempts: Attempt[] } & PassSelection) {
+function PassReceipts({
+  attempts,
+  profile,
+  passId,
+  onPass,
+}: Pick<SessionWorkspace, "attempts" | "profile"> & PassSelection) {
   const selected = attempts.find((attempt) => attempt.id === passId) ?? attempts.at(-1)!;
   const result = selected.result;
   const activity = result?.workspace_activity;
@@ -88,9 +116,19 @@ function PassReceipts({ attempts, passId, onPass }: { attempts: Attempt[] } & Pa
           </select>
         </label>
         <span>
-          {selected.returned_model || selected.model} · Started {formatTime(selected.created_at)}
+          {selected.model}
+          {selected.returned_model &&
+            selected.returned_model !== selected.model &&
+            ` · Returned ${selected.returned_model}`}{" "}
+          · Started {formatTime(selected.created_at)}
           {selected.finished_at && ` · Finished ${formatTime(selected.finished_at)}`}
         </span>
+        {profile && (
+          <span>
+            Thinking effort · {modelSettingLabel(profile.reasoning_effort)} · Response detail ·{" "}
+            {modelSettingLabel(profile.verbosity)}
+          </span>
+        )}
         {(selected.input_tokens != null || selected.output_tokens != null) && (
           <span>
             Tokens in {selected.input_tokens?.toLocaleString() ?? "unreported"} · out{" "}
@@ -240,6 +278,8 @@ export function SessionWorkspaceDetail({
           </strong>
           <span>
             Pass {lane.attempts.length} · {latest.model}
+            {lane.profile?.reasoning_effort &&
+              ` · ${modelSettingLabel(lane.profile.reasoning_effort)} thinking effort`}
             {latest.output_characters > 0 &&
               ` · ${latest.output_characters.toLocaleString()} characters received`}
             {latest.web_actions_completed != null &&
@@ -314,7 +354,12 @@ export function SessionWorkspaceDetail({
         </details>
       )}
       {!!lane.attempts.length && (
-        <PassReceipts attempts={lane.attempts} passId={passId} onPass={onPass} />
+        <PassReceipts
+          attempts={lane.attempts}
+          profile={lane.profile}
+          passId={passId}
+          onPass={onPass}
+        />
       )}
     </section>
   );

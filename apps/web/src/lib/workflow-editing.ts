@@ -1,4 +1,5 @@
 import { researchDefaults } from "./workflow";
+import type { StepModelSettings } from "./model-settings";
 import type {
   Graph,
   SubgraphRef,
@@ -10,7 +11,7 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
-export type StepModelChange = { scope: GraphScope; nodeId: string; model: string };
+export type StepModelChange = { scope: GraphScope; nodeId: string; settings: StepModelSettings };
 export type TemplateKind =
   | "note"
   | "review"
@@ -66,11 +67,11 @@ export function updateGraph(workflow: Workflow, scope: GraphScope, graph: Graph)
 }
 
 export function updateStepModels(workflow: Workflow, changes: StepModelChange[]): Workflow {
-  const byScope = new Map<string, { scope: GraphScope; models: Map<string, string> }>();
-  for (const { scope, nodeId, model } of changes) {
+  const byScope = new Map<string, { scope: GraphScope; models: Map<string, StepModelSettings> }>();
+  for (const { scope, nodeId, settings } of changes) {
     const key = scopeKey(scope);
-    const group = byScope.get(key) ?? { scope, models: new Map<string, string>() };
-    group.models.set(nodeId, model);
+    const group = byScope.get(key) ?? { scope, models: new Map<string, StepModelSettings>() };
+    group.models.set(nodeId, settings);
     byScope.set(key, group);
   }
 
@@ -79,9 +80,9 @@ export function updateStepModels(workflow: Workflow, changes: StepModelChange[])
     const graph = graphAt(next, scope);
     if (!graph) continue;
     const nodes = graph.nodes.map((node) => {
-      const model = models.get(node.id);
-      if (node.config?.type !== "research" || model === undefined) return node;
-      return { ...node, config: { ...node.config, model: model || undefined } };
+      const settings = models.get(node.id);
+      if (node.config?.type !== "research" || !settings) return node;
+      return { ...node, config: { ...node.config, ...settings } };
     });
     next = updateGraph(next, scope, { ...graph, nodes });
   }

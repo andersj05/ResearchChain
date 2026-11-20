@@ -5,6 +5,7 @@ import { useOwner } from "./access-context";
 import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
 import { ownerStoragePrefix } from "@/lib/access";
+import { sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
   admissionTimeout,
@@ -51,8 +52,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     draft.model ||
     (models.find((item) => item.slug === researchDefaults.model) ?? models[0])?.slug ||
     "";
-  const ready =
-    !!account && !catalog.loading && !catalog.error && models.some((item) => item.slug === model);
+  const shared = { ...draft, model };
+  const problem = sessionModelProblem(models, shared, draft);
+  const ready = !!account && !catalog.loading && !catalog.error && !problem;
   const frozen = !active || !loaded || busy || !!pending;
 
   useEffect(() => {
@@ -246,9 +248,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               connected={!!catalog.status?.accounts.some((item) => item.signed_in && item.active)}
             />
           </div>
-        ) : !ready ? (
+        ) : !ready && !pending ? (
           <p className={styles.notice} role="alert">
-            Choose an available model in Research settings.
+            Research settings · {problem}
           </p>
         ) : null}
         {startError && (

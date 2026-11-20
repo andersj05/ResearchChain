@@ -15,7 +15,8 @@ export type ResearchBrief = Required<
     | "web_search"
     | "review_mode"
   >
->;
+> &
+  Pick<ResearchSessionSetup, "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor">;
 
 export const blankResearchBrief: ResearchBrief = {
   brief: "",
@@ -34,6 +35,11 @@ export function editableResearchBrief(source: ResearchSessionSetup): ResearchBri
     brief: source.brief,
     style_excerpt: source.style_excerpt ?? "",
     model: source.model,
+    reasoning_effort: source.reasoning_effort,
+    verbosity: source.verbosity,
+    lead: source.lead,
+    researcher: source.researcher,
+    editor: source.editor,
     evidence_ids: source.evidence_ids ?? [],
     max_agents: source.max_agents ?? blankResearchBrief.max_agents,
     max_passes: source.max_passes ?? blankResearchBrief.max_passes,
