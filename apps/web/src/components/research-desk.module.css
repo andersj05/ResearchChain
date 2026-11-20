@@ -12,13 +12,13 @@
   min-height: 58px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  gap: clamp(14px, 2.4vw, 32px);
 }
 .header nav {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
+  flex: 1;
   gap: clamp(14px, 2.4vw, 32px);
 }
 .header nav a {
@@ -32,11 +32,13 @@
   text-decoration: underline;
   text-underline-offset: 4px;
 }
-.header nav .homeLink {
+.header .homeLink {
   color: var(--ink);
   font-size: 16px;
   font-weight: 650;
   letter-spacing: -0.6px;
+  text-decoration: none;
+  white-space: nowrap;
 }
 .page {
   max-width: 840px;
@@ -63,7 +65,7 @@
 }
 .briefLabel {
   display: block;
-  margin-bottom: 8px;
+  margin: 0 0 8px;
   font-size: 14px;
   font-weight: 600;
 }
@@ -72,6 +74,7 @@
   width: 100%;
   min-height: 140px;
   padding: 3px 0;
+  margin: 0;
   resize: vertical;
   border: 0;
   background: transparent;
@@ -96,6 +99,7 @@
   min-height: 43px;
   list-style: none;
   font-weight: 520;
+  white-space: nowrap;
 }
 .option summary::-webkit-details-marker {
   display: none;
@@ -126,6 +130,8 @@
 .option summary > span {
   margin-left: auto;
   text-align: right;
+  white-space: normal;
+  text-wrap: balance;
 }
 .optionBody,
 .settingGrid {
@@ -137,6 +143,7 @@
 .settingGrid label {
   font-size: 13px;
   font-weight: 500;
+  margin: 0;
 }
 .optionBody > textarea,
 .optionBody input[type="search"],
@@ -148,6 +155,7 @@
   background: var(--surface);
   color: var(--ink);
   padding: 7px 8px;
+  margin: 0;
 }
 .optionBody > textarea {
   resize: vertical;
@@ -176,6 +184,10 @@
 }
 .web input {
   margin: 0;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  flex: none;
   accent-color: var(--ink);
 }
 .launchFooter {
@@ -244,6 +256,9 @@
   font-size: 19px;
   letter-spacing: -0.5px;
 }
+.history :global(.run-row) {
+  text-decoration: none;
+}
 .historyRows {
   list-style: none;
   padding: 0;
@@ -281,17 +296,17 @@
     padding: 26px 14px 40px;
   }
   .headerInner {
-    gap: 8px;
+    gap: 10px;
     min-height: 52px;
   }
   .header nav {
-    gap: 7px 11px;
+    gap: 7px 8px;
     padding-block: 8px;
   }
   .header nav a {
     font-size: 12px;
   }
-  .header nav .homeLink {
+  .header .homeLink {
     font-size: 14px;
   }
   .composer {
@@ -306,6 +321,21 @@
   }
 }
 @media (max-width: 380px) {
+  .headerInner {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 0 12px;
+    padding-top: 8px;
+  }
+  .header nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    gap: 16px;
+  }
+  .headerInner :global(.settings-trigger) {
+    grid-column: 2;
+    grid-row: 1;
+  }
   .settingGrid {
     grid-template-columns: 1fr;
   }

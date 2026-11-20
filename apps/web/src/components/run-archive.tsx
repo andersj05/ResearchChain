@@ -9,7 +9,7 @@ function ArchiveResults({
 }: {
   query: string;
   busy: boolean;
-  onSelect: (run: RunSummary) => void;
+  onSelect?: (run: RunSummary) => void;
 }) {
   const [cursors, setCursors] = useState<RunSummary[]>([]);
   const [retry, setRetry] = useState(0);
@@ -59,14 +59,9 @@ function ArchiveResults({
         </div>
       ) : page.items.length ? (
         <ul aria-label="Saved runs">
-          {page.items.map(({ run, brief_excerpt }) => (
-            <li key={run.id}>
-              <button
-                className="run-row"
-                type="button"
-                disabled={busy}
-                onClick={() => onSelect(run)}
-              >
+          {page.items.map(({ run, brief_excerpt }) => {
+            const content = (
+              <>
                 <strong>{run.workflow_name}</strong>
                 <span className="run-row-meta">
                   <RunStatus status={run.status} />
@@ -80,9 +75,27 @@ function ArchiveResults({
                   <span className="code-label">{run.id.slice(0, 8)}</span>
                 </span>
                 {brief_excerpt && <span className="archive-brief">{brief_excerpt}</span>}
-              </button>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={run.id}>
+                {onSelect ? (
+                  <button
+                    className="run-row"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onSelect(run)}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <a className="run-row" href={`?view=runs&run=${encodeURIComponent(run.id)}`}>
+                    {content}
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="muted" role="status">
@@ -120,19 +133,25 @@ function ArchiveResults({
 export function RunArchive({
   agentId,
   excludeRun,
+  initialSearch = "",
   busy = false,
   onSelect,
 }: {
   agentId?: string | null;
   excludeRun?: string;
+  initialSearch?: string;
   busy?: boolean;
-  onSelect: (run: RunSummary) => void;
+  onSelect?: (run: RunSummary) => void;
 }) {
   const [open, setOpen] = useState(false);
   const disclosure = useRef<HTMLElement>(null);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(initialSearch);
   const [status, setStatus] = useState("");
-  const [searchRequest, setSearchRequest] = useState({ search: "", status: "", revision: 0 });
+  const [searchRequest, setSearchRequest] = useState({
+    search: initialSearch,
+    status: "",
+    revision: 0,
+  });
   const query = new URLSearchParams({ search: searchRequest.search });
   if (searchRequest.status) query.set("status", searchRequest.status);
   if (agentId) query.set("agent_id", agentId);
@@ -142,7 +161,7 @@ export function RunArchive({
   }
   const choose = (run: RunSummary) => {
     disclosure.current?.focus();
-    onSelect(run);
+    onSelect?.(run);
     setOpen(false);
   };
 
@@ -199,7 +218,7 @@ export function RunArchive({
             key={`${query}:${searchRequest.revision}`}
             query={query.toString()}
             busy={busy}
-            onSelect={choose}
+            onSelect={onSelect ? choose : undefined}
           />
         </>
       )}

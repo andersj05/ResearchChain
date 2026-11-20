@@ -28,6 +28,7 @@ import {
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { useOwner } from "@/components/access-context";
+import { sessionUrl } from "@/lib/research-sessions";
 import { ownerStoragePrefix } from "@/lib/access";
 import { pruneReviewDrafts, readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { Button } from "@ui-sdk/react/button";
@@ -269,6 +270,11 @@ function RunWorkspace({
           <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
         </div>
         <div className="actions run-actions">
+          {run.research_manifest?.tool_config?.session === "brief-led-1" && (
+            <a className="button small" href={sessionUrl(run.id)}>
+              Open research session
+            </a>
+          )}
           <Button className="button small" disabled={busy} onClick={() => onIterate()}>
             Iterate from this run
             <ArrowRight size={14} aria-hidden />

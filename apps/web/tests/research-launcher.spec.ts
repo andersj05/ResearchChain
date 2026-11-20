@@ -1,5 +1,7 @@
 import { expect, test, type Page } from "./fixtures";
 import type { ResearchSessionStart } from "../src/lib/research-sessions";
+import type { RecentRunSummary } from "../src/lib/workflow";
+import example from "../../../examples/research-workflow.json";
 
 const account = {
   id: "oaiapp_desk_fixture",
@@ -17,6 +19,18 @@ async function connection(page: Page) {
       },
     }),
   );
+}
+
+function studySummary(brief: string): RecentRunSummary {
+  return {
+    id: crypto.randomUUID(),
+    revision_id: crypto.randomUUID(),
+    revision_number: 1,
+    workflow_name: "Research session",
+    created_at: new Date().toISOString(),
+    status: "completed",
+    brief_excerpt: brief,
+  };
 }
 
 for (const width of [1280, 390]) {
@@ -38,12 +52,13 @@ for (const width of [1280, 390]) {
     });
     expect(source.ok()).toBeTruthy();
     const sourceId = (await source.json()).id;
+    const recent = studySummary("Can earnings breadth explain the synthetic index recovery?");
     const posts: ResearchSessionStart[] = [];
     await page.route("**/api/research-sessions/*/setup", (route) =>
       route.fulfill({ status: 404, json: { detail: "No session found." } }),
     );
     await page.route("**/api/research-sessions", async (route) => {
-      if (route.request().method() === "GET") return route.fulfill({ json: [] });
+      if (route.request().method() === "GET") return route.fulfill({ json: [recent] });
       const body = route.request().postDataJSON() as ResearchSessionStart;
       posts.push(body);
       if (posts.length === 1) return route.abort();
@@ -61,6 +76,10 @@ for (const width of [1280, 390]) {
     const brief = page.getByRole("textbox", { name: "Research brief", exact: true });
     const start = page.getByRole("button", { name: "Start research", exact: true });
     await expect(brief).toBeVisible();
+    await expect(page.getByRole("link", { name: new RegExp("earnings breadth") })).toHaveAttribute(
+      "href",
+      `/?session=${recent.id}`,
+    );
     await expect(page.getByRole("checkbox", { name: "Allow live web search" })).not.toBeChecked();
     await expect(start).toBeDisabled();
     await brief.fill(
@@ -160,4 +179,60 @@ test("revise a pinned session setup and recover its accepted start after a lost 
     baseline_run_id: previous,
   });
   expect(admitted[0]!.id).not.toBe(previous);
+});
+
+test("find an older research session in the run archive and return to its workspaces", async ({
+  page,
+  request,
+}) => {
+  await connection(page);
+  const recent = studySummary("A more recent study.");
+  const archived = studySummary("Which funding markets tightened first?");
+  const saved = await request.post("/api/revisions", { data: example });
+  expect(saved.ok()).toBeTruthy();
+  const revision = await saved.json();
+  archived.revision_id = revision.id;
+  archived.revision_number = revision.number;
+  await page.route("**/api/research-sessions", (route) => route.fulfill({ json: [recent] }));
+  await page.route("**/api/runs/search?*", (route) =>
+    route.fulfill({
+      json: {
+        items: [{ run: archived, brief_excerpt: archived.brief_excerpt }],
+        has_more: false,
+      },
+    }),
+  );
+  await page.route(`**/api/runs/${archived.id}`, (route) =>
+    route.fulfill({
+      json: {
+        ...archived,
+        workflow: revision.workflow,
+        brief: archived.brief_excerpt,
+        compiler_version: "research-0.3.0",
+        checkpoint_id: null,
+        events: [],
+        artifacts: [],
+        execution_pending: false,
+        research_manifest: {
+          tool_config: { session: "brief-led-1" },
+          evidence: [],
+          settings: { model: "test-model", limits: { max_model_calls: 25 } },
+        },
+      },
+    }),
+  );
+  await page.goto("/");
+  await expect(page.getByRole("link", { name: /more recent study/ })).toBeVisible();
+  await expect(page.getByText(archived.brief_excerpt, { exact: true })).toHaveCount(0);
+  await page.getByText("Search saved runs", { exact: true }).click();
+  await expect(page.getByRole("searchbox", { name: "Search the archive" })).toHaveValue(
+    "Research session",
+  );
+  await page.getByRole("link", { name: /Which funding markets tightened first/ }).click();
+  const reopen = page.getByRole("link", { name: "Open research session", exact: true });
+  await expect(reopen).toHaveAttribute("href", `/?session=${archived.id}`);
+  await reopen.click();
+  await expect(
+    page.getByRole("heading", { name: archived.brief_excerpt, exact: true }),
+  ).toBeVisible();
 });

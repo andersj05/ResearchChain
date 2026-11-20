@@ -5,6 +5,7 @@ import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
 import { ResearchSession } from "./research-session";
+import { RunArchive } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
 import { api, type RecentRunSummary } from "@/lib/workflow";
 import { sessionUrl } from "@/lib/research-sessions";
@@ -70,6 +71,7 @@ function RecentStudies() {
           </p>
         )
       )}
+      {!!studies?.length && <RunArchive initialSearch="Research session" />}
     </section>
   );
 }
@@ -86,14 +88,14 @@ export function ResearchDesk({
     <div className={styles.desk}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
+          <a
+            className={styles.homeLink}
+            href="?view=research"
+            aria-current={!session && !fromSession ? "page" : undefined}
+          >
+            Research desk
+          </a>
           <nav aria-label="Research navigation">
-            <a
-              className={styles.homeLink}
-              href="?view=research"
-              aria-current={!session && !fromSession ? "page" : undefined}
-            >
-              Research desk
-            </a>
             <a href="?view=workflow">Workflows</a>
             <a href="?view=evidence">Sources</a>
             <a href="?view=reports">Reports</a>
