@@ -74,8 +74,8 @@ export function ResearchRequestLimitFields({
     <>
       {(
         [
-          ["max_model_calls", "Maximum model attempts", 0, 100],
-          ["max_tool_calls", "Maximum evidence reads", 0, 100],
+          ["max_model_calls", "Maximum model attempts", 0, 1021],
+          ["max_tool_calls", "Maximum evidence reads", 0, 1021],
           ["max_response_seconds", "Seconds per response", 1, 600],
           ["max_input_bytes", "Bytes per request", 1000, 8000000],
           ["max_output_characters", "Characters per response", 1000, 100000],

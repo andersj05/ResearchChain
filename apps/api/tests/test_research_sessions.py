@@ -61,6 +61,63 @@ def request(**updates):
     )
 
 
+def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(database):
+    original = request(
+        swarm={
+            "lead_count": 4,
+            "researchers_per_lead": 20,
+            "max_parallel": 20,
+            "max_lead_turns": 12,
+            "allow_consultations": True,
+        },
+        max_passes=12,
+        review_mode="never",
+        lead={"model": "analysis-model", "reasoning_effort": "xhigh"},
+        researcher={"model": "test-model", "reasoning_effort": "low"},
+    )
+    graph = session_workflow(original)
+    assert graph.budgets.max_concurrency == 20
+    assert graph.research.limits.max_model_calls == 1 + 4 * 12 + 81 * 12
+    assert graph.research.limits.max_tool_calls == graph.research.limits.max_model_calls
+    assert graph.nodes[0].config.team.swarm == original.swarm
+    assert graph.nodes[0].config.team.lead == original.lead
+    assert graph.nodes[0].config.team.researcher == original.researcher
+    assert "judgment" not in [node.id for node in graph.nodes]
+
+    provider = SessionProvider()
+    url = "/api/research-sessions"
+    payload = original.model_dump(mode="json")
+    with owner_client(create_app(database, provider), workers=False) as client:
+        first = client.post(url, json=payload)
+        assert first.status_code == 202, first.text
+        assert client.post(url, json=payload).json() == first.json()
+        setup = client.get(f"{url}/{original.id}/setup").json()
+        assert setup == original.model_dump(mode="json", exclude={"id", "provider_account_id"})
+        changes = {**payload, "swarm": {**setup["swarm"], "max_parallel": 2}}
+        assert client.post(url, json=changes).status_code == 409
+        revised = {**changes, "id": str(uuid4()), "baseline_run_id": str(original.id)}
+        assert client.post(url, json=revised).status_code == 202
+        assert client.get(f"{url}/{revised['id']}/setup").json()["swarm"]["max_parallel"] == 2
+        assert client.get(f"{url}/{original.id}/setup").json() == setup
+    assert not provider.calls
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"lead_count": 5},
+        {"researchers_per_lead": 21},
+        {"max_parallel": 0},
+        {"max_parallel": 21},
+        {"max_lead_turns": 1},
+        {"max_lead_turns": 13},
+    ],
+)
+def test_research_sessions_enforce_swarm_bounds(invalid):
+    with pytest.raises(ValidationError):
+        request(swarm=invalid)
+
+
 def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(database):
     provider = SessionProvider()
     runs = RunStore(database, provider)

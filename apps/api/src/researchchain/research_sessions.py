@@ -18,6 +18,7 @@ from researchchain.graph import (
     ResearchTeamConfig,
     ResponseVerbosity,
     StrictModel,
+    SwarmConfig,
     ValueSource,
     Workflow,
     WorkflowEdge,
@@ -39,6 +40,7 @@ class ResearchSessionSetup(StrictModel):
     lead: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
     researcher: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
     editor: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    swarm: SwarmConfig | None = Field(default=None, exclude_if=lambda x: x is None)
     evidence_ids: list[UUID] = Field(default_factory=list, max_length=100)
     max_agents: int = Field(default=3, ge=1, le=4)
     max_passes: int = Field(default=6, ge=2, le=12)
@@ -88,7 +90,10 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             stage="custom",
             prompt_version="custom-1",
             team=ResearchTeamConfig(
-                max_agents=setup.max_agents, lead=setup.lead, researcher=setup.researcher
+                max_agents=setup.max_agents,
+                lead=setup.lead,
+                researcher=setup.researcher,
+                swarm=setup.swarm,
             ),
             analyst=analyst,
             web_search="auto" if setup.web_search else False,
@@ -148,7 +153,10 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             id="finish", kind="finish", label="Finish", position=Position(x=300 * len(nodes), y=0)
         )
     )
-    calls = 1 + (setup.max_agents + 1) * setup.max_passes
+    swarm = setup.swarm
+    researchers = swarm.lead_count * swarm.researchers_per_lead if swarm else setup.max_agents
+    lead_turns = swarm.lead_count * swarm.max_lead_turns if swarm else 0
+    calls = 1 + lead_turns + (researchers + 1) * setup.max_passes
     return Workflow(
         schema_version="0.3",
         name="Research session",
@@ -158,7 +166,8 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             WorkflowEdge(source=a.id, target=b.id) for a, b in zip(nodes, nodes[1:], strict=False)
         ],
         budgets=ExecutionBudgets(
-            max_active_seconds=setup.max_active_seconds, max_concurrency=setup.max_agents
+            max_active_seconds=setup.max_active_seconds,
+            max_concurrency=swarm.max_parallel if swarm else setup.max_agents,
         ),
         research=ResearchSettings(
             model=setup.model,
@@ -194,6 +203,7 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
         verbosity=run.research_manifest.settings.verbosity,
         lead=team.team.lead,
         researcher=team.team.researcher,
+        swarm=team.team.swarm,
         editor=ModelOverride(
             model=editor.model, reasoning_effort=editor.reasoning_effort, verbosity=editor.verbosity
         ),

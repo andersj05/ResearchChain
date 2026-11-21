@@ -110,8 +110,17 @@ class AnalystConfig(StrictModel):
         return self
 
 
+class SwarmConfig(StrictModel):
+    lead_count: int = Field(default=2, ge=1, le=4)
+    researchers_per_lead: int = Field(default=20, ge=1, le=20)
+    max_parallel: int = Field(default=4, ge=1, le=20)
+    max_lead_turns: int = Field(default=6, ge=2, le=12)
+    allow_consultations: bool = True
+
+
 class ResearchTeamConfig(StrictModel):
     max_agents: int = Field(ge=1, le=4)
+    swarm: SwarmConfig | None = Field(default=None, exclude_if=lambda value: value is None)
     lead: ModelOverride | None = Field(
         default=None, exclude_if=lambda v: not v or not v.model_dump()
     )
@@ -159,11 +168,14 @@ class CodeConfig(StrictModel):
 
 
 MAX_RESPONSE_SECONDS = 600
+# One coordinator, up to four leads taking twelve turns, and twelve passes
+# for each of eighty researchers and the editor. Account limits still apply.
+MAX_RESEARCH_CALLS = 1 + 4 * 12 + (4 * 20 + 1) * 12
 
 
 class ResearchLimits(StrictModel):
-    max_model_calls: int = Field(default=3, ge=0, le=100)
-    max_tool_calls: int = Field(default=3, ge=0, le=100)
+    max_model_calls: int = Field(default=3, ge=0, le=MAX_RESEARCH_CALLS)
+    max_tool_calls: int = Field(default=3, ge=0, le=MAX_RESEARCH_CALLS)
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
     max_response_seconds: float = Field(
@@ -229,7 +241,7 @@ class WorkflowEdge(StrictModel):
 class ExecutionBudgets(StrictModel):
     max_node_executions: int = Field(default=256, ge=1, le=10000)
     max_active_seconds: float = Field(default=120, gt=0, le=3600, allow_inf_nan=False)
-    max_concurrency: int = Field(default=4, ge=1, le=16)
+    max_concurrency: int = Field(default=4, ge=1, le=20)
 
 
 class GraphDefinition(StrictModel):
