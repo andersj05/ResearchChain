@@ -23,11 +23,14 @@ The original team mode retains its existing prompts and model roles.
 ## Thinking effort and response detail
 
 The Research desk takes its model choices and supported thinking levels from
-the connected account. The owner can set a shared model, thinking effort and
-response detail, then override each field for the lead, researchers or editor.
-The workflow builder also supports defaults and step overrides. New studies
-pin these choices, and revising a brief restores them. Older runs retain the
-request behavior pinned when they started.
+the connected account. Fresh studies select Astra 6.2 for the lead and Sol 6.2
+for researchers. Thinking effort and response detail have independent sliders
+that start at High where supported. The owner can set each role's levels or
+let the role follow the shared setting. Edited drafts and pinned revisions
+restore their saved choices. Browser tests verified the default model and
+both levels in saved swarm requests, alongside keyboard and phone interactions.
+The workflow builder also supports defaults and step overrides. Older runs
+retain the request behavior pinned when they started.
 
 Synthetic HTTP tests compared the saved request bytes with the director,
 researcher and editor requests, including tool continuations. Session tests
