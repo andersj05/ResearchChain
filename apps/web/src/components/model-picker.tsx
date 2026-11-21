@@ -267,6 +267,7 @@ export function RoleModelSettings({
   onChange,
   disabled,
   includeEditor = false,
+  initiallyOpen = false,
   inheritedLabel,
 }: {
   shared: ModelProfile;
@@ -275,6 +276,7 @@ export function RoleModelSettings({
   onChange: (role: RoleKey, value: ModelOverride | null) => void;
   disabled?: boolean;
   includeEditor?: boolean;
+  initiallyOpen?: boolean;
   inheritedLabel: string;
 }) {
   const roles = includeEditor
@@ -282,7 +284,7 @@ export function RoleModelSettings({
     : researchRoles.filter((role) => role.key !== "editor");
   const count = roles.filter(({ key }) => hasModelOverride(values[key])).length;
   return (
-    <details className="role-model-settings">
+    <details className="role-model-settings" open={initiallyOpen || undefined}>
       <summary>Models by role{count > 0 && ` (${count} customized)`}</summary>
       {roles.map(({ key, label }) => (
         <div className="role-model-section" key={key}>

@@ -145,6 +145,60 @@ class TeamPlan(ResearchModel):
         return self
 
 
+class SwarmLeadPlan(ResearchModel):
+    leads: list[TeamAssignment] = Field(min_length=1, max_length=4)
+
+    @model_validator(mode="after")
+    def independent_mandates(self) -> Self:
+        titles = {lead.title.casefold() for lead in self.leads}
+        objectives = {" ".join(lead.objective.casefold().split()) for lead in self.leads}
+        if len(titles) != len(self.leads) or len(objectives) != len(self.leads):
+            raise ValueError("Each swarm lead requires a distinct title and research mandate.")
+        return self
+
+
+class SwarmConsultation(ResearchModel):
+    thesis: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    question: OwnerQuestion
+    options: list[
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+    ] = Field(max_length=5)
+
+    @model_validator(mode="after")
+    def distinct_options(self) -> Self:
+        if len({s.casefold() for s in self.options}) != len(self.options):
+            raise ValueError("Each proposed owner option must be distinct.")
+        return self
+
+
+class SwarmDelegate(ResearchModel):
+    action: Literal["delegate"] = "delegate"
+    rationale: Sentence
+    assignments: list[TeamAssignment] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def distinct_assignments(self) -> Self:
+        if len({a.title.casefold() for a in self.assignments}) != len(self.assignments):
+            raise ValueError("Each delegated assignment in this batch needs a distinct title.")
+        return self
+
+
+class SwarmAskExpert(ResearchModel):
+    action: Literal["ask_expert"] = "ask_expert"
+    consultation: SwarmConsultation
+
+
+class SwarmFinish(ResearchModel):
+    action: Literal["finish"] = "finish"
+    findings: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=6000)
+    ]
+    limitations: list[Sentence] = Field(min_length=1, max_length=8)
+
+
+SwarmAction = Annotated[SwarmDelegate | SwarmAskExpert | SwarmFinish, Field(discriminator="action")]
+
+
 class OwnerDirectionInput(ResearchModel):
     id: UUID
     text: str = Field(min_length=1, max_length=3000)
@@ -174,6 +228,8 @@ class StoredResearchResult(ResearchResult):
     workspace_files: list[WorkspaceFile] = Field(default_factory=list, exclude_if=lambda x: not x)
     report_artifact: WorkspaceFile | None = Field(default=None, exclude_if=lambda x: x is None)
     team_plan: TeamPlan | None = Field(default=None, exclude_if=lambda x: x is None)
+    swarm_plan: SwarmLeadPlan | None = Field(default=None, exclude_if=lambda x: x is None)
+    swarm_action: SwarmAction | None = Field(default=None, exclude_if=lambda x: x is None)
     review_question: OwnerQuestion | None = Field(default=None, exclude_if=lambda x: x is None)
 
 

@@ -76,6 +76,14 @@ from researchchain.research_session_report import (
     prepare_editor,
 )
 from researchchain.research_sessions import SESSION_VERSION
+from researchchain.research_swarm import (
+    SWARM_VERSION,
+    SwarmRequest,
+    lead_output_characters,
+    prepare_delegation,
+    run_swarm,
+    swarm_prompt_hash,
+)
 from researchchain.research_team import (
     TEAM_VERSION,
     member_output,
@@ -266,6 +274,11 @@ def make_manifest(
         tool_config={
             "model_settings_version": MODEL_SETTINGS_VERSION,
             **(
+                {"swarm_version": SWARM_VERSION, "swarm_prompt_hash": swarm_prompt_hash()}
+                if workflow.has_research_swarm()
+                else {}
+            ),
+            **(
                 {"team_version": TEAM_VERSION, "team_prompt_hash": team_prompt_hash()}
                 if any(c.team for c in configs)
                 else {}
@@ -368,11 +381,20 @@ class ResearchExecutor:
             else 1
         )
         self.sessions = threading.BoundedSemaphore(self.max_sessions)
+        self.swarm_pool = (
+            ThreadPoolExecutor(max_workers=self.max_sessions)
+            if manifest.tool_config.get("swarm_version") == SWARM_VERSION
+            else None
+        )
         self.failure: tuple[str, str] | None = None
         self.guided = (
             manifest.tool_config.get("session") == SESSION_VERSION
             and manifest.tool_config.get("owner_directions_version") == DIRECTIONS_VERSION
         )
+
+    def close(self) -> None:
+        if self.swarm_pool:
+            self.swarm_pool.shutdown(wait=True, cancel_futures=True)
 
     def guard(self, path: str, count: bool = False) -> None:
         if self.failure:
@@ -411,6 +433,8 @@ class ResearchExecutor:
     ) -> str:
         assert isinstance(node.config, ResearchConfig)
         self.verify_implementation(node)
+        if node.config.team and node.config.team.swarm:
+            return run_swarm(self, node, path, context, feedback, team_source)
         if node.config.team:
             return self.execute_team(node, path, context, feedback, team_source)
         with self.model_lock, self.session(path):
@@ -569,6 +593,15 @@ class ResearchExecutor:
             raise ExecutionStopped(
                 "This run requires its pinned research team implementation.", "failed"
             )
+        if (
+            node.config.team
+            and node.config.team.swarm
+            and (
+                self.manifest.tool_config.get("swarm_version") != SWARM_VERSION
+                or self.manifest.tool_config.get("swarm_prompt_hash") != swarm_prompt_hash()
+            )
+        ):
+            raise ExecutionStopped("This run requires its pinned swarm implementation.", "failed")
 
     def execute_team(
         self, node: WorkflowNode, path: str, context: str, feedback: str, team_source: str | None
@@ -641,6 +674,7 @@ class ResearchExecutor:
         assignment: TeamAssignment | None = None,
         team_source: str | None = None,
         role: ModelOverride | None = None,
+        swarm_delegation: dict[str, Any] | None = None,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
         selected = resolve_model(self.manifest.settings, node.config, role)
@@ -670,6 +704,7 @@ class ResearchExecutor:
                     assignment=assignment,
                     team_source=team_source,
                     session_editor=session_editor,
+                    swarm_delegation=swarm_delegation,
                 )
                 with self.control.lock:
                     row = self.conn.execute(
@@ -713,12 +748,16 @@ class ResearchExecutor:
         director: ResearchConfig | None = None,
         team_source: str | None = None,
         session_editor: bool = False,
+        swarm: SwarmRequest | None = None,
+        swarm_skill: str = "",
+        swarm_delegation: dict[str, Any] | None = None,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
         attempt_id, previous, directions = self.reserve(node, path, selected.model)
         if previous:
             return previous
         partial = ""
+        lead_characters: int | None = None
         completion: Completion | None = None
         interim: StoredResearchResult | None = None
         exports: dict[str, bytes] = {}
@@ -772,6 +811,10 @@ class ResearchExecutor:
                     )
                 if assignment:
                     prepare_assignment(prepared, assignment)
+                if swarm:
+                    swarm.prepare(prepared, node.instructions, swarm_skill)
+                if swarm_delegation:
+                    prepare_delegation(prepared, swarm_delegation)
                 if session_editor:
                     prepare_editor(prepared, self.manifest.settings.limits.max_output_characters)
                 if directions:
@@ -802,7 +845,7 @@ class ResearchExecutor:
                             self.manifest.settings.limits.max_input_bytes,
                         )
                 payload = json_bytes(prepared.request_body())
-                if (node.config.analyst or director or directions) and len(
+                if (node.config.analyst or director or directions or swarm) and len(
                     payload
                 ) > self.manifest.settings.limits.max_input_bytes:
                     raise ValueError(
@@ -822,6 +865,20 @@ class ResearchExecutor:
             self.guard(path)
             completion = asyncio.run(self.controlled(prepared, progress, path))
             partial = completion.text
+            if swarm:
+                lead_characters = lead_output_characters(completion)
+                result = swarm.result(
+                    completion, self.manifest.settings.limits.max_output_characters
+                )
+                self.finish(
+                    attempt_id,
+                    "completed",
+                    partial,
+                    completion,
+                    result=result,
+                    output_characters=lead_characters,
+                )
+                return result
             if director:
                 assert director.team
                 result = plan_result(partial, director.team.max_agents)
@@ -947,7 +1004,13 @@ class ResearchExecutor:
                 else str(error)
             )
             self.finish(
-                attempt_id, "failed", partial, completion, reason=reason[:1000], result=interim
+                attempt_id,
+                "failed",
+                partial,
+                completion,
+                reason=reason[:1000],
+                result=interim,
+                output_characters=lead_characters,
             )
             raise ExecutionStopped(reason[:1000], "failed") from None
 
@@ -963,6 +1026,7 @@ class ResearchExecutor:
         exports: dict[str, bytes] | None = None,
         session_report: bool = False,
         markdown: bytes | None = None,
+        output_characters: int | None = None,
     ) -> None:
         def tokens(name: str) -> int | None:
             value = completion.usage.get(name) if completion else None
@@ -972,7 +1036,8 @@ class ResearchExecutor:
                 else None
             )
 
-        output_characters = len(text)
+        if output_characters is None:
+            output_characters = len(text)
         with self.control.lock, self.conn.transaction():
             if session_report:
                 assert isinstance(result, StoredResearchResult)

@@ -34,7 +34,6 @@ from researchchain.models import (
     PendingReviewsPage,
     RecentRunSummary,
     ResumeRequest,
-    ReviewPrompt,
     RunArchiveItem,
     RunArchivePage,
     RunArchiveQuery,
@@ -57,8 +56,10 @@ from researchchain.research import (
     read_manifest,
 )
 from researchchain.research_directions import DIRECTIONS_VERSION
+from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
 from researchchain.research_session_report import REPORT_VERSION
 from researchchain.research_sessions import SESSION_VERSION
+from researchchain.research_swarm import SWARM_VERSION
 from researchchain.research_team import TEAM_VERSION
 from researchchain.retention_guards import require_retained_run
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
@@ -104,6 +105,8 @@ def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
 
 
 def compiler_version(workflow: Workflow) -> str:
+    if workflow.has_research_swarm():
+        return SWARM_VERSION
     nodes = [node for graph in (workflow, *workflow.subgraphs) for node in graph.nodes]
     if any(
         isinstance(node.config, ResearchConfig) and (node.config.team or node.config.style_excerpt)
@@ -222,6 +225,7 @@ class RunStore:
             RESEARCH_COMPILER_VERSION,
             LOOP_INPUT_COMPILER_VERSION,
             TEAM_VERSION,
+            SWARM_VERSION,
         ):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row
@@ -274,7 +278,7 @@ class RunStore:
         if control["terminal_status"]:
             status = control["terminal_status"]
             pending = []
-        reviews = [ReviewPrompt(interrupt_id=item.id, **item.value) for item in pending]
+        reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
         return RunSnapshot(
             **run_agent(conn, manifest["id"]),
@@ -297,6 +301,17 @@ class RunStore:
             review=reviews[0] if reviews else None,
             reviews=reviews,
             owner_directions=control["owner_directions"],
+            perspective_answers=perspective_answers(
+                conn,
+                manifest["id"],
+                (
+                    item.path
+                    for item in attempts
+                    if item.result
+                    and item.result.swarm_action
+                    and item.result.swarm_action.action == "ask_expert"
+                ),
+            ),
             stop_reason=control["reason"] or worker_error,
             usage=RunUsage(
                 node_executions=control["node_executions"],
@@ -365,19 +380,26 @@ class RunStore:
                 else:
                     initial["events"] = []
                 graph.invoke(initial, config, durability="sync")
-            elif command["kind"] == "resume" and any(
-                item.id == command["interrupt_id"] for item in pending
-            ):
-                graph.invoke(
-                    Command(
-                        resume={
-                            command["interrupt_id"]: (
-                                {"decision": command["decision"], "feedback": command["feedback"]}
-                                if workflow.schema_version == "0.3"
-                                else command["decision"]
-                            )
-                        }
+            elif command["kind"] == "resume" and (
+                selected := next(
+                    (
+                        (destination, review)
+                        for destination, review in checkpoint_reviews(manifest["id"], pending)
+                        if review.interrupt_id == command["interrupt_id"]
                     ),
+                    None,
+                )
+            ):
+                destination, review = selected
+                answer: Any = command["decision"]
+                if workflow.schema_version == "0.3":
+                    answer = {"decision": command["decision"], "feedback": command["feedback"]}
+                if review.perspective:
+                    answer.update(
+                        action_path=review.perspective.action_path, interrupt_id=review.interrupt_id
+                    )
+                graph.invoke(
+                    Command(resume={destination: answer}),
                     config,
                     durability="sync",
                 )
@@ -387,6 +409,8 @@ class RunStore:
         except ExecutionStopped as error:
             set_terminal(conn, manifest["id"], error.status, str(error))
         finally:
+            if researcher:
+                researcher.close()
             execution.end()
 
         snapshot = self._snapshot(conn, manifest)
@@ -706,14 +730,19 @@ class RunStore:
         if self._unfinished(conn, run_id) is not None:
             raise ConflictError("Recover this run's interrupted request before reviewing it.")
         snapshot = self._snapshot(conn, manifest)
+        review = next(
+            (item for item in snapshot.reviews if item.interrupt_id == request.interrupt_id), None
+        )
         if (
             snapshot.status != "paused"
-            or not any(item.interrupt_id == request.interrupt_id for item in snapshot.reviews)
+            or review is None
             or snapshot.checkpoint_id != request.checkpoint_id
         ):
             raise ConflictError(
                 "This review is no longer current. Refresh the run before deciding."
             )
+        if review.perspective and request.decision == "approve" and not request.feedback.strip():
+            raise ConflictError("Write an answer for the research lead before continuing.")
         command = conn.execute(
             "INSERT INTO run_commands "
             "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "

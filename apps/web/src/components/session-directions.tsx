@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, type RunSnapshot } from "@/lib/workflow";
 import { ownerStoragePrefix } from "@/lib/access";
 import { useOwner } from "./access-context";
-import type { SessionWorkspace } from "./research-session-workspace";
+import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { formatTime } from "./run-status";
 import styles from "./research-session.module.css";
 

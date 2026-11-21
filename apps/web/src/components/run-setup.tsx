@@ -11,7 +11,7 @@ import {
 } from "@/lib/workflow";
 import { StepModelFields, type ModelCatalog } from "@/components/model-picker";
 import { hasModelOverride, modelProfileProblem, stepModelProblem } from "@/lib/model-settings";
-import { scopeKey, type StepModelChange } from "@/lib/workflow-editing";
+import { scopeKey, workflowLimitCaps, type StepModelChange } from "@/lib/workflow-editing";
 import { researchToolLabels } from "@/lib/workflow-model-plan";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { EvidenceForm } from "@/components/evidence-form";
@@ -178,6 +178,7 @@ export function RunSetup({
       })
     : [];
   const activeSeconds = (workflow.budgets ?? executionDefaults).max_active_seconds;
+  const limitCaps = workflowLimitCaps(workflow);
   const attempts = research?.limits?.max_model_calls ?? researchDefaults.limits.max_model_calls;
   const sampleBrief = [brief.trimEnd(), ideaGenerationBrief].filter(Boolean).join("\n\n");
   const hasWorkspace = [workflow, ...(workflow.subgraphs ?? [])].some((graph) =>
@@ -359,12 +360,20 @@ export function RunSetup({
               </summary>
               <fieldset disabled={busy}>
                 <legend>Workflow execution</legend>
-                <ExecutionLimitFields budgets={workflow.budgets} onChange={onExecutionLimits} />
+                <ExecutionLimitFields
+                  budgets={workflow.budgets}
+                  maxParallelSteps={limitCaps.parallelSteps}
+                  onChange={onExecutionLimits}
+                />
               </fieldset>
               {research && (
                 <fieldset disabled={busy}>
                   <legend>Model requests and evidence</legend>
-                  <ResearchRequestLimitFields settings={research} onSettings={onResearch} />
+                  <ResearchRequestLimitFields
+                    settings={research}
+                    maxRequests={limitCaps.researchRequests}
+                    onSettings={onResearch}
+                  />
                 </fieldset>
               )}
             </details>

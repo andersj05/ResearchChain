@@ -8,9 +8,11 @@ export const executionDefaults: ExecutionBudgets = {
 
 export function ExecutionLimitFields({
   budgets,
+  maxParallelSteps,
   onChange,
 }: {
   budgets?: ExecutionBudgets | null;
+  maxParallelSteps: number;
   onChange: (budgets: ExecutionBudgets, group: string) => void;
 }) {
   const current = budgets ?? executionDefaults;
@@ -20,7 +22,7 @@ export function ExecutionLimitFields({
         [
           ["max_node_executions", "Maximum step executions", 1, 10000],
           ["max_active_seconds", "Maximum active seconds", 0.1, 3600],
-          ["max_concurrency", "Maximum parallel steps", 1, 16],
+          ["max_concurrency", "Maximum parallel steps", 1, maxParallelSteps],
         ] as const
       ).map(([key, label, min, max]) => (
         <label key={key}>

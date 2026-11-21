@@ -2,6 +2,14 @@ import type { components } from "@researchchain/contracts";
 
 export type ResearchSessionSetup = components["schemas"]["ResearchSessionSetup"];
 export type ResearchSessionStart = components["schemas"]["ResearchSessionStart"];
+export type SwarmSettings = NonNullable<ResearchSessionSetup["swarm"]>;
+export const initialSwarm: Required<SwarmSettings> = {
+  lead_count: 2,
+  researchers_per_lead: 20,
+  max_parallel: 4,
+  max_lead_turns: 6,
+  allow_consultations: true,
+};
 export type ResearchBrief = Required<
   Pick<
     ResearchSessionSetup,
@@ -16,7 +24,10 @@ export type ResearchBrief = Required<
     | "review_mode"
   >
 > &
-  Pick<ResearchSessionSetup, "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor">;
+  Pick<
+    ResearchSessionSetup,
+    "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor" | "swarm"
+  >;
 
 export const blankResearchBrief: ResearchBrief = {
   brief: "",
@@ -40,6 +51,7 @@ export function editableResearchBrief(source: ResearchSessionSetup): ResearchBri
     lead: source.lead,
     researcher: source.researcher,
     editor: source.editor,
+    swarm: source.swarm,
     evidence_ids: source.evidence_ids ?? [],
     max_agents: source.max_agents ?? blankResearchBrief.max_agents,
     max_passes: source.max_passes ?? blankResearchBrief.max_passes,

@@ -1,6 +1,7 @@
 """Versioned workflow documents and server-side structured-control validation."""
 
 from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Self
 
@@ -110,8 +111,17 @@ class AnalystConfig(StrictModel):
         return self
 
 
+class SwarmConfig(StrictModel):
+    lead_count: int = Field(default=2, ge=1, le=4)
+    researchers_per_lead: int = Field(default=20, ge=1, le=20)
+    max_parallel: int = Field(default=4, ge=1, le=20)
+    max_lead_turns: int = Field(default=6, ge=2, le=12)
+    allow_consultations: bool = True
+
+
 class ResearchTeamConfig(StrictModel):
     max_agents: int = Field(ge=1, le=4)
+    swarm: SwarmConfig | None = Field(default=None, exclude_if=lambda value: value is None)
     lead: ModelOverride | None = Field(
         default=None, exclude_if=lambda v: not v or not v.model_dump()
     )
@@ -159,11 +169,14 @@ class CodeConfig(StrictModel):
 
 
 MAX_RESPONSE_SECONDS = 600
+# One coordinator, up to four leads taking twelve turns, and twelve passes
+# for each of eighty researchers and the editor. Account limits still apply.
+MAX_RESEARCH_CALLS = 1 + 4 * 12 + (4 * 20 + 1) * 12
 
 
 class ResearchLimits(StrictModel):
-    max_model_calls: int = Field(default=3, ge=0, le=100)
-    max_tool_calls: int = Field(default=3, ge=0, le=100)
+    max_model_calls: int = Field(default=3, ge=0, le=MAX_RESEARCH_CALLS)
+    max_tool_calls: int = Field(default=3, ge=0, le=MAX_RESEARCH_CALLS)
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
     max_response_seconds: float = Field(
@@ -229,7 +242,7 @@ class WorkflowEdge(StrictModel):
 class ExecutionBudgets(StrictModel):
     max_node_executions: int = Field(default=256, ge=1, le=10000)
     max_active_seconds: float = Field(default=120, gt=0, le=3600, allow_inf_nan=False)
-    max_concurrency: int = Field(default=4, ge=1, le=16)
+    max_concurrency: int = Field(default=4, ge=1, le=20)
 
 
 class GraphDefinition(StrictModel):
@@ -597,26 +610,61 @@ class Workflow(GraphDefinition):
                 visiting.remove(key)
         return self
 
-    def research_selections(self) -> set[ModelSelection]:
-        """Settings for executable roles, excluding archived subgraph versions."""
-        assert self.research is not None
-        # The workflow's pinned model must remain available even if every step overrides it.
-        selections = {ModelSelection(self.research.model)}
+    def executable_research_configs(self) -> Iterator[ResearchConfig]:
+        """Visit research nodes in the root and its pinned subgraph versions."""
         definitions = {(item.id, item.version): item for item in self.subgraphs}
         pending: list[GraphDefinition] = [self]
         while pending:
             for node in pending.pop().nodes:
                 config = node.config
                 if isinstance(config, ResearchConfig):
-                    if config.team:
-                        selections.add(resolve_model(self.research, config, config.team.lead))
-                        selections.add(resolve_model(self.research, config, config.team.researcher))
-                    else:
-                        selections.add(resolve_model(self.research, config))
+                    yield config
                 elif isinstance(config, (LoopConfig, SubgraphConfig)):
                     body = definitions.pop((config.ref.id, config.ref.version), None)
                     if body:
                         pending.append(body)
+
+    def has_research_swarm(self) -> bool:
+        return any(
+            config.team and config.team.swarm for config in self.executable_research_configs()
+        )
+
+    @model_validator(mode="after")
+    def validate_run_limits(self) -> Self:
+        # Wider budgets are available only to a workflow that can execute a swarm.
+        limits: list[tuple[tuple[str, ...], int, int]] = [
+            (("budgets", "max_concurrency"), self.budgets.max_concurrency, 16)
+        ]
+        if self.research:
+            budget = self.research.limits
+            limits.extend(
+                [
+                    (("research", "limits", "max_model_calls"), budget.max_model_calls, 100),
+                    (("research", "limits", "max_tool_calls"), budget.max_tool_calls, 100),
+                ]
+            )
+        exceeded = [(path, value, limit) for path, value, limit in limits if value > limit]
+        if exceeded and not self.has_research_swarm():
+            raise ValidationError.from_exception_data(
+                "Workflow",
+                [
+                    {"type": "less_than_equal", "loc": path, "input": value, "ctx": {"le": limit}}
+                    for path, value, limit in exceeded
+                ],
+            )
+        return self
+
+    def research_selections(self) -> set[ModelSelection]:
+        """Settings for executable roles, excluding archived subgraph versions."""
+        assert self.research is not None
+        # The workflow's pinned model must remain available even if every step overrides it.
+        selections = {ModelSelection(self.research.model)}
+        for config in self.executable_research_configs():
+            if config.team:
+                selections.add(resolve_model(self.research, config, config.team.lead))
+                selections.add(resolve_model(self.research, config, config.team.researcher))
+            else:
+                selections.add(resolve_model(self.research, config))
         return selections
 
     def research_models(self) -> set[str]:

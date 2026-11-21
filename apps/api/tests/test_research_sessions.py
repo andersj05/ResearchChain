@@ -11,12 +11,13 @@ from researchchain.artifacts import read_content
 from researchchain.graph import Workflow
 from researchchain.main import create_app
 from researchchain.models import RunRequest
+from researchchain.research import make_manifest
 from researchchain.research_directions import record_direction
 from researchchain.research_models import OwnerDirectionInput
 from researchchain.research_session_export import export_session_report
 from researchchain.research_sessions import ResearchSessionStart, session_workflow
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
-from researchchain.runtime import RunStore
+from researchchain.runtime import RunStore, compiler_version
 from researchchain.worker import RunWorker
 
 
@@ -59,6 +60,110 @@ def request(**updates):
         provider_account_id="oaiapp_fixture",
         **{"brief": "Ambiguous horizon", "style_excerpt": "Style sample sentinel.", **updates},
     )
+
+
+def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(database):
+    original = request(
+        swarm={
+            "lead_count": 4,
+            "researchers_per_lead": 20,
+            "max_parallel": 20,
+            "max_lead_turns": 12,
+            "allow_consultations": True,
+        },
+        max_passes=12,
+        review_mode="never",
+        lead={"model": "analysis-model", "reasoning_effort": "xhigh"},
+        researcher={"model": "test-model", "reasoning_effort": "low"},
+    )
+    graph = session_workflow(original)
+    assert compiler_version(graph) == "research-swarm-1"
+    assert compiler_version(session_workflow(request())) == "research-team-1"
+    assert graph.budgets.max_concurrency == 20
+    assert graph.research.limits.max_model_calls == 1 + 4 * 12 + 81 * 12
+    assert graph.research.limits.max_tool_calls == graph.research.limits.max_model_calls
+    assert graph.nodes[0].config.team.swarm == original.swarm
+    assert graph.nodes[0].config.team.lead == original.lead
+    assert graph.nodes[0].config.team.researcher == original.researcher
+    assert "judgment" not in [node.id for node in graph.nodes]
+
+    provider = SessionProvider()
+    url = "/api/research-sessions"
+    payload = original.model_dump(mode="json")
+    with owner_client(create_app(database, provider), workers=False) as client:
+        first = client.post(url, json=payload)
+        assert first.status_code == 202, first.text
+        assert client.post(url, json=payload).json() == first.json()
+        setup = client.get(f"{url}/{original.id}/setup").json()
+        assert setup == original.model_dump(mode="json", exclude={"id", "provider_account_id"})
+        changes = {**payload, "swarm": {**setup["swarm"], "max_parallel": 2}}
+        assert client.post(url, json=changes).status_code == 409
+        revised = {**changes, "id": str(uuid4()), "baseline_run_id": str(original.id)}
+        assert client.post(url, json=revised).status_code == 202
+        assert client.get(f"{url}/{revised['id']}/setup").json()["swarm"]["max_parallel"] == 2
+        assert client.get(f"{url}/{original.id}/setup").json() == setup
+    assert not provider.calls
+
+
+@pytest.mark.parametrize(
+    "invalid",
+    [
+        {"lead_count": 5},
+        {"researchers_per_lead": 21},
+        {"max_parallel": 0},
+        {"max_parallel": 21},
+        {"max_lead_turns": 1},
+        {"max_lead_turns": 13},
+    ],
+)
+def test_research_sessions_enforce_swarm_bounds(invalid):
+    with pytest.raises(ValidationError):
+        request(swarm=invalid)
+
+
+def test_larger_run_limits_require_an_executable_swarm(database):
+    standard = session_workflow(request(review_mode="never")).model_dump(mode="json")
+    swarm = session_workflow(request(swarm={}, review_mode="never")).model_dump(mode="json")
+    ref = {"id": "study", "version": 1}
+    call = {
+        "id": "study",
+        "kind": "subgraph",
+        "label": "Run study",
+        "position": {"x": 0, "y": 0},
+        "config": {"type": "subgraph", "ref": ref},
+    }
+    document = {
+        **standard,
+        "start_node": "study",
+        "nodes": [call, standard["nodes"][-1]],
+        "edges": [{"source": "study", "target": "finish"}],
+        "subgraphs": [
+            {
+                "id": "study",
+                "version": version,
+                **{k: body[k] for k in ("name", "start_node", "nodes", "edges")},
+            }
+            for version, body in enumerate([standard, swarm], start=1)
+        ],
+    }
+    document["research"]["limits"].update(max_model_calls=100, max_tool_calls=100)
+    document["budgets"]["max_concurrency"] = 16
+    archived = Workflow.model_validate(document)
+    assert compiler_version(archived) == "research-team-1"
+    with database.connection() as conn:
+        manifest = make_manifest(conn, archived, uuid4(), [], SessionProvider().account)
+    assert "swarm_version" not in manifest.tool_config
+    document["research"]["limits"].update(max_model_calls=101, max_tool_calls=101)
+    document["budgets"]["max_concurrency"] = 17
+    with pytest.raises(ValidationError) as rejected:
+        Workflow.model_validate(document)
+    assert {error["loc"] for error in rejected.value.errors()} == {
+        ("research", "limits", "max_model_calls"),
+        ("research", "limits", "max_tool_calls"),
+        ("budgets", "max_concurrency"),
+    }
+    ref["version"] = 2
+    assert compiler_version(Workflow.model_validate(document)) == "research-swarm-1"
 
 
 def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(database):

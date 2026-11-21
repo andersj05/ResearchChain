@@ -38,6 +38,7 @@ import {
   sameGraphPath,
   scopeKey,
   updateGraph,
+  workflowLimitCaps,
   type GraphCrumb,
   type GraphScope,
   type TemplateKind,
@@ -260,6 +261,7 @@ export function WorkflowEditor({
       ? subgraphPath(selectedId, loopRef)
       : undefined;
   const pruned = pruneDefinitions(workflow);
+  const limitCaps = workflowLimitCaps(workflow);
   const unusedDefinitions = (workflow.subgraphs?.length ?? 0) - (pruned.subgraphs?.length ?? 0);
   const nestedCopy =
     node && (node.kind === "loop" || node.kind === "subgraph")
@@ -546,6 +548,7 @@ export function WorkflowEditor({
             <details className="workflow-settings" id="workflow-execution-limits">
               <summary>Execution limits</summary>
               <ExecutionLimitFields
+                maxParallelSteps={limitCaps.parallelSteps}
                 budgets={workflow.budgets}
                 onChange={(budgets, group) =>
                   onChange(
@@ -559,7 +562,11 @@ export function WorkflowEditor({
                 }
               />
             </details>
-            <ResearchSettingsEditor workflow={workflow} onChange={onChange} />
+            <ResearchSettingsEditor
+              workflow={workflow}
+              maxRequests={limitCaps.researchRequests}
+              onChange={onChange}
+            />
             {!!workflow.subgraphs?.length && (
               <details className="workflow-settings">
                 <summary>Definitions ({workflow.subgraphs.length})</summary>

@@ -54,3 +54,8 @@ autonomous investigation. A lead should delegate parallel assignments, each
 researcher should have its own workspace, and the owner should be able to see
 ongoing work, supply judgment and read a report with its charts.
 See [adaptive research teams](../decisions/0023-adaptive-research-teams.md).
+
+The owner also wants several Astra leads to delegate simpler investigations
+to Sol researchers. A lead can bring a trade idea and alternatives to the
+owner for judgment, then use the answer to revise its investigation before
+the report is written. [Research swarms](../decisions/0024-research-swarms.md).

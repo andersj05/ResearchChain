@@ -2455,6 +2455,21 @@ export interface components {
       /** Generation Input */
       generation_input: string;
     };
+    /** LeadPerspective */
+    LeadPerspective: {
+      /** Action Path */
+      action_path: string;
+      /** Lead Title */
+      lead_title: string;
+      /** Thesis */
+      thesis: string;
+      /** Question */
+      question: string;
+      /** Options */
+      options: string[];
+      /** Worker Paths */
+      worker_paths?: string[];
+    };
     /** LinkExchange */
     LinkExchange: {
       /**
@@ -2693,6 +2708,23 @@ export interface components {
       items: components["schemas"]["PendingReviewRun"][];
       /** Has More */
       has_more: boolean;
+    };
+    /** PerspectiveAnswer */
+    PerspectiveAnswer: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "reject";
+      /**
+       * Feedback
+       * @default
+       */
+      feedback: string;
+      /** Action Path */
+      action_path: string;
+      /** Interrupt Id */
+      interrupt_id: string;
     };
     /** PortSpec */
     PortSpec: {
@@ -3316,6 +3348,7 @@ export interface components {
       lead?: components["schemas"]["ModelOverride"] | null;
       researcher?: components["schemas"]["ModelOverride"] | null;
       editor?: components["schemas"]["ModelOverride"] | null;
+      swarm?: components["schemas"]["SwarmConfig"] | null;
       /** Evidence Ids */
       evidence_ids?: string[];
       /**
@@ -3366,6 +3399,7 @@ export interface components {
       lead?: components["schemas"]["ModelOverride"] | null;
       researcher?: components["schemas"]["ModelOverride"] | null;
       editor?: components["schemas"]["ModelOverride"] | null;
+      swarm?: components["schemas"]["SwarmConfig"] | null;
       /** Evidence Ids */
       evidence_ids?: string[];
       /**
@@ -3434,6 +3468,7 @@ export interface components {
     ResearchTeamConfig: {
       /** Max Agents */
       max_agents: number;
+      swarm?: components["schemas"]["SwarmConfig"] | null;
       lead?: components["schemas"]["ModelOverride"] | null;
       researcher?: components["schemas"]["ModelOverride"] | null;
     };
@@ -3586,6 +3621,7 @@ export interface components {
       node_id: string;
       /** Question */
       question: string;
+      perspective?: components["schemas"]["LeadPerspective"] | null;
     };
     /** ReviewResponse */
     ReviewResponse: {
@@ -3735,6 +3771,8 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Perspective Answers */
+      perspective_answers?: components["schemas"]["PerspectiveAnswer"][];
       /** Owner Directions */
       owner_directions?: components["schemas"]["OwnerDirection"][];
       /**
@@ -4034,6 +4072,15 @@ export interface components {
       workspace_files?: components["schemas"]["WorkspaceFile"][];
       report_artifact?: components["schemas"]["WorkspaceFile"] | null;
       team_plan?: components["schemas"]["TeamPlan"] | null;
+      swarm_plan?: components["schemas"]["SwarmLeadPlan"] | null;
+      /** Swarm Action */
+      swarm_action?:
+        | (
+            | components["schemas"]["SwarmDelegate"]
+            | components["schemas"]["SwarmAskExpert"]
+            | components["schemas"]["SwarmFinish"]
+          )
+        | null;
       /** Review Question */
       review_question?: string | null;
     };
@@ -4147,6 +4194,81 @@ export interface components {
       id: string;
       /** Version */
       version: number;
+    };
+    /** SwarmAskExpert */
+    SwarmAskExpert: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "ask_expert";
+      consultation: components["schemas"]["SwarmConsultation"];
+    };
+    /** SwarmConfig */
+    SwarmConfig: {
+      /**
+       * Lead Count
+       * @default 2
+       */
+      lead_count: number;
+      /**
+       * Researchers Per Lead
+       * @default 20
+       */
+      researchers_per_lead: number;
+      /**
+       * Max Parallel
+       * @default 4
+       */
+      max_parallel: number;
+      /**
+       * Max Lead Turns
+       * @default 6
+       */
+      max_lead_turns: number;
+      /**
+       * Allow Consultations
+       * @default true
+       */
+      allow_consultations: boolean;
+    };
+    /** SwarmConsultation */
+    SwarmConsultation: {
+      /** Thesis */
+      thesis: string;
+      /** Question */
+      question: string;
+      /** Options */
+      options: string[];
+    };
+    /** SwarmDelegate */
+    SwarmDelegate: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "delegate";
+      /** Rationale */
+      rationale: string;
+      /** Assignments */
+      assignments: components["schemas"]["TeamAssignment"][];
+    };
+    /** SwarmFinish */
+    SwarmFinish: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "finish";
+      /** Findings */
+      findings: string;
+      /** Limitations */
+      limitations: string[];
+    };
+    /** SwarmLeadPlan */
+    SwarmLeadPlan: {
+      /** Leads */
+      leads: components["schemas"]["TeamAssignment"][];
     };
     /** TeamAssignment */
     TeamAssignment: {

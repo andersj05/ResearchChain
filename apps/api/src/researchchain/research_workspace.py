@@ -13,6 +13,9 @@ from researchchain.analyst_workspace import MAX_FILES, MAX_INPUT_BYTES, MAX_INPU
 from researchchain.artifacts import put_artifact, read_content
 from researchchain.research_models import StoredResearchResult, TeamPlan, WorkspaceFile
 from researchchain.research_prompt import PreparedResearch, json_bytes
+from researchchain.research_swarm_workspace import confirmed_swarm_worker as confirmed_swarm_worker
+from researchchain.research_swarm_workspace import swarm_handoff as swarm_handoff
+from researchchain.research_swarm_workspace import swarm_material
 
 
 def generated_files(
@@ -143,8 +146,16 @@ def team_workspace_files(
     conn: Connection[DictRow], run_id: UUID, source_path: str, context: str
 ) -> dict[str, WorkspaceFile]:
     """source_path comes from the pinned binding. Never resolve a path or blob ID from context."""
-    plan, lanes = _recorded_team(conn, run_id, source_path)
-    packet, files = _handoff_material(source_path, plan, lanes)
+    swarm = conn.execute(
+        "SELECT 1 FROM research_attempts WHERE run_id=%s AND path=%s AND status='completed' "
+        "AND result ? 'swarm_plan'",
+        (run_id, source_path + "/plan"),
+    ).fetchone()
+    if swarm:
+        packet, files = swarm_material(conn, run_id, source_path)
+    else:
+        plan, lanes = _recorded_team(conn, run_id, source_path)
+        packet, files = _handoff_material(source_path, plan, lanes)
     if packet != context:
         raise ValueError("The bound team output differs from the confirmed research handoff.")
     return files
@@ -193,7 +204,8 @@ def staged_files(
             prepared.instructions += (
                 "\nThese team inputs could not be staged alongside the current files within "
                 "the Python workspace limits or share a name with a local file: "
-                + ", ".join(omitted)
+                + ", ".join(omitted[:16])
+                + (f" and {len(omitted) - 16} more" if len(omitted) > 16 else "")
                 + ". Their originals remain in the producing agents' receipts."
             )
     return files

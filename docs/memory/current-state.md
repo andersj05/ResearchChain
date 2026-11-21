@@ -2,6 +2,24 @@
 
 Updated 2026-11-20.
 
+## Multi-lead research and expert consultations
+
+Select **Research swarm** in the desk's team settings for up to four lead
+mandates and twenty researchers per lead. The requested Astra and Sol models
+are editable. An answered lead can use the owner's judgment to commission new
+work while another lead's question stays open. The editor receives the saved
+findings, files and attributed judgments.
+
+Tests observed twenty overlapping synthetic researcher calls, three leads
+sharing two slots, independent consultation retries and eighty distinct
+workspaces with colliding file names. A browser study followed an expert
+answer into a newly delegated inventory investigation. The editor used
+three distinct files named `observations.csv` to produce the exported report.
+The original team mode retains its existing prompts and model roles.
+[Swarm guide](../research-sessions.md#run-a-swarm) ·
+[Decision](../decisions/0024-research-swarms.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/134).
+
 ## Thinking effort and response detail
 
 The Research desk takes its model choices and supported thinking levels from

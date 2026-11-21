@@ -1,5 +1,6 @@
 import { Button } from "@ui-sdk/react/button";
 import { CopyRunLink } from "./copy-run-link";
+import { sessionUrl } from "@/lib/research-sessions";
 import { ArrowUpRight, Check, X } from "lucide-react";
 import type { Graph, RunSnapshot, ValueSource, WorkflowNode } from "@/lib/workflow";
 import { outputBindings, portsFor } from "@/lib/workflow-editing";
@@ -216,6 +217,25 @@ export function RunStepInspector({
         <div className={reviewInputs.length ? "run-decision-grid" : undefined}>
           <div className="review-box" aria-label={`Review ${review.node_id}`}>
             <h3>{review.question}</h3>
+            {review.perspective && (
+              <>
+                <p>
+                  <strong>{review.perspective.lead_title} · Working thesis</strong>
+                  <br />
+                  {review.perspective.thesis}
+                </p>
+                {!!review.perspective.options?.length && (
+                  <p>Suggested perspectives · {review.perspective.options.join(" · ")}</p>
+                )}
+                {run.research_manifest?.tool_config?.session === "brief-led-1" && (
+                  <a
+                    href={`${sessionUrl(run.id)}#consultation-${encodeURIComponent(review.interrupt_id)}`}
+                  >
+                    Open this consultation in the Research desk
+                  </a>
+                )}
+              </>
+            )}
             <p>
               {review.path && prefix !== "root" && (
                 <>
@@ -255,13 +275,13 @@ export function RunStepInspector({
             <div className="actions">
               <Button
                 className="button primary"
-                disabled={busy}
+                disabled={busy || (!!review.perspective && !feedback[review.interrupt_id]?.trim())}
                 onClick={() =>
                   onResume("approve", review.interrupt_id, feedback[review.interrupt_id] ?? "")
                 }
               >
                 <Check size={15} aria-hidden />
-                Approve and continue
+                {review.perspective ? "Send perspective to lead" : "Approve and continue"}
               </Button>
               <Button
                 className="button"

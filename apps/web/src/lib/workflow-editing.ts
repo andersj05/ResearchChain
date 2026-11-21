@@ -151,6 +151,14 @@ export function* reachableWorkflowGraphs(workflow: Workflow, { controlOnly = fal
   }
 }
 
+export function workflowLimitCaps(workflow: Workflow) {
+  for (const { nodes } of reachableWorkflowGraphs(workflow)) {
+    if (nodes.some(({ config }) => config?.type === "research" && config.team?.swarm))
+      return { parallelSteps: 20, researchRequests: 1021 };
+  }
+  return { parallelSteps: 16, researchRequests: 100 };
+}
+
 export function workflowStepAtRunPath(workflow: Workflow, executionPath: string) {
   const parts = executionPath.split("/");
   if (parts[0] !== "root" || parts.length < 2 || parts.length % 2 !== 0) return;

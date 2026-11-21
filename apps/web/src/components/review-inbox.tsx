@@ -84,6 +84,9 @@ function InboxPage({
                 return (
                   <div className="review-inbox-question" key={review.interrupt_id}>
                     <p id={questionId}>{review.question}</p>
+                    {review.perspective && (
+                      <small>{review.perspective.lead_title} requests your perspective</small>
+                    )}
                     {review.path && review.path.split("/").length > 2 && (
                       <small className="muted">{review.path.replaceAll("/", " › ")}</small>
                     )}
