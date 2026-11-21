@@ -1,4 +1,5 @@
 import type { components } from "@researchchain/contracts";
+import type { ModelOverride, ModelProfile, ProviderModel } from "./model-settings";
 
 export type ResearchSessionSetup = components["schemas"]["ResearchSessionSetup"];
 export type ResearchSessionStart = components["schemas"]["ResearchSessionStart"];
@@ -41,6 +42,47 @@ export const blankResearchBrief: ResearchBrief = {
   review_mode: "when_needed",
 };
 
+const leadModel = "gpt-6.2-astra";
+const researcherModel = "gpt-6.2-sol";
+
+function highSettings(model: ProviderModel): Omit<ModelProfile, "model"> {
+  return {
+    reasoning_effort: model.reasoning_efforts?.includes("high") ? "high" : null,
+    verbosity: model.supports_verbosity ? "high" : null,
+  };
+}
+
+export function newStudyModelProfiles(models: readonly ProviderModel[], fallback: string) {
+  const shared =
+    models.find((entry) => entry.slug === researcherModel) ??
+    models.find((entry) => entry.slug === fallback) ??
+    models[0];
+  if (!shared) return null;
+  const settings = highSettings(shared);
+
+  function role(model: string): ModelOverride {
+    const entry = models.find((item) => item.slug === model);
+    if (!entry) return { model };
+    const supported = highSettings(entry);
+    return {
+      model,
+      ...(supported.reasoning_effort !== settings.reasoning_effort && {
+        reasoning_effort: supported.reasoning_effort ?? "model_default",
+      }),
+      ...(supported.verbosity !== settings.verbosity && {
+        verbosity: supported.verbosity ?? "model_default",
+      }),
+    };
+  }
+
+  return {
+    model: shared.slug,
+    ...settings,
+    lead: role(leadModel),
+    researcher: role(researcherModel),
+  };
+}
+
 export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
   return {
     brief: source.brief,
@@ -63,8 +105,34 @@ export function editableResearchBrief(source: ResearchSessionSetup): ResearchBri
 
 // A tab can keep a new brief and a separate revision of each previous study.
 // Keep the exact request until the server confirms admission, including after a reload.
-type SavedBrief = { draft: ResearchBrief; pending: ResearchSessionStart | null };
+type SavedBrief = {
+  draft: ResearchBrief;
+  pending: ResearchSessionStart | null;
+  awaitingModelCatalog?: true;
+};
 const uuid = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
+
+export function initializeResearchBrief(saved: SavedBrief | null, fromSession: string | null) {
+  const draft = saved?.draft ?? blankResearchBrief;
+  // Older desks saved their untouched empty form as soon as it opened. An explicit
+  // null role or capability still records an owner choice and adds a key.
+  const fields = Object.keys(blankResearchBrief) as (keyof ResearchBrief)[];
+  const untouched =
+    Object.keys(draft).length === fields.length &&
+    fields.every((key) =>
+      key === "evidence_ids"
+        ? draft.evidence_ids.length === 0
+        : draft[key] === blankResearchBrief[key],
+    );
+  const awaitingModelCatalog =
+    !fromSession && !saved?.pending && (!saved || !!saved.awaitingModelCatalog || untouched);
+  return {
+    draft: awaitingModelCatalog
+      ? { ...draft, lead: { model: leadModel }, researcher: { model: researcherModel } }
+      : draft,
+    awaitingModelCatalog,
+  };
+}
 
 function validDraft(value: ResearchBrief) {
   return (
@@ -97,7 +165,11 @@ export function readResearchBrief(key: string): SavedBrief | null {
         !validDraft(editableResearchBrief(pending)))
     )
       return null;
-    return { draft: record.draft, pending: pending ?? null };
+    return {
+      draft: record.draft,
+      pending: pending ?? null,
+      ...(record.awaitingModelCatalog === true && { awaitingModelCatalog: true }),
+    };
   } catch {
     return null;
   }

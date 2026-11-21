@@ -25,16 +25,20 @@ to it from **Recent research** or the run archive.
 ### Choose the model and thinking effort
 
 Under **Research settings**, the **Research model**, **Thinking effort** and
-**Response detail** apply to the whole study. The choices come from the connected
-account. A higher thinking effort gives the model more room to reason and can
-take longer. Response detail asks for more or less detail in the answer. Leave
-either at **Model default** to use the model's own handling.
+**Response detail** apply to the whole study. New studies start at **High**
+on each slider where the model offers that level. Move a slider or use its
+arrow keys to choose a supported level. Thinking effort controls how much reasoning
+the model can do. Response detail controls how much detail it gives in its
+answer. Each slider can also use the model's own default.
 
 Open **Models by role** to configure the **Research lead**, **Researchers** or
-**Report editor**. Each setting inherits independently. For example, you can
-give the researchers a higher thinking effort and ask only the editor for a
-more detailed response. If a role's model lacks a shared setting, select
-**Model default** for that field or choose a level the model offers.
+**Report editor**. New single-lead and swarm studies use Astra 6.2 for lead
+work and Sol 6.2 for researchers. The editor uses the shared research model,
+which starts at Sol 6.2 when the connected account offers it.
+Each role inherits the two slider settings independently. You can adjust a
+single role, restore its shared setting, or use its model default. If a model
+or level is unavailable on the connected account, the desk identifies which
+choice needs attention.
 
 During a study, **Brief and settings** shows the model, effort and detail
 pinned for each role. A workspace's **Model passes** includes the saved request
@@ -43,9 +47,6 @@ for each pass. **Revise brief** restores your choices for the next experiment.
 ### Run a swarm
 
 Under **Research settings**, change **Team structure** to **Research swarm**.
-The desk suggests Astra 6.2 for lead work and Sol 6.2 for researchers. You
-can change either under **Models by role**. If a suggested model is unavailable
-on the connected account, select a replacement before starting.
 
 Choose up to four leads and up to twenty researcher assignments per lead.
 The parallel limit controls how many leads or researchers can work at once

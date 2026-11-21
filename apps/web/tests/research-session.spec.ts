@@ -21,23 +21,45 @@ test("follow parallel research from a brief through owner judgment to an illustr
   await page.locator("summary").filter({ hasText: "Research settings" }).click();
   await page.getByLabel("Maximum research agents").selectOption("2");
   await page.getByLabel("Passes per agent").fill("3");
-  await page
-    .getByRole("combobox", { name: "Research model", exact: true })
-    .selectOption("test-model");
+  const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
   const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
   const lead = page.getByRole("group", { name: "Research lead", exact: true });
   const researchers = page.getByRole("group", { name: "Researchers", exact: true });
   const writerControls = page.getByRole("group", { name: "Report editor", exact: true });
   const roleSettings = page.locator("summary").filter({ hasText: "Models by role" });
-  await shared.getByLabel("Thinking effort").selectOption("high");
-  await shared.getByLabel("Response detail").selectOption("low");
+  const effort = shared.getByRole("slider", { name: "Thinking effort" });
+  const detail = shared.getByRole("slider", { name: "Response detail" });
+  await expect(sharedModel).toHaveValue("gpt-6.2-sol");
+  await expect(effort).toHaveAttribute("aria-valuetext", "High");
+  await expect(detail).toHaveAttribute("aria-valuetext", "High");
+  await sharedModel.selectOption("test-model");
+  await detail.press("Home");
   await roleSettings.click();
-  await lead.getByLabel("Thinking effort").selectOption("low");
+  await expect(lead.getByLabel("Research lead model")).toHaveValue("gpt-6.2-astra");
+  await expect(researchers.getByLabel("Researchers model")).toHaveValue("gpt-6.2-sol");
+  const leadEffort = lead.getByRole("slider", { name: "Thinking effort" });
+  await leadEffort.press("Home");
+  await expect(leadEffort).toHaveAttribute("aria-valuetext", "Low");
+  await lead
+    .getByRole("group", { name: "Thinking effort control" })
+    .getByRole("button", { name: "Use shared setting" })
+    .click();
+  await expect(leadEffort).toHaveAttribute("aria-valuetext", "Shared · High");
+  await leadEffort.press("Home");
   await researchers.getByLabel("Researchers model").selectOption("analysis-model");
-  await researchers.getByLabel("Thinking effort").selectOption("xhigh");
-  await researchers.getByLabel("Response detail").selectOption("model_default");
-  await writerControls.getByLabel("Thinking effort").selectOption("model_default");
-  await writerControls.getByLabel("Response detail").selectOption("high");
+  const researcherEffort = researchers.getByRole("slider", { name: "Thinking effort" });
+  const researcherDetail = researchers.getByRole("slider", { name: "Response detail" });
+  await researcherEffort.press("End");
+  await researchers
+    .getByRole("group", { name: "Response detail control" })
+    .getByRole("button", { name: "Use model default" })
+    .click();
+  await writerControls
+    .getByRole("group", { name: "Thinking effort control" })
+    .getByRole("button", { name: "Use model default" })
+    .click();
+  const writerDetail = writerControls.getByRole("slider", { name: "Response detail" });
+  await writerDetail.press("End");
   await expect(page.getByLabel("Expert review")).toHaveValue("when_needed");
   await page.getByRole("button", { name: "Start research", exact: true }).click();
   await expect(page).toHaveURL(/\?session=[\da-f-]{36}/);
@@ -60,7 +82,7 @@ test("follow parallel research from a brief through owner judgment to an illustr
     await briefSettings.click();
     const profiles = page.getByRole("table", { name: "Pinned model settings" });
     for (const [role, model, effort, detail] of [
-      ["Research lead", "test-model", "Low", "Low"],
+      ["Research lead", "gpt-6.2-astra", "Low", "Low"],
       ["Researchers", "analysis-model", "Extra high", "Model default"],
       ["Report editor", "test-model", "Model default", "High"],
     ] as const) {
@@ -72,6 +94,20 @@ test("follow parallel research from a brief through owner judgment to an illustr
     await briefSettings.click();
     await expect(demand).toContainText("Requesting");
     const live: RunSnapshot = await (await request.get(runUrl)).json();
+    expect(live.research_manifest?.settings).toMatchObject({
+      model: "test-model",
+      reasoning_effort: "high",
+      verbosity: "low",
+    });
+    const planner = live.model_attempts!.find((attempt) => attempt.path === "root/team/plan")!;
+    const plannerBody = await (
+      await request.get(`/api/artifacts/${encodeURIComponent(planner.input_artifact_id!)}/content`)
+    ).json();
+    expect(plannerBody).toMatchObject({
+      model: "gpt-6.2-astra",
+      reasoning: { effort: "low" },
+      text: { verbosity: "low" },
+    });
     expect(
       live.model_attempts
         ?.filter((attempt) => attempt.status === "requesting")
@@ -199,15 +235,19 @@ test("follow parallel research from a brief through owner judgment to an illustr
   await expect(page.getByLabel("Research brief", { exact: true })).toHaveValue(brief);
   const researchSettings = page.locator("summary").filter({ hasText: "Research settings" });
   if (!(await shared.isVisible())) await researchSettings.click();
-  await expect(shared.getByLabel("Thinking effort")).toHaveValue("high");
-  await expect(shared.getByLabel("Response detail")).toHaveValue("low");
+  await expect(effort).toHaveAttribute("aria-valuetext", "High");
+  await expect(detail).toHaveAttribute("aria-valuetext", "Low");
   if (!(await researchers.isVisible())) await roleSettings.click();
-  await expect(lead.getByLabel("Thinking effort")).toHaveValue("low");
+  await expect(lead.getByLabel("Research lead model")).toHaveValue("gpt-6.2-astra");
+  await expect(leadEffort).toHaveAttribute("aria-valuetext", "Low");
   await expect(researchers.getByLabel("Researchers model")).toHaveValue("analysis-model");
-  await expect(researchers.getByLabel("Thinking effort")).toHaveValue("xhigh");
-  await expect(researchers.getByLabel("Response detail")).toHaveValue("model_default");
-  await expect(writerControls.getByLabel("Thinking effort")).toHaveValue("model_default");
-  await expect(writerControls.getByLabel("Response detail")).toHaveValue("high");
+  await expect(researcherEffort).toHaveAttribute("aria-valuetext", "Extra high");
+  await expect(researcherDetail).toHaveAttribute("aria-valuetext", "Model default");
+  await expect(writerControls.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
+    "aria-valuetext",
+    "Model default · Medium",
+  );
+  await expect(writerDetail).toHaveAttribute("aria-valuetext", "High");
   await expect(page.getByRole("link", { name: "previous study" })).toHaveAttribute(
     "href",
     `/?session=${sessionId}`,

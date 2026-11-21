@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, type ProviderStatus } from "@/lib/workflow";
+import { CapabilitySlider, type CapabilityProps } from "./capability-slider";
 import {
   hasModelOverride,
   modelSettingLabel,
@@ -107,16 +108,7 @@ function CapabilitySelect<T extends string>({
   onChange,
   onModelDefault,
   disabled,
-}: {
-  label: string;
-  value?: string | null;
-  choices: readonly T[];
-  advertisedDefault?: string | null;
-  inherited?: string;
-  onChange: (value: T | null) => void;
-  onModelDefault?: () => void;
-  disabled?: boolean;
-}) {
+}: CapabilityProps<T>) {
   const defaultText = advertisedDefault
     ? `Model default · ${modelSettingLabel(advertisedDefault)}`
     : "Model default";
@@ -155,6 +147,7 @@ type OptionProps = {
   catalog: ModelCatalog;
   scope: string;
   disabled?: boolean;
+  useSliders?: boolean;
 } & (
   | {
       inherited?: undefined;
@@ -169,12 +162,25 @@ type OptionProps = {
     }
 );
 
+const effortOrder: readonly Effort[] = [
+  "none",
+  "minimal",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+  "ultra",
+];
+
 export function ModelOptionFields(props: OptionProps) {
   const { catalog, settings, inherited, disabled } = props;
   const model = catalog.status?.models?.find(
     (item) => item.slug === (settings.model || inherited?.model),
   );
   const reset = inherited ? props.onChange : undefined;
+  const Control = props.useSliders ? CapabilitySlider : CapabilitySelect;
+  const efforts = model?.reasoning_efforts ?? [];
   function inheritedText(value: string | null | undefined, advertised: string | null | undefined) {
     if (!inherited) return undefined;
     const label = "inheritedLabel" in props ? props.inheritedLabel : undefined;
@@ -191,22 +197,26 @@ export function ModelOptionFields(props: OptionProps) {
       role="group"
       aria-label={`${props.scope} response settings`}
     >
-      <CapabilitySelect<Effort>
+      <Control<Effort>
         label="Thinking effort"
         value={settings.reasoning_effort}
-        choices={model?.reasoning_efforts ?? []}
+        choices={
+          props.useSliders ? effortOrder.filter((level) => efforts.includes(level)) : efforts
+        }
         advertisedDefault={model?.default_reasoning_effort}
         inherited={inheritedText(inherited?.reasoning_effort, model?.default_reasoning_effort)}
+        inheritedLevel={inherited?.reasoning_effort}
         onChange={(reasoning_effort) => props.onChange({ reasoning_effort })}
         onModelDefault={reset && (() => reset({ reasoning_effort: "model_default" }))}
         disabled={disabled}
       />
-      <CapabilitySelect<Verbosity>
+      <Control<Verbosity>
         label="Response detail"
         value={settings.verbosity}
         choices={model?.supports_verbosity ? ["low", "medium", "high"] : []}
         advertisedDefault={model?.default_verbosity}
         inherited={inheritedText(inherited?.verbosity, model?.default_verbosity)}
+        inheritedLevel={inherited?.verbosity}
         onChange={(verbosity) => props.onChange({ verbosity })}
         onModelDefault={reset && (() => reset({ verbosity: "model_default" }))}
         disabled={disabled}
@@ -224,6 +234,7 @@ export function ModelOverrideFields({
   onChange,
   inheritedLabel,
   disabled,
+  useSliders,
 }: {
   label: string;
   modelLabel: string;
@@ -233,6 +244,7 @@ export function ModelOverrideFields({
   onChange: (patch: ModelOverride) => void;
   inheritedLabel?: string;
   disabled?: boolean;
+  useSliders?: boolean;
 }) {
   return (
     <div className="model-override-fields" role="group" aria-label={label}>
@@ -252,6 +264,7 @@ export function ModelOverrideFields({
         inherited={inherited}
         inheritedLabel={inheritedLabel}
         settings={settings ?? {}}
+        useSliders={useSliders}
         onChange={onChange}
       />
     </div>
@@ -268,6 +281,8 @@ export function RoleModelSettings({
   disabled,
   includeEditor = false,
   initiallyOpen = false,
+  showOverrideCount = true,
+  useSliders,
   inheritedLabel,
 }: {
   shared: ModelProfile;
@@ -277,12 +292,16 @@ export function RoleModelSettings({
   disabled?: boolean;
   includeEditor?: boolean;
   initiallyOpen?: boolean;
+  showOverrideCount?: boolean;
+  useSliders?: boolean;
   inheritedLabel: string;
 }) {
   const roles = includeEditor
     ? researchRoles
     : researchRoles.filter((role) => role.key !== "editor");
-  const count = roles.filter(({ key }) => hasModelOverride(values[key])).length;
+  const count = showOverrideCount
+    ? roles.filter(({ key }) => hasModelOverride(values[key])).length
+    : 0;
   return (
     <details className="role-model-settings" open={initiallyOpen || undefined}>
       <summary>Models by role{count > 0 && ` (${count} customized)`}</summary>
@@ -297,6 +316,7 @@ export function RoleModelSettings({
             settings={values[key]}
             catalog={catalog}
             disabled={disabled}
+            useSliders={useSliders}
             onChange={(patch) => {
               const next = { ...values[key], ...patch };
               onChange(key, hasModelOverride(next) ? next : null);

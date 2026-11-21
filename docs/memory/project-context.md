@@ -59,3 +59,7 @@ The owner also wants several Astra leads to delegate simpler investigations
 to Sol researchers. A lead can bring a trade idea and alternatives to the
 owner for judgment, then use the answer to revise its investigation before
 the report is written. [Research swarms](../decisions/0024-research-swarms.md).
+
+For new Research desk studies in either team structure, the owner's preferred
+defaults are Astra 6.2 leads, Sol 6.2 researchers, High thinking effort and
+High response detail. The owner wants to adjust the two levels with sliders.
