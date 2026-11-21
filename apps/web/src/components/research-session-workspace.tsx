@@ -114,11 +114,13 @@ function SwarmDecision({ action }: { action: NonNullable<Result["swarm_action"]>
           <strong>Working thesis</strong> · {action.consultation.thesis}
         </p>
         <p>{action.consultation.question}</p>
-        <ul>
-          {action.consultation.options.map((option) => (
-            <li key={option}>{option}</li>
-          ))}
-        </ul>
+        {!!action.consultation.options?.length && (
+          <ul>
+            {action.consultation.options.map((option) => (
+              <li key={option}>{option}</li>
+            ))}
+          </ul>
+        )}
       </div>
     );
   return (
@@ -354,7 +356,12 @@ export function SessionWorkspaceDetail({
           </span>
         </div>
       )}
-      {lane.state==="Consultation requested" && <p className={styles.empty}>The lead’s question is recorded. You can answer once the current work reaches its checkpoint.</p>}
+      {lane.state === "Consultation requested" && (
+        <p className={styles.empty}>
+          The lead’s question is recorded. You can answer once the current work reaches its
+          checkpoint.
+        </p>
+      )}
       {report ? (
         <WorkspaceFilePreview file={report} sources={urls} files={files} />
       ) : result?.swarm_action ? (

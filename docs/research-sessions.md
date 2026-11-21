@@ -40,6 +40,30 @@ During a study, **Brief and settings** shows the model, effort and detail
 pinned for each role. A workspace's **Model passes** includes the saved request
 for each pass. **Revise brief** restores your choices for the next experiment.
 
+### Run a swarm
+
+Under **Research settings**, change **Team structure** to **Research swarm**.
+The desk suggests Astra 6.2 for lead work and Sol 6.2 for researchers. You
+can change either under **Models by role**. If a suggested model is unavailable
+on the connected account, select a replacement before starting.
+
+Choose up to four leads and up to twenty researcher assignments per lead.
+The parallel limit controls how many leads or researchers can work at once
+across the study. For example, two leads can each assign twenty researchers
+while four agents work at a time. Set the parallel limit to twenty to permit
+twenty simultaneous agents. The request ceiling includes the coordinator,
+lead turns, researcher passes and report editor. The workspace's rolling
+request allowance still applies.
+
+The coordinator gives each lead a distinct mandate. Expand a lead to inspect
+its assignments, requests, files and findings. A lead can delegate a follow-up
+after reading what its researchers found. With expert consultations enabled,
+it can present a trade thesis and ask an open-ended question or propose
+alternatives. Inspect the supporting work, then select a suggestion or write
+your own answer. The answer goes back to the lead while it can still revise
+the investigation. The editorial review setting controls the later report
+checkpoint independently.
+
 ## Follow and direct the investigation
 
 The lead's saved plan lists each assignment and its objective. Select a researcher

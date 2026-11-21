@@ -238,7 +238,7 @@ export function ResearchBriefOptions({
               onChange={(event) => update({ max_active_seconds: event.target.valueAsNumber || 0 })}
             />
           </label>
-          <label>
+          <label className={draft.swarm ? styles.fullField : undefined}>
             {draft.swarm ? "Editorial review" : "Expert review"}
             <select
               value={draft.review_mode}

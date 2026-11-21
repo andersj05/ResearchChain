@@ -224,7 +224,9 @@ export function RunStepInspector({
                   <br />
                   {review.perspective.thesis}
                 </p>
-                <p>Suggested perspectives · {review.perspective.options.join(" · ")}</p>
+                {!!review.perspective.options?.length && (
+                  <p>Suggested perspectives · {review.perspective.options.join(" · ")}</p>
+                )}
                 {run.research_manifest?.tool_config?.session === "brief-led-1" && (
                   <a
                     href={`${sessionUrl(run.id)}#consultation-${encodeURIComponent(review.interrupt_id)}`}

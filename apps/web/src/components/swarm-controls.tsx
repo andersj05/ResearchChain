@@ -76,7 +76,10 @@ export function SwarmControls({ draft, update }: Props) {
               event.currentTarget.open = true;
             }}
           >
-            <summary>Swarm limits · {settings.max_parallel} active slots</summary>
+            <summary>
+              Swarm limits · {settings.max_parallel} active{" "}
+              {settings.max_parallel === 1 ? "slot" : "slots"}
+            </summary>
             <div>
               <label>
                 Active slots

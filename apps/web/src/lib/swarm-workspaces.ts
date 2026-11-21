@@ -116,8 +116,12 @@ export function swarmWorkspaces(
     if (action?.action === "delegate" && workers.some((worker) => worker.state !== "Completed"))
       waiting = "Waiting for researchers";
     if (action?.action === "ask_expert") {
-      if (run.perspective_answers?.some((answer) => answer.action_path === last?.path)) waiting="Queued";
-      else waiting=pendingReviews(run).some(q=>q.perspective?.action_path===last?.path)?"Awaiting judgment":"Consultation requested";
+      if (run.perspective_answers?.some((answer) => answer.action_path === last?.path))
+        waiting = "Queued";
+      else
+        waiting = pendingReviews(run).some((q) => q.perspective?.action_path === last?.path)
+          ? "Awaiting judgment"
+          : "Consultation requested";
     }
     lanes.push(
       {

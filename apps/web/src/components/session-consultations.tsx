@@ -66,9 +66,10 @@ export function LeadConsultation({
   const request = review.perspective!;
   const [text, setText] = useState(() => readReviewDrafts(draftKey)[review.interrupt_id] ?? "");
   const id = `consultation-${review.interrupt_id}`;
-  useEffect(()=>{
-    if (window.location.hash===`#${encodeURIComponent(id)}`) document.getElementById(id)?.scrollIntoView();
-  },[id]);
+  useEffect(() => {
+    if (window.location.hash === `#${encodeURIComponent(id)}`)
+      document.getElementById(id)?.scrollIntoView();
+  }, [id]);
   const lead = lanes.find((lane) =>
     lane.attempts.some((attempt) => attempt.path === request.action_path),
   );
@@ -110,20 +111,22 @@ export function LeadConsultation({
           if (text.trim() && !disabled) void onAnswer(text.trim());
         }}
       >
-        <fieldset className={styles.suggestions} disabled={disabled}>
-          <legend>Suggested perspectives</legend>
-          {request.options.map((option) => (
-            <button
-              key={option}
-              type="button"
-              className="button small"
-              aria-pressed={text === option}
-              onClick={() => edit(option)}
-            >
-              {option}
-            </button>
-          ))}
-        </fieldset>
+        {!!request.options?.length && (
+          <fieldset className={styles.suggestions} disabled={disabled}>
+            <legend>Suggested perspectives</legend>
+            {request.options.map((option) => (
+              <button
+                key={option}
+                type="button"
+                className="button small"
+                aria-pressed={text === option}
+                onClick={() => edit(option)}
+              >
+                {option}
+              </button>
+            ))}
+          </fieldset>
+        )}
         <label htmlFor={id + "-answer"}>Your perspective</label>
         <textarea
           id={id + "-answer"}
