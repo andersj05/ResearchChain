@@ -275,7 +275,7 @@ def make_manifest(
             "model_settings_version": MODEL_SETTINGS_VERSION,
             **(
                 {"swarm_version": SWARM_VERSION, "swarm_prompt_hash": swarm_prompt_hash()}
-                if any(c.team and c.team.swarm for c in configs)
+                if workflow.has_research_swarm()
                 else {}
             ),
             **(

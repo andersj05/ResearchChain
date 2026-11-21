@@ -11,6 +11,7 @@ from researchchain.artifacts import read_content
 from researchchain.graph import Workflow
 from researchchain.main import create_app
 from researchchain.models import RunRequest
+from researchchain.research import make_manifest
 from researchchain.research_directions import record_direction
 from researchchain.research_models import OwnerDirectionInput
 from researchchain.research_session_export import export_session_report
@@ -120,7 +121,7 @@ def test_research_sessions_enforce_swarm_bounds(invalid):
         request(swarm=invalid)
 
 
-def test_larger_run_limits_require_an_executable_swarm():
+def test_larger_run_limits_require_an_executable_swarm(database):
     standard = session_workflow(request(review_mode="never")).model_dump(mode="json")
     swarm = session_workflow(request(swarm={}, review_mode="never")).model_dump(mode="json")
     ref = {"id": "study", "version": 1}
@@ -147,7 +148,11 @@ def test_larger_run_limits_require_an_executable_swarm():
     }
     document["research"]["limits"].update(max_model_calls=100, max_tool_calls=100)
     document["budgets"]["max_concurrency"] = 16
-    assert compiler_version(Workflow.model_validate(document)) == "research-team-1"
+    archived = Workflow.model_validate(document)
+    assert compiler_version(archived) == "research-team-1"
+    with database.connection() as conn:
+        manifest = make_manifest(conn, archived, uuid4(), [], SessionProvider().account)
+    assert "swarm_version" not in manifest.tool_config
     document["research"]["limits"].update(max_model_calls=101, max_tool_calls=101)
     document["budgets"]["max_concurrency"] = 17
     with pytest.raises(ValidationError) as rejected:
