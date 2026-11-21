@@ -10,7 +10,6 @@ import { evidenceUrl } from "@/lib/evidence";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import {
-  activityLabel,
   SessionActivity,
   sessionModelProfiles,
   sessionWorkspaces,
@@ -18,21 +17,25 @@ import {
 } from "./research-session-workspace";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
+import { SessionRoster } from "./session-roster";
+import { LeadConsultation, ConsultationHistory, rememberAnswer } from "./session-consultations";
+import { sessionSwarm } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
 
 type Props = { runId: string; onNewStudy: (fromSession?: string) => void };
 
 function OwnerQuestion({
   run,
+  question,
   busy,
   act,
 }: {
   run: RunSnapshot;
+  question: NonNullable<RunSnapshot["review"]>;
   busy: boolean;
   act: (action: string, body: object) => Promise<void>;
 }) {
   const { owner } = useOwner();
-  const question = pendingReviews(run)[0]!;
   const key = ownerStoragePrefix(owner) + ".research.review." + run.id;
   const [answer, setAnswer] = useState(() => readReviewDrafts(key)[question.interrupt_id] ?? "");
   function respond(decision: "approve" | "reject") {
@@ -56,7 +59,7 @@ function OwnerQuestion({
         disabled={busy}
         onChange={(event) => {
           setAnswer(event.target.value);
-          storeReviewDrafts(key, JSON.stringify({ [question.interrupt_id]: event.target.value }));
+          rememberAnswer(key, question.interrupt_id, event.target.value);
         }}
       />
       <div className={styles.actions}>
@@ -79,7 +82,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
-  const [acceptedReview, setAcceptedReview] = useState("");
+  const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
   const [chosen, setChosen] = useState(() =>
     typeof window === "undefined"
       ? null
@@ -88,6 +91,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const [passId, setPassId] = useState(() =>
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pass"),
   );
+  const draftKey = ownerStoragePrefix(owner) + ".research.review." + runId;
   function selectWorkspace(key: string, pass: string | null = null) {
     setChosen(key);
     setPassId(pass);
@@ -140,9 +144,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     try {
       await api(`runs/${encodeURIComponent(runId)}/${action}`, body);
       setConfirmStop(false);
-      if (action === "resume") {
-        setAcceptedReview(run?.review?.interrupt_id ?? "");
-        storeReviewDrafts(ownerStoragePrefix(owner) + ".research.review." + runId, "{}");
+      if (action === "resume" && "interrupt_id" in body && typeof body.interrupt_id === "string") {
+        const id = body.interrupt_id;
+        setAcceptedReviews((accepted) => [...accepted, id]);
+        rememberAnswer(draftKey, id, "");
       }
     } catch (cause) {
       setActionError(cause instanceof Error ? cause.message : "The action could not be confirmed.");
@@ -170,10 +175,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     );
   const profiles = sessionModelProfiles(run);
   const lanes = sessionWorkspaces(run, profiles);
+  const swarm = sessionSwarm(run);
   const editor = lanes.at(-1)!;
-  const team = lanes.slice(1, -1);
+  const team = swarm ? lanes.filter((lane) => lane.role === "researcher") : lanes.slice(1, -1);
   const workspace =
-    lanes.find((lane) => lane.key === chosen) ??
+    lanes.find((lane) => lane.key === chosen || (chosen && lane.path === chosen)) ??
     (editor.attempts.length
       ? editor
       : (team.find((lane) =>
@@ -181,8 +187,13 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         ) ??
         team[0] ??
         lanes[0]!));
-  const question = pendingReviews(run).find((review) => review.interrupt_id !== acceptedReview);
-  const recordedJudgment = run.events.find((event) => event.review_response)?.review_response;
+  const questions = pendingReviews(run).filter(
+    (review) => !acceptedReviews.includes(review.interrupt_id),
+  );
+  const question = questions.find((review) => !review.perspective);
+  const recordedJudgment = run.events.find(
+    (event) => event.review_response && (!swarm || event.path === "root/judgment"),
+  )?.review_response;
   const title = run.brief.trim().split("\n")[0]!.slice(0, 120);
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
   const started = run.model_attempts?.length ?? 0;
@@ -198,11 +209,24 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           {title.length < run.brief.trim().split("\n")[0]!.length && "…"}
         </h1>
         <div className={styles.summary}>
+          {swarm && (
+            <span>
+              Research swarm · {lanes.filter((lane) => lane.role === "lead").length} leads assigned
+            </span>
+          )}
           <span>
             {team.length
               ? `${team.length} researcher${team.length === 1 ? "" : "s"}`
-              : "Research lead"}
+              : swarm
+                ? "No researchers assigned"
+                : "Research lead"}
           </span>
+          {swarm && (
+            <span>
+              {lanes.filter((lane) => lane.state === "Active").length} active ·{" "}
+              {lanes.filter((lane) => lane.state === "Queued").length} queued
+            </span>
+          )}
           <span>
             {started} recorded {started === 1 ? "pass" : "passes"}
           </span>
@@ -214,6 +238,13 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         <details className={styles.settings}>
           <summary>Brief and settings</summary>
           <p>{run.brief}</p>
+          {swarm && (
+            <p>
+              Up to {swarm.lead_count} leads · {swarm.researchers_per_lead} researchers per lead ·{" "}
+              {swarm.max_parallel} active slots · {swarm.max_lead_turns} turns per lead · Expert
+              consultations {swarm.allow_consultations ? "on" : "off"}
+            </p>
+          )}
           <p>
             {run.research_manifest?.settings.model} · {run.workflow.budgets?.max_active_seconds}s
             active-time limit · {run.research_manifest?.settings.limits?.max_model_calls} model
@@ -234,7 +265,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
                 <tbody>
                   {researchRoles.map(({ key, label }) => (
                     <tr key={key}>
-                      <th scope="row">{label}</th>
+                      <th scope="row">
+                        {swarm && key === "lead" ? "Director and research leads" : label}
+                      </th>
                       <td>{profiles[key].model}</td>
                       <td>{modelSettingLabel(profiles[key].reasoning_effort)}</td>
                       <td>{modelSettingLabel(profiles[key].verbosity)}</td>
@@ -280,6 +313,29 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         </div>
       )}
       {run.stop_reason && <p className={styles.notice}>{run.stop_reason}</p>}
+      {run.checkpoint_id &&
+        questions
+          .filter((review) => review.perspective)
+          .map((review) => (
+            <LeadConsultation
+              key={review.interrupt_id}
+              review={review}
+              runId={runId}
+              lanes={lanes}
+              draftKey={draftKey}
+              onSelect={selectWorkspace}
+              disabled={busy || !active || run.execution_pending}
+              onAnswer={(feedback) =>
+                act("resume", {
+                  checkpoint_id: run.checkpoint_id,
+                  interrupt_id: review.interrupt_id,
+                  decision: "approve",
+                  feedback,
+                })
+              }
+            />
+          ))}
+      <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
       <SessionDirections
         run={run}
         lanes={lanes}
@@ -294,7 +350,13 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         }}
       />
       {question && run.checkpoint_id && (
-        <OwnerQuestion key={question.interrupt_id} run={run} busy={busy || !active} act={act} />
+        <OwnerQuestion
+          key={question.interrupt_id}
+          question={question}
+          run={run}
+          busy={busy || !active}
+          act={act}
+        />
       )}
       {recordedJudgment && (
         <details className={styles.settings}>
@@ -308,23 +370,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         </details>
       )}
       <div className={styles.work} id="research-workspaces">
-        <nav aria-label="Agent workspaces" className={styles.roster}>
-          <h2>Workspaces</h2>
-          {lanes.map((lane) => (
-            <button
-              type="button"
-              key={lane.key}
-              aria-current={workspace.key === lane.key ? "true" : undefined}
-              onClick={() => selectWorkspace(lane.key)}
-            >
-              <strong>{lane.title}</strong>
-              <span>
-                {activityLabel(lane)}
-                {lane.attempts.length > 1 && ` · Pass ${lane.attempts.length}`}
-              </span>
-            </button>
-          ))}
-        </nav>
+        <SessionRoster lanes={lanes} selected={workspace.key} onSelect={selectWorkspace} />
         <SessionWorkspaceDetail
           key={workspace.key}
           lane={workspace}

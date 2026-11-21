@@ -123,6 +123,56 @@
   font-size: 12px;
   color: var(--muted);
 }
+.leadGroup {
+  border-block-start: 1px solid var(--line);
+  min-width: 0;
+}
+.leadGroup details {
+  margin: 0 0 8px 14px;
+  border-left: 1px solid var(--line);
+}
+.leadGroup summary {
+  font-size: 12px;
+  padding: 8px;
+  color: var(--muted);
+}
+.workspacePath {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.judgment form {
+  display: grid;
+  gap: 8px;
+}
+.judgment form > button {
+  justify-self: start;
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.suggestions legend {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.suggestions button {
+  text-align: left;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.suggestions button[aria-pressed="true"] {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+.answerHistory {
+  display: grid;
+  gap: 14px;
+  padding: 0 0 0 20px;
+}
 .detail {
   min-width: 0;
   min-height: 260px;
@@ -345,6 +395,9 @@
   .roster button {
     align-content: start;
     padding: 8px;
+  }
+  .swarmRoster {
+    display: block;
   }
   .detail {
     border-left: 0;

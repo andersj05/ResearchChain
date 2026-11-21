@@ -1,8 +1,9 @@
 import type { components } from "@researchchain/contracts";
 import { useState } from "react";
 import { contentDownloadUrl } from "@/lib/evidence";
-import { modelSettingLabel, resolveModelProfile, type ModelProfile } from "@/lib/model-settings";
+import { modelSettingLabel, resolveModelProfile } from "@/lib/model-settings";
 import { modelAttemptStatus } from "@/lib/run-inspection";
+import { sessionSwarm, swarmWorkspaces, type SessionWorkspace } from "@/lib/swarm-workspaces";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts, researchToolUrls } from "./research-tool-receipts";
@@ -11,13 +12,6 @@ import { formatTime } from "./run-status";
 import styles from "./research-session.module.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
-export type SessionWorkspace = {
-  key: string;
-  title: string;
-  objective: string;
-  attempts: Attempt[];
-  profile?: ModelProfile;
-};
 
 export function sessionModelProfiles(run: RunSnapshot) {
   const shared = run.research_manifest?.settings;
@@ -38,6 +32,7 @@ export function sessionWorkspaces(
   run: RunSnapshot,
   profiles: ReturnType<typeof sessionModelProfiles>,
 ): SessionWorkspace[] {
+  if (sessionSwarm(run)) return swarmWorkspaces(run, profiles);
   const attempts = run.model_attempts ?? [];
   const director = attempts.find((item) => item.path === "root/team/plan");
   const plan = director?.result?.team_plan;
@@ -73,6 +68,10 @@ export function sessionWorkspaces(
 
 export function activityLabel(lane: SessionWorkspace) {
   const attempt = lane.attempts.at(-1);
+  if (lane.state)
+    return lane.state === "Active" && attempt
+      ? `Active · ${modelAttemptStatus(attempt)}`
+      : lane.state;
   if (!attempt) return "Not started";
   if (attempt.status !== "completed") return modelAttemptStatus(attempt);
   if (attempt.result?.workspace_activity) return "Python result saved";
@@ -87,6 +86,54 @@ function sourceUrls(attempts: Attempt[]) {
       ...(result?.web_research?.sources.map((source) => source.url) ?? []),
       ...researchToolUrls(result),
     ]),
+  );
+}
+
+type Result = NonNullable<Attempt["result"]>;
+function SwarmDecision({ action }: { action: NonNullable<Result["swarm_action"]> }) {
+  if (action.action === "delegate")
+    return (
+      <div className={styles.findings}>
+        <h3>Delegated research</h3>
+        <p>{action.rationale}</p>
+        <ol className={styles.assignments}>
+          {action.assignments.map((item) => (
+            <li key={item.title}>
+              <strong>{item.title}</strong>
+              <p>{item.objective}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
+    );
+  if (action.action === "ask_expert")
+    return (
+      <div className={styles.findings}>
+        <h3>Expert consultation</h3>
+        <p>
+          <strong>Working thesis</strong> · {action.consultation.thesis}
+        </p>
+        <p>{action.consultation.question}</p>
+        <ul>
+          {action.consultation.options.map((option) => (
+            <li key={option}>{option}</li>
+          ))}
+        </ul>
+      </div>
+    );
+  return (
+    <div className={styles.findings}>
+      <h3>Lead findings</h3>
+      <p>{action.findings}</p>
+      <details>
+        <summary>Limitations</summary>
+        <ul>
+          {action.limitations.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+      </details>
+    </div>
   );
 }
 
@@ -149,6 +196,7 @@ function PassReceipts({
           />
         )}
         {selected.reason && <p>{selected.reason}</p>}
+        {result?.swarm_action && <SwarmDecision action={result.swarm_action} />}
         <div className={styles.receiptLinks}>
           {selected.input_artifact_id && (
             <a href={contentDownloadUrl(selected.input_artifact_id, "request.json")} download>
@@ -196,6 +244,10 @@ export function SessionActivity({
           const result = attempt.result;
           const summary =
             result?.workspace_activity?.summary ||
+            (result?.swarm_action?.action === "ask_expert" &&
+              result.swarm_action.consultation.question) ||
+            (result?.swarm_action?.action === "delegate" && result.swarm_action.rationale) ||
+            (result?.swarm_action?.action === "finish" && result.swarm_action.findings) ||
             result?.next_lead ||
             result?.revision_summary ||
             attempt.reason ||
@@ -256,13 +308,28 @@ export function SessionWorkspaceDetail({
   const urls = sourceUrls(lane.key === "editor" ? (run.model_attempts ?? []) : lane.attempts);
   const active =
     run.status === "running" && (latest?.status === "preparing" || latest?.status === "requesting");
-  const plan = result?.team_plan;
+  const assignments = result?.swarm_plan?.leads ?? result?.team_plan?.assignments;
   return (
-    <section className={styles.detail} aria-label={`${lane.title} workspace`}>
+    <section
+      id="current-research-workspace"
+      className={styles.detail}
+      aria-label={`${lane.title} workspace`}
+    >
       <div className={styles.detailHeading}>
         <div>
           <h2>{report ? (finalReport ? "Research report" : "Report draft") : lane.title}</h2>
           <p>{lane.objective}</p>
+          {lane.path && (
+            <p className={styles.workspacePath}>
+              <code>{lane.path}</code> · {activityLabel(lane)}
+            </p>
+          )}
+          {lane.path && lane.profile && (
+            <p>
+              Model · {lane.profile.model} · {modelSettingLabel(lane.profile.reasoning_effort)}{" "}
+              thinking effort · {modelSettingLabel(lane.profile.verbosity)} response detail
+            </p>
+          )}
         </div>
         {report && finalReport && (
           <a className="button small" href={`/api/research-sessions/${run.id}/report.zip`} download>
@@ -287,11 +354,14 @@ export function SessionWorkspaceDetail({
           </span>
         </div>
       )}
+      {lane.state==="Consultation requested" && <p className={styles.empty}>The lead’s question is recorded. You can answer once the current work reaches its checkpoint.</p>}
       {report ? (
         <WorkspaceFilePreview file={report} sources={urls} files={files} />
-      ) : plan ? (
+      ) : result?.swarm_action ? (
+        <SwarmDecision action={result.swarm_action} />
+      ) : assignments ? (
         <ol className={styles.assignments}>
-          {plan.assignments.map((assignment, i) => (
+          {assignments.map((assignment, i) => (
             <li key={i}>
               <strong>{assignment.title}</strong>
               <p>{assignment.objective}</p>
