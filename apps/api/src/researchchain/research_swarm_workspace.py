@@ -51,6 +51,97 @@ def _excerpt(value: str, size: int) -> str:
     return value if len(value) <= size else value[: size - 1] + "…"
 
 
+def _quoted_prefix(value: str, byte_limit: int) -> str:
+    """Keep a literal prefix, including for multibyte and JSON-escaped text."""
+    prefix = value[:byte_limit]
+    while len(json_bytes(prefix)) > byte_limit:
+        prefix = prefix[: len(prefix) // 2]
+    return prefix
+
+
+def worker_evidence_summary(result: StoredResearchResult) -> dict[str, Any]:
+    """Share the claim and direction of bounded evidence without treating an inference as fact."""
+    hypotheses = []
+    included = 0
+    # Prefer hypotheses that actually cite the pinned packet. Preserve model order within ties.
+    for hypothesis in sorted(result.hypotheses, key=lambda h: not h.citations)[:4]:
+        statement = _quoted_prefix(hypothesis.statement, 200)
+        entry: dict[str, Any] = {
+            "id": hypothesis.id,
+            "statement": statement,
+            "statement_excerpted": statement != hypothesis.statement,
+            "assessment": hypothesis.assessment,
+            "citations": [],
+        }
+        citations = hypothesis.citations
+        # Keep opposing evidence visible even if many supporting citations come first.
+        first = {
+            relation: next((i for i, c in enumerate(citations) if c.relation == relation), None)
+            for relation in ("supports", "contradicts", "context")
+        }
+        priority = [i for i in first.values() if i is not None]
+        for index in [*priority, *(i for i in range(len(citations)) if i not in priority)]:
+            citation = citations[index]
+            locator = _quoted_prefix(citation.locator, 96)
+            item: dict[str, Any] = {
+                "evidence_id": str(citation.evidence_id),
+                "relation": citation.relation,
+                "basis": citation.basis,
+                "locator": locator,
+                "locator_excerpted": locator != citation.locator,
+            }
+            if citation.quote:
+                quote = _quoted_prefix(citation.quote, 112)
+                item.update(
+                    quote=quote,
+                    quote_excerpted=quote != citation.quote,
+                    validation="exact_match_in_delivered_text",
+                )
+            else:
+                item["validation"] = (
+                    "metadata_only"
+                    if citation.basis == "metadata_only"
+                    else "source_representation_checked_no_verified_quote"
+                )
+            if len(json_bytes(entry)) + len(json_bytes(item)) <= 1450:
+                entry["citations"].append(item)
+                included += 1
+            if len(entry["citations"]) == 3:
+                break
+        entry["citations_omitted"] = len(citations) - len(entry["citations"])
+        hypotheses.append(entry)
+
+    sec = result.sec_financials
+    filing = None
+    if sec:
+        # These are observed public filing data. Keep periods, units and accession IDs together.
+        url = sec.source_url
+        retained_url = url if url and len(json_bytes(url)) <= 900 else None
+        observations: list[dict[str, Any]] = []
+        for observation in sorted(sec.observations, key=lambda o: (o.end, o.filed), reverse=True):
+            saved = observation.model_dump(mode="json")
+            if len(json_bytes([*observations, saved])) <= 1500:
+                observations.append(saved)
+        filing = {
+            "request": sec.request.model_dump(mode="json"),
+            "status": sec.status,
+            "retrieved_at": sec.retrieved_at.isoformat(),
+            "cik": _quoted_prefix(sec.cik, 32) if sec.cik else None,
+            "source_url": retained_url,
+            "source_url_omitted": bool(url and not retained_url),
+            "observations": observations,
+            "observations_omitted": len(sec.observations) - len(observations),
+        }
+    return {
+        "evidence_hypotheses": hypotheses,
+        "evidence_hypotheses_omitted": len(result.hypotheses) - len(hypotheses),
+        "evidence_citations_omitted": sum(len(h.citations) for h in result.hypotheses) - included,
+        "evidence_validation": "Evidence IDs and representations matched the worker's inputs. "
+        "The researcher supplied the assessments, relations and locators.",
+        "sec_financials": filing,
+    }
+
+
 def _worker_packet(
     lead: int, agent: int, assignment: TeamAssignment, receipt: WorkerReceipt
 ) -> tuple[dict[str, Any], dict[str, WorkspaceFile]]:
@@ -62,10 +153,11 @@ def _worker_packet(
         filename = PurePosixPath(file.name)
         alias = prefix + filename.stem[: 96 - len(prefix) - len(filename.suffix)] + filename.suffix
         files[alias] = file.model_copy(update={"name": alias})
-        if len(listed) < 6:
-            listed.append(
-                {"workspace_name": file.name, "input_name": alias, "media_type": file.media_type}
-            )
+        listed.append(
+            {"workspace_name": file.name, "input_name": alias, "media_type": file.media_type}
+        )
+    listed.sort(key=lambda entry: entry["workspace_name"].lower().endswith(".py"))
+    listed = listed[:6]
     trace = result.web_research
     sources: list[dict[str, Any]] = []
     size = 0
@@ -75,7 +167,6 @@ def _worker_packet(
         if len(sources) < 6 and size + length <= 4096:
             sources.append(item)
             size += length
-    citations = [c for h in result.hypotheses for c in h.citations]
     return {
         "lead": lead,
         "agent": agent,
@@ -91,20 +182,7 @@ def _worker_packet(
         "web_sources_omitted": len(trace.sources) - len(sources) if trace else 0,
         "web_receipt_truncated": trace.truncated if trace else False,
         "web_observed_at": trace.observed_at.isoformat() if trace else None,
-        "evidence_citations": [
-            {
-                "evidence_id": str(c.evidence_id),
-                "basis": c.basis,
-                "locator": _excerpt(c.locator, 200),
-            }
-            for c in citations[:4]
-        ],
-        "evidence_citations_omitted": max(0, len(citations) - 4),
-        "sec_financials": result.sec_financials.model_dump(
-            mode="json", exclude={"detail", "issuer"}
-        )
-        if result.sec_financials
-        else None,
+        **worker_evidence_summary(result),
         "files": listed,
         "files_omitted_from_summary": len(files) - len(listed),
     }, files
@@ -192,8 +270,7 @@ def swarm_material(
                 decision.update(
                     question=action.consultation.question,
                     thesis=_excerpt(action.consultation.thesis, 500),
-                    owner_feedback=_excerpt(reply.feedback, 1200),
-                    feedback_excerpted=len(reply.feedback) > 1200,
+                    owner_feedback=reply.feedback,
                     interrupt_id=reply.interrupt_id,
                 )
             else:
@@ -214,13 +291,21 @@ def swarm_material(
         if agent["review_question"]:
             questions.append(agent["review_question"])
     # Interleave first files from different workers before extra files from a single lane.
-    ordered = (files_by_worker[key].items() for key in sorted(files_by_worker))
     files = {}
-    for batch in zip_longest(*ordered):
-        for entry in batch:
-            if entry is not None:
-                alias, file = entry
-                files[alias] = file
+    for scripts in (False, True):
+        ordered = [
+            [
+                (alias, file)
+                for alias, file in files_by_worker[key].items()
+                if file.name.lower().endswith(".py") == scripts
+            ]
+            for key in sorted(files_by_worker)
+        ]
+        for batch in zip_longest(*ordered):
+            for entry in batch:
+                if entry is not None:
+                    alias, file = entry
+                    files[alias] = file
     packet = {
         "format": "research-swarm-handoff-1",
         "team_path": path,
