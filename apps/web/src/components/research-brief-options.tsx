@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { ChatGPTSignIn } from "./chatgpt-signin";
 import { EvidencePicker } from "./evidence-picker";
+import { SwarmControls } from "./swarm-controls";
 import {
   ModelOptionFields,
   ModelPicker,
@@ -190,24 +191,29 @@ export function ResearchBriefOptions({
         <summary>
           Research settings
           <span>
-            Up to {draft.max_agents} {draft.max_agents === 1 ? "agent" : "agents"} ·{" "}
-            {draft.max_passes} passes · {time}
+            {draft.swarm
+              ? `${draft.swarm.lead_count} leads`
+              : `Up to ${draft.max_agents} ${draft.max_agents === 1 ? "agent" : "agents"}`}{" "}
+            · {draft.max_passes} passes · {time}
           </span>
         </summary>
         <div className={styles.settingGrid}>
-          <label>
-            Maximum research agents
-            <select
-              value={draft.max_agents}
-              onChange={(event) => update({ max_agents: Number(event.target.value) })}
-            >
-              {[1, 2, 3, 4].map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SwarmControls draft={draft} update={update} />
+          {!draft.swarm && (
+            <label>
+              Maximum research agents
+              <select
+                value={draft.max_agents}
+                onChange={(event) => update({ max_agents: Number(event.target.value) })}
+              >
+                {[1, 2, 3, 4].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <label>
             Passes per agent
             <input
@@ -233,7 +239,7 @@ export function ResearchBriefOptions({
             />
           </label>
           <label>
-            Expert review
+            {draft.swarm ? "Editorial review" : "Expert review"}
             <select
               value={draft.review_mode}
               onChange={(event) =>
@@ -265,6 +271,8 @@ export function ResearchBriefOptions({
             />
           </fieldset>
           <RoleModelSettings
+            key={draft.swarm ? "swarm" : "standard"}
+            initiallyOpen={!!draft.swarm}
             shared={{ ...draft, model }}
             values={draft}
             catalog={catalog}
