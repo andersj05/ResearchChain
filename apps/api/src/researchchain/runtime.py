@@ -105,12 +105,9 @@ def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
 
 
 def compiler_version(workflow: Workflow) -> str:
-    nodes = [node for graph in (workflow, *workflow.subgraphs) for node in graph.nodes]
-    if any(
-        isinstance(node.config, ResearchConfig) and node.config.team and node.config.team.swarm
-        for node in nodes
-    ):
+    if workflow.has_research_swarm():
         return SWARM_VERSION
+    nodes = [node for graph in (workflow, *workflow.subgraphs) for node in graph.nodes]
     if any(
         isinstance(node.config, ResearchConfig) and (node.config.team or node.config.style_excerpt)
         for node in nodes

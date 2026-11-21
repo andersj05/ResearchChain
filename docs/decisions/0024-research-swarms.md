@@ -21,6 +21,10 @@ request goes through the workspace allowance check. The scheduler reuses a
 completed receipt on replay and preserves the existing stop for a provider
 request whose outcome is uncertain.
 
+The higher workflow ceilings apply when the root or a referenced subgraph can
+execute a swarm. Ordinary workflows retain their limits of 100 model attempts,
+100 evidence reads and 16 parallel steps.
+
 ## Human decisions
 
 A lead consultation records its tentative thesis, the decision it needs,

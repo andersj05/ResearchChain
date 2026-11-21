@@ -1,6 +1,7 @@
 """Versioned workflow documents and server-side structured-control validation."""
 
 from collections import deque
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Self
 
@@ -609,26 +610,61 @@ class Workflow(GraphDefinition):
                 visiting.remove(key)
         return self
 
-    def research_selections(self) -> set[ModelSelection]:
-        """Settings for executable roles, excluding archived subgraph versions."""
-        assert self.research is not None
-        # The workflow's pinned model must remain available even if every step overrides it.
-        selections = {ModelSelection(self.research.model)}
+    def executable_research_configs(self) -> Iterator[ResearchConfig]:
+        """Visit research nodes in the root and its pinned subgraph versions."""
         definitions = {(item.id, item.version): item for item in self.subgraphs}
         pending: list[GraphDefinition] = [self]
         while pending:
             for node in pending.pop().nodes:
                 config = node.config
                 if isinstance(config, ResearchConfig):
-                    if config.team:
-                        selections.add(resolve_model(self.research, config, config.team.lead))
-                        selections.add(resolve_model(self.research, config, config.team.researcher))
-                    else:
-                        selections.add(resolve_model(self.research, config))
+                    yield config
                 elif isinstance(config, (LoopConfig, SubgraphConfig)):
                     body = definitions.pop((config.ref.id, config.ref.version), None)
                     if body:
                         pending.append(body)
+
+    def has_research_swarm(self) -> bool:
+        return any(
+            config.team and config.team.swarm for config in self.executable_research_configs()
+        )
+
+    @model_validator(mode="after")
+    def validate_run_limits(self) -> Self:
+        # Wider budgets are available only to a workflow that can execute a swarm.
+        limits: list[tuple[tuple[str, ...], int, int]] = [
+            (("budgets", "max_concurrency"), self.budgets.max_concurrency, 16)
+        ]
+        if self.research:
+            budget = self.research.limits
+            limits.extend(
+                [
+                    (("research", "limits", "max_model_calls"), budget.max_model_calls, 100),
+                    (("research", "limits", "max_tool_calls"), budget.max_tool_calls, 100),
+                ]
+            )
+        exceeded = [(path, value, limit) for path, value, limit in limits if value > limit]
+        if exceeded and not self.has_research_swarm():
+            raise ValidationError.from_exception_data(
+                "Workflow",
+                [
+                    {"type": "less_than_equal", "loc": path, "input": value, "ctx": {"le": limit}}
+                    for path, value, limit in exceeded
+                ],
+            )
+        return self
+
+    def research_selections(self) -> set[ModelSelection]:
+        """Settings for executable roles, excluding archived subgraph versions."""
+        assert self.research is not None
+        # The workflow's pinned model must remain available even if every step overrides it.
+        selections = {ModelSelection(self.research.model)}
+        for config in self.executable_research_configs():
+            if config.team:
+                selections.add(resolve_model(self.research, config, config.team.lead))
+                selections.add(resolve_model(self.research, config, config.team.researcher))
+            else:
+                selections.add(resolve_model(self.research, config))
         return selections
 
     def research_models(self) -> set[str]:

@@ -120,6 +120,47 @@ def test_research_sessions_enforce_swarm_bounds(invalid):
         request(swarm=invalid)
 
 
+def test_larger_run_limits_require_an_executable_swarm():
+    standard = session_workflow(request(review_mode="never")).model_dump(mode="json")
+    swarm = session_workflow(request(swarm={}, review_mode="never")).model_dump(mode="json")
+    ref = {"id": "study", "version": 1}
+    call = {
+        "id": "study",
+        "kind": "subgraph",
+        "label": "Run study",
+        "position": {"x": 0, "y": 0},
+        "config": {"type": "subgraph", "ref": ref},
+    }
+    document = {
+        **standard,
+        "start_node": "study",
+        "nodes": [call, standard["nodes"][-1]],
+        "edges": [{"source": "study", "target": "finish"}],
+        "subgraphs": [
+            {
+                "id": "study",
+                "version": version,
+                **{k: body[k] for k in ("name", "start_node", "nodes", "edges")},
+            }
+            for version, body in enumerate([standard, swarm], start=1)
+        ],
+    }
+    document["research"]["limits"].update(max_model_calls=100, max_tool_calls=100)
+    document["budgets"]["max_concurrency"] = 16
+    assert compiler_version(Workflow.model_validate(document)) == "research-team-1"
+    document["research"]["limits"].update(max_model_calls=101, max_tool_calls=101)
+    document["budgets"]["max_concurrency"] = 17
+    with pytest.raises(ValidationError) as rejected:
+        Workflow.model_validate(document)
+    assert {error["loc"] for error in rejected.value.errors()} == {
+        ("research", "limits", "max_model_calls"),
+        ("research", "limits", "max_tool_calls"),
+        ("budgets", "max_concurrency"),
+    }
+    ref["version"] = 2
+    assert compiler_version(Workflow.model_validate(document)) == "research-swarm-1"
+
+
 def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(database):
     provider = SessionProvider()
     runs = RunStore(database, provider)
