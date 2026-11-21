@@ -5944,7 +5944,7 @@
           },
           "max_concurrency": {
             "type": "integer",
-            "maximum": 16.0,
+            "maximum": 20.0,
             "minimum": 1.0,
             "title": "Max Concurrency",
             "default": 4
@@ -6134,6 +6134,45 @@
           "generation_input"
         ],
         "title": "ImportedEvaluationOutput"
+      },
+      "LeadPerspective": {
+        "properties": {
+          "action_path": {
+            "type": "string",
+            "title": "Action Path"
+          },
+          "lead_title": {
+            "type": "string",
+            "title": "Lead Title"
+          },
+          "thesis": {
+            "type": "string",
+            "title": "Thesis"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "worker_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Worker Paths"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["action_path", "lead_title", "thesis", "question", "options"],
+        "title": "LeadPerspective"
       },
       "LinkExchange": {
         "properties": {
@@ -6715,6 +6754,32 @@
         "type": "object",
         "required": ["items", "has_more"],
         "title": "PendingReviewsPage"
+      },
+      "PerspectiveAnswer": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"],
+            "title": "Decision"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback",
+            "default": ""
+          },
+          "action_path": {
+            "type": "string",
+            "title": "Action Path"
+          },
+          "interrupt_id": {
+            "type": "string",
+            "title": "Interrupt Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["decision", "action_path", "interrupt_id"],
+        "title": "PerspectiveAnswer"
       },
       "PortSpec": {
         "properties": {
@@ -7891,14 +7956,14 @@
         "properties": {
           "max_model_calls": {
             "type": "integer",
-            "maximum": 100.0,
+            "maximum": 1021.0,
             "minimum": 0.0,
             "title": "Max Model Calls",
             "default": 3
           },
           "max_tool_calls": {
             "type": "integer",
-            "maximum": 100.0,
+            "maximum": 1021.0,
             "minimum": 0.0,
             "title": "Max Tool Calls",
             "default": 3
@@ -8096,6 +8161,16 @@
               }
             ]
           },
+          "swarm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence_ids": {
             "items": {
               "type": "string",
@@ -8230,6 +8305,16 @@
               }
             ]
           },
+          "swarm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "evidence_ids": {
             "items": {
               "type": "string",
@@ -8358,6 +8443,16 @@
             "maximum": 4.0,
             "minimum": 1.0,
             "title": "Max Agents"
+          },
+          "swarm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "lead": {
             "anyOf": [
@@ -8690,6 +8785,16 @@
           "question": {
             "type": "string",
             "title": "Question"
+          },
+          "perspective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeadPerspective"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -9006,6 +9111,13 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "perspective_answers": {
+            "items": {
+              "$ref": "#/components/schemas/PerspectiveAnswer"
+            },
+            "type": "array",
+            "title": "Perspective Answers"
           },
           "owner_directions": {
             "items": {
@@ -9713,6 +9825,45 @@
               }
             ]
           },
+          "swarm_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmLeadPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "swarm_action": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SwarmDelegate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwarmAskExpert"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwarmFinish"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "action",
+                  "mapping": {
+                    "ask_expert": "#/components/schemas/SwarmAskExpert",
+                    "delegate": "#/components/schemas/SwarmDelegate",
+                    "finish": "#/components/schemas/SwarmFinish"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swarm Action"
+          },
           "review_question": {
             "anyOf": [
               {
@@ -10035,6 +10186,171 @@
         "type": "object",
         "required": ["id", "version"],
         "title": "SubgraphRef"
+      },
+      "SwarmAskExpert": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "ask_expert",
+            "title": "Action",
+            "default": "ask_expert"
+          },
+          "consultation": {
+            "$ref": "#/components/schemas/SwarmConsultation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["consultation"],
+        "title": "SwarmAskExpert"
+      },
+      "SwarmConfig": {
+        "properties": {
+          "lead_count": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Lead Count",
+            "default": 2
+          },
+          "researchers_per_lead": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Researchers Per Lead",
+            "default": 20
+          },
+          "max_parallel": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Parallel",
+            "default": 4
+          },
+          "max_lead_turns": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Max Lead Turns",
+            "default": 6
+          },
+          "allow_consultations": {
+            "type": "boolean",
+            "title": "Allow Consultations",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SwarmConfig"
+      },
+      "SwarmConsultation": {
+        "properties": {
+          "thesis": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Thesis"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "type": "string",
+              "maxLength": 300,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 5,
+            "minItems": 2,
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["thesis", "question", "options"],
+        "title": "SwarmConsultation"
+      },
+      "SwarmDelegate": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "delegate",
+            "title": "Action",
+            "default": "delegate"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Rationale"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAssignment"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Assignments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["rationale", "assignments"],
+        "title": "SwarmDelegate"
+      },
+      "SwarmFinish": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "finish",
+            "title": "Action",
+            "default": "finish"
+          },
+          "findings": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Findings"
+          },
+          "limitations": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["findings", "limitations"],
+        "title": "SwarmFinish"
+      },
+      "SwarmLeadPlan": {
+        "properties": {
+          "leads": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAssignment"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Leads"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["leads"],
+        "title": "SwarmLeadPlan"
       },
       "TeamAssignment": {
         "properties": {
