@@ -16,7 +16,7 @@ from researchchain.research_models import OwnerDirectionInput
 from researchchain.research_session_export import export_session_report
 from researchchain.research_sessions import ResearchSessionStart, session_workflow
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
-from researchchain.runtime import RunStore
+from researchchain.runtime import RunStore, compiler_version
 from researchchain.worker import RunWorker
 
 
@@ -76,6 +76,8 @@ def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(data
         researcher={"model": "test-model", "reasoning_effort": "low"},
     )
     graph = session_workflow(original)
+    assert compiler_version(graph) == "research-swarm-1"
+    assert compiler_version(session_workflow(request())) == "research-team-1"
     assert graph.budgets.max_concurrency == 20
     assert graph.research.limits.max_model_calls == 1 + 4 * 12 + 81 * 12
     assert graph.research.limits.max_tool_calls == graph.research.limits.max_model_calls

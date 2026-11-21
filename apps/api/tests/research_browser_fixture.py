@@ -9,6 +9,7 @@ from typing import Any
 
 from equitycats_fixture import equitycats_completion
 from session_browser_fixture import BrowserTeam
+from swarm_browser_fixture import swarm_completion, swarm_models
 from test_provider_signin import BrowserHarness
 from test_web_research import WebProvider
 
@@ -24,7 +25,15 @@ class BrowserProvider(WebProvider):
         super().__init__()
         self.team = BrowserTeam()
 
+    def status(self):
+        catalog = super().status()
+        catalog.models.extend(swarm_models())
+        return catalog
+
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
+        swarm_response = await swarm_completion(prepared, on_delta)
+        if swarm_response is not None:
+            return swarm_response
         team_response = await self.team.complete_study(manifest, prepared, on_delta)
         if team_response is not None:
             return team_response

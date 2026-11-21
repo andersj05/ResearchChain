@@ -162,7 +162,7 @@ class SwarmConsultation(ResearchModel):
     question: OwnerQuestion
     options: list[
         Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
-    ] = Field(min_length=2, max_length=5)
+    ] = Field(max_length=5)
 
     @model_validator(mode="after")
     def distinct_options(self) -> Self:

@@ -10266,7 +10266,6 @@
             },
             "type": "array",
             "maxItems": 5,
-            "minItems": 2,
             "title": "Options"
           }
         },
