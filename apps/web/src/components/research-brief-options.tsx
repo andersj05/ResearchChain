@@ -277,6 +277,7 @@ export function ResearchBriefOptions({
           <RoleModelSettings
             key={draft.swarm ? "swarm" : "standard"}
             useSliders
+            showOverrideCount={false}
             initiallyOpen={!!draft.swarm}
             shared={{ ...draft, model }}
             values={draft}

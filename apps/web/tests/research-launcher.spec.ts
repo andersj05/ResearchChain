@@ -44,31 +44,52 @@ test("only settings used by an executable research role constrain admission", ()
   expect(stepModelProblem(models, shared, {})).toContain("High thinking effort");
 });
 
-async function connection(page: Page) {
+async function connection(
+  page: Page,
+  models: ProviderModel[] = [
+    {
+      slug: "test-model",
+      display_name: "Research fixture",
+      reasoning_efforts: ["medium", "high"],
+      default_reasoning_effort: "medium",
+      supports_verbosity: true,
+      default_verbosity: "low",
+    },
+    {
+      slug: "compact-model",
+      display_name: "Compact fixture",
+      reasoning_efforts: ["low"],
+      default_reasoning_effort: "low",
+      supports_verbosity: false,
+    },
+    ...["gpt-6.2-astra", "gpt-6.2-sol"].map((slug): ProviderModel => ({
+      slug,
+      display_name: slug,
+      reasoning_efforts: ["low", "medium", "high", "xhigh"],
+      default_reasoning_effort: "medium",
+      supports_verbosity: true,
+      default_verbosity: "medium",
+    })),
+  ],
+) {
   await page.route("**/api/providers/chatgpt", (route) =>
-    route.fulfill({
-      json: {
-        accounts: [account],
-        models: [
-          {
-            slug: "test-model",
-            display_name: "Research fixture",
-            reasoning_efforts: ["medium", "high"],
-            default_reasoning_effort: "medium",
-            supports_verbosity: true,
-            default_verbosity: "low",
-          },
-          {
-            slug: "compact-model",
-            display_name: "Compact fixture",
-            reasoning_efforts: ["low"],
-            default_reasoning_effort: "low",
-            supports_verbosity: false,
-          },
-        ],
-      },
-    }),
+    route.fulfill({ json: { accounts: [account], models } }),
   );
+}
+
+async function submittedSetup(
+  page: Page,
+  buttonName = "Start research",
+): Promise<ResearchSessionStart> {
+  await page.route("**/api/research-sessions", (route) =>
+    route.request().method() === "POST" ? route.abort() : route.fulfill({ json: [] }),
+  );
+  const captured = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && new URL(request.url()).pathname === "/api/research-sessions",
+  );
+  await page.getByRole("button", { name: buttonName, exact: true }).click();
+  return (await captured).postDataJSON();
 }
 
 function studySummary(brief: string): RecentRunSummary {
@@ -157,13 +178,51 @@ for (const width of [1280, 390]) {
     await page.getByLabel("Maximum research agents").selectOption("2");
     await page.getByLabel("Passes per agent").fill("5");
     await page.getByLabel("Active time limit (seconds)").fill("1200");
+    await page
+      .getByRole("combobox", { name: "Research model", exact: true })
+      .selectOption("test-model");
     const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
-    const effort = shared.getByRole("combobox", { name: "Thinking effort" });
-    const detail = shared.getByRole("combobox", { name: "Response detail" });
-    await expect(effort.locator("option:checked")).toHaveText("Model default · Medium");
-    await expect(detail.locator("option:checked")).toHaveText("Model default · Low");
-    await expect(effort.getByRole("option", { name: "Ultra", exact: true })).toHaveCount(0);
+    const effort = shared.getByRole("slider", { name: "Thinking effort", exact: true });
+    const detail = shared.getByRole("slider", { name: "Response detail", exact: true });
+    const detailControl = shared.getByRole("group", {
+      name: "Response detail control",
+      exact: true,
+    });
+    await expect(effort).toHaveAttribute("aria-valuetext", "High");
+    await expect(detail).toHaveAttribute("aria-valuetext", "High");
+    // This account advertises only Medium and High, regardless of levels supported by other models.
+    await expect(effort).toHaveAttribute("min", "0");
+    await expect(effort).toHaveAttribute("max", "1");
+    await effort.focus();
+    await effort.press("Home");
+    await expect(effort).toBeFocused();
+    await expect(effort).toHaveAttribute("aria-valuetext", "Medium");
+    await effort.press("ArrowRight");
+    await expect(effort).toHaveAttribute("aria-valuetext", "High");
+    const modelDefault = detailControl.getByRole("button", {
+      name: "Use model default",
+      exact: true,
+    });
+    await modelDefault.click();
+    await expect(modelDefault).toHaveAttribute("aria-pressed", "true");
+    await expect(detailControl.getByText("Model default · Low", { exact: true })).toBeVisible();
+    await expect(detail).toHaveAttribute("aria-valuetext", "Model default · Low");
+    await detail.press("End");
+    await expect(modelDefault).toHaveAttribute("aria-pressed", "false");
+    await expect(detail).toHaveAttribute("aria-valuetext", "High");
     await page.locator("summary").filter({ hasText: "Models by role" }).click();
+    const lead = page.getByRole("group", { name: "Research lead", exact: true });
+    const researchers = page.getByRole("group", { name: "Researchers", exact: true });
+    await expect(lead.getByRole("combobox", { name: "Research lead model" })).toHaveValue(
+      "gpt-6.2-astra",
+    );
+    await expect(researchers.getByRole("combobox", { name: "Researchers model" })).toHaveValue(
+      "gpt-6.2-sol",
+    );
+    await expect(researchers.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
+      "aria-valuetext",
+      "Shared · High",
+    );
     if (width === 390) {
       await page.getByLabel("Expert review").selectOption("never");
       const expanded = page.locator("details", { has: page.getByLabel("Maximum research agents") });
@@ -186,29 +245,43 @@ for (const width of [1280, 390]) {
           });
         });
         expect(clipped, `Selected settings at ${phoneWidth}px`).toEqual([]);
+        const sliders = expanded.getByRole("slider");
+        await expect(sliders).toHaveCount(8);
+        const outsideViewport = await sliders.evaluateAll((items) =>
+          items.flatMap((item) => {
+            const bounds = item.getBoundingClientRect();
+            return bounds.width <= 0 || bounds.left < 0 || bounds.right > innerWidth
+              ? [item.id]
+              : [];
+          }),
+        );
+        expect(outsideViewport, `Slider bounds at ${phoneWidth}px`).toEqual([]);
       }
     }
     await page.getByLabel("Expert review").selectOption("always");
-    await effort.selectOption("high");
-    await detail.selectOption("high");
-    const researchers = page.getByRole("group", { name: "Researchers", exact: true });
     await researchers
       .getByRole("combobox", { name: "Researchers model" })
       .selectOption("compact-model");
     await expect(start).toBeDisabled();
     await expect(page.locator("form").getByRole("alert")).toContainText("Researchers");
-    const researcherEffort = researchers.getByRole("combobox", { name: "Thinking effort" });
-    const researcherDetail = researchers.getByRole("combobox", { name: "Response detail" });
-    await expect(researcherEffort.getByRole("option", { name: "High", exact: true })).toHaveCount(
-      0,
-    );
-    await researcherEffort.selectOption("low");
-    await expect(researcherDetail.locator("option")).toHaveCount(2);
-    await researcherDetail.selectOption("model_default");
-    await page
+    const researcherEffort = researchers.getByRole("slider", { name: "Thinking effort" });
+    const researcherDetail = researchers.getByRole("slider", { name: "Response detail" });
+    await expect(researcherEffort).toHaveAttribute("min", "0");
+    await expect(researcherEffort).toHaveAttribute("max", "0");
+    await researcherEffort.press("Home");
+    await expect(researcherEffort).toHaveAttribute("aria-valuetext", "Low");
+    await expect(researcherDetail).toBeDisabled();
+    await researchers
+      .getByRole("group", { name: "Response detail control" })
+      .getByRole("button", { name: "Use model default" })
+      .click();
+    await expect(researcherDetail).toHaveAttribute("aria-valuetext", "Model default");
+    const editorDetail = page
       .getByRole("group", { name: "Report editor", exact: true })
-      .getByRole("combobox", { name: "Response detail" })
-      .selectOption("medium");
+      .getByRole("slider", { name: "Response detail", exact: true });
+    await editorDetail.press("Home");
+    await editorDetail.press("ArrowRight");
+    await expect(editorDetail).toHaveAttribute("aria-valuetext", "Medium");
     await expect(start).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
@@ -236,6 +309,7 @@ for (const width of [1280, 390]) {
       model: "test-model",
       reasoning_effort: "high",
       verbosity: "high",
+      lead: { model: "gpt-6.2-astra" },
       researcher: { model: "compact-model", reasoning_effort: "low", verbosity: "model_default" },
       editor: { verbosity: "medium" },
       provider_account_id: account.id,
@@ -291,12 +365,14 @@ for (const width of [1280, 390]) {
     await page.locator("summary").filter({ hasText: "Models by role" }).click();
     const lead = page.getByRole("group", { name: "Research lead", exact: true });
     const model = lead.getByRole("combobox", { name: "Research lead model" });
-    const effort = lead.getByRole("combobox", { name: "Thinking effort" });
+    const effort = lead.getByRole("slider", { name: "Thinking effort", exact: true });
     await expect(model.locator("option:checked")).toHaveText("retired-model (unavailable)");
     await model.selectOption("test-model");
-    await expect(effort.locator("option:checked")).toHaveText("Ultra (unavailable)");
+    await expect(effort).toHaveAttribute("aria-valuetext", "Ultra (unavailable)");
+    await expect(effort).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByRole("button", { name: "Start research", exact: true })).toBeDisabled();
-    await effort.selectOption("medium");
+    await effort.press("Home");
+    await expect(effort).toHaveAttribute("aria-valuetext", "Medium");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
@@ -309,7 +385,140 @@ for (const width of [1280, 390]) {
       brief: "Extend the original horizon.",
       baseline_run_id: previous,
     });
+    expect(admitted[0]!.researcher).toBeFalsy();
     expect(admitted[0]!.id).not.toBe(previous);
+  });
+}
+
+for (const highRole of ["gpt-6.2-sol", "gpt-6.2-astra"]) {
+  test(`a fresh team requests High only on models that advertise it (${highRole})`, async ({
+    page,
+  }) => {
+    await connection(
+      page,
+      ["gpt-6.2-astra", "gpt-6.2-sol"].map((slug) => ({
+        slug,
+        display_name: slug,
+        reasoning_efforts: slug === highRole ? ["low", "high"] : ["low"],
+        default_reasoning_effort: "low",
+        supports_verbosity: slug === highRole,
+      })),
+    );
+    await page.goto("/");
+    await page.getByLabel("Research brief", { exact: true }).fill("Compare the supplied series.");
+    await page.locator("summary").filter({ hasText: "Research settings" }).click();
+    if (highRole === "gpt-6.2-astra") {
+      await page.getByLabel("Team structure").selectOption("swarm");
+    } else {
+      await page.locator("summary").filter({ hasText: "Models by role" }).click();
+    }
+    const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
+    const lead = page.getByRole("group", { name: "Research lead", exact: true });
+    const sharedHigh = highRole === "gpt-6.2-sol";
+    await expect(shared.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
+      "aria-valuetext",
+      sharedHigh ? "High" : "Model default · Low",
+    );
+    await expect(lead.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
+      "aria-valuetext",
+      sharedHigh ? "Model default · Low" : "High",
+    );
+    await expect(lead.getByRole("slider", { name: "Response detail" })).toHaveAttribute(
+      "aria-valuetext",
+      sharedHigh ? "Model default" : "High",
+    );
+    const setup = await submittedSetup(page);
+    expect(setup.model).toBe("gpt-6.2-sol");
+    expect(setup.reasoning_effort ?? null).toBe(sharedHigh ? "high" : null);
+    expect(setup.verbosity ?? null).toBe(sharedHigh ? "high" : null);
+    expect(setup.lead).toMatchObject({
+      model: "gpt-6.2-astra",
+      reasoning_effort: sharedHigh ? "model_default" : "high",
+      verbosity: sharedHigh ? "model_default" : "high",
+    });
+    expect(setup.researcher?.model).toBe("gpt-6.2-sol");
+  });
+}
+
+// Exact pre-preset blank from an older open tab. Keep the fixture independent of current defaults.
+const oldBlank = {
+  brief: "",
+  style_excerpt: "",
+  model: "",
+  evidence_ids: [],
+  max_agents: 3,
+  max_passes: 6,
+  max_active_seconds: 1800,
+  web_search: false,
+  review_mode: "when_needed",
+} as const;
+
+for (const scenario of ["untouched", "in progress", "explicit defaults", "pending"] as const) {
+  test(`restore a pre-slider tab with ${scenario} setup`, async ({ page, ownerSession }) => {
+    await connection(page);
+    const draft = {
+      ...oldBlank,
+      ...(scenario === "in progress" ? { brief: "Keep the original defaults." } : {}),
+      ...(scenario === "pending"
+        ? { model: "test-model", brief: "Retry the original request exactly." }
+        : {}),
+      ...(scenario === "explicit defaults"
+        ? {
+            model: "test-model",
+            reasoning_effort: null,
+            verbosity: null,
+            lead: { reasoning_effort: "model_default" },
+            researcher: null,
+            editor: null,
+          }
+        : {}),
+    };
+    const pending =
+      scenario === "pending"
+        ? {
+            ...draft,
+            id: crypto.randomUUID(),
+            provider_account_id: account.id,
+          }
+        : null;
+    const key = `${ownerSession.prefix}.research-brief.new`;
+    await page.addInitScript(
+      ({ key, record }) => {
+        if (sessionStorage.getItem(key) === null)
+          sessionStorage.setItem(key, JSON.stringify(record));
+      },
+      { key, record: { draft, pending } },
+    );
+    await page.route("**/api/research-sessions/*/setup", (route) =>
+      route.fulfill({ status: 404, json: { detail: "No session found." } }),
+    );
+    await page.goto("/");
+    if (pending) {
+      expect(await submittedSetup(page, "Retry start")).toEqual(pending);
+      return;
+    }
+    const brief = page.getByLabel("Research brief", { exact: true });
+    await expect(brief).toHaveValue(draft.brief);
+    await brief.fill("Submit the restored research settings.");
+    const setup = await submittedSetup(page);
+    if (scenario === "untouched") {
+      expect(setup).toMatchObject({
+        model: "gpt-6.2-sol",
+        reasoning_effort: "high",
+        verbosity: "high",
+        lead: { model: "gpt-6.2-astra" },
+        researcher: { model: "gpt-6.2-sol" },
+      });
+    } else {
+      expect(setup.model).toBe("test-model");
+      expect(setup.reasoning_effort ?? null).toBeNull();
+      expect(setup.verbosity ?? null).toBeNull();
+      expect(setup.researcher?.model).toBeUndefined();
+      expect(setup.lead?.model).toBeUndefined();
+      if (scenario === "explicit defaults") {
+        expect(setup.lead?.reasoning_effort).toBe("model_default");
+      }
+    }
   });
 }
 

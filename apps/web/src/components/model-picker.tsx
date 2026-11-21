@@ -281,6 +281,7 @@ export function RoleModelSettings({
   disabled,
   includeEditor = false,
   initiallyOpen = false,
+  showOverrideCount = true,
   useSliders,
   inheritedLabel,
 }: {
@@ -291,13 +292,16 @@ export function RoleModelSettings({
   disabled?: boolean;
   includeEditor?: boolean;
   initiallyOpen?: boolean;
+  showOverrideCount?: boolean;
   useSliders?: boolean;
   inheritedLabel: string;
 }) {
   const roles = includeEditor
     ? researchRoles
     : researchRoles.filter((role) => role.key !== "editor");
-  const count = roles.filter(({ key }) => hasModelOverride(values[key])).length;
+  const count = showOverrideCount
+    ? roles.filter(({ key }) => hasModelOverride(values[key])).length
+    : 0;
   return (
     <details className="role-model-settings" open={initiallyOpen || undefined}>
       <summary>Models by role{count > 0 && ` (${count} customized)`}</summary>

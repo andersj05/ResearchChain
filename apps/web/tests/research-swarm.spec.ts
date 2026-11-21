@@ -29,9 +29,17 @@ test("follow two research leads from queued work through an expert consultation 
   await page.getByLabel("Passes per agent").fill("3");
   await page.getByLabel("Editorial review").selectOption("never");
   await expect(page.getByLabel("Allow leads to ask for expert judgment")).toBeChecked();
-  await page
-    .getByRole("combobox", { name: "Research model", exact: true })
-    .selectOption("test-model");
+  const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
+  const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
+  await expect(sharedModel).toHaveValue("gpt-6.2-sol");
+  await expect(shared.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
+    "aria-valuetext",
+    "High",
+  );
+  await expect(shared.getByRole("slider", { name: "Response detail" })).toHaveAttribute(
+    "aria-valuetext",
+    "High",
+  );
   await expect(
     page.getByRole("combobox", { name: "Research lead model", exact: true }),
   ).toHaveValue("gpt-6.2-astra");
@@ -105,7 +113,40 @@ test("follow two research leads from queued work through an expert consultation 
   expect(run.perspective_answers).toEqual([
     expect.objectContaining({ feedback: answer, action_path: "root/team/lead-2/turn-1" }),
   ]);
-  expect(run.research_manifest?.settings?.limits?.max_model_calls).toBe(30);
+  expect(run.research_manifest?.settings).toMatchObject({
+    model: "gpt-6.2-sol",
+    reasoning_effort: "high",
+    verbosity: "high",
+    limits: { max_model_calls: 30 },
+  });
+  expect(run.workflow.nodes.find((node) => node.id === "team")?.config).toMatchObject({
+    team: { lead: { model: "gpt-6.2-astra" }, researcher: { model: "gpt-6.2-sol" } },
+  });
+  const attempts = run.model_attempts!;
+  for (const expected of [
+    "root/team/plan",
+    "root/team/lead-1/turn-1",
+    "root/team/lead-1/agent-1",
+    "root/report",
+  ]) {
+    expect(attempts.map((attempt) => attempt.path)).toContain(expected);
+  }
+  await Promise.all(
+    attempts.map(async (attempt) => {
+      const lead = attempt.path === "root/team/plan" || /\/turn-\d+$/.test(attempt.path);
+      const model = lead ? "gpt-6.2-astra" : "gpt-6.2-sol";
+      expect(attempt.model, attempt.path).toBe(model);
+      const input = await request.get(
+        `/api/artifacts/${encodeURIComponent(attempt.input_artifact_id!)}/content`,
+      );
+      expect(input.ok(), attempt.path).toBeTruthy();
+      expect(await input.json(), attempt.path).toMatchObject({
+        model,
+        reasoning: { effort: "high" },
+        text: { verbosity: "high" },
+      });
+    }),
+  );
   const follow = run.model_attempts?.find((turn) => turn.path === "root/team/lead-2/agent-1");
   expect(follow?.model).toBe("gpt-6.2-sol");
   expect(follow?.input_artifact_id).toBeTruthy();
@@ -123,6 +164,15 @@ test("follow two research leads from queued work through an expert consultation 
   await settings.click();
   await expect(page.getByLabel("Team structure")).toHaveValue("swarm");
   await expect(page.getByLabel("Researchers per lead")).toHaveValue("3");
+  await expect(sharedModel).toHaveValue("gpt-6.2-sol");
+  await expect(shared.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
+    "aria-valuetext",
+    "High",
+  );
+  await expect(shared.getByRole("slider", { name: "Response detail" })).toHaveAttribute(
+    "aria-valuetext",
+    "High",
+  );
   await expect(
     page.getByRole("combobox", { name: "Research lead model", exact: true }),
   ).toHaveValue("gpt-6.2-astra");
@@ -159,10 +209,15 @@ test("the swarm preset preserves unavailable requested models and lets the owner
     .fill("Test an explicit model replacement.");
   await page.locator("summary").filter({ hasText: "Research settings" }).click();
   const topology = page.getByLabel("Team structure");
-  await topology.selectOption("swarm");
   const start = page.getByRole("button", { name: "Start research", exact: true });
   const lead = page.getByRole("combobox", { name: "Research lead model", exact: true });
   const worker = page.getByRole("combobox", { name: "Researchers model", exact: true });
+  await expect(topology).toHaveValue("standard");
+  await page.locator("summary").filter({ hasText: "Models by role" }).click();
+  await expect(lead.locator("option:checked")).toHaveText("gpt-6.2-astra (unavailable)");
+  await expect(worker.locator("option:checked")).toHaveText("gpt-6.2-sol (unavailable)");
+  await expect(start).toBeDisabled();
+  await topology.selectOption("swarm");
   await expect(lead.locator("option:checked")).toHaveText("gpt-6.2-astra (unavailable)");
   await expect(worker.locator("option:checked")).toHaveText("gpt-6.2-sol (unavailable)");
   await expect(start).toBeDisabled();
