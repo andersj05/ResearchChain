@@ -2,28 +2,14 @@ import { useRef } from "react";
 import { initialSwarm, type ResearchBrief } from "@/lib/research-sessions";
 import styles from "./research-desk.module.css";
 
-type Structure = Pick<ResearchBrief, "swarm" | "lead" | "researcher">;
 type Props = { draft: ResearchBrief; update: (patch: Partial<ResearchBrief>) => void };
 
 export function SwarmControls({ draft, update }: Props) {
-  const standard = useRef<Structure | null>(null);
-  const priorSwarm = useRef<Structure | null>(null);
+  const priorSwarm = useRef<ResearchBrief["swarm"]>(null);
   const settings = draft.swarm && { ...initialSwarm, ...draft.swarm };
   function changeMode(useSwarm: boolean) {
-    const current = { swarm: draft.swarm, lead: draft.lead, researcher: draft.researcher };
-    if (useSwarm) {
-      standard.current = current;
-      update(
-        priorSwarm.current ?? {
-          swarm: initialSwarm,
-          lead: { ...draft.lead, model: draft.lead?.model || "gpt-6.2-astra" },
-          researcher: { ...draft.researcher, model: draft.researcher?.model || "gpt-6.2-sol" },
-        },
-      );
-    } else {
-      priorSwarm.current = current;
-      update(standard.current ?? { ...current, swarm: null });
-    }
+    if (!useSwarm) priorSwarm.current = draft.swarm;
+    update({ swarm: useSwarm ? (priorSwarm.current ?? initialSwarm) : null });
   }
   return (
     <>

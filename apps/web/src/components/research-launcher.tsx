@@ -14,8 +14,9 @@ import {
   type CommandReceipt,
 } from "@/lib/workflow";
 import {
-  blankResearchBrief,
   editableResearchBrief,
+  initializeResearchBrief,
+  newStudyModelProfiles,
   readResearchBrief,
   sessionUrl,
   storeResearchBrief,
@@ -29,7 +30,8 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
   const [saved] = useState(() => readResearchBrief(key));
-  const [draft, setDraft] = useState<ResearchBrief>(saved?.draft ?? blankResearchBrief);
+  const [form, setForm] = useState(() => initializeResearchBrief(saved, fromSession));
+  const { draft, awaitingModelCatalog } = form;
   const [pending, setPending] = useState<ResearchSessionStart | null>(saved?.pending ?? null);
   const [loaded, setLoaded] = useState(Boolean(saved) || !fromSession);
   const [refreshSetup, setRefreshSetup] = useState(0);
@@ -48,13 +50,18 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     (item) => item.active && item.signed_in && item.plan_enabled,
   );
   const models = catalog.status?.models ?? [];
+  if (awaitingModelCatalog && account && !catalog.loading && !catalog.error) {
+    const profiles = newStudyModelProfiles(models, researchDefaults.model);
+    if (profiles) setForm({ draft: { ...draft, ...profiles }, awaitingModelCatalog: false });
+  }
   const model =
     draft.model ||
     (models.find((item) => item.slug === researchDefaults.model) ?? models[0])?.slug ||
     "";
   const shared = { ...draft, model };
   const problem = sessionModelProblem(models, shared, draft);
-  const ready = !!account && !catalog.loading && !catalog.error && !problem;
+  const ready =
+    !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
   const frozen = !active || !loaded || busy || !!pending;
 
   useEffect(() => {
@@ -72,7 +79,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     ).then(
       (setup) => {
         if (current) {
-          setDraft(editableResearchBrief(setup));
+          setForm({ draft: editableResearchBrief(setup), awaitingModelCatalog: false });
           setLoaded(true);
           setSetupError("");
         }
@@ -90,8 +97,13 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   }, [active, fromSession, loaded, refreshSetup]);
 
   useEffect(() => {
-    if (loaded && !admitted.current) storeResearchBrief(key, { draft, pending });
-  }, [key, loaded, draft, pending]);
+    if (loaded && !admitted.current)
+      storeResearchBrief(key, {
+        draft,
+        pending,
+        ...(awaitingModelCatalog && { awaitingModelCatalog: true }),
+      });
+  }, [key, loaded, draft, pending, awaitingModelCatalog]);
 
   useEffect(() => {
     if (!active || !pending || busy || admitted.current) return;
@@ -144,7 +156,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     setUnconfirmed(undefined);
     setPending(request);
     const exact = editableResearchBrief(request);
-    setDraft(exact);
+    setForm({ draft: exact, awaitingModelCatalog: false });
     storeResearchBrief(key, { draft: exact, pending: request });
     try {
       const receipt = await api<CommandReceipt>("research-sessions", request, admissionTimeout);
@@ -168,7 +180,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
 
   function update(patch: Partial<ResearchBrief>) {
     if (frozen || inFlight.current) return;
-    setDraft((previous) => ({ ...previous, ...patch }));
+    setForm((previous) => ({ ...previous, draft: { ...previous.draft, ...patch } }));
     setStartError("");
   }
 
@@ -218,6 +230,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
             catalog={catalog}
             update={update}
             disabled={frozen}
+            awaitingModelCatalog={awaitingModelCatalog}
             onReadingSample={setReadingSample}
           />
           <label className={styles.web}>

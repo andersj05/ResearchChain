@@ -136,6 +136,7 @@ export function ResearchBriefOptions({
   catalog,
   model,
   disabled,
+  awaitingModelCatalog,
   onReadingSample,
 }: {
   draft: ResearchBrief;
@@ -143,9 +144,11 @@ export function ResearchBriefOptions({
   catalog: ModelCatalog;
   model: string;
   disabled: boolean;
+  awaitingModelCatalog: boolean;
   onReadingSample: (value: boolean) => void;
 }) {
   const [sourcesOpen, setSourcesOpen] = useState(false);
+  const modelsDisabled = disabled || awaitingModelCatalog;
   const time =
     draft.max_active_seconds % 60 === 0
       ? `${draft.max_active_seconds / 60} min`
@@ -260,25 +263,27 @@ export function ResearchBriefOptions({
               catalog={catalog}
               value={model}
               onChange={(selected) => update({ model: selected })}
-              disabled={disabled}
+              disabled={modelsDisabled}
             />
             <ModelOptionFields
               scope="Shared"
+              useSliders
               catalog={catalog}
               settings={{ ...draft, model }}
               onChange={update}
-              disabled={disabled}
+              disabled={modelsDisabled}
             />
           </fieldset>
           <RoleModelSettings
             key={draft.swarm ? "swarm" : "standard"}
+            useSliders
             initiallyOpen={!!draft.swarm}
             shared={{ ...draft, model }}
             values={draft}
             catalog={catalog}
             includeEditor
             inheritedLabel="Shared"
-            disabled={disabled}
+            disabled={modelsDisabled}
             onChange={(role, value) => update({ [role]: value })}
           />
         </div>
