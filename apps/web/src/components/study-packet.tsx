@@ -1,4 +1,13 @@
 import Image from "next/image";
+import { useRef, useState } from "react";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@ui-sdk/react/dialog";
 import {
   ChevronDown,
   ChevronUp,
@@ -53,6 +62,13 @@ export function StudyPacket({
   error: string;
   retry?: () => void;
 }) {
+  const [previewId, setPreviewId] = useState<string>();
+  const opener = useRef<HTMLButtonElement>(null);
+  const charts = records.filter(
+    (record): record is EvidenceRecord => !!record?.artifact?.media_type.startsWith("image/"),
+  );
+  const chartIndex = charts.findIndex((item) => item.id === previewId);
+  const chart = charts[chartIndex];
   function move(index: number, distance: number) {
     const next = [...ids];
     [next[index], next[index + distance]] = [ids[index + distance]!, ids[index]!];
@@ -75,25 +91,36 @@ export function StudyPacket({
               const title = item?.title ?? `Source ${id.slice(0, 8)}`;
               return (
                 <li key={id}>
+                  {item?.artifact?.media_type.startsWith("image/") ? (
+                    <button
+                      type="button"
+                      className={styles.thumb}
+                      aria-label={`Preview chart ${title}`}
+                      aria-haspopup="dialog"
+                      onClick={(event) => {
+                        opener.current = event.currentTarget;
+                        setPreviewId(id);
+                      }}
+                    >
+                      <Image
+                        unoptimized
+                        src={contentUrl(item.artifact.id)}
+                        width={54}
+                        height={40}
+                        alt=""
+                      />
+                    </button>
+                  ) : (
+                    <span className={styles.thumb}>
+                      <Icon size={19} strokeWidth={1.5} />
+                    </span>
+                  )}
                   <a
                     href={evidenceUrl(id)}
                     target="_blank"
                     rel="noopener"
                     className={styles.pinLink}
                   >
-                    <span className={styles.thumb}>
-                      {item?.artifact?.media_type.startsWith("image/") ? (
-                        <Image
-                          unoptimized
-                          src={contentUrl(item.artifact.id)}
-                          width={54}
-                          height={40}
-                          alt=""
-                        />
-                      ) : (
-                        <Icon size={19} strokeWidth={1.5} />
-                      )}
-                    </span>
                     <span>
                       <strong>{title}</strong>
                       <small>
@@ -163,6 +190,72 @@ export function StudyPacket({
           Pin the charts, notes and conversations you want the lead to read together.
         </p>
       )}
+      <Dialog
+        open={!!chart}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(undefined);
+        }}
+      >
+        <DialogBackdrop className="dialog-backdrop" />
+        <DialogContent
+          className={styles.chartDialog}
+          initialFocus="content"
+          finalFocus={() => opener.current}
+        >
+          {chart?.artifact && (
+            <>
+              <header>
+                <div>
+                  <DialogTitle>{chart.title}</DialogTitle>
+                  <DialogDescription>
+                    {[
+                      `Chart ${chartIndex + 1} of ${charts.length}`,
+                      chart.author || chart.publisher,
+                      chart.as_of_date,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </DialogDescription>
+                </div>
+                <DialogClose aria-label="Close chart preview" className="button icon-button">
+                  <X size={18} />
+                </DialogClose>
+              </header>
+              <Image
+                className={styles.original}
+                unoptimized
+                src={contentUrl(chart.artifact.id)}
+                alt={chart.title}
+                width={1200}
+                height={720}
+              />
+              <footer>
+                <a href={evidenceUrl(chart.id)} target="_blank" rel="noopener">
+                  Open source record
+                </a>
+                <div>
+                  <button
+                    type="button"
+                    className="button small"
+                    disabled={!chartIndex}
+                    onClick={() => setPreviewId(charts[chartIndex - 1]?.id)}
+                  >
+                    Previous chart
+                  </button>
+                  <button
+                    type="button"
+                    className="button small"
+                    disabled={chartIndex === charts.length - 1}
+                    onClick={() => setPreviewId(charts[chartIndex + 1]?.id)}
+                  >
+                    Next chart
+                  </button>
+                </div>
+              </footer>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

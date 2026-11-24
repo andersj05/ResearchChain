@@ -6,7 +6,7 @@ Open the **Research desk** to assemble a source packet. **Methodology** opens an
 
 Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**, or select several files at once. Choose the usage rights for captured originals. With a text file, choose **Conversation** to identify a transcript. Set the author or speaker and the observation date when known. Pin separate batches when attribution or rights differ. Each file has its own receipt, so a failed file can be retried while the others stay pinned.
 
-Use **Paste a source** for a note, conversation or reference URL. **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Move or unpin a source there. You can leave **Context for the lead** blank.
+Use **Paste a source** for a note, conversation or reference URL. **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. You can leave **Context for the lead** blank.
 
 The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. Select a smaller packet if necessary. The analyst workspace can stage up to 64 files.
 

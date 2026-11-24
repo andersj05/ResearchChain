@@ -117,6 +117,14 @@ test("drop a week of files, retry a lost receipt and keep the pinned packet in o
   await page.reload();
   await expect(pins.getByRole("listitem").nth(6)).toContainText("desk-call.txt");
   await expect(pins.locator("img")).toHaveCount(6);
+  const preview = pins.getByRole("button", { name: "Preview chart Week 1.png" });
+  await preview.click();
+  const chart = page.getByRole("dialog");
+  await expect(chart.getByRole("img", { name: "Week 1.png" })).toBeVisible();
+  await chart.getByRole("button", { name: "Next chart" }).click();
+  await expect(chart.getByRole("img", { name: "Week 2.png" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(preview).toBeFocused();
   await page.screenshot({ path: info.outputPath("desk-with-sources.png") });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(

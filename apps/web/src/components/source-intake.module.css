@@ -240,8 +240,66 @@
   width: 44px;
   height: 34px;
   place-items: center;
+  padding: 0;
   background: var(--paper);
   border: 1px solid var(--line);
+}
+button.thumb {
+  cursor: zoom-in;
+}
+button.thumb:hover:enabled {
+  border-color: var(--ink);
+}
+.chartDialog {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  width: min(980px, calc(100vw - 24px));
+  height: fit-content;
+  max-height: calc(100dvh - 24px);
+  padding: 0;
+  overflow: auto;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--border-strong);
+}
+.chartDialog::backdrop {
+  background: transparent;
+}
+.chartDialog header,
+.chartDialog footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+}
+.chartDialog header {
+  border-bottom: 1px solid var(--line);
+}
+.chartDialog header h2 {
+  font-size: 18px;
+  letter-spacing: -0.025em;
+}
+.chartDialog header p {
+  font-size: 12px;
+  color: var(--muted);
+}
+.chartDialog footer {
+  border-top: 1px solid var(--line);
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+.chartDialog footer div {
+  display: flex;
+  gap: 6px;
+}
+.original {
+  display: block;
+  width: 100%;
+  height: min(60dvh, 640px);
+  object-fit: contain;
+  background: var(--paper);
 }
 .thumb img {
   display: block;
