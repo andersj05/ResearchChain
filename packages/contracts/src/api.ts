@@ -1432,6 +1432,30 @@ export interface components {
       /** Parser Version */
       parser_version?: "csv-1" | null;
     };
+    /** DiscoveryProposal */
+    DiscoveryProposal: {
+      /** Sentence */
+      sentence: string;
+      /** Alternative */
+      alternative: string;
+      /** First Check */
+      first_check: string;
+      /** Weaken If */
+      weaken_if: string;
+      /** Evidence Ids */
+      evidence_ids: string[];
+    };
+    /** DiscoveryReading */
+    DiscoveryReading: {
+      /** Observation */
+      observation: string;
+      /** Question */
+      question: string;
+      /** Citations */
+      citations: components["schemas"]["ResearchCitation"][];
+      /** Proposals */
+      proposals: components["schemas"]["DiscoveryProposal"][];
+    };
     /** EvaluationArchive */
     EvaluationArchive: {
       /**
@@ -3334,6 +3358,11 @@ export interface components {
       /** Brief */
       brief: string;
       /**
+       * Start From Sources
+       * @default false
+       */
+      start_from_sources: boolean;
+      /**
        * Style Excerpt
        * @default
        */
@@ -3384,6 +3413,11 @@ export interface components {
     ResearchSessionStart: {
       /** Brief */
       brief: string;
+      /**
+       * Start From Sources
+       * @default false
+       */
+      start_from_sources: boolean;
       /**
        * Style Excerpt
        * @default
@@ -4072,6 +4106,7 @@ export interface components {
       workspace_files?: components["schemas"]["WorkspaceFile"][];
       report_artifact?: components["schemas"]["WorkspaceFile"] | null;
       team_plan?: components["schemas"]["TeamPlan"] | null;
+      discovery?: components["schemas"]["DiscoveryReading"] | null;
       swarm_plan?: components["schemas"]["SwarmLeadPlan"] | null;
       /** Swarm Action */
       swarm_action?:

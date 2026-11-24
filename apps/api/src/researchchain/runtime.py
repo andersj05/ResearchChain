@@ -56,6 +56,7 @@ from researchchain.research import (
     read_manifest,
 )
 from researchchain.research_directions import DIRECTIONS_VERSION
+from researchchain.research_discovery import DISCOVERY_VERSION
 from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
 from researchchain.research_session_report import REPORT_VERSION
 from researchchain.research_sessions import SESSION_VERSION
@@ -513,6 +514,8 @@ class RunStore:
                 )
                 if research_session:
                     research_manifest.tool_config["session"] = SESSION_VERSION
+                    if workflow.start_node == "discovery":
+                        research_manifest.tool_config["discovery_version"] = DISCOVERY_VERSION
                     research_manifest.tool_config["session_report_version"] = REPORT_VERSION
                     research_manifest.tool_config["owner_directions_version"] = DIRECTIONS_VERSION
             elif request.provider_account_id:
@@ -743,6 +746,14 @@ class RunStore:
             )
         if review.perspective and request.decision == "approve" and not request.feedback.strip():
             raise ConflictError("Write an answer for the research lead before continuing.")
+        if (
+            review.path == "root/working_sentence"
+            and snapshot.research_manifest
+            and snapshot.research_manifest.tool_config.get("discovery_version")
+            and request.decision == "approve"
+            and not request.feedback.strip()
+        ):
+            raise ConflictError("Write a working sentence before assigning research.")
         command = conn.execute(
             "INSERT INTO run_commands "
             "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "
