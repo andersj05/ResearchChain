@@ -3381,6 +3381,11 @@ export interface components {
       /** Evidence Ids */
       evidence_ids?: string[];
       /**
+       * Max Input Bytes
+       * @default 4000000
+       */
+      max_input_bytes: number;
+      /**
        * Max Agents
        * @default 3
        */
@@ -3436,6 +3441,11 @@ export interface components {
       swarm?: components["schemas"]["SwarmConfig"] | null;
       /** Evidence Ids */
       evidence_ids?: string[];
+      /**
+       * Max Input Bytes
+       * @default 4000000
+       */
+      max_input_bytes: number;
       /**
        * Max Agents
        * @default 3

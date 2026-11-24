@@ -71,6 +71,7 @@ def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(data
             "max_lead_turns": 12,
             "allow_consultations": True,
         },
+        max_input_bytes=8_000_000,
         max_passes=12,
         review_mode="never",
         lead={"model": "analysis-model", "reasoning_effort": "xhigh"},
@@ -79,6 +80,8 @@ def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(data
     graph = session_workflow(original)
     assert compiler_version(graph) == "research-swarm-1"
     assert compiler_version(session_workflow(request())) == "research-team-1"
+    assert session_workflow(request()).research.limits.max_input_bytes == 4_000_000
+    assert graph.research.limits.max_input_bytes == original.max_input_bytes
     assert graph.budgets.max_concurrency == 20
     assert graph.research.limits.max_model_calls == 1 + 4 * 12 + 81 * 12
     assert graph.research.limits.max_tool_calls == graph.research.limits.max_model_calls

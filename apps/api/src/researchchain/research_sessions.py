@@ -44,6 +44,9 @@ class ResearchSessionSetup(StrictModel):
     editor: ModelOverride | None = Field(default=None, exclude_if=lambda x: x is None)
     swarm: SwarmConfig | None = Field(default=None, exclude_if=lambda x: x is None)
     evidence_ids: list[UUID] = Field(default_factory=list, max_length=100)
+    max_input_bytes: int = Field(
+        default=4_000_000, ge=1000, le=8_000_000, exclude_if=lambda value: value == 4_000_000
+    )
     max_agents: int = Field(default=3, ge=1, le=4)
     max_passes: int = Field(default=6, ge=2, le=12)
     max_active_seconds: int = Field(default=1800, ge=60, le=3600)
@@ -218,7 +221,7 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             limits=ResearchLimits(
                 max_model_calls=calls,
                 max_tool_calls=calls,
-                max_input_bytes=4_000_000,
+                max_input_bytes=setup.max_input_bytes,
                 max_output_characters=100_000,
                 max_response_seconds=min(600, setup.max_active_seconds),
                 max_total_tokens="as_needed",
@@ -251,6 +254,7 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
             model=editor.model, reasoning_effort=editor.reasoning_effort, verbosity=editor.verbosity
         ),
         evidence_ids=run.evidence_ids,
+        max_input_bytes=run.research_manifest.settings.limits.max_input_bytes,
         max_agents=team.team.max_agents,
         max_passes=team.analyst.max_passes,
         max_active_seconds=int(run.workflow.budgets.max_active_seconds),
