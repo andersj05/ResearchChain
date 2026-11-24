@@ -35,8 +35,18 @@ def test_source_start_requires_a_packet_and_preserves_brief_limits():
     assert graph.research.limits.max_model_calls == 2 + 48 + 81 * 12
 
 
-@pytest.mark.parametrize("park", [False, True])
-def test_reading_pauses_then_routes_the_exact_judgment_or_parks(database, park):
+@pytest.mark.parametrize(
+    ("sentence", "title"),
+    [
+        (
+            "Firms with debt due next year should lead their sector peers.",
+            "Compare refinancing groups",
+        ),
+        ("Participation should extend beyond the biggest constituents.", "Rebuild participation"),
+        ("", None),
+    ],
+)
+def test_reading_pauses_then_routes_the_exact_judgment_or_parks(database, sentence, title):
     source = EvidenceStore(database).create(
         EvidenceCreate(
             id=uuid4(),
@@ -75,24 +85,20 @@ def test_reading_pauses_then_routes_the_exact_judgment_or_parks(database, park):
         resume = f"/api/runs/{start.id}/resume"
         body = approve(paused, "  ").model_dump(mode="json")
         assert client.post(resume, json=body).status_code == 409
-        sentence = "Firms with debt due next year should lead their sector peers."
-        body.update(feedback=sentence, decision="reject" if park else "approve")
+        body.update(feedback=sentence, decision="approve" if title else "reject")
         assert client.post(resume, json=body).status_code == 202
         assert client.post(resume, json=body).status_code == 202
         assert client.post(resume, json={**body, "feedback": "A different call"}).status_code == 409
         assert RunWorker(runs).run_once()
         final = runs.get(start.id)
         assert client.get(f"{entry}/{start.id}/setup").json()["start_from_sources"]
-        if park:
+        if title is None:
             assert final.status == "rejected"
             assert len(final.model_attempts) == 1
             return
         assert final.status == "completed", final.stop_reason
         by_path = {a.path: a for a in final.model_attempts}
-        assert (
-            by_path["root/team/plan"].result.team_plan.assignments[0].title
-            == "Compare refinancing groups"
-        )
+        assert by_path["root/team/plan"].result.team_plan.assignments[0].title == title
         with database.connection() as conn:
             for path in ["root/team/plan", "root/team/agent-1"]:
                 saved = json.loads(read_content(conn, by_path[path].input_artifact_id))

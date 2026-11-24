@@ -7,6 +7,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from discovery_fixture import DiscoveryProvider
 from equitycats_fixture import equitycats_completion
 from session_browser_fixture import BrowserTeam
 from swarm_browser_fixture import swarm_completion, swarm_models
@@ -24,6 +25,7 @@ class BrowserProvider(WebProvider):
     def __init__(self):
         super().__init__()
         self.team = BrowserTeam()
+        self.discovery = DiscoveryProvider()
 
     def status(self):
         catalog = super().status()
@@ -31,6 +33,11 @@ class BrowserProvider(WebProvider):
         return catalog
 
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
+        if manifest.tool_config.get("discovery_version") and (
+            "proposals" in prepared.schema["properties"]
+            or not manifest.tool_config.get("swarm_version")
+        ):
+            return await self.discovery.complete(manifest, prepared, on_delta)
         swarm_response = await swarm_completion(prepared, on_delta)
         if swarm_response is not None:
             return swarm_response

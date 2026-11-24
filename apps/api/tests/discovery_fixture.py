@@ -19,7 +19,11 @@ class DiscoveryProvider(SessionProvider):
                     "basis": source["citation_basis"],
                     "locator": source["title"],
                     "quote": source["text"][:80],
-                    "rationale": "Compare the reported observation with the other material.",
+                    "rationale": {
+                        "image": "The index rose over the week. Its weighting matters for this comparison.",
+                        "discussion": "This describes the speaker's coverage on Friday.",
+                        "text": "This records the owner's expectation before the rally.",
+                    }.get(source["kind"], "Check the source's coverage and timing."),
                 }
                 for source in packet["sources"]
                 if source["citation_basis"] != "metadata_only"
@@ -32,7 +36,7 @@ class DiscoveryProvider(SessionProvider):
                 "evidence_ids": [c["evidence_id"] for c in citations],
             }
             reading = {
-                "observation": "The packet raises a question about participation.",
+                "observation": "The desk described the median stock as flat. How broadly did the rally reach?",
                 "question": "Which firms did you expect to participate?",
                 "citations": citations,
                 "proposals": [proposal] if citations else [],
@@ -40,11 +44,20 @@ class DiscoveryProvider(SessionProvider):
             return replace(reply, text=json.dumps(reading))
         if "assignments" in properties:
             sentence = packet["human_feedback"]
-            title = "Compare refinancing groups" if "debt" in sentence else "Rebuild participation"
+            if "debt" in sentence:
+                title = "Compare refinancing groups"
+                objective = (
+                    "Group firms by debt due within twelve months. Compare weekly returns within "
+                    "each sector. A flat spread would weaken the proposed financing explanation."
+                )
+            else:
+                title = "Rebuild participation"
+                objective = (
+                    "Compare equal-weight and index-weight returns for the same constituents and "
+                    "dates. Check whether most industries participated."
+                )
             plan = {
-                "assignments": [
-                    {"title": title, "objective": "Test the working sentence. " + sentence}
-                ],
+                "assignments": [{"title": title, "objective": objective}],
                 "review_question": None,
             }
             return replace(reply, text=json.dumps(plan))
