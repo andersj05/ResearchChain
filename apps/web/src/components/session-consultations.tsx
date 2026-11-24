@@ -14,7 +14,7 @@ export function rememberAnswer(key: string, id: string, value: string) {
   storeReviewDrafts(key, JSON.stringify(drafts));
 }
 
-function PassLink({
+export function PassLink({
   runId,
   lane,
   pass,

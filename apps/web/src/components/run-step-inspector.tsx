@@ -217,6 +217,12 @@ export function RunStepInspector({
         <div className={reviewInputs.length ? "run-decision-grid" : undefined}>
           <div className="review-box" aria-label={`Review ${review.node_id}`}>
             <h3>{review.question}</h3>
+            {review.path === "root/working_sentence" &&
+              run.research_manifest?.tool_config.discovery_version && (
+                <a href={`${sessionUrl(run.id)}#source-led-investigation`}>
+                  Read the lead’s proposal and choose a sentence in the Research desk
+                </a>
+              )}
             {review.perspective && (
               <>
                 <p>
@@ -275,7 +281,13 @@ export function RunStepInspector({
             <div className="actions">
               <Button
                 className="button primary"
-                disabled={busy || (!!review.perspective && !feedback[review.interrupt_id]?.trim())}
+                disabled={
+                  busy ||
+                  ((!!review.perspective ||
+                    (review.path === "root/working_sentence" &&
+                      !!run.research_manifest?.tool_config.discovery_version)) &&
+                    !feedback[review.interrupt_id]?.trim())
+                }
                 onClick={() =>
                   onResume("approve", review.interrupt_id, feedback[review.interrupt_id] ?? "")
                 }

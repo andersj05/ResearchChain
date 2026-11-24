@@ -46,7 +46,7 @@ export function sessionWorkspaces(
       key: "lead",
       title: "Research lead",
       objective: "Choose investigations for the brief.",
-      attempts: director ? [director] : [],
+      attempts: attempts.filter((item) => item.path === "root/discovery" || item === director),
       profile: profiles?.lead,
     },
     ...(plan?.assignments ?? []).map((assignment, index) => ({
@@ -76,6 +76,7 @@ export function activityLabel(lane: SessionWorkspace) {
   if (attempt.status !== "completed") return modelAttemptStatus(attempt);
   if (attempt.result?.workspace_activity) return "Python result saved";
   if (attempt.result?.next_lead) return "Lead saved";
+  if (attempt.result?.discovery) return "First reading saved";
   if (attempt.result?.team_plan) return "Plan saved";
   return lane.key === "editor" ? "Report response saved" : "Findings saved";
 }

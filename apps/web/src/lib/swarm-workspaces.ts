@@ -77,7 +77,7 @@ export function swarmWorkspaces(
       path: "root/team/plan",
       title: "Swarm director",
       objective: "Divide the brief into independent lead mandates.",
-      attempts: director ? [director] : [],
+      attempts: attempts.filter((item) => item.path === "root/discovery" || item === director),
       profile: profiles?.lead,
       state: receiptState(run, director, mandates.length ? "Completed" : "Queued"),
     },
