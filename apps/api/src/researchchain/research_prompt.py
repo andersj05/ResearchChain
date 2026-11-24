@@ -17,6 +17,7 @@ from researchchain.evidence import read_evidence
 from researchchain.graph import AnalystConfig, EffortOverride, ResearchStage, VerbosityOverride
 from researchchain.research_models import (
     OwnerDirection,
+    ResearchCitation,
     ResearchManifest,
     ResearchResult,
     ResearchWithLookup,
@@ -468,6 +469,20 @@ def prepare_research(
     return prepared
 
 
+def validate_citation(citation: ResearchCitation, prepared: PreparedResearch) -> None:
+    source = prepared.sources.get(citation.evidence_id)
+    if source is None or citation.basis != source["citation_basis"]:
+        raise ValueError("A citation refers to missing evidence or misstates its representation.")
+    if citation.basis == "metadata_only":
+        if citation.relation != "context" or citation.quote:
+            raise ValueError("Unread source metadata cannot substantiate a claim or quotation.")
+    elif citation.basis in {"image_interpretation", "document_interpretation"}:
+        if citation.quote:
+            raise ValueError("A visual/document interpretation cannot provide a verified quote.")
+    elif not citation.quote or citation.quote not in source["text"]:
+        raise ValueError("A quotation does not occur exactly in the delivered source text.")
+
+
 def validate_result(text: str, stage: ResearchStage, prepared: PreparedResearch) -> ResearchResult:
     result = (
         ResearchWithLookup if prepared.sec_financials else ResearchResult
@@ -483,27 +498,8 @@ def validate_result(text: str, stage: ResearchStage, prepared: PreparedResearch)
     for hypothesis in result.hypotheses:
         relations = set()
         for citation in hypothesis.citations:
-            source = prepared.sources.get(citation.evidence_id)
-            if source is None or citation.basis != source["citation_basis"]:
-                raise ValueError(
-                    "A citation refers to missing evidence or misstates its representation."
-                )
-            if citation.basis == "metadata_only":
-                if citation.relation != "context" or citation.quote:
-                    raise ValueError(
-                        "Unread source metadata cannot substantiate a claim or quotation."
-                    )
-            elif citation.basis in {"image_interpretation", "document_interpretation"}:
-                if citation.quote:
-                    raise ValueError(
-                        "A visual/document interpretation cannot provide a verified quote."
-                    )
-                relations.add(citation.relation)
-            else:
-                if not citation.quote or citation.quote not in source["text"]:
-                    raise ValueError(
-                        "A quotation does not occur exactly in the delivered source text."
-                    )
+            validate_citation(citation, prepared)
+            if citation.basis != "metadata_only":
                 relations.add(citation.relation)
         required = {
             "supported": {"supports"},
