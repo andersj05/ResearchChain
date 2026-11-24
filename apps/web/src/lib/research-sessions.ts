@@ -27,7 +27,13 @@ export type ResearchBrief = Required<
 > &
   Pick<
     ResearchSessionSetup,
-    "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor" | "swarm"
+    | "reasoning_effort"
+    | "verbosity"
+    | "lead"
+    | "researcher"
+    | "editor"
+    | "swarm"
+    | "start_from_sources"
   >;
 
 export const blankResearchBrief: ResearchBrief = {
@@ -86,6 +92,7 @@ export function newStudyModelProfiles(models: readonly ProviderModel[], fallback
 export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
   return {
     brief: source.brief,
+    ...(source.start_from_sources && { start_from_sources: true }),
     style_excerpt: source.style_excerpt ?? "",
     model: source.model,
     reasoning_effort: source.reasoning_effort,
@@ -138,6 +145,7 @@ function validDraft(value: ResearchBrief) {
   return (
     value &&
     typeof value.brief === "string" &&
+    (value.start_from_sources === undefined || typeof value.start_from_sources === "boolean") &&
     value.brief.length <= 10000 &&
     typeof value.style_excerpt === "string" &&
     value.style_excerpt.length <= 32000 &&

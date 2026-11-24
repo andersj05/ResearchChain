@@ -161,30 +161,32 @@ export function ResearchBriefOptions({
         disabled={disabled}
         onReading={onReadingSample}
       />
-      <details
-        className={styles.option}
-        onToggle={(event) => setSourcesOpen(event.currentTarget.open)}
-      >
-        <summary>
-          Source material
-          <span>
-            {draft.evidence_ids.length ? `${draft.evidence_ids.length} selected` : "Optional"}
-          </span>
-        </summary>
-        {sourcesOpen && (
-          <div className={styles.optionBody}>
-            <EvidencePicker
-              selected={draft.evidence_ids}
-              onChange={(evidence_ids) => update({ evidence_ids })}
-              disabled={disabled}
-              label="Pin sources"
-            />
-            <a className="text-link" href="?view=evidence" target="_blank" rel="noopener">
-              Open source library
-            </a>
-          </div>
-        )}
-      </details>
+      {!draft.start_from_sources && (
+        <details
+          className={styles.option}
+          onToggle={(event) => setSourcesOpen(event.currentTarget.open)}
+        >
+          <summary>
+            Source material
+            <span>
+              {draft.evidence_ids.length ? `${draft.evidence_ids.length} selected` : "Optional"}
+            </span>
+          </summary>
+          {sourcesOpen && (
+            <div className={styles.optionBody}>
+              <EvidencePicker
+                selected={draft.evidence_ids}
+                onChange={(evidence_ids) => update({ evidence_ids })}
+                disabled={disabled}
+                label="Pin sources"
+              />
+              <a className="text-link" href="?view=evidence" target="_blank" rel="noopener">
+                Open source library
+              </a>
+            </div>
+          )}
+        </details>
+      )}
       <details
         className={styles.option}
         onInvalidCapture={(event) => {
