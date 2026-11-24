@@ -102,7 +102,7 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
                     id="working_sentence",
                     kind="review",
                     label="Choose a working sentence",
-                    instructions="Which sentence is worth investigating? Choose, rewrite or park it.",
+                    instructions="Choose a working sentence, write your own or park the study.",
                     position=Position(x=300, y=0),
                 ),
             ]

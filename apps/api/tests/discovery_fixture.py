@@ -20,7 +20,7 @@ class DiscoveryProvider(SessionProvider):
                     "locator": source["title"],
                     "quote": source["text"][:80],
                     "rationale": {
-                        "image": "The index rose over the week. Its weighting matters for this comparison.",
+                        "image": "The index rose. Its weighting matters for this comparison.",
                         "discussion": "This describes the speaker's coverage on Friday.",
                         "text": "This records the owner's expectation before the rally.",
                     }.get(source["kind"], "Check the source's coverage and timing."),
@@ -36,7 +36,9 @@ class DiscoveryProvider(SessionProvider):
                 "evidence_ids": [c["evidence_id"] for c in citations],
             }
             reading = {
-                "observation": "The desk described the median stock as flat. How broadly did the rally reach?",
+                "observation": "The desk saw a flat median stock. How far did the rally reach?"
+                if citations
+                else "Only a reference is available for the lead to read.",
                 "question": "Which firms did you expect to participate?",
                 "citations": citations,
                 "proposals": [proposal] if citations else [],

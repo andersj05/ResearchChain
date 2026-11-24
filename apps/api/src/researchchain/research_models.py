@@ -150,6 +150,8 @@ class DiscoveryReading(ResearchModel):
 
     @model_validator(mode="after")
     def grounded_proposals(self) -> Self:
+        if len({p.sentence.casefold() for p in self.proposals}) != len(self.proposals):
+            raise ValueError("Each proposed working sentence must be distinct.")
         captured = {c.evidence_id for c in self.citations if c.basis != "metadata_only"}
         for proposal in self.proposals:
             ids = set(proposal.evidence_ids)

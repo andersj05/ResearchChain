@@ -76,6 +76,8 @@ def test_reading_pauses_then_routes_the_exact_judgment_or_parks(database, senten
         assert first.proposals[0].evidence_ids == [source.id]
         assert first.citations[0].quote == "At our desk, the median member was flat."
         bad = first.model_dump(mode="json")
+        with pytest.raises(ValueError, match="working sentence must be distinct"):
+            first_reading(json.dumps({**bad, "proposals": bad["proposals"] * 2}), provider.calls[0])
         bad["citations"][0]["quote"] = "Fabricated quote."
         with pytest.raises(ValueError, match="exactly"):
             first_reading(json.dumps(bad), provider.calls[0])
@@ -106,3 +108,29 @@ def test_reading_pauses_then_routes_the_exact_judgment_or_parks(database, senten
                 assert packet["human_feedback"] == sentence
                 assert packet["prior_result"]["discovery"]["question"] == first.question
                 assert "writing_style_reference" not in packet
+
+
+def test_only_a_link_can_yield_a_question_without_inventing_a_sentence(database):
+    source = EvidenceStore(database).create(
+        EvidenceCreate(
+            id=uuid4(),
+            title="Uncaptured note",
+            kind="link",
+            availability="reference_only",
+            source_url="https://example.org/note",
+        )
+    )
+    provider = DiscoveryProvider()
+    runs = RunStore(database, provider)
+    start = request(start_from_sources=True, brief="", evidence_ids=[source.id])
+    with owner_client(create_app(database, provider), workers=False) as client:
+        assert (
+            client.post("/api/research-sessions", json=start.model_dump(mode="json")).status_code
+            == 202
+        )
+        assert RunWorker(runs).run_once()
+        paused = runs.get(start.id)
+        assert paused.status == "paused"
+        reading = paused.model_attempts[0].result.discovery
+        assert reading.question and not reading.proposals
+        assert not reading.citations and len(provider.calls) == 1

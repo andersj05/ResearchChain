@@ -169,8 +169,8 @@ class CodeConfig(StrictModel):
 
 
 MAX_RESPONSE_SECONDS = 600
-# An optional source reading, one coordinator, up to four leads taking twelve turns, and twelve passes
-# for each of eighty researchers and the editor. Account limits still apply.
+# An optional source reading, one coordinator and four leads taking twelve turns.
+# Eighty researchers and the editor can each take twelve passes. Account limits still apply.
 MAX_RESEARCH_CALLS = 2 + 4 * 12 + (4 * 20 + 1) * 12
 
 
