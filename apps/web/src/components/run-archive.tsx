@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type RunArchivePage, type RunSummary } from "@/lib/workflow";
 import { formatTime, RunStatus, runStatusLabels } from "./run-status";
+import { sessionUrl } from "@/lib/research-sessions";
 
 function ArchiveResults({
   query,
@@ -15,6 +16,7 @@ function ArchiveResults({
   const [retry, setRetry] = useState(0);
   const [response, setResponse] = useState<{ path: string; page: RunArchivePage | null }>();
   const params = new URLSearchParams(query);
+  const sessionsOnly = params.get("sessions_only") === "true";
   const cursor = cursors.at(-1);
   if (cursor) {
     params.set("before_created_at", cursor.created_at);
@@ -89,7 +91,14 @@ function ArchiveResults({
                     {content}
                   </button>
                 ) : (
-                  <a className="run-row" href={`?view=runs&run=${encodeURIComponent(run.id)}`}>
+                  <a
+                    className="run-row"
+                    href={
+                      sessionsOnly
+                        ? sessionUrl(run.id)
+                        : `?view=runs&run=${encodeURIComponent(run.id)}`
+                    }
+                  >
                     {content}
                   </a>
                 )}
@@ -133,26 +142,27 @@ function ArchiveResults({
 export function RunArchive({
   agentId,
   excludeRun,
-  initialSearch = "",
+  sessionsOnly = false,
   busy = false,
   onSelect,
 }: {
   agentId?: string | null;
   excludeRun?: string;
-  initialSearch?: string;
+  sessionsOnly?: boolean;
   busy?: boolean;
   onSelect?: (run: RunSummary) => void;
 }) {
   const [open, setOpen] = useState(false);
   const disclosure = useRef<HTMLElement>(null);
-  const [search, setSearch] = useState(initialSearch);
+  const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [searchRequest, setSearchRequest] = useState({
-    search: initialSearch,
+    search: "",
     status: "",
     revision: 0,
   });
   const query = new URLSearchParams({ search: searchRequest.search });
+  if (sessionsOnly) query.set("sessions_only", "true");
   if (searchRequest.status) query.set("status", searchRequest.status);
   if (agentId) query.set("agent_id", agentId);
   if (excludeRun) {
@@ -172,7 +182,11 @@ export function RunArchive({
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary ref={disclosure}>
-        {excludeRun ? "Search comparison runs" : "Search saved runs"}
+        {sessionsOnly
+          ? "Search past studies"
+          : excludeRun
+            ? "Search comparison runs"
+            : "Search saved runs"}
       </summary>
       {open && (
         <>
@@ -193,7 +207,11 @@ export function RunArchive({
                 type="search"
                 value={search}
                 maxLength={200}
-                placeholder="Brief, agent, workflow, or run ID"
+                placeholder={
+                  sessionsOnly
+                    ? "Study context, workflow, or study ID"
+                    : "Brief, agent, workflow, or run ID"
+                }
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>

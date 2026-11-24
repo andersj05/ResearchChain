@@ -67,6 +67,8 @@ def test_reading_pauses_then_routes_the_exact_judgment_or_parks(database, senten
         entry = "/api/research-sessions"
         assert client.post(entry, json={**payload, "brief": ""}).status_code == 202
         assert client.post(entry, json=payload).status_code == 202
+        archive = client.get("/api/runs/search?sessions_only=true").json()["items"]
+        assert archive[0]["run"]["id"] == str(start.id)
         assert RunWorker(runs).run_once()
         paused = runs.get(start.id)
         assert paused.status == "paused", paused.stop_reason

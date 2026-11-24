@@ -246,8 +246,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           </span>
         </div>
         <details className={styles.settings}>
-          <summary>Brief and settings</summary>
-          <p>{run.brief}</p>
+          <summary>{discovery ? "Sources and settings" : "Brief and settings"}</summary>
+          {(!discovery || run.brief !== "Source-led study") && <p>{run.brief}</p>}
           {swarm && (
             <p>
               Up to {swarm.lead_count} leads · {swarm.researchers_per_lead} researchers per lead ·{" "}
@@ -451,7 +451,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               </Button>
             ))}
           <Button className="button" onClick={() => onNewStudy(run.id)}>
-            {discovery ? "Revisit material" : "Revise brief"}
+            Revisit material
           </Button>
         </div>
       </footer>

@@ -71,6 +71,7 @@ def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(data
             "max_lead_turns": 12,
             "allow_consultations": True,
         },
+        max_input_bytes=8_000_000,
         max_passes=12,
         review_mode="never",
         lead={"model": "analysis-model", "reasoning_effort": "xhigh"},
@@ -79,6 +80,8 @@ def test_swarm_capacity_roles_and_revised_setup_are_pinned_before_execution(data
     graph = session_workflow(original)
     assert compiler_version(graph) == "research-swarm-1"
     assert compiler_version(session_workflow(request())) == "research-team-1"
+    assert session_workflow(request()).research.limits.max_input_bytes == 4_000_000
+    assert graph.research.limits.max_input_bytes == original.max_input_bytes
     assert graph.budgets.max_concurrency == 20
     assert graph.research.limits.max_model_calls == 1 + 4 * 12 + 81 * 12
     assert graph.research.limits.max_tool_calls == graph.research.limits.max_model_calls
@@ -242,6 +245,8 @@ def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(
         )
         assert client.get(f"{path}/{ordinary_id}/setup").status_code == 404
         assert {row["id"] for row in client.get(path).json()} == {str(original.id), str(revised.id)}
+        archive = client.get("/api/runs/search?sessions_only=true").json()["items"]
+        assert {item["run"]["id"] for item in archive} == {str(original.id), str(revised.id)}
         with database.connection() as conn:
             assert (
                 conn.execute("SELECT count(*) AS count FROM workflow_revisions").fetchone()["count"]

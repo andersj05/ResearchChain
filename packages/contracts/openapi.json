@@ -2852,6 +2852,16 @@
             }
           },
           {
+            "name": "sessions_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Sessions Only"
+            }
+          },
+          {
             "name": "exclude_id",
             "in": "query",
             "required": false,
@@ -8262,6 +8272,13 @@
             "maxItems": 100,
             "title": "Evidence Ids"
           },
+          "max_input_bytes": {
+            "type": "integer",
+            "maximum": 8000000.0,
+            "minimum": 1000.0,
+            "title": "Max Input Bytes",
+            "default": 4000000
+          },
           "max_agents": {
             "type": "integer",
             "maximum": 4.0,
@@ -8409,6 +8426,13 @@
             "type": "array",
             "maxItems": 100,
             "title": "Evidence Ids"
+          },
+          "max_input_bytes": {
+            "type": "integer",
+            "maximum": 8000000.0,
+            "minimum": 1000.0,
+            "title": "Max Input Bytes",
+            "default": 4000000
           },
           "max_agents": {
             "type": "integer",

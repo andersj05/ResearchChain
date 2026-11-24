@@ -1,15 +1,14 @@
 # Working with a research team
 
-Open the **Research desk**. If you have a question already, select **Start with
-a brief**. Describe what you think, which assumptions deserve a challenge and
-what the report should help you decide.
+Open the **Research desk** to assemble a source packet. **Methodology** opens an interactive map of the lead’s first reading, your decision and the assignments that follow.
 
 ## Start from a week of material
 
-Choose **Start from sources**. Pin a chart, paste a note, capture a conversation
-excerpt or choose saved sources. On a conversation, enter the speaker or desk
-and the observation date when you know them. Add context for the lead if you
-want to explain why you saved something. You can leave that field blank.
+Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**, or select several files at once. Choose the usage rights for captured originals. With a text file, choose **Conversation** to identify a transcript. Set the author or speaker and the observation date when known. Pin separate batches when attribution or rights differ. Each file has its own receipt, so a failed file can be retried while the others stay pinned.
+
+Use **Paste a source** for a note, conversation or reference URL. **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. You can leave **Context for the lead** blank.
+
+The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. Select a smaller packet if necessary. The analyst workspace can stage up to 64 files.
 
 **Ask the lead for a first reading** uses one lead request to read the pinned
 packet. Before anyone receives an assignment, the lead brings you an
@@ -36,17 +35,16 @@ editorial review setting controls the separate decision about the report.
 - **Writing sample** accepts pasted text or a UTF-8 `.txt` or Markdown excerpt
   of up to 32,000 characters. Only the report editor receives it, as a reference
   for structure and voice.
-- **Source material** pins records from your source library. Turn on **Allow live
-  web search** if the team should look beyond those records.
+- Turn on **Allow live web search** if the team should look beyond the packet.
 - **Research settings** starts with up to three researchers, six passes per
   researcher and editor, and a 30-minute active-time limit. You can choose up to
   four researchers, twelve passes and one hour. The lead can use fewer researchers
   or finish earlier. Check the selected model and account before starting.
-- **Expert review** defaults to **When the team asks**. Choose **Before the report**
+- **Editorial review** defaults to **When the team asks**. Choose **Before the report**
   for a guaranteed editorial checkpoint, or **Continue independently** to let the
   editor proceed after research.
 
-Select **Start research** to queue the study and open its session. You can return
+Select **Ask the lead for a first reading** to open the session. You can return
 to it from **Recent research** or the run archive.
 
 ### Choose the model and thinking effort
@@ -67,9 +65,9 @@ single role, restore its shared setting, or use its model default. If a model
 or level is unavailable on the connected account, the desk identifies which
 choice needs attention.
 
-During a study, **Brief and settings** shows the model, effort and detail
+During a study, **Sources and settings** shows the model, effort and detail
 pinned for each role. A workspace's **Model passes** includes the saved request
-for each pass. **Revise brief** restores your choices for the next experiment.
+for each pass. **Revisit material** restores your choices for the next experiment.
 
 ### Run a swarm
 
@@ -116,6 +114,6 @@ Open the report editor's workspace to read the saved Markdown with its figures.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
 
-Choose **Revise brief** to start another experiment with the previous brief,
+Choose **Revisit material** to start another experiment with the previous context,
 sample, sources and settings. The new session links to its baseline so you can
 reopen the original run and see what it actually produced.

@@ -160,6 +160,7 @@ class RunArchiveQuery(StrictModel):
     status: RunStatus | None = None
     agent_id: UUID | None = None
     unassigned: bool = False
+    sessions_only: bool = False
     exclude_id: UUID | None = None
     before_created_at: AwareDatetime | None = None
     before_id: UUID | None = None

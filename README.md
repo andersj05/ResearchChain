@@ -5,11 +5,7 @@ challenge conclusions, and write reports with human editorial judgment in the lo
 
 ## Start a research session
 
-Open the Research desk and write the question you want investigated. You can give
-the editor a sample of your writing, pin sources, and allow live web search.
-The research lead proposes assignments. Each researcher has a workspace you can
-follow as it works. Send direction, answer editorial questions and open the
-finished report with its figures. [Research desk guide](docs/research-sessions.md).
+Open the Research desk and pin the week’s charts, notes and conversations. The lead reads the packet and proposes a working sentence. Choose it, edit it or write your own to commission research. Inspect each assignment and the request it generated, guide the team and read the resulting report. Open **Methodology** for a map of the handoffs and decisions. [Research desk guide](docs/research-sessions.md).
 
 Open **Workflows** to design an agent step by step, wire inputs and reviews, and
 save versions for further experiments. [Agent builder guide](docs/agent-builder.md).

@@ -613,7 +613,7 @@ class RunStore:
         return RunArchivePage(items=matches[: query.limit], has_more=len(matches) > query.limit)
 
     def _search_runs(
-        self, query: RunArchiveQuery, *, look_ahead: bool = False, sessions_only: bool = False
+        self, query: RunArchiveQuery, *, look_ahead: bool = False
     ) -> list[RunArchiveItem]:
         # History reads journaled summaries, not every graph/checkpoint. A live
         # advisory lock distinguishes executing commands from abandoned ones.
@@ -654,7 +654,6 @@ class RunStore:
                 "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
                 {
                     **query.model_dump(),
-                    "sessions_only": sessions_only,
                     "session_version": SESSION_VERSION,
                     "search": query.search.strip(),
                     "limit": query.limit + int(look_ahead),
@@ -673,7 +672,7 @@ class RunStore:
         return [
             RecentRunSummary(**item.run.model_dump(), brief_excerpt=item.brief_excerpt)
             for item in self._search_runs(
-                RunArchiveQuery(limit=limit, agent_id=agent_id), sessions_only=sessions_only
+                RunArchiveQuery(limit=limit, agent_id=agent_id, sessions_only=sessions_only)
             )
         ]
 

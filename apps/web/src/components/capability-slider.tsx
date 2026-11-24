@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, type CSSProperties } from "react";
 import { modelSettingLabel } from "@/lib/model-settings";
 import styles from "./capability-slider.module.css";
 
@@ -51,7 +51,13 @@ export function CapabilitySlider<T extends string>({
           {visibleValue}
         </span>
       </div>
-      <div className={styles.rail} data-unpositioned={index < 0 || undefined}>
+      <div
+        className={styles.rail}
+        data-unpositioned={index < 0 || undefined}
+        style={
+          { "--position": `${last > 0 ? (Math.max(index, 0) * 100) / last : 0}%` } as CSSProperties
+        }
+      >
         <input
           id={id}
           type="range"

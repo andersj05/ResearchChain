@@ -1,3 +1,4 @@
+import { pinDeskNote } from "./desk-material";
 import { expect, test, type Page } from "./fixtures";
 import type { ResearchSessionStart } from "../src/lib/research-sessions";
 import type { RecentRunSummary } from "../src/lib/workflow";
@@ -79,8 +80,9 @@ async function connection(
 
 async function submittedSetup(
   page: Page,
-  buttonName = "Start research",
+  buttonName = "Ask the lead for a first reading",
 ): Promise<ResearchSessionStart> {
+  await pinDeskNote(page);
   await page.route("**/api/research-sessions", (route) =>
     route.request().method() === "POST" ? route.abort() : route.fulfill({ json: [] }),
   );
@@ -105,7 +107,7 @@ function studySummary(brief: string): RecentRunSummary {
 }
 
 for (const width of [1280, 390]) {
-  test(`brief-first research keeps drafts and retries the same launch at ${width}px`, async ({
+  test(`source-first research keeps drafts and retries the same launch at ${width}px`, async ({
     page,
     request,
   }, info) => {
@@ -144,8 +146,14 @@ for (const width of [1280, 390]) {
       });
     });
     await page.goto("/");
-    const brief = page.getByRole("textbox", { name: "Research brief", exact: true });
-    const start = page.getByRole("button", { name: "Start research", exact: true });
+    const brief = page.getByRole("textbox", {
+      name: "Context for the lead (optional)",
+      exact: true,
+    });
+    const start = page.getByRole("button", {
+      name: "Ask the lead for a first reading",
+      exact: true,
+    });
     await expect(brief).toBeVisible();
     await expect(page.getByRole("link", { name: new RegExp("earnings breadth") })).toHaveAttribute(
       "href",
@@ -160,7 +168,7 @@ for (const width of [1280, 390]) {
     await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
     await page.getByRole("link", { name: "Research desk", exact: true }).click();
     await expect(brief).toHaveValue(/synthetic credit/);
-    await page.locator("summary").filter({ hasText: "Writing sample" }).click();
+
     await page.getByLabel("Import a text or Markdown sample").setInputFiles({
       name: "sample.md",
       mimeType: "text/markdown",
@@ -169,12 +177,10 @@ for (const width of [1280, 390]) {
     await expect(page.getByLabel("Example report excerpt")).toHaveValue(
       "Lead with a concrete observation.",
     );
-    await page.locator("summary").filter({ hasText: "Writing sample" }).click();
-    await page.locator("summary").filter({ hasText: "Source material" }).click();
+
     await page.getByRole("searchbox", { name: "Search evidence library" }).fill(title);
     await page.getByRole("checkbox", { name: new RegExp(title) }).check();
-    await page.locator("summary").filter({ hasText: "Source material" }).click();
-    await page.locator("summary").filter({ hasText: "Research settings" }).click();
+
     await page.getByLabel("Maximum research agents").selectOption("2");
     await page.getByLabel("Passes per agent").fill("5");
     await page.getByLabel("Active time limit (seconds)").fill("1200");
@@ -210,7 +216,7 @@ for (const width of [1280, 390]) {
     await detail.press("End");
     await expect(modelDefault).toHaveAttribute("aria-pressed", "false");
     await expect(detail).toHaveAttribute("aria-valuetext", "High");
-    await page.locator("summary").filter({ hasText: "Models by role" }).click();
+
     const lead = page.getByRole("group", { name: "Research lead", exact: true });
     const researchers = page.getByRole("group", { name: "Researchers", exact: true });
     await expect(lead.getByRole("combobox", { name: "Research lead model" })).toHaveValue(
@@ -224,7 +230,7 @@ for (const width of [1280, 390]) {
       "Shared · High",
     );
     if (width === 390) {
-      await page.getByLabel("Expert review").selectOption("never");
+      await page.getByLabel("Editorial review").selectOption("never");
       const expanded = page.locator("details", { has: page.getByLabel("Maximum research agents") });
       for (const phoneWidth of [320, width]) {
         await page.setViewportSize({ width: phoneWidth, height: 920 });
@@ -258,12 +264,14 @@ for (const width of [1280, 390]) {
         expect(outsideViewport, `Slider bounds at ${phoneWidth}px`).toEqual([]);
       }
     }
-    await page.getByLabel("Expert review").selectOption("always");
+    await page.getByLabel("Editorial review").selectOption("always");
     await researchers
       .getByRole("combobox", { name: "Researchers model" })
       .selectOption("compact-model");
     await expect(start).toBeDisabled();
-    await expect(page.locator("form").getByRole("alert")).toContainText("Researchers");
+    await expect(
+      page.getByRole("complementary", { name: "Prepare the first reading" }).getByRole("alert"),
+    ).toContainText("Researchers");
     const researcherEffort = researchers.getByRole("slider", { name: "Thinking effort" });
     const researcherDetail = researchers.getByRole("slider", { name: "Response detail" });
     await expect(researcherEffort).toHaveAttribute("min", "0");
@@ -286,13 +294,16 @@ for (const width of [1280, 390]) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.locator("summary").filter({ hasText: "Research settings" }).click();
+
     await page.getByLabel("Allow live web search").check();
     await expect(start).toBeEnabled();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.screenshot({ path: info.outputPath(`research-brief-${width}.png`), fullPage: true });
+    await page.screenshot({
+      path: info.outputPath(`research-packet-${width}.png`),
+      fullPage: true,
+    });
     await start.click();
     await expect(
       page.getByText("This request has no saved session yet.", { exact: false }),
@@ -314,6 +325,8 @@ for (const width of [1280, 390]) {
       editor: { verbosity: "medium" },
       provider_account_id: account.id,
       evidence_ids: [sourceId],
+      start_from_sources: true,
+      max_input_bytes: 8_000_000,
       max_agents: 2,
       max_passes: 5,
       max_active_seconds: 1200,
@@ -354,15 +367,19 @@ for (const width of [1280, 390]) {
       return route.abort();
     });
     await page.goto(`/?fromSession=${previous}`);
-    const brief = page.getByLabel("Research brief", { exact: true });
+    const brief = page.getByLabel("Context for the lead (optional)", { exact: true });
     await expect(brief).toHaveValue(setup.brief);
+    const evidenceId = await pinDeskNote(page);
     await brief.fill("Extend the original horizon.");
     await page.reload();
     await expect(brief).toHaveValue("Extend the original horizon.");
-    await expect(page.getByRole("button", { name: "Start research", exact: true })).toBeDisabled();
-    await expect(page.locator("form").getByRole("alert")).toContainText("retired-model");
-    await page.locator("summary").filter({ hasText: "Research settings" }).click();
-    await page.locator("summary").filter({ hasText: "Models by role" }).click();
+    await expect(
+      page.getByRole("button", { name: "Ask the lead for a first reading", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("complementary", { name: "Prepare the first reading" }).getByRole("alert"),
+    ).toContainText("retired-model");
+
     const lead = page.getByRole("group", { name: "Research lead", exact: true });
     const model = lead.getByRole("combobox", { name: "Research lead model" });
     const effort = lead.getByRole("slider", { name: "Thinking effort", exact: true });
@@ -370,17 +387,23 @@ for (const width of [1280, 390]) {
     await model.selectOption("test-model");
     await expect(effort).toHaveAttribute("aria-valuetext", "Ultra (unavailable)");
     await expect(effort).toHaveAttribute("aria-invalid", "true");
-    await expect(page.getByRole("button", { name: "Start research", exact: true })).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Ask the lead for a first reading", exact: true }),
+    ).toBeDisabled();
     await effort.press("Home");
     await expect(effort).toHaveAttribute("aria-valuetext", "Medium");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
-    await page.getByRole("button", { name: "Start research", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Ask the lead for a first reading", exact: true })
+      .click();
     await expect.poll(() => admitted.length).toBe(1);
     await expect(page).toHaveURL(new RegExp(`session=${admitted[0]!.id}`));
     expect(admitted[0]).toMatchObject({
       ...setup,
+      evidence_ids: [evidenceId],
+      start_from_sources: true,
       lead: { ...setup.lead, model: "test-model", reasoning_effort: "medium" },
       brief: "Extend the original horizon.",
       baseline_run_id: previous,
@@ -405,12 +428,12 @@ for (const highRole of ["gpt-6.2-sol", "gpt-6.2-astra"]) {
       })),
     );
     await page.goto("/");
-    await page.getByLabel("Research brief", { exact: true }).fill("Compare the supplied series.");
-    await page.locator("summary").filter({ hasText: "Research settings" }).click();
+    await page
+      .getByLabel("Context for the lead (optional)", { exact: true })
+      .fill("Compare the supplied series.");
+
     if (highRole === "gpt-6.2-astra") {
       await page.getByLabel("Team structure").selectOption("swarm");
-    } else {
-      await page.locator("summary").filter({ hasText: "Models by role" }).click();
     }
     const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
     const lead = page.getByRole("group", { name: "Research lead", exact: true });
@@ -494,10 +517,15 @@ for (const scenario of ["untouched", "in progress", "explicit defaults", "pendin
     );
     await page.goto("/");
     if (pending) {
-      expect(await submittedSetup(page, "Retry start")).toEqual(pending);
+      await expect(page.getByRole("button", { name: "Retry start" })).toBeDisabled();
+      await page.getByRole("button", { name: "Edit setup" }).click();
+      const replacement = await submittedSetup(page);
+      expect(replacement.brief).toBe(pending.brief);
+      expect(replacement.id).not.toBe(pending.id);
+      expect(replacement.start_from_sources).toBe(true);
       return;
     }
-    const brief = page.getByLabel("Research brief", { exact: true });
+    const brief = page.getByLabel("Context for the lead (optional)", { exact: true });
     await expect(brief).toHaveValue(draft.brief);
     await brief.fill("Submit the restored research settings.");
     const setup = await submittedSetup(page);
@@ -565,12 +593,13 @@ test("find an older research session in the run archive and return to its worksp
   await page.goto("/");
   await expect(page.getByRole("link", { name: /more recent study/ })).toBeVisible();
   await expect(page.getByText(archived.brief_excerpt, { exact: true })).toHaveCount(0);
-  await page.getByText("Search saved runs", { exact: true }).click();
-  await expect(page.getByRole("searchbox", { name: "Search the archive" })).toHaveValue(
-    "Research session",
+  const archivedRequest = page.waitForRequest(
+    (request) => new URL(request.url()).searchParams.get("sessions_only") === "true",
   );
-  await page.getByRole("link", { name: /Which funding markets tightened first/ }).click();
-  const reopen = page.getByRole("link", { name: "Open research session", exact: true });
+  await page.getByText("Search past studies", { exact: true }).click();
+  await archivedRequest;
+  await expect(page.getByRole("searchbox", { name: "Search the archive" })).toHaveValue("");
+  const reopen = page.getByRole("link", { name: /Which funding markets tightened first/ });
   await expect(reopen).toHaveAttribute("href", `/?session=${archived.id}`);
   await reopen.click();
   await expect(

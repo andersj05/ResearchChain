@@ -7,6 +7,8 @@ owner. [Interfaces, Brains, and Computers](https://equitycats.substack.com/p/int
 
 ## Decision
 
+The later [source-first desk decision](0026-source-first-research-desk.md) replaces the choice of entry points.
+
 Offer a source-led starting point alongside the research brief. Pin the
 selected source versions. A first pass by the lead reads that packet and
 brings back an observation, a question for the owner and up to two provisional

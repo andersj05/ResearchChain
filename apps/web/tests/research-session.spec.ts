@@ -1,9 +1,10 @@
+import { commissionDeskStudy, pinDeskNote } from "./desk-material";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import type { RunSnapshot } from "../src/lib/workflow";
 import { expect, test } from "./fixtures";
 
-test("follow parallel research from a brief through owner judgment to an illustrated report", async ({
+test("follow parallel research from a source packet through owner judgment to an illustrated report", async ({
   page,
   request,
 }, info) => {
@@ -17,8 +18,9 @@ test("follow parallel research from a brief through owner judgment to an illustr
   const marker = join(directory, `observed-${study}`);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
-  await page.getByLabel("Research brief", { exact: true }).fill(brief);
-  await page.locator("summary").filter({ hasText: "Research settings" }).click();
+  await pinDeskNote(page);
+  await page.getByLabel("Context for the lead (optional)", { exact: true }).fill(brief);
+
   await page.getByLabel("Maximum research agents").selectOption("2");
   await page.getByLabel("Passes per agent").fill("3");
   const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
@@ -34,7 +36,7 @@ test("follow parallel research from a brief through owner judgment to an illustr
   await expect(detail).toHaveAttribute("aria-valuetext", "High");
   await sharedModel.selectOption("test-model");
   await detail.press("Home");
-  await roleSettings.click();
+  await expect(lead).toBeVisible();
   await expect(lead.getByLabel("Research lead model")).toHaveValue("gpt-6.2-astra");
   await expect(researchers.getByLabel("Researchers model")).toHaveValue("gpt-6.2-sol");
   const leadEffort = lead.getByRole("slider", { name: "Thinking effort" });
@@ -60,10 +62,11 @@ test("follow parallel research from a brief through owner judgment to an illustr
     .click();
   const writerDetail = writerControls.getByRole("slider", { name: "Response detail" });
   await writerDetail.press("End");
-  await expect(page.getByLabel("Expert review")).toHaveValue("when_needed");
-  await page.getByRole("button", { name: "Start research", exact: true }).click();
+  await expect(page.getByLabel("Editorial review")).toHaveValue("when_needed");
+  await page.getByRole("button", { name: "Ask the lead for a first reading", exact: true }).click();
   await expect(page).toHaveURL(/\?session=[\da-f-]{36}/);
   const sessionId = new URL(page.url()).searchParams.get("session")!;
+  await commissionDeskStudy(page, "Compare demand and inventories over the same release window.");
   const runUrl = `/api/runs/${sessionId}`;
   const roster = page.getByRole("navigation", { name: "Agent workspaces" });
   const demand = roster.getByRole("button", { name: /^Demand/ });
@@ -78,7 +81,7 @@ test("follow parallel research from a brief through owner judgment to an illustr
     await page.reload();
     await expect(inventories).toHaveAttribute("aria-current", "true");
     await expect(inventory).toContainText("Pass 1 · analysis-model");
-    const briefSettings = page.getByText("Brief and settings", { exact: true });
+    const briefSettings = page.getByText("Sources and settings", { exact: true });
     await briefSettings.click();
     const profiles = page.getByRole("table", { name: "Pinned model settings" });
     for (const [role, model, effort, detail] of [
@@ -231,8 +234,10 @@ test("follow parallel research from a brief through owner judgment to an illustr
   expect(await bundle.failure()).toBeNull();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("illustrated-report-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "Revise brief" }).click();
-  await expect(page.getByLabel("Research brief", { exact: true })).toHaveValue(brief);
+  await page.getByRole("button", { name: "Revisit material" }).click();
+  await expect(page.getByLabel("Context for the lead (optional)", { exact: true })).toHaveValue(
+    brief,
+  );
   const researchSettings = page.locator("summary").filter({ hasText: "Research settings" });
   if (!(await shared.isVisible())) await researchSettings.click();
   await expect(effort).toHaveAttribute("aria-valuetext", "High");
