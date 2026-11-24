@@ -98,6 +98,9 @@ test("follow two research leads from queued work through an expert consultation 
   await expect(page.getByText(answer, { exact: true })).toBeVisible();
   const next = page.getByRole("link", { name: "Lead’s next turn" });
   await expect(next).toBeVisible({ timeout: 60_000 });
+  const followUp = page.getByRole("region", { name: "Assignments after your perspective" });
+  await expect(followUp).toContainText("Inventory timing", { timeout: 60_000 });
+  await expect(followUp).not.toContainText("Backlog");
   await next.click();
   await expect(page.locator("#current-research-workspace")).toContainText("Inventory timing");
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {

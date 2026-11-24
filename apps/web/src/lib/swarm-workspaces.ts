@@ -8,6 +8,7 @@ export type SessionWorkspace = {
   key: string;
   role?: "director" | "lead" | "researcher" | "editor";
   parentKey?: string;
+  issuedBy?: string;
   path?: string;
   state?:
     | "Active"
@@ -90,7 +91,9 @@ export function swarmWorkspaces(
       .sort((a, b) => Number(a.path.split("/turn-")[1]) - Number(b.path.split("/turn-")[1]));
     const assignments = turns.flatMap((turn) => {
       const action = turn.result?.swarm_action;
-      return turn.status === "completed" && action?.action === "delegate" ? action.assignments : [];
+      return turn.status === "completed" && action?.action === "delegate"
+        ? action.assignments.map((assignment) => ({ ...assignment, issuedBy: turn.id }))
+        : [];
     });
     const workers: SessionWorkspace[] = assignments.map((assignment, i) => {
       const workerKey = `${key}/agent-${i + 1}`;

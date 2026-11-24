@@ -170,11 +170,33 @@ export function ConsultationHistory({
           const turn = lead?.attempts[index];
           const next = lead?.attempts[index + 1];
           const action = turn?.result?.swarm_action;
+          const assignments = next ? lanes.filter((lane) => lane.issuedBy === next.id) : [];
           return (
             <li key={answer.interrupt_id}>
               <strong>{lead?.title ?? answer.action_path}</strong>
               {action?.action === "ask_expert" && <p>{action.consultation.question}</p>}
               <p>{answer.feedback}</p>
+              {!!assignments.length && (
+                <section aria-label="Assignments after your perspective">
+                  <h4>Assignments after your perspective</h4>
+                  <ul className={styles.assignments}>
+                    {assignments.map((lane) => {
+                      const pass = lane.attempts.find((attempt) => attempt.input_artifact_id);
+                      return (
+                        <li key={lane.key}>
+                          <strong>{lane.title}</strong>
+                          <p>{lane.objective}</p>
+                          {pass && (
+                            <PassLink runId={run.id} lane={lane} pass={pass.id} onSelect={onSelect}>
+                              Inspect researcher request
+                            </PassLink>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
               {lead && turn && (
                 <div className={styles.receiptLinks}>
                   <PassLink runId={run.id} lane={lead} pass={turn.id} onSelect={onSelect}>
