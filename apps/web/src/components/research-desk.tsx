@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
+import { ResearchMethodology } from "./research-methodology";
 import { ResearchSession } from "./research-session";
 import { RunArchive } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
@@ -79,9 +80,11 @@ function RecentStudies() {
 export function ResearchDesk({
   session,
   fromSession,
+  methodology,
 }: {
   session: string | null;
   fromSession: string | null;
+  methodology: boolean;
 }) {
   const { active } = useOwner();
   return (
@@ -91,11 +94,14 @@ export function ResearchDesk({
           <a
             className={styles.homeLink}
             href="?view=research"
-            aria-current={!session && !fromSession ? "page" : undefined}
+            aria-current={!session && !fromSession && !methodology ? "page" : undefined}
           >
             Research desk
           </a>
           <nav aria-label="Research navigation">
+            <a href="?view=methodology" aria-current={methodology && !session ? "page" : undefined}>
+              Methodology
+            </a>
             <a href="?view=workflow">Workflows</a>
             <a href="?view=evidence">Sources</a>
             <a href="?view=reports">Reports</a>
@@ -112,6 +118,8 @@ export function ResearchDesk({
             );
           }}
         />
+      ) : methodology ? (
+        <ResearchMethodology />
       ) : (
         <main className={styles.page}>
           <ResearchLauncher fromSession={fromSession} />

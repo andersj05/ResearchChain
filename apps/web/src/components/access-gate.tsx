@@ -197,9 +197,15 @@ function OwnerWorkspace() {
   if (
     query.has("session") ||
     query.has("fromSession") ||
-    query.get("view") === "research" ||
+    ["research", "methodology"].includes(query.get("view") ?? "") ||
     !["view", "agent", "run", "revision"].some((key) => query.has(key))
   )
-    return <ResearchDesk session={query.get("session")} fromSession={query.get("fromSession")} />;
+    return (
+      <ResearchDesk
+        session={query.get("session")}
+        fromSession={query.get("fromSession")}
+        methodology={query.get("view") === "methodology"}
+      />
+    );
   return <Workbench />;
 }
