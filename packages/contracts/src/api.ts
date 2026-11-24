@@ -6799,6 +6799,7 @@ export interface operations {
           | null;
         agent_id?: string | null;
         unassigned?: boolean;
+        sessions_only?: boolean;
         exclude_id?: string | null;
         before_created_at?: string | null;
         before_id?: string | null;

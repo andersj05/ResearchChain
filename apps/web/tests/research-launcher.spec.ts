@@ -593,12 +593,13 @@ test("find an older research session in the run archive and return to its worksp
   await page.goto("/");
   await expect(page.getByRole("link", { name: /more recent study/ })).toBeVisible();
   await expect(page.getByText(archived.brief_excerpt, { exact: true })).toHaveCount(0);
-  await page.getByText("Search saved runs", { exact: true }).click();
-  await expect(page.getByRole("searchbox", { name: "Search the archive" })).toHaveValue(
-    "Research session",
+  const archivedRequest = page.waitForRequest(
+    (request) => new URL(request.url()).searchParams.get("sessions_only") === "true",
   );
-  await page.getByRole("link", { name: /Which funding markets tightened first/ }).click();
-  const reopen = page.getByRole("link", { name: "Open research session", exact: true });
+  await page.getByText("Search past studies", { exact: true }).click();
+  await archivedRequest;
+  await expect(page.getByRole("searchbox", { name: "Search the archive" })).toHaveValue("");
+  const reopen = page.getByRole("link", { name: /Which funding markets tightened first/ });
   await expect(reopen).toHaveAttribute("href", `/?session=${archived.id}`);
   await reopen.click();
   await expect(

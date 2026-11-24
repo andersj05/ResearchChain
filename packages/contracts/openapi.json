@@ -2852,6 +2852,16 @@
             }
           },
           {
+            "name": "sessions_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Sessions Only"
+            }
+          },
+          {
             "name": "exclude_id",
             "in": "query",
             "required": false,

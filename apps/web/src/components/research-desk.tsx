@@ -72,7 +72,7 @@ function RecentStudies() {
           </p>
         )
       )}
-      {!!studies?.length && <RunArchive initialSearch="Research session" />}
+      {!!studies?.length && <RunArchive sessionsOnly />}
     </section>
   );
 }

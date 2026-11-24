@@ -245,6 +245,8 @@ def test_brief_admission_is_atomic_and_retryable_and_only_the_editor_gets_style(
         )
         assert client.get(f"{path}/{ordinary_id}/setup").status_code == 404
         assert {row["id"] for row in client.get(path).json()} == {str(original.id), str(revised.id)}
+        archive = client.get("/api/runs/search?sessions_only=true").json()["items"]
+        assert {item["run"]["id"] for item in archive} == {str(original.id), str(revised.id)}
         with database.connection() as conn:
             assert (
                 conn.execute("SELECT count(*) AS count FROM workflow_revisions").fetchone()["count"]
