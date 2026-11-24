@@ -9,6 +9,8 @@
   border-bottom: 1px solid var(--line);
 }
 .headerInner {
+  max-width: 1202px;
+  margin: auto;
   min-height: 58px;
   display: flex;
   align-items: center;
@@ -41,9 +43,9 @@
   white-space: nowrap;
 }
 .page {
-  max-width: 840px;
+  max-width: 1250px;
   margin: 0 auto;
-  padding: clamp(26px, 5vw, 65px) 24px 64px;
+  padding: clamp(24px, 4vw, 48px) 24px 64px;
 }
 .launch h1 {
   font-size: clamp(28px, 4vw, 38px);
@@ -55,118 +57,70 @@
   margin-top: 8px;
   color: var(--muted);
 }
-.composer {
-  margin-top: 24px;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-}
-.startMode {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding: 0;
-  margin: 20px 0 0;
-  border: 0;
-}
-.startMode label {
-  position: relative;
-  padding: 8px 14px;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  cursor: pointer;
-}
-.startMode input {
-  position: absolute;
-  opacity: 0;
-  width: 1px;
-  height: 1px;
-}
-.startMode label:has(:checked) {
-  background: var(--ink);
-  border-color: var(--ink);
-  color: var(--surface);
-}
-.startMode label:focus-within {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
-}
-.packet {
-  display: grid;
-  gap: 12px;
-  margin-top: 18px;
-  padding: clamp(16px, 3vw, 28px);
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-}
-.packet h2 {
-  font-size: 20px;
-  letter-spacing: -0.025em;
-}
-.materialActions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px 14px;
-}
-.pinnedList {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.pinnedList li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 0;
-  border-top: 1px solid var(--line);
-}
-.pinnedList li > div {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
-.pinnedList small {
-  display: block;
+.intro {
+  max-width: 68ch;
+  margin-top: 8px;
+  font-size: 15px;
   color: var(--muted);
 }
-.capture {
-  border-top: 1px solid var(--line);
-  padding-top: 14px;
-}
-.capture fieldset,
-.capture label {
+.bench {
   display: grid;
-  gap: 6px;
+  grid-template-columns: minmax(0, 1.42fr) minmax(315px, 1fr);
+  gap: clamp(16px, 2.3vw, 30px);
+  margin-top: 24px;
+  align-items: start;
+}
+.composer,
+.setup {
   min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
 }
-.capture fieldset {
-  gap: 12px;
-  border: 0;
-  padding: 0;
+.composer {
+  position: sticky;
+  top: 14px;
 }
-.capture legend {
-  font-weight: 600;
-  padding-bottom: 8px;
-}
-.captureFields {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(min(150px, 100%), 1fr));
-}
-.capture :is(input, textarea, select),
 .shortBrief {
   width: 100%;
   min-width: 0;
-  padding: 8px;
+  resize: vertical;
   border: 1px solid var(--border-strong);
+  padding: 8px 9px;
   background: var(--surface);
   color: var(--ink);
 }
-.shortBrief {
-  resize: vertical;
+.pendingHint {
+  font-size: 12px;
+  color: var(--muted);
+  padding: 0 20px 14px;
+}
+.setup {
+  margin-top: 24px;
+  padding: clamp(16px, 2.4vw, 28px);
+}
+.desk :is(input, select, textarea) {
+  border-radius: 0;
+  accent-color: var(--ink);
+}
+.desk :focus-visible {
+  outline-color: var(--ink);
+}
+.desk input[type="file"]::file-selector-button {
+  border: 1px solid var(--border-strong);
+  color: var(--ink);
+  background: var(--surface);
+  padding: 6px 10px;
+  margin-right: 9px;
+  cursor: pointer;
+  font: inherit;
+}
+.header nav a[aria-current="page"] {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 5px;
 }
 .composer > fieldset {
-  padding: clamp(16px, 3vw, 26px) clamp(16px, 3vw, 28px) 16px;
+  padding: 0 clamp(18px, 2vw, 26px) 16px;
 }
 .briefLabel {
   display: block;
@@ -174,24 +128,8 @@
   font-size: 14px;
   font-weight: 600;
 }
-.brief {
-  display: block;
-  width: 100%;
-  min-height: 140px;
-  padding: 3px 0;
-  margin: 0;
-  resize: vertical;
-  border: 0;
-  background: transparent;
-  color: var(--ink);
-  font-size: 16px;
-  line-height: 1.55;
-}
-.brief::placeholder {
-  color: var(--muted);
-}
 .options {
-  margin-top: 16px;
+  margin-top: 0;
   border-bottom: 1px solid var(--line);
 }
 .option {
@@ -294,7 +232,7 @@
 }
 .optionBody > textarea,
 .optionBody input[type="search"],
-.settingGrid input,
+.settingGrid input:not([type="range"], [type="checkbox"]),
 .settingGrid select {
   width: 100%;
   min-width: 0;
@@ -340,8 +278,9 @@
 .launchFooter {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  flex-direction: column-reverse;
+  align-items: stretch;
+  gap: 10px;
   padding: 14px clamp(16px, 3vw, 28px);
   border-top: 1px solid var(--line);
   background: var(--paper);
@@ -456,11 +395,9 @@
   .header .homeLink {
     font-size: 14px;
   }
-  .composer {
-    margin-top: 16px;
-  }
+
   .settingGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(12.5rem, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     column-gap: 12px;
     align-items: end;
   }
@@ -472,7 +409,7 @@
     grid-column: 1 / -1;
   }
 }
-@media (max-width: 380px) {
+@media (max-width: 560px) {
   .headerInner {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -493,5 +430,39 @@
   }
   .option summary > span {
     max-width: 50%;
+  }
+}
+@media (max-width: 780px) {
+  .bench {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .composer {
+    position: static;
+    order: 1;
+  }
+}
+@media (min-width: 860px) {
+  .settingGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .sharedProfile {
+    grid-template-columns: 1fr 2fr;
+    align-items: start;
+    padding-block: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .settingGrid > :global(.role-model-settings[open]) {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    column-gap: 24px;
+  }
+  .settingGrid :global(.role-model-settings) > summary {
+    grid-column: 1/-1;
+  }
+  .settingGrid :global(.role-model-section) {
+    min-width: 0;
+    margin: 0;
+    padding: 14px 0 0;
+    border-top: 1px solid var(--line);
   }
 }

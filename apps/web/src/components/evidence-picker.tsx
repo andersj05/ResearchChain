@@ -18,6 +18,7 @@ export function EvidencePicker({
   label = "Evidence for this run",
   onAttachChart,
   attachedCharts = [],
+  showSelected = true,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
@@ -25,10 +26,11 @@ export function EvidencePicker({
   label?: string;
   onAttachChart?: (known: EvidenceRecord[]) => void;
   attachedCharts?: EvidenceRecord[];
+  showSelected?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
-  const [initialSelection] = useState(selected);
+  const [initialSelection] = useState(showSelected ? selected : []);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
   const [orderMessage, setOrderMessage] = useState("");
   const moveFocus = useRef<string>(null);
@@ -87,7 +89,7 @@ export function EvidencePicker({
           Upload a chart
         </Button>
       )}
-      {selected.length > 0 && (
+      {showSelected && selected.length > 0 && (
         <details className="evidence-selected">
           <summary>Selected sources ({selected.length})</summary>
           <ul>

@@ -3,6 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources } from "./discovery-sources";
+import { StudyPacket, packetSize } from "./study-packet";
+import type { EvidenceRecord } from "@/lib/evidence";
+import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
 import { ownerStoragePrefix } from "@/lib/access";
@@ -43,6 +46,17 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const [busy, setBusy] = useState(false);
   const [readingSample, setReadingSample] = useState(false);
   const [editingSource, setEditingSource] = useState(false);
+  const [captured, setCaptured] = useState<Map<string, EvidenceRecord>>(() => new Map());
+  const details = useSourceDetails(draft.evidence_ids.filter((id) => !captured.has(id)));
+  const records = draft.evidence_ids.map((id) => captured.get(id) ?? details.items.get(id));
+  const limit = draft.max_input_bytes ?? 8_000_000;
+  const size = packetSize(records);
+  const packetError =
+    size >= limit
+      ? "The source content fills the request limit. Unpin files to leave room for the lead’s instructions."
+      : records.filter((item) => item?.artifact).length > 64
+        ? "The analyst workspace holds 64 source files. Unpin files before starting this study."
+        : "";
   const [manageConnection, setManageConnection] = useState(false);
   const inFlight = useRef(false);
   const admitted = useRef(false);
@@ -65,7 +79,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const ready =
     !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
   const frozen = !active || !loaded || busy || !!pending;
-  const hasMaterial = draft.evidence_ids.length > 0;
+  const hasMaterial = draft.evidence_ids.length > 0 && !packetError && records.every(Boolean);
   const retryable = !!pending?.start_from_sources && unconfirmed === pending.id;
 
   useEffect(() => {
@@ -158,6 +172,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     const request: ResearchSessionStart = pending ?? {
       ...draft,
       start_from_sources: true,
+      max_input_bytes: limit,
       id: crypto.randomUUID(),
       model,
       provider_account_id: account!.id,
@@ -197,9 +212,25 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     setStartError("");
   }
 
+  function pin(source: EvidenceRecord) {
+    setCaptured((previous) => new Map(previous).set(source.id, source));
+    setForm((previous) =>
+      previous.draft.evidence_ids.includes(source.id)
+        ? previous
+        : {
+            ...previous,
+            draft: { ...previous.draft, evidence_ids: [...previous.draft.evidence_ids, source.id] },
+          },
+    );
+    setStartError("");
+  }
+
   return (
     <section className={styles.launch} aria-labelledby="research-title">
       <h1 id="research-title">{fromSession ? "Revisit material" : "New study"}</h1>
+      <p className={styles.intro}>
+        Gather the week’s material. The lead will suggest a sentence for you to investigate.
+      </p>
       {fromSession && (
         <p className={styles.origin}>
           Starting from a <a href={sessionUrl(fromSession)}>previous study</a>.
@@ -216,32 +247,162 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       {!loaded && !setupError && (
         <p role="status">Loading the previous sources and research settings…</p>
       )}
-      <DiscoverySources
-        ids={draft.evidence_ids}
-        disabled={frozen}
-        onChange={(evidence_ids) => update({ evidence_ids })}
-        onEditing={setEditingSource}
-      />
+      <div className={styles.bench}>
+        <DiscoverySources
+          ids={draft.evidence_ids}
+          known={Array.from(captured.values())}
+          onPin={pin}
+          disabled={frozen}
+          onChange={(evidence_ids) => update({ evidence_ids })}
+          onEditing={setEditingSource}
+        />
+        <aside className={styles.composer} aria-label="Prepare the first reading">
+          <StudyPacket
+            ids={draft.evidence_ids}
+            records={records}
+            disabled={frozen || editingSource}
+            onChange={(evidence_ids) => update({ evidence_ids })}
+            limit={limit}
+            size={size}
+            error={packetError}
+            retry={details.unresolved.length ? details.retry : undefined}
+          />
+          <fieldset disabled={frozen}>
+            <label className={styles.briefLabel} htmlFor="research-brief">
+              Context for the lead (optional)
+            </label>
+            <textarea
+              id="research-brief"
+              className={styles.shortBrief}
+              rows={2}
+              maxLength={10000}
+              value={draft.brief}
+              placeholder="What made you save this material?"
+              onChange={(event) => update({ brief: event.target.value })}
+            />
+          </fieldset>
+          {catalog.loading ? (
+            <p className={styles.planNote} role="status">
+              Checking the research connection…
+            </p>
+          ) : !account || catalog.error ? (
+            <div className={styles.connectPrompt}>
+              {catalog.error ? (
+                <p className="error" role="alert">
+                  {catalog.error}
+                </p>
+              ) : (
+                <p>Connect your ChatGPT plan to start research.</p>
+              )}
+              <ResearchPlanConnection
+                catalog={catalog}
+                disabled={busy}
+                connected={!!catalog.status?.accounts.some((item) => item.signed_in && item.active)}
+              />
+            </div>
+          ) : !ready && !pending ? (
+            <p className={styles.notice} role="alert">
+              Research settings · {problem}
+            </p>
+          ) : null}
+          {startError && (
+            <p role="alert" className={styles.notice}>
+              {startError}
+            </p>
+          )}
+          {pending && !busy && (
+            <div className={styles.recovery}>
+              <p role="status">
+                {unconfirmed === pending.id
+                  ? "This request has no saved session yet."
+                  : "Checking whether the session started."}{" "}
+                {pending.start_from_sources
+                  ? "A retry uses the same sources and request ID."
+                  : "Use Edit setup to choose sources for a new first reading."}
+              </p>
+              <button
+                className="text-link"
+                type="button"
+                onClick={() => {
+                  setUnconfirmed(undefined);
+                  setCheck((n) => n + 1);
+                }}
+              >
+                Check session
+              </button>
+              {unconfirmed === pending.id && (
+                <button
+                  className="text-link"
+                  type="button"
+                  onClick={() => {
+                    setPending(null);
+                    setUnconfirmed(undefined);
+                    setStartError("");
+                  }}
+                >
+                  Edit setup
+                </button>
+              )}
+            </div>
+          )}
+          <div className={styles.launchFooter}>
+            <div className={styles.account}>
+              {account && (
+                <button
+                  className={styles.accountButton}
+                  type="button"
+                  aria-expanded={manageConnection}
+                  onClick={() => setManageConnection(!manageConnection)}
+                >
+                  ChatGPT plan · {account.label}
+                </button>
+              )}
+              {model && <span>{model}</span>}
+            </div>
+            <button
+              type="submit"
+              form="study-settings"
+              className="button primary"
+              disabled={
+                !active ||
+                !loaded ||
+                busy ||
+                readingSample ||
+                editingSource ||
+                (pending
+                  ? !retryable ||
+                    catalog.loading ||
+                    !!catalog.error ||
+                    account?.id !== pending.provider_account_id
+                  : !ready || !hasMaterial)
+              }
+            >
+              {busy
+                ? "Starting research…"
+                : pending
+                  ? "Retry start"
+                  : "Ask the lead for a first reading"}
+            </button>
+          </div>
+          {account && manageConnection && (
+            <ResearchPlanConnection catalog={catalog} connected disabled={busy} />
+          )}
+          {editingSource && (
+            <p className={styles.pendingHint} role="status">
+              Pin or clear the material in progress to start the reading.
+            </p>
+          )}
+        </aside>
+      </div>
       <form
-        className={styles.composer}
+        id="study-settings"
+        className={styles.setup}
         onSubmit={(event) => {
           event.preventDefault();
           void start();
         }}
       >
         <fieldset disabled={frozen}>
-          <label className={styles.briefLabel} htmlFor="research-brief">
-            Context for the lead (optional)
-          </label>
-          <textarea
-            id="research-brief"
-            className={styles.shortBrief}
-            rows={2}
-            maxLength={10000}
-            value={draft.brief}
-            placeholder="What made you save this material?"
-            onChange={(event) => update({ brief: event.target.value })}
-          />
           <ResearchBriefOptions
             draft={draft}
             model={model}
@@ -256,115 +417,10 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               type="checkbox"
               checked={draft.web_search}
               onChange={(event) => update({ web_search: event.target.checked })}
-            />
+            />{" "}
             Allow live web search
           </label>
         </fieldset>
-        {catalog.loading ? (
-          <p className={styles.planNote} role="status">
-            Checking the research connection…
-          </p>
-        ) : !account || catalog.error ? (
-          <div className={styles.connectPrompt}>
-            {catalog.error ? (
-              <p className="error" role="alert">
-                {catalog.error}
-              </p>
-            ) : (
-              <p>Connect your ChatGPT plan to start research.</p>
-            )}
-            <ResearchPlanConnection
-              catalog={catalog}
-              disabled={busy}
-              connected={!!catalog.status?.accounts.some((item) => item.signed_in && item.active)}
-            />
-          </div>
-        ) : !ready && !pending ? (
-          <p className={styles.notice} role="alert">
-            Research settings · {problem}
-          </p>
-        ) : null}
-        {startError && (
-          <p role="alert" className={styles.notice}>
-            {startError}
-          </p>
-        )}
-        {pending && !busy && (
-          <div className={styles.recovery}>
-            <p role="status">
-              {unconfirmed === pending.id
-                ? "This request has no saved session yet."
-                : "Checking whether the session started."}{" "}
-              {pending.start_from_sources
-                ? "A retry uses the same sources and request ID."
-                : "Use Edit setup to choose sources for a new first reading."}
-            </p>
-            <button
-              className="text-link"
-              type="button"
-              onClick={() => {
-                setUnconfirmed(undefined);
-                setCheck((n) => n + 1);
-              }}
-            >
-              Check session
-            </button>
-            {unconfirmed === pending.id && (
-              <button
-                className="text-link"
-                type="button"
-                onClick={() => {
-                  setPending(null);
-                  setUnconfirmed(undefined);
-                  setStartError("");
-                }}
-              >
-                Edit setup
-              </button>
-            )}
-          </div>
-        )}
-        <div className={styles.launchFooter}>
-          <div className={styles.account}>
-            {account && (
-              <button
-                className={styles.accountButton}
-                type="button"
-                aria-expanded={manageConnection}
-                onClick={() => setManageConnection(!manageConnection)}
-              >
-                ChatGPT plan · {account.label}
-              </button>
-            )}
-            {model && <span>{model}</span>}
-          </div>
-          <button
-            type="submit"
-            className="button primary"
-            disabled={
-              !active ||
-              !loaded ||
-              busy ||
-              readingSample ||
-              editingSource ||
-              (pending
-                ? !retryable ||
-                  catalog.loading ||
-                  !!catalog.error ||
-                  account?.id !== pending.provider_account_id
-                : !ready || !hasMaterial)
-            }
-          >
-            {busy
-              ? "Starting research…"
-              : pending
-                ? "Retry start"
-                : "Ask the lead for a first reading"}
-          </button>
-        </div>
-        {account && manageConnection && (
-          <ResearchPlanConnection catalog={catalog} connected disabled={busy} />
-        )}
       </form>
     </section>
   );

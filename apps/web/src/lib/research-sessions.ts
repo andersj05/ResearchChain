@@ -29,7 +29,7 @@ export type ResearchBrief = Required<
     ResearchSessionSetup,
     "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor" | "swarm"
   > &
-  Partial<Pick<ResearchSessionSetup, "start_from_sources">>;
+  Partial<Pick<ResearchSessionSetup, "start_from_sources" | "max_input_bytes">>;
 
 export const blankResearchBrief: ResearchBrief = {
   brief: "",
@@ -88,6 +88,7 @@ export function editableResearchBrief(source: ResearchSessionSetup): ResearchBri
   return {
     brief: source.start_from_sources && source.brief === "Source-led study" ? "" : source.brief,
     ...(source.start_from_sources && { start_from_sources: true }),
+    max_input_bytes: source.max_input_bytes ?? 4_000_000,
     style_excerpt: source.style_excerpt ?? "",
     model: source.model,
     reasoning_effort: source.reasoning_effort,
