@@ -17,6 +17,7 @@ import {
 } from "./research-session-workspace";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
+import { SessionDiscovery } from "./session-discovery";
 import { SessionRoster } from "./session-roster";
 import { LeadConsultation, ConsultationHistory, rememberAnswer } from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
@@ -191,8 +192,13 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     (review) => !acceptedReviews.includes(review.interrupt_id),
   );
   const question = questions.find((review) => !review.perspective);
+  const discovery = !!run.research_manifest?.tool_config.discovery_version;
+  const sentenceReview = question?.path === "root/working_sentence" ? question : undefined;
+  const sentenceDecision = run.events.find(
+    (event) => event.path === "root/working_sentence" && event.review_response,
+  )?.review_response;
   const recordedJudgment = run.events.find(
-    (event) => event.review_response && (!swarm || event.path === "root/judgment"),
+    (event) => event.review_response && event.path === "root/judgment",
   )?.review_response;
   const title = run.brief.trim().split("\n")[0]!.slice(0, 120);
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
@@ -201,7 +207,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     <main className={styles.page}>
       <div className={styles.intro}>
         <div className={styles.meta}>
-          <RunStatus status={run.status} announce />
+          <RunStatus
+            status={run.status}
+            label={sentenceDecision?.decision === "reject" ? "Parked" : undefined}
+            announce
+          />
           <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
         </div>
         <h1>
@@ -312,7 +322,30 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           </button>
         </div>
       )}
-      {run.stop_reason && <p className={styles.notice}>{run.stop_reason}</p>}
+      {run.stop_reason && sentenceDecision?.decision !== "reject" && (
+        <p className={styles.notice}>{run.stop_reason}</p>
+      )}
+      {discovery && (
+        <SessionDiscovery
+          run={run}
+          review={sentenceReview}
+          decision={sentenceDecision}
+          team={team}
+          draftKey={draftKey}
+          disabled={busy || !active || run.execution_pending}
+          onSelect={selectWorkspace}
+          respond={(decision, feedback) =>
+            sentenceReview &&
+            run.checkpoint_id &&
+            void act("resume", {
+              checkpoint_id: run.checkpoint_id,
+              interrupt_id: sentenceReview.interrupt_id,
+              decision,
+              feedback,
+            })
+          }
+        />
+      )}
       {run.checkpoint_id &&
         questions
           .filter((review) => review.perspective)
@@ -336,20 +369,22 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             />
           ))}
       <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
-      <SessionDirections
-        run={run}
-        lanes={lanes}
-        onSelect={selectWorkspace}
-        onRecorded={(note) => {
-          setRun((value) => {
-            if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
-              return value;
-            return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
-          });
-          setRefresh((n) => n + 1);
-        }}
-      />
-      {question && run.checkpoint_id && (
+      {(!discovery || sentenceDecision?.decision === "approve") && (
+        <SessionDirections
+          run={run}
+          lanes={lanes}
+          onSelect={selectWorkspace}
+          onRecorded={(note) => {
+            setRun((value) => {
+              if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
+                return value;
+              return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
+            });
+            setRefresh((n) => n + 1);
+          }}
+        />
+      )}
+      {question && !sentenceReview && run.checkpoint_id && (
         <OwnerQuestion
           key={question.interrupt_id}
           question={question}
@@ -416,7 +451,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               </Button>
             ))}
           <Button className="button" onClick={() => onNewStudy(run.id)}>
-            Revise brief
+            {discovery ? "Revisit material" : "Revise brief"}
           </Button>
         </div>
       </footer>

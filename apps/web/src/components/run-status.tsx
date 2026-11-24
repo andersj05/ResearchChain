@@ -15,9 +15,11 @@ export const runStatusLabels = {
 export function RunStatus({
   status,
   announce = false,
+  label,
 }: {
   status: RunSummary["status"];
   announce?: boolean;
+  label?: string;
 }) {
   return (
     <span
@@ -26,7 +28,7 @@ export function RunStatus({
       aria-label={announce ? "Run status" : undefined}
     >
       <i aria-hidden="true" />
-      {runStatusLabels[status]}
+      {label ?? runStatusLabels[status]}
     </span>
   );
 }

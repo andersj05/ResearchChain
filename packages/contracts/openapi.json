@@ -3805,6 +3805,84 @@
         "type": "object",
         "title": "ContentPreview"
       },
+      "DiscoveryProposal": {
+        "properties": {
+          "sentence": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sentence"
+          },
+          "alternative": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Alternative"
+          },
+          "first_check": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "First Check"
+          },
+          "weaken_if": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Weaken If"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Evidence Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["sentence", "alternative", "first_check", "weaken_if", "evidence_ids"],
+        "title": "DiscoveryProposal"
+      },
+      "DiscoveryReading": {
+        "properties": {
+          "observation": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Observation"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCitation"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Citations"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryProposal"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "title": "Proposals"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["observation", "question", "citations", "proposals"],
+        "title": "DiscoveryReading"
+      },
       "EvaluationArchive": {
         "properties": {
           "id": {
@@ -7956,14 +8034,14 @@
         "properties": {
           "max_model_calls": {
             "type": "integer",
-            "maximum": 1021.0,
+            "maximum": 1022.0,
             "minimum": 0.0,
             "title": "Max Model Calls",
             "default": 3
           },
           "max_tool_calls": {
             "type": "integer",
-            "maximum": 1021.0,
+            "maximum": 1022.0,
             "minimum": 0.0,
             "title": "Max Tool Calls",
             "default": 3
@@ -8091,9 +8169,13 @@
           "brief": {
             "type": "string",
             "maxLength": 10000,
-            "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
+          },
+          "start_from_sources": {
+            "type": "boolean",
+            "title": "Start From Sources",
+            "default": false
           },
           "style_excerpt": {
             "type": "string",
@@ -8235,9 +8317,13 @@
           "brief": {
             "type": "string",
             "maxLength": 10000,
-            "minLength": 1,
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
+          },
+          "start_from_sources": {
+            "type": "boolean",
+            "title": "Start From Sources",
+            "default": false
           },
           "style_excerpt": {
             "type": "string",
@@ -9819,6 +9905,16 @@
             "anyOf": [
               {
                 "$ref": "#/components/schemas/TeamPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "discovery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiscoveryReading"
               },
               {
                 "type": "null"

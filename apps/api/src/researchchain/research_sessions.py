@@ -25,6 +25,7 @@ from researchchain.graph import (
     WorkflowNode,
 )
 from researchchain.models import RunSnapshot
+from researchchain.research_discovery import DISCOVERY_PROMPT
 from researchchain.revisions import NotFoundError
 
 SESSION_VERSION = "brief-led-1"
@@ -32,7 +33,8 @@ ReviewMode = Literal["when_needed", "always", "never"]
 
 
 class ResearchSessionSetup(StrictModel):
-    brief: str = Field(min_length=1, max_length=10000, pattern=r"^[^\x00]*$")
+    brief: str = Field(max_length=10000, pattern=r"^[^\x00]*$")
+    start_from_sources: bool = Field(default=False, exclude_if=lambda value: not value)
     style_excerpt: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
     model: ModelSlug
     reasoning_effort: ReasoningEffort | None = Field(default=None, exclude_if=lambda x: x is None)
@@ -56,7 +58,11 @@ class ResearchSessionSetup(StrictModel):
 
     @model_validator(mode="after")
     def validate_inputs(self) -> Self:
-        if not self.brief.strip():
+        if self.start_from_sources and not self.evidence_ids:
+            raise ValueError("Pin at least one source to start a discovery study.")
+        if self.start_from_sources and not self.brief.strip():
+            self.brief = "Source-led study"
+        elif not self.brief.strip():
             raise ValueError("Write a research brief to start a session.")
         if len(self.evidence_ids) != len(set(self.evidence_ids)):
             raise ValueError("Select each evidence record only once.")
@@ -76,6 +82,31 @@ class ResearchSessionStart(ResearchSessionSetup):
 
 def session_workflow(setup: ResearchSessionSetup) -> Workflow:
     analyst = AnalystConfig(max_passes=setup.max_passes, workspace=True)
+    nodes: list[WorkflowNode] = []
+    if setup.start_from_sources:
+        nodes.extend(
+            [
+                WorkflowNode(
+                    id="discovery",
+                    kind="research",
+                    label="Read the source material",
+                    instructions=DISCOVERY_PROMPT,
+                    position=Position(x=0, y=0),
+                    config=ResearchConfig(
+                        stage="custom",
+                        prompt_version="custom-1",
+                        **(setup.lead.model_dump(exclude_none=True) if setup.lead else {}),
+                    ),
+                ),
+                WorkflowNode(
+                    id="working_sentence",
+                    kind="review",
+                    label="Choose a working sentence",
+                    instructions="Choose a working sentence, write your own or park the study.",
+                    position=Position(x=300, y=0),
+                ),
+            ]
+        )
     team = WorkflowNode(
         id="team",
         kind="research",
@@ -85,7 +116,7 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             "follow leads, test competing explanations and revise their findings. Save the "
             "sources, data and analysis files that support material claims."
         ),
-        position=Position(x=0, y=0),
+        position=Position(x=300 * len(nodes), y=0),
         config=ResearchConfig(
             stage="custom",
             prompt_version="custom-1",
@@ -99,7 +130,18 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             web_search="auto" if setup.web_search else False,
         ),
     )
-    nodes = [team]
+    if setup.start_from_sources:
+        team.instructions += (
+            " The owner's working sentence is in human_feedback. Commission a concrete test of "
+            "that wording using the pinned first reading and its rivals. Include the comparison "
+            "and a result that would weaken the sentence in the assignment. Keep the owner's "
+            "judgment distinct from evidence."
+        )
+        team.inputs = {
+            "context": ValueSource(source="output", node_id="discovery", port="text"),
+            "feedback": ValueSource(source="output", node_id="working_sentence", port="feedback"),
+        }
+    nodes.append(team)
     report_inputs = {"context": ValueSource(source="output", node_id="team", port="text")}
     if setup.review_mode != "never":
         nodes.append(
@@ -115,7 +157,7 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
                 inputs={
                     "question": ValueSource(source="output", node_id="team", port="review_question")
                 },
-                position=Position(x=300, y=0),
+                position=Position(x=300 * len(nodes), y=0),
             )
         )
         report_inputs["feedback"] = ValueSource(
@@ -156,11 +198,11 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
     swarm = setup.swarm
     researchers = swarm.lead_count * swarm.researchers_per_lead if swarm else setup.max_agents
     lead_turns = swarm.lead_count * swarm.max_lead_turns if swarm else 0
-    calls = 1 + lead_turns + (researchers + 1) * setup.max_passes
+    calls = 1 + int(setup.start_from_sources) + lead_turns + (researchers + 1) * setup.max_passes
     return Workflow(
         schema_version="0.3",
-        name="Research session",
-        start_node="team",
+        name="Source-led research" if setup.start_from_sources else "Research session",
+        start_node=nodes[0].id,
         nodes=nodes,
         edges=[
             WorkflowEdge(source=a.id, target=b.id) for a, b in zip(nodes, nodes[1:], strict=False)
@@ -197,6 +239,7 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
     assert isinstance(editor, ResearchConfig)
     return ResearchSessionSetup(
         brief=run.brief,
+        start_from_sources=run.workflow.start_node == "discovery",
         style_excerpt=editor.style_excerpt or "",
         model=run.research_manifest.settings.model,
         reasoning_effort=run.research_manifest.settings.reasoning_effort,

@@ -41,7 +41,9 @@ from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
 from researchchain.research_directions import DIRECTIONS_VERSION, pin_directions
+from researchchain.research_discovery import DISCOVERY_VERSION, first_reading
 from researchchain.research_models import (
+    DiscoveryReading,
     EvidenceSnapshot,
     ModelAttempt,
     OwnerDirection,
@@ -763,6 +765,9 @@ class ResearchExecutor:
         exports: dict[str, bytes] = {}
         last_update = 0.0
         workspace = bool(node.config.analyst and node.config.analyst.workspace)
+        discovery = (
+            self.manifest.tool_config.get("discovery_version") if path == "root/discovery" else None
+        )
 
         def progress(update: str | WebSearchProgress) -> None:
             nonlocal partial, last_update
@@ -801,6 +806,11 @@ class ResearchExecutor:
                     style_excerpt=node.config.style_excerpt,
                     owner_directions=directions,
                 )
+                if discovery:
+                    if discovery != DISCOVERY_VERSION:
+                        raise ValueError("This study requires its pinned discovery implementation.")
+                    prepared.instructions = node.instructions
+                    prepared.schema = DiscoveryReading.model_json_schema()
                 if director:
                     assert director.analyst and director.team
                     prepare_plan(
@@ -845,7 +855,7 @@ class ResearchExecutor:
                             self.manifest.settings.limits.max_input_bytes,
                         )
                 payload = json_bytes(prepared.request_body())
-                if (node.config.analyst or director or directions or swarm) and len(
+                if (node.config.analyst or director or directions or swarm or discovery) and len(
                     payload
                 ) > self.manifest.settings.limits.max_input_bytes:
                     raise ValueError(
@@ -878,6 +888,10 @@ class ResearchExecutor:
                     result=result,
                     output_characters=lead_characters,
                 )
+                return result
+            if discovery:
+                result = first_reading(partial, prepared)
+                self.finish(attempt_id, "completed", partial, completion, result=result)
                 return result
             if director:
                 assert director.team

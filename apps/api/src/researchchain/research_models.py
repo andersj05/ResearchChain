@@ -134,6 +134,32 @@ class TeamAssignment(ResearchModel):
     ]
 
 
+class DiscoveryProposal(ResearchModel):
+    sentence: OwnerQuestion
+    alternative: OwnerQuestion
+    first_check: OwnerQuestion
+    weaken_if: OwnerQuestion
+    evidence_ids: list[UUID] = Field(min_length=1, max_length=8)
+
+
+class DiscoveryReading(ResearchModel):
+    observation: OwnerQuestion
+    question: OwnerQuestion
+    citations: list[ResearchCitation] = Field(max_length=12)
+    proposals: list[DiscoveryProposal] = Field(max_length=2)
+
+    @model_validator(mode="after")
+    def grounded_proposals(self) -> Self:
+        if len({p.sentence.casefold() for p in self.proposals}) != len(self.proposals):
+            raise ValueError("Each proposed working sentence must be distinct.")
+        captured = {c.evidence_id for c in self.citations if c.basis != "metadata_only"}
+        for proposal in self.proposals:
+            ids = set(proposal.evidence_ids)
+            if len(ids) != len(proposal.evidence_ids) or not ids <= captured:
+                raise ValueError("Each proposal must reference its distinct, cited source content.")
+        return self
+
+
 class TeamPlan(ResearchModel):
     assignments: list[TeamAssignment] = Field(min_length=1, max_length=4)
     review_question: OwnerQuestion | None = None
@@ -228,6 +254,7 @@ class StoredResearchResult(ResearchResult):
     workspace_files: list[WorkspaceFile] = Field(default_factory=list, exclude_if=lambda x: not x)
     report_artifact: WorkspaceFile | None = Field(default=None, exclude_if=lambda x: x is None)
     team_plan: TeamPlan | None = Field(default=None, exclude_if=lambda x: x is None)
+    discovery: DiscoveryReading | None = Field(default=None, exclude_if=lambda x: x is None)
     swarm_plan: SwarmLeadPlan | None = Field(default=None, exclude_if=lambda x: x is None)
     swarm_action: SwarmAction | None = Field(default=None, exclude_if=lambda x: x is None)
     review_question: OwnerQuestion | None = Field(default=None, exclude_if=lambda x: x is None)
