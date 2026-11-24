@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { Files, Upload, X } from "lucide-react";
 import { api } from "@/lib/workflow";
 import {
@@ -35,9 +35,11 @@ export function SourceFileBatch({
   onPin,
   onPending,
   onSaving,
+  children,
 }: {
   attribution: Attribution;
   count: number;
+  children: ReactNode;
   disabled: boolean;
   onPin: (source: EvidenceRecord) => void;
   onPending: (pending: boolean) => void;
@@ -97,7 +99,7 @@ export function SourceFileBatch({
         try {
           let command = row.command;
           if (!command) {
-            const artifact = await uploadOriginal(row.file, attribution.rights!);
+            const artifact = await uploadOriginal(row.file, attribution.rights);
             const media = artifact.media_type;
             const expected =
               row.kind === "image"
@@ -187,6 +189,7 @@ export function SourceFileBatch({
           <small>Charts, PDFs, text, Markdown, CSV and TSV · up to 20 MB per file</small>
         </span>
       </button>
+      {children}
       {!!rows.length && (
         <div className={styles.queue}>
           <ul aria-label="Files to pin">

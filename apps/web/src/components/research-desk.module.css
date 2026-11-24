@@ -70,6 +70,18 @@
   margin-top: 24px;
   align-items: start;
 }
+.jumps {
+  display: none;
+}
+@media (max-width: 780px) {
+  .jumps {
+    display: flex;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 13px;
+    text-underline-offset: 3px;
+  }
+}
 .composer,
 .setup {
   min-width: 0;

@@ -231,6 +231,10 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       <p className={styles.intro}>
         Gather the week’s material. The lead will suggest a sentence for you to investigate.
       </p>
+      <nav className={styles.jumps} aria-label="Study sections">
+        <a href="#packet-heading">Study packet ({draft.evidence_ids.length})</a>
+        <a href="#study-settings">Research settings</a>
+      </nav>
       {fromSession && (
         <p className={styles.origin}>
           Starting from a <a href={sessionUrl(fromSession)}>previous study</a>.

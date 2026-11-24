@@ -93,40 +93,41 @@ export function DiscoverySources({
             setFilePending(pending);
             onEditing(pending || touched);
           }}
-        />
-        <fieldset
-          disabled={locked}
-          className={styles.provenance}
-          onChange={() => {
-            command.current = null;
-          }}
         >
-          <legend>Source details</legend>
-          <label>
-            Usage rights
-            <select value={rights} onChange={(e) => setRights(e.target.value as typeof rights)}>
-              <option value="unknown">Select rights</option>
-              {(["owned", "permission", "open_license", "public_domain"] as const).map((r) => (
-                <option key={r} value={r}>
-                  {rightsLabels[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Author or speaker
-            <input
-              maxLength={240}
-              placeholder="Optional"
-              value={author}
-              onChange={(e) => setAuthor(e.target.value)}
-            />
-          </label>
-          <label>
-            As of
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
-        </fieldset>
+          <fieldset
+            disabled={locked}
+            className={styles.provenance}
+            onChange={() => {
+              command.current = null;
+            }}
+          >
+            <legend>Source details</legend>
+            <label>
+              Usage rights
+              <select value={rights} onChange={(e) => setRights(e.target.value as typeof rights)}>
+                <option value="unknown">Select rights</option>
+                {(["owned", "permission", "open_license", "public_domain"] as const).map((r) => (
+                  <option key={r} value={r}>
+                    {rightsLabels[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Author or speaker
+              <input
+                maxLength={240}
+                placeholder="Optional"
+                value={author}
+                onChange={(e) => setAuthor(e.target.value)}
+              />
+            </label>
+            <label>
+              As of
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </label>
+          </fieldset>
+        </SourceFileBatch>
         <form
           aria-label="Paste a source"
           className={styles.paste}
