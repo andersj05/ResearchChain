@@ -4,8 +4,7 @@ Updated 2026-11-24.
 
 ## Source-led research
 
-The desk accepts a week of charts, notes and attributed conversations with
-optional context. A lead reads the pinned sources, then waits for the owner's
+The desk opens directly on source intake. Drop multiple charts, documents, tables or transcripts, paste sources, or pin saved material beside the visible packet. New studies and revisions use a first reading. The Methodology page shows the handoffs, parking path and optional editorial review. A lead reads the pinned sources, then waits for the owner's
 working sentence before commissioning research. The session keeps the original
 proposal, exact owner judgment, issued assignments and request receipts. A
 parked packet can seed another study.
@@ -17,7 +16,7 @@ followed it into the saved researcher request. Owner evaluation of a real
 week's material remains open.
 [Desk guide](../research-sessions.md#start-from-a-week-of-material) ·
 [Decision](../decisions/0025-source-led-discovery.md) ·
-[Delivery issue](https://github.com/andersj05/ResearchChain/issues/143).
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/145).
 
 ## Multi-lead research and expert consultations
 

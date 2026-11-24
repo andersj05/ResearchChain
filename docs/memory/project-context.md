@@ -49,8 +49,10 @@ agent and supply usability feedback. Preserve that as the next step.
 The anchor report can guide development but cannot also be an uncontaminated
 holdout. Writing resemblance alone is not a measure of research quality.
 
-On 2026-11-20 the owner requested a brief-first research desk for work that needs
-autonomous investigation. A lead should delegate parallel assignments, each
+On 2026-11-24 the owner specified a source-only entry for the Research desk.
+A week of charts, notes and conversations precedes the working sentence. Batch
+intake, visible settings and a methodology graph should make the handoffs and
+owner decisions legible. A lead should delegate parallel assignments, each
 researcher should have its own workspace, and the owner should be able to see
 ongoing work, supply judgment and read a report with its charts.
 See [adaptive research teams](../decisions/0023-adaptive-research-teams.md).
