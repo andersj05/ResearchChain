@@ -33,9 +33,9 @@ class BrowserProvider(WebProvider):
         return catalog
 
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
-        if manifest.tool_config.get("discovery_version") and (
-            "proposals" in prepared.schema["properties"]
-            or not manifest.tool_config.get("swarm_version")
+        if (
+            manifest.tool_config.get("discovery_version")
+            and "proposals" in prepared.schema["properties"]
         ):
             return await self.discovery.complete(manifest, prepared, on_delta)
         swarm_response = await swarm_completion(prepared, on_delta)
@@ -44,6 +44,10 @@ class BrowserProvider(WebProvider):
         team_response = await self.team.complete_study(manifest, prepared, on_delta)
         if team_response is not None:
             return team_response
+        if manifest.tool_config.get("discovery_version") and not manifest.tool_config.get(
+            "swarm_version"
+        ):
+            return await self.discovery.complete(manifest, prepared, on_delta)
         on_delta('{"schema_version":')
         if "Wait for cancellation" in str(prepared.input_items):
             await asyncio.sleep(60)

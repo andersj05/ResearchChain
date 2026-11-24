@@ -8,12 +8,10 @@ test("commission a different investigation from a week of pinned material and in
   test.setTimeout(150_000);
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
-  await page.getByText("Start from sources", { exact: true }).click();
+  await expect(page.getByRole("radio", { name: "Start with a brief" })).toHaveCount(0);
   const start = page.getByRole("button", { name: "Ask the lead for a first reading" });
   await expect(start).toBeDisabled();
 
-  await page.getByRole("button", { name: "Add chart" }).click();
-  const chart = page.getByRole("form", { name: "Add chart" });
   const png = await page.evaluate(() => {
     const canvas = document.createElement("canvas");
     canvas.width = 360;
@@ -32,33 +30,28 @@ test("commission a different investigation from a week of pinned material and in
     ctx.stroke();
     return canvas.toDataURL().split(",")[1]!;
   });
-  await chart.getByLabel("Chart file").setInputFiles({
-    name: "Weekly index.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(png, "base64"),
-  });
-  await chart.getByLabel("Usage rights").selectOption("owned");
-  await chart.getByRole("button", { name: "Pin chart" }).click();
+  await page.getByLabel("Source files").setInputFiles([
+    { name: "Weekly index.png", mimeType: "image/png", buffer: Buffer.from(png, "base64") },
+    {
+      name: "Monday expectations.md",
+      mimeType: "text/markdown",
+      buffer: Buffer.from("I expected the stocks with near-term maturities to respond first."),
+    },
+  ]);
+  await page.getByLabel("Usage rights").selectOption("owned");
+  await page.getByRole("button", { name: "Pin 2 files" }).click();
   const packet = page.getByRole("list", { name: "Pinned material" });
   await expect(packet).toContainText("Weekly index.png");
-  await page.getByRole("button", { name: "Add note" }).click();
-  const note = page.getByRole("form", { name: "Add note" });
-  await note.getByLabel("Source title").fill("Monday expectations");
-  await note
-    .getByLabel("Note text")
-    .fill("I expected the stocks with near-term maturities to respond first.");
-  await note.getByLabel("Usage rights").selectOption("owned");
-  await note.getByRole("button", { name: "Pin note" }).click();
-  await expect(packet).toContainText("Monday expectations");
-  await page.getByRole("button", { name: "Add conversation" }).click();
-  const conversation = page.getByRole("form", { name: "Add conversation" });
+  await expect(packet).toContainText("Monday expectations.md");
+  const conversation = page.getByRole("form", { name: "Paste a source" });
+  await conversation.getByRole("button", { name: "Conversation", exact: true }).click();
   await conversation.getByLabel("Source title").fill("Friday desk call");
   await conversation
     .getByLabel("Conversation excerpt")
     .fill("At our desk, the median member was flat.");
-  await conversation.getByLabel("Speaker or desk").fill("Synthetic sector desk");
-  await conversation.getByLabel("As of").fill("2026-11-20");
-  await conversation.getByLabel("Usage rights").selectOption("permission");
+  await page.getByLabel("Author or speaker").fill("Synthetic sector desk");
+  await page.getByLabel("As of").fill("2026-11-20");
+  await page.getByLabel("Usage rights").selectOption("permission");
   await conversation.getByRole("button", { name: "Pin conversation" }).click();
   await expect(packet).toContainText("Synthetic sector desk");
   await page.reload();

@@ -1,3 +1,4 @@
+import { commissionDeskStudy, pinDeskNote } from "./desk-material";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { expect, test } from "./fixtures";
@@ -14,16 +15,19 @@ test("follow two research leads from queued work through an expert consultation 
   const answer = "Focus on inventories and challenge the timing.";
   await page.setViewportSize({ width: 1280, height: 920 });
   await page.goto("/");
-  await page.getByLabel("Research brief", { exact: true }).fill(`Swarm browser study ${id}`);
+  await pinDeskNote(page);
+  await page
+    .getByLabel("Context for the lead (optional)", { exact: true })
+    .fill(`Swarm browser study ${id}`);
   const settings = page.locator("summary").filter({ hasText: "Research settings" });
-  await settings.click();
+
   await page.getByLabel("Team structure").selectOption("swarm");
   await expect(page.getByRole("combobox", { name: "Research leads", exact: true })).toHaveValue(
     "2",
   );
   await expect(page.getByLabel("Researchers per lead")).toHaveValue("20");
   await page.getByLabel("Researchers per lead").fill("3");
-  await page.locator("summary").filter({ hasText: "Swarm limits" }).click();
+
   await page.getByLabel("Active slots", { exact: true }).fill("1");
   await page.getByLabel("Turns per lead").fill("4");
   await page.getByLabel("Passes per agent").fill("3");
@@ -50,8 +54,9 @@ test("follow two research leads from queued work through an expert consultation 
   await settings.locator("..").screenshot({ path: info.outputPath("phone-swarm-controls.png") });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.setViewportSize({ width: 1280, height: 920 });
-  await page.getByRole("button", { name: "Start research", exact: true }).click();
+  await page.getByRole("button", { name: "Ask the lead for a first reading", exact: true }).click();
   await expect(page).toHaveURL(/session=[\da-f-]{36}/);
+  await commissionDeskStudy(page, "Compare demand and supply timing across the two releases.");
   const runId = new URL(page.url()).searchParams.get("session")!;
   const roster = page.getByRole("navigation", { name: "Agent workspaces" });
   const demand = roster.getByRole("region", { name: "Demand team" });
@@ -120,7 +125,7 @@ test("follow two research leads from queued work through an expert consultation 
     model: "gpt-6.2-sol",
     reasoning_effort: "high",
     verbosity: "high",
-    limits: { max_model_calls: 30 },
+    limits: { max_model_calls: 31 },
   });
   expect(run.workflow.nodes.find((node) => node.id === "team")?.config).toMatchObject({
     team: { lead: { model: "gpt-6.2-astra" }, researcher: { model: "gpt-6.2-sol" } },
@@ -136,7 +141,9 @@ test("follow two research leads from queued work through an expert consultation 
   }
   await Promise.all(
     attempts.map(async (attempt) => {
-      const lead = attempt.path === "root/team/plan" || /\/turn-\d+$/.test(attempt.path);
+      const lead =
+        ["root/discovery", "root/team/plan"].includes(attempt.path) ||
+        /\/turn-\d+$/.test(attempt.path);
       const model = lead ? "gpt-6.2-astra" : "gpt-6.2-sol";
       expect(attempt.model, attempt.path).toBe(model);
       const input = await request.get(
@@ -163,8 +170,8 @@ test("follow two research leads from queued work through an expert consultation 
   const packet = await (await request.get(saved!)).json();
   expect(JSON.stringify(packet.input)).toContain(answer);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole("button", { name: "Revise brief" }).click();
-  await settings.click();
+  await page.getByRole("button", { name: "Revisit material" }).click();
+
   await expect(page.getByLabel("Team structure")).toHaveValue("swarm");
   await expect(page.getByLabel("Researchers per lead")).toHaveValue("3");
   await expect(sharedModel).toHaveValue("gpt-6.2-sol");
@@ -207,16 +214,17 @@ test("the swarm preset preserves unavailable requested models and lets the owner
     }),
   );
   await page.goto("/");
+  await pinDeskNote(page);
   await page
-    .getByLabel("Research brief", { exact: true })
+    .getByLabel("Context for the lead (optional)", { exact: true })
     .fill("Test an explicit model replacement.");
-  await page.locator("summary").filter({ hasText: "Research settings" }).click();
+
   const topology = page.getByLabel("Team structure");
-  const start = page.getByRole("button", { name: "Start research", exact: true });
+  const start = page.getByRole("button", { name: "Ask the lead for a first reading", exact: true });
   const lead = page.getByRole("combobox", { name: "Research lead model", exact: true });
   const worker = page.getByRole("combobox", { name: "Researchers model", exact: true });
   await expect(topology).toHaveValue("standard");
-  await page.locator("summary").filter({ hasText: "Models by role" }).click();
+
   await expect(lead.locator("option:checked")).toHaveText("gpt-6.2-astra (unavailable)");
   await expect(worker.locator("option:checked")).toHaveText("gpt-6.2-sol (unavailable)");
   await expect(start).toBeDisabled();
@@ -234,7 +242,7 @@ test("the swarm preset preserves unavailable requested models and lets the owner
   await expect(lead).toHaveValue("verified-fixture");
   await expect(worker).toHaveValue("verified-fixture");
   await page.reload();
-  await page.locator("summary").filter({ hasText: "Research settings" }).click();
+
   await expect(topology).toHaveValue("swarm");
   await expect(lead).toHaveValue("verified-fixture");
 });

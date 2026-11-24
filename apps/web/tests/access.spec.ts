@@ -137,7 +137,9 @@ test("first owner setup exchanges a link once and removes it from the address", 
     if (request.url().endsWith("/api/access/exchange")) exchanges += 1;
   });
   await page.goto(`/#owner-link=${code}`);
-  await expect(page.getByRole("textbox", { name: "Research brief", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Context for the lead (optional)", exact: true }),
+  ).toBeVisible();
   expect(page.url()).not.toContain(code);
   expect(exchanges).toBe(1);
   expect(requestUrls.every((url) => !url.includes(code!))).toBe(true);
