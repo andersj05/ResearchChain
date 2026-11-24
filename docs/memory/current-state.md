@@ -1,6 +1,23 @@
 # Current state
 
-Updated 2026-11-20.
+Updated 2026-11-24.
+
+## Source-led research
+
+The desk accepts a week of charts, notes and attributed conversations with
+optional context. A lead reads the pinned sources, then waits for the owner's
+working sentence before commissioning research. The session keeps the original
+proposal, exact owner judgment, issued assignments and request receipts. A
+parked packet can seed another study.
+
+Synthetic runs checked that two different judgments send different assignments
+and that parking stops after one lead call. A Chromium rehearsal captured all
+three material types, restored an edited sentence on a phone-width screen and
+followed it into the saved researcher request. Owner evaluation of a real
+week's material remains open.
+[Desk guide](../research-sessions.md#start-from-a-week-of-material) ·
+[Decision](../decisions/0025-source-led-discovery.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/143).
 
 ## Multi-lead research and expert consultations
 
