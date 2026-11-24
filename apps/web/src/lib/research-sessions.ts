@@ -27,14 +27,9 @@ export type ResearchBrief = Required<
 > &
   Pick<
     ResearchSessionSetup,
-    | "reasoning_effort"
-    | "verbosity"
-    | "lead"
-    | "researcher"
-    | "editor"
-    | "swarm"
-    | "start_from_sources"
-  >;
+    "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor" | "swarm"
+  > &
+  Partial<Pick<ResearchSessionSetup, "start_from_sources">>;
 
 export const blankResearchBrief: ResearchBrief = {
   brief: "",
@@ -91,7 +86,7 @@ export function newStudyModelProfiles(models: readonly ProviderModel[], fallback
 
 export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
   return {
-    brief: source.brief,
+    brief: source.start_from_sources && source.brief === "Source-led study" ? "" : source.brief,
     ...(source.start_from_sources && { start_from_sources: true }),
     style_excerpt: source.style_excerpt ?? "",
     model: source.model,

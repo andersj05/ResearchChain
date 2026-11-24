@@ -55,7 +55,18 @@ function CaptureMaterial({
         representation: kind === "image" ? "chart_screenshot" : "original",
         artifact_id: artifact?.id ?? null,
         text: kind === "image" ? "" : text,
-      } satisfies EvidenceCreate);
+      } satisfies Pick<
+        EvidenceCreate,
+        | "id"
+        | "title"
+        | "kind"
+        | "author"
+        | "rights"
+        | "as_of_date"
+        | "representation"
+        | "artifact_id"
+        | "text"
+      >);
       onPin(record);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "Could not pin this material.");

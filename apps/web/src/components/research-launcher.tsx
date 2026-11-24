@@ -158,6 +158,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       return;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
+      start_from_sources: draft.start_from_sources ?? false,
       id: crypto.randomUUID(),
       model,
       provider_account_id: account!.id,
