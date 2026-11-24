@@ -451,7 +451,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               </Button>
             ))}
           <Button className="button" onClick={() => onNewStudy(run.id)}>
-            {discovery ? "Revisit material" : "Revise brief"}
+            Revisit material
           </Button>
         </div>
       </footer>

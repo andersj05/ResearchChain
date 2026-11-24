@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { ChatGPTSignIn } from "./chatgpt-signin";
-import { EvidencePicker } from "./evidence-picker";
+
 import { SwarmControls } from "./swarm-controls";
 import {
   ModelOptionFields,
@@ -33,7 +33,7 @@ function WritingSample({
   const [filename, setFilename] = useState("");
   const readEpoch = useRef(0);
   return (
-    <details className={styles.option}>
+    <details open className={styles.option}>
       <summary>
         Writing sample
         <span>{value ? `${value.length.toLocaleString()} characters` : "Optional"}</span>
@@ -42,7 +42,7 @@ function WritingSample({
         <label htmlFor="study-style">Example report excerpt</label>
         <p className="field-hint" id="style-purpose">
           The report writer uses this excerpt for voice and structure. Research agents receive the
-          brief and selected sources.
+          owner’s direction and selected sources.
         </p>
         <textarea
           id="study-style"
@@ -147,7 +147,6 @@ export function ResearchBriefOptions({
   awaitingModelCatalog: boolean;
   onReadingSample: (value: boolean) => void;
 }) {
-  const [sourcesOpen, setSourcesOpen] = useState(false);
   const modelsDisabled = disabled || awaitingModelCatalog;
   const time =
     draft.max_active_seconds % 60 === 0
@@ -155,39 +154,8 @@ export function ResearchBriefOptions({
       : `${draft.max_active_seconds} s`;
   return (
     <div className={styles.options}>
-      <WritingSample
-        value={draft.style_excerpt}
-        onChange={(style_excerpt) => update({ style_excerpt })}
-        disabled={disabled}
-        onReading={onReadingSample}
-      />
-      {!draft.start_from_sources && (
-        <details
-          className={styles.option}
-          onToggle={(event) => setSourcesOpen(event.currentTarget.open)}
-        >
-          <summary>
-            Source material
-            <span>
-              {draft.evidence_ids.length ? `${draft.evidence_ids.length} selected` : "Optional"}
-            </span>
-          </summary>
-          {sourcesOpen && (
-            <div className={styles.optionBody}>
-              <EvidencePicker
-                selected={draft.evidence_ids}
-                onChange={(evidence_ids) => update({ evidence_ids })}
-                disabled={disabled}
-                label="Pin sources"
-              />
-              <a className="text-link" href="?view=evidence" target="_blank" rel="noopener">
-                Open source library
-              </a>
-            </div>
-          )}
-        </details>
-      )}
       <details
+        open
         className={styles.option}
         onInvalidCapture={(event) => {
           event.currentTarget.open = true;
@@ -244,7 +212,7 @@ export function ResearchBriefOptions({
             />
           </label>
           <label className={draft.swarm ? styles.fullField : undefined}>
-            {draft.swarm || draft.start_from_sources ? "Editorial review" : "Expert review"}
+            Editorial review
             <select
               value={draft.review_mode}
               onChange={(event) =>
@@ -280,7 +248,7 @@ export function ResearchBriefOptions({
             key={draft.swarm ? "swarm" : "standard"}
             useSliders
             showOverrideCount={false}
-            initiallyOpen={!!draft.swarm}
+            initiallyOpen
             shared={{ ...draft, model }}
             values={draft}
             catalog={catalog}
@@ -291,6 +259,12 @@ export function ResearchBriefOptions({
           />
         </div>
       </details>
+      <WritingSample
+        value={draft.style_excerpt}
+        onChange={(style_excerpt) => update({ style_excerpt })}
+        disabled={disabled}
+        onReading={onReadingSample}
+      />
     </div>
   );
 }

@@ -65,9 +65,8 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const ready =
     !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
   const frozen = !active || !loaded || busy || !!pending;
-  const hasMaterial = draft.start_from_sources
-    ? draft.evidence_ids.length > 0
-    : !!draft.brief.trim();
+  const hasMaterial = draft.evidence_ids.length > 0;
+  const retryable = !!pending?.start_from_sources && unconfirmed === pending.id;
 
   useEffect(() => {
     mounted.current = true;
@@ -152,13 +151,13 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       return;
     if (
       pending
-        ? !account || account.id !== pending.provider_account_id
+        ? !retryable || !account || account.id !== pending.provider_account_id
         : !ready || !account || !hasMaterial
     )
       return;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
-      start_from_sources: draft.start_from_sources ?? false,
+      start_from_sources: true,
       id: crypto.randomUUID(),
       model,
       provider_account_id: account!.id,
@@ -200,7 +199,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
 
   return (
     <section className={styles.launch} aria-labelledby="research-title">
-      <h1 id="research-title">{fromSession ? "Revise research" : "Start research"}</h1>
+      <h1 id="research-title">{fromSession ? "Revisit material" : "New study"}</h1>
       {fromSession && (
         <p className={styles.origin}>
           Starting from a <a href={sessionUrl(fromSession)}>previous study</a>.
@@ -215,37 +214,14 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         </div>
       )}
       {!loaded && !setupError && (
-        <p role="status">Loading the previous brief and research settings…</p>
+        <p role="status">Loading the previous sources and research settings…</p>
       )}
-      <fieldset className={styles.startMode} disabled={frozen || editingSource || readingSample}>
-        <legend className="sr-only">Study starting point</legend>
-        <label>
-          <input
-            type="radio"
-            name="study-start"
-            checked={!draft.start_from_sources}
-            onChange={() => update({ start_from_sources: false })}
-          />
-          Start with a brief
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="study-start"
-            checked={!!draft.start_from_sources}
-            onChange={() => update({ start_from_sources: true })}
-          />
-          Start from sources
-        </label>
-      </fieldset>
-      {draft.start_from_sources && (
-        <DiscoverySources
-          ids={draft.evidence_ids}
-          disabled={frozen}
-          onChange={(evidence_ids) => update({ evidence_ids })}
-          onEditing={setEditingSource}
-        />
-      )}
+      <DiscoverySources
+        ids={draft.evidence_ids}
+        disabled={frozen}
+        onChange={(evidence_ids) => update({ evidence_ids })}
+        onEditing={setEditingSource}
+      />
       <form
         className={styles.composer}
         onSubmit={(event) => {
@@ -255,20 +231,15 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       >
         <fieldset disabled={frozen}>
           <label className={styles.briefLabel} htmlFor="research-brief">
-            {draft.start_from_sources ? "Context for the lead (optional)" : "Research brief"}
+            Context for the lead (optional)
           </label>
           <textarea
             id="research-brief"
-            className={draft.start_from_sources ? styles.shortBrief : styles.brief}
-            required={!draft.start_from_sources}
-            rows={draft.start_from_sources ? 2 : 6}
+            className={styles.shortBrief}
+            rows={2}
             maxLength={10000}
             value={draft.brief}
-            placeholder={
-              draft.start_from_sources
-                ? "What made you save this material?"
-                : "What should the team investigate? Describe your question, working view and the report you want."
-            }
+            placeholder="What made you save this material?"
             onChange={(event) => update({ brief: event.target.value })}
           />
           <ResearchBriefOptions
@@ -324,7 +295,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               {unconfirmed === pending.id
                 ? "This request has no saved session yet."
                 : "Checking whether the session started."}{" "}
-              A retry uses the same brief and request ID.
+              {pending.start_from_sources
+                ? "A retry uses the same sources and request ID."
+                : "Use Edit setup to choose sources for a new first reading."}
             </p>
             <button
               className="text-link"
@@ -375,7 +348,10 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               readingSample ||
               editingSource ||
               (pending
-                ? catalog.loading || !!catalog.error || account?.id !== pending.provider_account_id
+                ? !retryable ||
+                  catalog.loading ||
+                  !!catalog.error ||
+                  account?.id !== pending.provider_account_id
                 : !ready || !hasMaterial)
             }
           >
@@ -383,9 +359,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               ? "Starting research…"
               : pending
                 ? "Retry start"
-                : draft.start_from_sources
-                  ? "Ask the lead for a first reading"
-                  : "Start research"}
+                : "Ask the lead for a first reading"}
           </button>
         </div>
         {account && manageConnection && (

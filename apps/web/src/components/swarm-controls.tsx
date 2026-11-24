@@ -57,6 +57,7 @@ export function SwarmControls({ draft, update }: Props) {
             />
           </label>
           <details
+            open
             className={styles.swarmLimits}
             onInvalidCapture={(event) => {
               event.currentTarget.open = true;
@@ -105,7 +106,7 @@ export function SwarmControls({ draft, update }: Props) {
               </p>
               <p>
                 Up to {settings.lead_count * settings.researchers_per_lead} researchers and{" "}
-                {1 +
+                {2 +
                   settings.lead_count * settings.max_lead_turns +
                   (settings.lead_count * settings.researchers_per_lead + 1) * draft.max_passes}{" "}
                 model requests across the study.
