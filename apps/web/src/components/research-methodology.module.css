@@ -200,7 +200,8 @@
 .switches button + button {
   border-left: 0;
 }
-.switches button[aria-pressed="true"] {
+.switches button[aria-pressed="true"],
+.switches button[aria-pressed="true"]:hover:enabled {
   background: var(--ink);
   color: var(--surface);
 }

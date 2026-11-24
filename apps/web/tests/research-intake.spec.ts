@@ -1,5 +1,47 @@
 import { expect, test } from "./fixtures";
 
+test("source entry keeps invalid files actionable and identifies packets above the model limit", async ({
+  page,
+}) => {
+  const id = crypto.randomUUID();
+  const source = {
+    id,
+    title: "Synthetic large PDF",
+    kind: "report",
+    availability: "available",
+    representation: "original",
+    artifact: {
+      id: "sha256:" + "a".repeat(64),
+      media_type: "application/pdf",
+      byte_size: 6_100_000,
+    },
+  };
+  await page.route("**/api/evidence?*", (route) =>
+    route.fulfill({ json: { items: [source], total: 1 } }),
+  );
+  await page.route("**/api/evidence/" + id, (route) => route.fulfill({ json: source }));
+  await page.goto("/");
+  await page.getByLabel("Usage rights").selectOption("owned");
+  await page
+    .getByLabel("Source files")
+    .setInputFiles({ name: "empty.txt", mimeType: "text/plain", buffer: Buffer.alloc(0) });
+  await expect(page.getByText("Choose a file between 1 byte and 20 MB.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Pin 1 file", exact: true })).toBeDisabled();
+  await page.getByRole("button", { name: "Remove queued empty.txt" }).click();
+  await page.getByRole("checkbox", { name: source.title }).check();
+  const start = page.getByRole("button", { name: "Ask the lead for a first reading" });
+  await expect(
+    page.getByRole("alert").filter({ hasText: "fills the request limit" }),
+  ).toBeVisible();
+  await expect(start).toBeDisabled();
+  await page.getByRole("button", { name: "Unpin " + source.title }).click();
+  await page.getByRole("button", { name: "Link", exact: true }).click();
+  await page.getByLabel("Original URL").fill("https://example.org/synthetic-reference");
+  await page.getByRole("button", { name: "Pin link", exact: true }).click();
+  await expect(page.getByRole("list", { name: "Pinned material" })).toContainText("Link only");
+  await expect(start).toBeEnabled();
+});
+
 test("drop a week of files, retry a lost receipt and keep the pinned packet in order", async ({
   page,
   request,

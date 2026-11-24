@@ -16,6 +16,7 @@ type Row = {
   id: string;
   file: File;
   kind: EvidenceCreate["kind"];
+  invalid?: string;
   error?: string;
   command?: EvidenceInput;
 };
@@ -67,7 +68,7 @@ export function SourceFileBatch({
       id: crypto.randomUUID(),
       file,
       kind: kindFor(file.name),
-      error: !extensions.split(",").some((ext) => file.name.toLowerCase().endsWith(ext))
+      invalid: !extensions.split(",").some((ext) => file.name.toLowerCase().endsWith(ext))
         ? "Unsupported format. Remove this file or supply a supported original."
         : !file.size || file.size > 20 * 1024 * 1024
           ? "Choose a file between 1 byte and 20 MB."
@@ -90,12 +91,7 @@ export function SourceFileBatch({
     try {
       for (const [index, row] of rows.entries()) {
         setProgress(`Pinning ${index + 1} of ${rows.length} · ${row.file.name}`);
-        if (
-          !extensions.split(",").some((ext) => row.file.name.toLowerCase().endsWith(ext)) ||
-          !row.file.size ||
-          row.file.size > 20 * 1024 * 1024
-        )
-          continue;
+        if (row.invalid) continue;
         try {
           let command = row.command;
           if (!command) {
@@ -202,7 +198,9 @@ export function SourceFileBatch({
                     {(row.file.size / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })}{" "}
                     KB
                   </small>
-                  {row.error && <p className="error">{row.error}</p>}
+                  {(row.invalid || row.error) && (
+                    <p className="error">{row.invalid || row.error}</p>
+                  )}
                 </div>
                 {(row.kind === "text" || row.kind === "discussion") && (
                   <select
@@ -238,7 +236,12 @@ export function SourceFileBatch({
           <button
             className="button"
             type="button"
-            disabled={disabled || !permitted || count + rows.length > 100}
+            disabled={
+              disabled ||
+              !permitted ||
+              rows.every((row) => !!row.invalid) ||
+              count + rows.length > 100
+            }
             onClick={() => void pin()}
           >
             {progress

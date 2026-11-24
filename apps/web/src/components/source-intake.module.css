@@ -149,7 +149,8 @@
 .kinds button + button {
   border-left: 0;
 }
-.kinds button[aria-pressed="true"] {
+.kinds button[aria-pressed="true"],
+.kinds button[aria-pressed="true"]:hover:enabled {
   background: var(--ink);
   color: var(--surface);
 }
