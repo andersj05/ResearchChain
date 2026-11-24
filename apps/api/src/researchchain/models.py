@@ -25,7 +25,7 @@ from researchchain.graph import (
 from researchchain.graph import (
     WorkflowNode as WorkflowNode,
 )
-from researchchain.research_models import ModelAttempt, ResearchManifest
+from researchchain.research_models import ModelAttempt, OwnerDirection, ResearchManifest
 
 
 class RevisionSummary(StrictModel):
@@ -89,11 +89,26 @@ class RunEvent(StrictModel):
     review_response: ReviewResponse | None = None
 
 
+class LeadPerspective(StrictModel):
+    action_path: str
+    lead_title: str
+    thesis: str
+    question: str
+    options: list[str]
+    worker_paths: list[str] = Field(default_factory=list, max_length=20)
+
+
+class PerspectiveAnswer(ReviewResponse):
+    action_path: str
+    interrupt_id: str
+
+
 class ReviewPrompt(StrictModel):
     interrupt_id: str
     path: str | None = None
     node_id: str
     question: str
+    perspective: LeadPerspective | None = Field(default=None, exclude_if=lambda x: x is None)
 
 
 class PendingReviewRun(StrictModel):
@@ -145,6 +160,7 @@ class RunArchiveQuery(StrictModel):
     status: RunStatus | None = None
     agent_id: UUID | None = None
     unassigned: bool = False
+    sessions_only: bool = False
     exclude_id: UUID | None = None
     before_created_at: AwareDatetime | None = None
     before_id: UUID | None = None
@@ -189,6 +205,10 @@ class CheckpointStep(StrictModel):
 
 
 class RunSnapshot(RunSummary):
+    perspective_answers: list[PerspectiveAnswer] = Field(
+        default_factory=list, exclude_if=lambda x: not x
+    )
+    owner_directions: list[OwnerDirection] = Field(default_factory=list, exclude_if=lambda x: not x)
     execution_pending: bool = Field(
         default=False, description="An accepted command is still queued or held by a worker."
     )

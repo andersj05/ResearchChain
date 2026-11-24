@@ -18,8 +18,15 @@ function reviewPlan(workflow: Workflow) {
       const name = graph.name || (version ? "Subgraph" : "Workflow");
       const location = version ? `${name} · v${version}` : name;
       const uniqueStep = (id: string) => graph.nodes.filter((step) => step.id === id).length === 1;
+      const inputBindings = [
+        ...outputBindings(graph).map((binding) => ({ ...binding, nextIteration: false })),
+        ...outputBindings(graph, "previous_iteration").map((binding) => ({
+          ...binding,
+          nextIteration: true,
+        })),
+      ];
       const feedback = [
-        ...outputBindings(graph).map(({ input, target, ...binding }) => ({
+        ...inputBindings.map(({ input, target, ...binding }) => ({
           ...binding,
           target,
           field: input,
@@ -35,6 +42,7 @@ function reviewPlan(workflow: Workflow) {
           ...binding,
           field: "condition",
           canOpen: uniqueStep(binding.target.id),
+          nextIteration: false,
         })),
       ].filter((binding) => binding.output === "feedback");
       return nodes.flatMap((node) =>
@@ -135,8 +143,10 @@ export function WorkflowReviewPlan({
                         <>
                           <p className="muted">Feedback bindings</p>
                           <ul className={styles.bindings} aria-label="Feedback bindings">
-                            {bindings.map(({ target, field, canOpen }, index) => {
-                              const label = `${target.label || target.id} · ${field}`;
+                            {bindings.map(({ target, field, canOpen, nextIteration }, index) => {
+                              const label = `${target.label || target.id} · ${field}${
+                                nextIteration ? " · next iteration" : ""
+                              }`;
                               return (
                                 <li key={`${target.id}/${field}/${index}`}>
                                   {canOpen ? (

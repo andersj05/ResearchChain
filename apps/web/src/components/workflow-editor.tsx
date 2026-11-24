@@ -7,13 +7,19 @@ import { useOwner } from "@/components/access-context";
 import { WorkspacePanels } from "@/components/workspace-panels";
 import { ExecutionLimitFields } from "@/components/execution-limits";
 import { ResearchSettingsEditor } from "@/components/research-settings";
-import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
+import {
+  ModelOptionFields,
+  ModelPicker,
+  StepModelFields,
+  type ModelCatalog,
+} from "@/components/model-picker";
 import { nodeKinds, nodePresentation } from "@/components/node-kind";
 import { NodeConfiguration } from "@/components/node-configuration";
 import { ReviewHandoff } from "@/components/review-handoff";
 import { StepBranchPaths } from "@/components/step-branch-paths";
 import { StepOutputBindings } from "@/components/step-output-bindings";
 import { WorkflowModelPlan } from "@/components/workflow-model-plan";
+import { WorkflowOutline, type OutlineExpansion } from "@/components/workflow-outline";
 import { WorkflowReviewPlan } from "@/components/workflow-review-plan";
 import { WorkflowStepSearch } from "@/components/workflow-step-search";
 import { WorkflowStepText } from "@/components/workflow-step-text";
@@ -29,8 +35,10 @@ import {
   referenceOf,
   pruneDefinitions,
   removeStep,
+  sameGraphPath,
   scopeKey,
   updateGraph,
+  workflowLimitCaps,
   type GraphCrumb,
   type GraphScope,
   type TemplateKind,
@@ -65,18 +73,8 @@ function resolveGraphPath(workflow: Workflow, path: GraphCrumb[]) {
   return { graph, validPath };
 }
 
-function samePath(left: GraphCrumb[], right: GraphCrumb[]) {
-  return (
-    left.length === right.length &&
-    left.every((crumb, index) => {
-      const other = right[index];
-      return !!other && crumb.via === other.via && scopeKey(crumb.ref) === scopeKey(other.ref);
-    })
-  );
-}
-
 function sameVisit(left: StepVisit, right: StepVisit) {
-  return left.id === right.id && samePath(left.path, right.path);
+  return left.id === right.id && sameGraphPath(left.path, right.path);
 }
 
 function returnDestination(workflow: Workflow, visits: StepVisit[], current: StepVisit) {
@@ -144,6 +142,11 @@ export function WorkflowEditor({
   }
 
   const [path, setPath] = useState(initialPath);
+  const [planMode, setPlanMode] = useState(false);
+  const [outlineExpansion, setOutlineExpansion] = useState<OutlineExpansion>({
+    collapsed: false,
+    overrides: {},
+  });
   const [stepVisits, setStepVisits] = useState<StepVisit[]>([]);
   const [beforeStep, setBeforeStep] = useState<StepVisit>();
   const [libraryOpen, setLibraryOpen] = useState(true);
@@ -159,6 +162,8 @@ export function WorkflowEditor({
   const returnTo = returnDestination(workflow, stepVisits, currentVisit);
   const stepToFocus = useRef<string | null>(null);
   const fieldToFocus = useRef<string | null>(null);
+  const revealCanvasStep = useRef(false);
+  const library = useRef<HTMLFieldSetElement>(null);
   const inspector = useRef<HTMLFieldSetElement>(null);
   const labelInput = useRef<HTMLInputElement>(null);
   useEffect(() => {
@@ -176,6 +181,14 @@ export function WorkflowEditor({
       fieldToFocus.current = null;
     }
   }, [selectedId, inspectorOpen, path]);
+  useEffect(() => {
+    if (planMode || !revealCanvasStep.current) return;
+    const frame = requestAnimationFrame(() => {
+      revealCanvasStep.current = false;
+      document.getElementById(`workflow-node-${selectedId}`)?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [planMode, selectedId]);
   function selectNode(id: string) {
     onSeal?.();
     setInspectorOpen(true);
@@ -248,6 +261,7 @@ export function WorkflowEditor({
       ? subgraphPath(selectedId, loopRef)
       : undefined;
   const pruned = pruneDefinitions(workflow);
+  const limitCaps = workflowLimitCaps(workflow);
   const unusedDefinitions = (workflow.subgraphs?.length ?? 0) - (pruned.subgraphs?.length ?? 0);
   const nestedCopy =
     node && (node.kind === "loop" || node.kind === "subgraph")
@@ -256,7 +270,7 @@ export function WorkflowEditor({
   const split = node?.config?.type === "route" || node?.config?.type === "fork";
   const canInsertBefore = !!insertionPoint(graph, selectedId, "before");
   const insertBefore =
-    canInsertBefore && beforeStep?.id === selectedId && samePath(beforeStep.path, validPath);
+    canInsertBefore && beforeStep?.id === selectedId && sameGraphPath(beforeStep.path, validPath);
   const placement = insertBefore ? "before" : "default";
   const canInsert = !!insertionPoint(graph, selectedId, placement);
   const ownedJoin =
@@ -268,6 +282,33 @@ export function WorkflowEditor({
     );
   return (
     <>
+      <div className="build-view-bar">
+        <div className="build-view-switch" role="group" aria-label="Build view">
+          <button
+            type="button"
+            className="button small"
+            disabled={disabled}
+            aria-pressed={!planMode}
+            onClick={() => {
+              if (planMode) {
+                revealCanvasStep.current = true;
+                setPlanMode(false);
+              }
+            }}
+          >
+            Canvas
+          </button>
+          <button
+            type="button"
+            className="button small"
+            disabled={disabled}
+            aria-pressed={planMode}
+            onClick={() => setPlanMode(true)}
+          >
+            Plan
+          </button>
+        </div>
+      </div>
       {(scope || returnTo) && (
         <div className="graph-breadcrumbs">
           {returnTo && (
@@ -342,16 +383,23 @@ export function WorkflowEditor({
         </p>
       )}
       <WorkspacePanels
+        planMode={planMode}
         libraryOpen={libraryOpen}
         inspectorOpen={inspectorOpen}
         onLibraryOpen={setLibraryOpen}
         onInspectorOpen={setInspectorOpen}
         onSeal={onSeal}
         library={
-          <fieldset id="step-library" className="library" disabled={disabled} hidden={!libraryOpen}>
+          <fieldset
+            id="step-library"
+            ref={library}
+            className="library"
+            disabled={disabled}
+            hidden={!planMode && !libraryOpen}
+          >
             <div className="panel-heading">
-              <h2>Steps</h2>
-              <span className="count">{graph.nodes.length}</span>
+              <h2>{planMode ? "Workflow plan" : "Steps"}</h2>
+              {!planMode && <span className="count">{graph.nodes.length}</span>}
             </div>
             <WorkflowStepSearch
               workflow={workflow}
@@ -438,33 +486,34 @@ export function WorkflowEditor({
                 </div>
               }
             >
-              <div className="outline-heading">
-                <h3>{scope ? "In this subgraph" : "In this workflow"}</h3>
-                <span className="muted">{graph.edges.length} control connections</span>
-              </div>
-              <ol className="node-outline">
-                {graph.nodes.map((item) => (
-                  <li key={item.id}>
-                    <Button
-                      className="outline-row"
-                      aria-pressed={selectedId === item.id}
-                      onClick={() => {
-                        selectNode(item.id);
-                        document
-                          .getElementById(`workflow-node-${item.id}`)
-                          ?.focus({ preventScroll: true });
-                      }}
-                    >
-                      <span className="outline-label">{item.label}</span>
-                      <span className={`outline-kind kind-${item.kind}`}>
-                        {nodePresentation(item).shortLabel}
-                      </span>
-                      {graph.start_node === item.id && <small>Start</small>}
-                    </Button>
-                  </li>
-                ))}
-              </ol>
+              <WorkflowOutline
+                workflow={workflow}
+                graph={planMode ? workflow : graph}
+                path={planMode ? [] : validPath}
+                selected={selectedId}
+                selectedPath={validPath}
+                planMode={planMode}
+                expansion={outlineExpansion}
+                onExpansionChange={setOutlineExpansion}
+                onSelect={(id) => {
+                  if (planMode) {
+                    openStep(id, validPath);
+                  } else {
+                    selectNode(id);
+                    document.getElementById(`workflow-node-${id}`)?.focus({ preventScroll: true });
+                  }
+                }}
+                onOpen={openStep}
+              />
             </WorkflowStepSearch>
+            {planMode && (
+              <>
+                {workflow.research && (
+                  <WorkflowModelPlan workflow={workflow} catalog={catalog} onSelect={openStep} />
+                )}
+                <WorkflowReviewPlan workflow={workflow} onSelect={openStep} />
+              </>
+            )}
             <details className="workflow-settings">
               <summary>{scope ? "Subgraph settings" : "Workflow settings"}</summary>
               <label>
@@ -499,6 +548,7 @@ export function WorkflowEditor({
             <details className="workflow-settings" id="workflow-execution-limits">
               <summary>Execution limits</summary>
               <ExecutionLimitFields
+                maxParallelSteps={limitCaps.parallelSteps}
                 budgets={workflow.budgets}
                 onChange={(budgets, group) =>
                   onChange(
@@ -512,7 +562,11 @@ export function WorkflowEditor({
                 }
               />
             </details>
-            <ResearchSettingsEditor workflow={workflow} onChange={onChange} />
+            <ResearchSettingsEditor
+              workflow={workflow}
+              maxRequests={limitCaps.researchRequests}
+              onChange={onChange}
+            />
             {!!workflow.subgraphs?.length && (
               <details className="workflow-settings">
                 <summary>Definitions ({workflow.subgraphs.length})</summary>
@@ -555,6 +609,18 @@ export function WorkflowEditor({
                       onChange({ ...workflow, research: { ...workflow.research!, model } })
                     }
                   />
+                  <details className="canvas-response-settings">
+                    <summary>Response settings</summary>
+                    <ModelOptionFields
+                      scope="Workflow"
+                      settings={workflow.research}
+                      catalog={catalog}
+                      disabled={disabled}
+                      onChange={(patch) =>
+                        onChange({ ...workflow, research: { ...workflow.research!, ...patch } })
+                      }
+                    />
+                  </details>
                 </div>
               )}
               <Button
@@ -608,10 +674,27 @@ export function WorkflowEditor({
             className="inspector"
             aria-label="Node inspector"
             disabled={disabled}
-            hidden={!inspectorOpen}
+            hidden={!planMode && !inspectorOpen}
           >
             <div className="panel-heading">
               <h2>Step details</h2>
+              {planMode && (
+                <button
+                  type="button"
+                  className="button small ghost return-to-outline"
+                  onClick={() => {
+                    const selectedRow = library.current?.querySelector<HTMLElement>(
+                      ".outline-row[aria-pressed=true]",
+                    );
+                    (
+                      selectedRow ??
+                      library.current?.querySelector<HTMLInputElement>("input[type=search]")
+                    )?.focus();
+                  }}
+                >
+                  Return to outline
+                </button>
+              )}
             </div>
             {node ? (
               <>
@@ -686,14 +769,16 @@ export function WorkflowEditor({
                 )}
                 {node.config?.type === "research" && workflow.research && (
                   <>
-                    <ModelPicker
-                      label="Step model"
+                    <StepModelFields
+                      label="Selected step"
+                      modelLabel="Step model"
                       catalog={catalog}
-                      inherited={workflow.research.model}
-                      value={node.config.model ?? ""}
-                      onChange={(model) =>
+                      shared={workflow.research}
+                      step={node.config}
+                      disabled={disabled}
+                      onChange={(patch) =>
                         node.config?.type === "research" &&
-                        editNode({ config: { ...node.config, model: model || undefined } })
+                        editNode({ config: { ...node.config, ...patch } })
                       }
                     />
                     {!catalog.loading && !catalog.status?.models?.length && (

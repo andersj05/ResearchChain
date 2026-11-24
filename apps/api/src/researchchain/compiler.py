@@ -1,8 +1,9 @@
 """Compile bounded structured documents to checkpointable LangGraph execution."""
 
+import json
 import operator
 from collections.abc import Callable
-from typing import Annotated, Any, TypedDict
+from typing import Annotated, Any, Protocol, TypedDict
 
 from langchain_core.runnables import RunnableLambda
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -17,6 +18,7 @@ from researchchain.graph import (
     GraphDefinition,
     LoopConfig,
     Predicate,
+    ResearchConfig,
     RouteConfig,
     SubgraphConfig,
     ValueSource,
@@ -25,6 +27,7 @@ from researchchain.graph import (
 )
 
 STRUCTURED_COMPILER_VERSION = "structured-0.2.0"
+LOOP_INPUT_COMPILER_VERSION = "loop-inputs-0.1.0"
 
 
 class ExecutionStopped(Exception):
@@ -46,16 +49,47 @@ class StructuredState(TypedDict):
 
 
 Guard = Callable[[str, bool], None]
-ResearchStep = Callable[[WorkflowNode, str, str, str], str]
 
 
-def read_value(source: ValueSource, state: StructuredState, prefix: str, iteration: int) -> Any:
+class ResearchStep(Protocol):
+    def __call__(
+        self,
+        node: WorkflowNode,
+        path: str,
+        context: str,
+        feedback: str,
+        team_source: str | None = None,
+    ) -> str: ...
+
+
+def read_value(
+    source: ValueSource,
+    state: StructuredState,
+    prefix: str,
+    iteration: int,
+    *,
+    initial: str | int = "",
+) -> Any:
     if source.source == "brief":
         return state["brief"]
     if source.source == "artifact_count":
         return len(state["artifact_ids"])
     if source.source == "iteration":
         return iteration
+    if source.source == "previous_iteration":
+        parent, _, slot = prefix.rpartition("/")
+        if iteration < 1 or slot != f"iteration-{iteration}":
+            raise ExecutionStopped("Previous iteration input is outside its loop body.", "failed")
+        if iteration == 1:
+            return initial
+        prior = f"{parent}/iteration-{iteration - 1}/{source.node_id}"
+        outputs = state["outputs"].get(prior, {})
+        port = source.port
+        if port is None or port not in outputs:
+            raise ExecutionStopped(
+                f"Previous iteration output {prior}.{source.port} is missing.", "failed"
+            )
+        return outputs[port]
     return state["outputs"][f"{prefix}/{source.node_id}"][source.port]  # type: ignore[index]
 
 
@@ -86,6 +120,7 @@ def node_function(
     iteration: int,
     guard: Guard,
     research: ResearchStep | None = None,
+    team_source: str | None = None,
 ) -> Callable[[StructuredState], dict[str, Any]]:
     def execute(state: StructuredState) -> dict[str, Any]:
         if state.get("rejected"):
@@ -95,19 +130,23 @@ def node_function(
         rejected = False
         code: CodeExecution | None = None
         if node.kind == "review":
-            decision = interrupt(
-                {
-                    "node_id": node.id,
-                    "path": path,
-                    "question": node.instructions or "Continue this workflow?",
-                }
+            bound_question = node.inputs.get("question")
+            question = (
+                read_value(bound_question, state, prefix, iteration) or node.instructions
+                if bound_question
+                else node.instructions or "Continue this workflow?"
             )
-            if isinstance(decision, dict):
-                outputs["feedback"] = decision.get("feedback", "")
-                decision = decision["decision"]
-            rejected = decision == "reject"
-            outputs["decision"] = decision
-            detail = "Rejected by reviewer" if rejected else "Approved by reviewer"
+            if question:
+                decision = interrupt({"node_id": node.id, "path": path, "question": question})
+                if isinstance(decision, dict):
+                    outputs["feedback"] = decision.get("feedback", "")
+                    decision = decision["decision"]
+                rejected = decision == "reject"
+                outputs["decision"] = decision
+                detail = "Rejected by reviewer" if rejected else "Approved by reviewer"
+            else:
+                outputs.update(decision="skipped", feedback="")
+                detail = "The team did not request an owner decision."
         elif node.kind == "research":
             if research is None:
                 raise ExecutionStopped("A research executor is required for this run.", "failed")
@@ -121,13 +160,23 @@ def node_function(
                 if "feedback" in node.inputs
                 else ""
             )
-            outputs["text"] = research(node, path, context, feedback)
+            outputs["text"] = (
+                research(node, path, context, feedback, team_source)
+                if team_source is not None
+                else research(node, path, context, feedback)
+            )
             detail = "Validated research result saved for review."
+            if isinstance(node.config, ResearchConfig) and node.config.team:
+                handoff = json.loads(outputs["text"])
+                outputs["review_question"] = handoff["review_question"] or ""
+                detail = f"Collected {len(handoff['agents'])} researcher workspaces."
         elif node.kind == "code":
             assert isinstance(node.config, CodeConfig)
             inputs = CodeInputs(
                 **{
-                    key: read_value(value, state, prefix, iteration)
+                    key: read_value(
+                        value, state, prefix, iteration, initial=0 if key == "number" else ""
+                    )
                     for key, value in node.inputs.items()
                 },
                 brief=state["brief"],
@@ -247,12 +296,27 @@ class StructuredCompiler:
             if isinstance(node.config, (RouteConfig, ForkConfig))
         }
         finish = ""
+        teams = {
+            node.id
+            for node in graph.nodes
+            if isinstance(node.config, ResearchConfig) and node.config.team
+        }
         for node in graph.nodes:
             path = entries[node.id]
+            binding = node.inputs.get("context")
+            team_source = None
+            if binding and binding.node_id in teams and binding.port == "text":
+                if binding.source == "output":
+                    team_source = f"{prefix}/{binding.node_id}"
+                elif binding.source == "previous_iteration" and iteration > 1:
+                    parent, _, _ = prefix.rpartition("/")
+                    team_source = f"{parent}/iteration-{iteration - 1}/{binding.node_id}"
             self.builder.add_node(
                 path,
                 RunnableLambda(
-                    node_function(node, path, prefix, iteration, self.guard, self.research)
+                    node_function(
+                        node, path, prefix, iteration, self.guard, self.research, team_source
+                    )
                 ),
             )
             if node.kind == "finish":

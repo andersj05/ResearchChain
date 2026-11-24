@@ -1,5 +1,6 @@
 """Editorial APIs never invoke a provider or publish reports."""
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter
@@ -19,6 +20,23 @@ from researchchain.report_models import (
     StyleGuideCreate,
 )
 from researchchain.reports import Reports, StyleGuides
+
+ZIP_RESPONSE: dict[int | str, dict[str, Any]] = {
+    200: {"content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}}}
+}
+
+
+def zip_download(content: bytes, filename: str) -> Response:
+    return Response(
+        content=content,
+        media_type="application/zip",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+            "Content-Security-Policy": "default-src 'none'; sandbox",
+        },
+    )
 
 
 def report_router(database: Database) -> APIRouter:
@@ -66,22 +84,9 @@ def report_router(database: Database) -> APIRouter:
         "/reports/{key}/export",
         operation_id="export_report",
         response_class=Response,
-        responses={
-            200: {
-                "content": {"application/zip": {"schema": {"type": "string", "format": "binary"}}}
-            }
-        },
+        responses=ZIP_RESPONSE,
     )
     def export(key: UUID) -> Response:
-        return Response(
-            content=export_report(database, reports.get(key)),
-            media_type="application/zip",
-            headers={
-                "Content-Disposition": f'attachment; filename="report-{key}.zip"',
-                "Cache-Control": "no-store",
-                "X-Content-Type-Options": "nosniff",
-                "Content-Security-Policy": "default-src 'none'; sandbox",
-            },
-        )
+        return zip_download(export_report(database, reports.get(key)), f"report-{key}.zip")
 
     return router

@@ -49,8 +49,36 @@ Inspect a review as a decision in the workflow. Follow the preceding control
 step to check how the proposal and contrary evidence are prepared, then follow
 the review’s feedback to see which later inputs or conditions use the answer.
 
+Put the connected outline before step insertion in Build. Show parallel and
+conditional branches in their named groups and keep the paired join in the
+main sequence. Expand a loop or subgraph by its caller to browse the pinned
+body. The canvas and inspector follow an outline selection. Keep unresolved
+steps available when a draft’s control connections change.
+[Figma Layers and navigation](https://help.figma.com/hc/en-us/articles/360039831974-Explore-the-navigation-bar-and-left-sidebar).
+
+Give long workflows a Plan view that keeps the root outline visible while the
+researcher reads a nested step. Keep the same selection when switching to Canvas
+to inspect or reconnect its edges.
+[Figma UI3 design retrospective](https://www.figma.com/blog/our-approach-to-designing-ui3/).
+
+Put the previous iteration’s output beside the step input that uses it. Show the
+initial value and link to the editable source. During a run, use the same binding
+to reach the producing occurrence and its saved result. For reviewer feedback,
+show the next recipient when there is a possible follow-up.
+[Figma component properties](https://help.figma.com/hc/en-us/articles/5579474826519-Explore-component-properties) ·
+[Vercel Workflow observability](https://vercel.com/academy/workflow-foundations/observe-everything).
+
 ## Run inspection references
 
+- Vercel’s workflow inspector keeps the recorded timeline, waits, step inputs,
+  and outputs together. Give ResearchChain an index of saved outputs, with a
+  link to the exact step occurrence and recorded model pass. Keep a pending
+  decision accessible while the researcher looks back at earlier work.
+  [Vercel Workflow observability](https://vercel.com/academy/workflow-foundations/observe-everything).
+- For a repeated research step, compare two saved outputs where one loop
+  iteration changes. Show each side’s conclusion, exact request and recorded
+  URLs. A pair should reopen the same records while the run remains available.
+  Start with the map collapsed in Outputs to give the recorded results room.
 - Braintrust uses an ordered trace and shared time axis to expose overlap, retries,
   and gaps. ResearchChain should show the latest recorded activity while a researcher
   reads an earlier output, and use recorded durations when accounting for latency.

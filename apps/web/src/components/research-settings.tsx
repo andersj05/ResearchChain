@@ -2,7 +2,7 @@
 
 import { researchDefaults, type ResearchSettings, type Workflow } from "@/lib/workflow";
 import { useEffect } from "react";
-import { ModelPicker, type ModelCatalog } from "@/components/model-picker";
+import { ModelOptionFields, ModelPicker, type ModelCatalog } from "@/components/model-picker";
 import { ChatGPTSignIn } from "@/components/chatgpt-signin";
 import { Button } from "@ui-sdk/react/button";
 
@@ -64,9 +64,11 @@ function TokenBudget({
 
 export function ResearchRequestLimitFields({
   settings,
+  maxRequests,
   onSettings,
 }: {
   settings: ResearchSettings;
+  maxRequests: number;
   onSettings: (settings: ResearchSettings, group: string) => void;
 }) {
   const limits = { ...researchDefaults.limits, ...settings.limits };
@@ -74,8 +76,8 @@ export function ResearchRequestLimitFields({
     <>
       {(
         [
-          ["max_model_calls", "Maximum model attempts", 0, 100],
-          ["max_tool_calls", "Maximum evidence reads", 0, 100],
+          ["max_model_calls", "Maximum model attempts", 0, maxRequests],
+          ["max_tool_calls", "Maximum evidence reads", 0, maxRequests],
           ["max_response_seconds", "Seconds per response", 1, 600],
           ["max_input_bytes", "Bytes per request", 1000, 8000000],
           ["max_output_characters", "Characters per response", 1000, 100000],
@@ -113,9 +115,11 @@ export function ResearchRequestLimitFields({
 
 export function ResearchSettingsEditor({
   workflow,
+  maxRequests,
   onChange,
 }: {
   workflow: Workflow;
+  maxRequests: number;
   onChange: (value: Workflow, group?: string) => void;
 }) {
   if (!workflow.research) return null;
@@ -128,6 +132,7 @@ export function ResearchSettingsEditor({
       />
       <ResearchRequestLimitFields
         settings={workflow.research}
+        maxRequests={maxRequests}
         onSettings={(research, group) => onChange({ ...workflow, research }, group)}
       />
     </details>
@@ -165,6 +170,13 @@ export function ResearchConnection({
         catalog={catalog}
         value={settings.model}
         onChange={(model) => onSettings({ ...settings, model })}
+      />
+      <ModelOptionFields
+        scope="Run default"
+        catalog={catalog}
+        settings={settings}
+        disabled={disabled}
+        onChange={(patch) => onSettings({ ...settings, ...patch })}
       />
       <p className="field-hint" aria-label="Model selection scope">
         Workflow default for steps without an override.

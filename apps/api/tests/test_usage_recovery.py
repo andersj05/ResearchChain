@@ -73,6 +73,9 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
                     "INSERT INTO runs (id,revision_id,compiler_version,brief) VALUES (%s,%s,%s,%s)",
                     (run_id, revision.id, "synthetic", "synthetic migration canary"),
                 )
+                conn.execute(
+                    "INSERT INTO run_controls (run_id, active_seconds) VALUES (%s, 42)", (run_id,)
+                )
                 for hours in [1, 25]:
                     conn.execute(
                         "INSERT INTO research_attempts "
@@ -84,6 +87,9 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
             conn.execute("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
             before = inventory(conn, legacy.schema)
             previous_runs = conn.execute("SELECT * FROM runs ORDER BY id").fetchall()
+            previous_controls = conn.execute(
+                "SELECT * FROM run_controls ORDER BY run_id"
+            ).fetchall()
             previous_attempts = conn.execute(
                 "SELECT * FROM research_attempts ORDER BY id"
             ).fetchall()
@@ -106,6 +112,9 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
         with legacy.connection() as conn, conn.transaction():
             after = inventory(conn, legacy.schema)
             upgraded_runs = conn.execute("SELECT * FROM runs ORDER BY id").fetchall()
+            upgraded_controls = conn.execute(
+                "SELECT * FROM run_controls ORDER BY run_id"
+            ).fetchall()
             upgraded_attempts = conn.execute(
                 "SELECT * FROM research_attempts ORDER BY id"
             ).fetchall()
@@ -113,11 +122,13 @@ def test_schema_9_upgrade_preserves_research_and_imports_old_attempts(
                 "SELECT source,policy_revision FROM model_request_admissions"
             ).fetchall()
         for name, fingerprint in before.tables.items():
-            if name not in {"schema_migrations", "research_attempts", "runs"}:
+            if name not in {"schema_migrations", "research_attempts", "run_controls", "runs"}:
                 assert after.tables[name] == fingerprint
         assert upgraded_runs == [{**run, "baseline_run_id": None} for run in previous_runs]
+        assert upgraded_controls == [{**row, "owner_directions": []} for row in previous_controls]
         assert upgraded_attempts == [
-            {**attempt, "web_actions_completed": None} for attempt in previous_attempts
+            {**attempt, "web_actions_completed": None, "owner_direction_ids": []}
+            for attempt in previous_attempts
         ]
         assert after.tables["schema_migrations"].rows == len(migrations)
         assert len(imported) == 2

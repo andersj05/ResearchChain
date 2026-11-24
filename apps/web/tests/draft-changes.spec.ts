@@ -212,7 +212,7 @@ test("open changed and added draft steps at their exact root or pinned editor", 
   await stepName.fill("Record risk sensitivities");
   await outline.getByRole("button", { name: /Retire old risk check/ }).click();
   await remove.click();
-  await outline.getByRole("button", { name: /Review_Loop/ }).click();
+  await outline.getByRole("button", { name: /^Review_Loop/ }).click();
   await page.getByRole("button", { name: "New version", exact: true }).click();
   const editBody = page.getByRole("button", { name: "Edit subgraph", exact: true });
   await editBody.click();
@@ -371,7 +371,7 @@ test("restore saved step text from an earlier comparison without replacing a pin
   await support.click();
   await expect(instructions).toHaveValue("Latest support instructions");
   await instructions.fill("Draft support instructions");
-  await outline.getByRole("button", { name: /Review_Loop/ }).click();
+  await outline.getByRole("button", { name: /^Review_Loop/ }).click();
   await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
   await expect(question).toHaveValue("Latest saved review question");
   await expect(crumbs).toContainText("Critique and review v2");

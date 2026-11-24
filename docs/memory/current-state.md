@@ -1,8 +1,132 @@
 # Current state
 
-Updated 2026-11-18. The owner requested better visibility into model runs, more
-control over workflow iteration, and an editable discretionary macro agent.
-[Delivery criteria](https://github.com/andersj05/ResearchChain/issues/66).
+Updated 2026-11-24.
+
+## Source-led research
+
+The desk opens directly on source intake. Drop multiple charts, documents, tables or transcripts, paste sources, or pin saved material beside the visible packet. New studies and revisions use a first reading. The Methodology page shows the handoffs, parking path and optional editorial review. A lead reads the pinned sources, then waits for the owner's
+working sentence before commissioning research. The session keeps the original
+proposal, exact owner judgment, issued assignments and request receipts. A
+parked packet can seed another study.
+
+Synthetic runs checked that two different judgments send different assignments
+and that parking stops after one lead call. A Chromium rehearsal captured all
+three material types, restored an edited sentence on a phone-width screen and
+followed it into the saved researcher request. Owner evaluation of a real
+week's material remains open.
+[Desk guide](../research-sessions.md#start-from-a-week-of-material) ·
+[Decision](../decisions/0025-source-led-discovery.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/145).
+
+## Multi-lead research and expert consultations
+
+Select **Research swarm** in the desk's team settings for up to four lead
+mandates and twenty researchers per lead. The requested Astra and Sol models
+are editable. An answered lead can use the owner's judgment to commission new
+work while another lead's question stays open. The editor receives the saved
+findings, files and attributed judgments.
+
+Tests observed twenty overlapping synthetic researcher calls, three leads
+sharing two slots, independent consultation retries and eighty distinct
+workspaces with colliding file names. A browser study followed an expert
+answer into a newly delegated inventory investigation. The editor used
+three distinct files named `observations.csv` to produce the exported report.
+The original team mode retains its existing prompts and model roles.
+[Swarm guide](../research-sessions.md#run-a-swarm) ·
+[Decision](../decisions/0024-research-swarms.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/134).
+
+## Thinking effort and response detail
+
+The Research desk takes its model choices and supported thinking levels from
+the connected account. Fresh studies select Astra 6.2 for the lead and Sol 6.2
+for researchers. Thinking effort and response detail have independent sliders
+that start at High where supported. The owner can set each role's levels or
+let the role follow the shared setting. Edited drafts and pinned revisions
+restore their saved choices. Browser tests verified the default model and
+both levels in saved swarm requests, alongside keyboard and phone interactions.
+The workflow builder also supports defaults and step overrides. Older runs
+retain the request behavior pinned when they started.
+
+Synthetic HTTP tests compared the saved request bytes with the director,
+researcher and editor requests, including tool continuations. Session tests
+verified exact admission retries and restoration of per-role settings. A browser
+rehearsal followed two researchers with extra-high effort through to a report
+written with high response detail, then reopened the role settings on a phone.
+[Research desk guide](../research-sessions.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/132).
+
+## Brief-led research with independent workspaces
+
+The Research desk now starts a study from a brief, optional writing sample and
+pinned sources. A lead records a plan and dispatches up to four independent
+researchers. The session shows each request, saved lead, tool result and file.
+The owner can send directions to upcoming passes and answer the team's editorial
+question. The editor produces a full Markdown report and can include saved figures.
+Revisions link to the original study. Workflows retains the visual agent builder.
+
+A browser rehearsal followed two overlapping model requests through isolated
+Python workspaces, two same-named CSVs, live owner direction, expert review and
+a downloaded illustrated report. It also reopened a saved pass and the revised
+brief. Model replies and owner inputs were synthetic. [Research desk guide](../research-sessions.md) ·
+[Decision](../decisions/0023-adaptive-research-teams.md) ·
+[Delivery issue](https://github.com/andersj05/ResearchChain/issues/129).
+
+## Workflow inspection work on 2026-11-19
+
+The owner asked to make complex agents easier to understand
+in Build and Runs and to exercise a looped EquityCats research workflow.
+[Research interface principles](../research-interface.md).
+
+## Carry a finding into the next iteration
+
+Inside a pinned loop body, **Previous iteration outputs** offers text and number
+ports that are available when the pass finishes. Build shows the initial value
+and links to the producing step. **Runs → Step details → Data bindings** opens the
+previous saved occurrence under the same caller. Pending reviews show where
+feedback goes if the loop continues. Archived workflows keep their compiler pins.
+
+The updated EquityCats starter passes the prior audit’s objection and evidence
+requests into the next test. It keeps the original brief and cutoff and asks the
+challenger to verify what changed. Synthetic execution checked the exact context
+in the second pricing request, the later audit’s distinct source receipt, and the
+reviewer feedback in the memo. [Starter guide](../equitycats-research-example.md) ·
+[Bounded research workflow](https://github.com/andersj05/ResearchChain/issues/6).
+
+## Read a long workflow and compare iterations
+
+**Build → Plan** keeps the full outline visible while an exact nested step is
+open for editing. Named branches follow the control wiring. **Collapse all**
+preserves the selected path, and **Canvas** reopens the same step. Browser checks
+covered shared loop definitions, search, selection, and draft edits at 1280px and
+390px. A 128-step fixture exercised selecting a review near the end directly
+from Plan.
+
+**Runs → Outputs** finds saved model results, calculations, and notes by step,
+iteration, or text. **Compare iterations** opens recorded passes for the same
+step when one loop level differs. Inspect both saved requests and recorded web
+sources, or copy a link to the exact pair. The workflow map starts collapsed in
+Outputs and the pending review remains accessible.
+
+**New agent → EquityCats cross-asset research** is an editable bounded workflow.
+An independent audit challenges the evidence, and an explicit readiness check
+decides whether to ask for the owner's judgment or continue testing. Isolated
+runs verified second-pass convergence, exhaustion at three passes and missing
+provenance. The owner can assess research quality on their own case.
+[Starter guide](../equitycats-research-example.md) ·
+[Initial PR #126](https://github.com/andersj05/ResearchChain/pull/126).
+
+## Test a chart signal
+
+**New agent → Chart signal research** creates an editable nine-step example.
+**Run workflow → Upload a chart** captures a source and selects its exact version.
+Four custom Codex analysts find original series, assemble a point-in-time panel,
+score a frozen holdout, and search for contrary evidence. Two reviews carry the
+owner's design and judgment into the later steps. Synthetic tests exercised a
+successful forecast, deterioration after the split, and late or unusable inputs.
+An isolated run verified the transfer of the panel, scored predictions and saved
+method through the real Python image. The owner can try a chart and assess the
+research and usability. [Example and instructions](../chart-signal-example.md).
 
 ## Open a saved-version run from Build
 

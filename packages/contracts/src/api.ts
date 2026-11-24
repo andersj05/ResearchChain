@@ -936,6 +936,75 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/research-sessions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List Research Sessions */
+    get: operations["list_research_sessions"];
+    put?: never;
+    /** Start Research Session */
+    post: operations["start_research_session"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/research-sessions/{run_id}/setup": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get Research Session Setup */
+    get: operations["get_research_session_setup"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/research-sessions/{run_id}/directions": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Add Research Session Direction */
+    post: operations["add_research_session_direction"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  "/api/research-sessions/{run_id}/report.zip": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Download Session Report */
+    get: operations["export_research_session_report"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/runs/search": {
     parameters: {
       query?: never;
@@ -1362,6 +1431,30 @@ export interface components {
       numeric_columns?: string[];
       /** Parser Version */
       parser_version?: "csv-1" | null;
+    };
+    /** DiscoveryProposal */
+    DiscoveryProposal: {
+      /** Sentence */
+      sentence: string;
+      /** Alternative */
+      alternative: string;
+      /** First Check */
+      first_check: string;
+      /** Weaken If */
+      weaken_if: string;
+      /** Evidence Ids */
+      evidence_ids: string[];
+    };
+    /** DiscoveryReading */
+    DiscoveryReading: {
+      /** Observation */
+      observation: string;
+      /** Question */
+      question: string;
+      /** Citations */
+      citations: components["schemas"]["ResearchCitation"][];
+      /** Proposals */
+      proposals: components["schemas"]["DiscoveryProposal"][];
     };
     /** EvaluationArchive */
     EvaluationArchive: {
@@ -2386,6 +2479,21 @@ export interface components {
       /** Generation Input */
       generation_input: string;
     };
+    /** LeadPerspective */
+    LeadPerspective: {
+      /** Action Path */
+      action_path: string;
+      /** Lead Title */
+      lead_title: string;
+      /** Thesis */
+      thesis: string;
+      /** Question */
+      question: string;
+      /** Options */
+      options: string[];
+      /** Worker Paths */
+      worker_paths?: string[];
+    };
     /** LinkExchange */
     LinkExchange: {
       /**
@@ -2408,6 +2516,8 @@ export interface components {
     };
     /** ModelAttempt */
     ModelAttempt: {
+      /** Owner Direction Ids */
+      owner_direction_ids?: string[];
       /** Web Actions Completed */
       web_actions_completed?: number | null;
       /** Admission Policy Revision */
@@ -2465,6 +2575,18 @@ export interface components {
       /** Finished At */
       finished_at?: string | null;
     };
+    /** ModelOverride */
+    ModelOverride: {
+      /** Model */
+      model?: string | null;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        | ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra")
+        | "model_default"
+        | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | "model_default" | null;
+    };
     /** NodeTypeSpec */
     NodeTypeSpec: {
       /**
@@ -2509,6 +2631,31 @@ export interface components {
       queue: components["schemas"]["QueueOperations"];
       storage: components["schemas"]["StorageOperations"];
       usage: components["schemas"]["UsageOperations"];
+    };
+    /** OwnerDirection */
+    OwnerDirection: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Text */
+      text: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** OwnerDirectionInput */
+    OwnerDirectionInput: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Text */
+      text: string;
     };
     /** OwnerSession */
     OwnerSession: {
@@ -2586,6 +2733,23 @@ export interface components {
       /** Has More */
       has_more: boolean;
     };
+    /** PerspectiveAnswer */
+    PerspectiveAnswer: {
+      /**
+       * Decision
+       * @enum {string}
+       */
+      decision: "approve" | "reject";
+      /**
+       * Feedback
+       * @default
+       */
+      feedback: string;
+      /** Action Path */
+      action_path: string;
+      /** Interrupt Id */
+      interrupt_id: string;
+    };
     /** PortSpec */
     PortSpec: {
       /** Name */
@@ -2635,6 +2799,20 @@ export interface components {
       slug: string;
       /** Display Name */
       display_name: string;
+      /** Reasoning Efforts */
+      reasoning_efforts?: (
+        "none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra"
+      )[];
+      /** Default Reasoning Effort */
+      default_reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /**
+       * Supports Verbosity
+       * @default false
+       */
+      supports_verbosity: boolean;
+      /** Default Verbosity */
+      default_verbosity?: ("low" | "medium" | "high") | null;
     };
     /** ProviderStatus */
     ProviderStatus: {
@@ -3074,8 +3252,17 @@ export interface components {
        * @enum {string}
        */
       prompt_version: "research-1" | "custom-1";
+      /** Style Excerpt */
+      style_excerpt?: string | null;
       /** Model */
       model?: string | null;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        | ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra")
+        | "model_default"
+        | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | "model_default" | null;
       /**
        * Web Search
        * @default false
@@ -3087,6 +3274,7 @@ export interface components {
        */
       sec_financials: boolean;
       analyst?: components["schemas"]["AnalystConfig"] | null;
+      team?: components["schemas"]["ResearchTeamConfig"] | null;
     };
     /** ResearchLimits */
     ResearchLimits: {
@@ -3165,6 +3353,135 @@ export interface components {
        */
       created_at: string;
     };
+    /** ResearchSessionSetup */
+    ResearchSessionSetup: {
+      /** Brief */
+      brief: string;
+      /**
+       * Start From Sources
+       * @default false
+       */
+      start_from_sources: boolean;
+      /**
+       * Style Excerpt
+       * @default
+       */
+      style_excerpt: string;
+      /** Model */
+      model: string;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | null;
+      lead?: components["schemas"]["ModelOverride"] | null;
+      researcher?: components["schemas"]["ModelOverride"] | null;
+      editor?: components["schemas"]["ModelOverride"] | null;
+      swarm?: components["schemas"]["SwarmConfig"] | null;
+      /** Evidence Ids */
+      evidence_ids?: string[];
+      /**
+       * Max Input Bytes
+       * @default 4000000
+       */
+      max_input_bytes: number;
+      /**
+       * Max Agents
+       * @default 3
+       */
+      max_agents: number;
+      /**
+       * Max Passes
+       * @default 6
+       */
+      max_passes: number;
+      /**
+       * Max Active Seconds
+       * @default 1800
+       */
+      max_active_seconds: number;
+      /**
+       * Web Search
+       * @default false
+       */
+      web_search: boolean;
+      /**
+       * Review Mode
+       * @default when_needed
+       * @enum {string}
+       */
+      review_mode: "when_needed" | "always" | "never";
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
+    };
+    /** ResearchSessionStart */
+    ResearchSessionStart: {
+      /** Brief */
+      brief: string;
+      /**
+       * Start From Sources
+       * @default false
+       */
+      start_from_sources: boolean;
+      /**
+       * Style Excerpt
+       * @default
+       */
+      style_excerpt: string;
+      /** Model */
+      model: string;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | null;
+      lead?: components["schemas"]["ModelOverride"] | null;
+      researcher?: components["schemas"]["ModelOverride"] | null;
+      editor?: components["schemas"]["ModelOverride"] | null;
+      swarm?: components["schemas"]["SwarmConfig"] | null;
+      /** Evidence Ids */
+      evidence_ids?: string[];
+      /**
+       * Max Input Bytes
+       * @default 4000000
+       */
+      max_input_bytes: number;
+      /**
+       * Max Agents
+       * @default 3
+       */
+      max_agents: number;
+      /**
+       * Max Passes
+       * @default 6
+       */
+      max_passes: number;
+      /**
+       * Max Active Seconds
+       * @default 1800
+       */
+      max_active_seconds: number;
+      /**
+       * Web Search
+       * @default false
+       */
+      web_search: boolean;
+      /**
+       * Review Mode
+       * @default when_needed
+       * @enum {string}
+       */
+      review_mode: "when_needed" | "always" | "never";
+      /** Baseline Run Id */
+      baseline_run_id?: string | null;
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /** Provider Account Id */
+      provider_account_id: string;
+    };
     /** ResearchSettings */
     ResearchSettings: {
       /**
@@ -3178,6 +3495,11 @@ export interface components {
        * @default gpt-6.1-sol
        */
       model: string;
+      /** Reasoning Effort */
+      reasoning_effort?:
+        ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra") | null;
+      /** Verbosity */
+      verbosity?: ("low" | "medium" | "high") | null;
       /**
        * Billing
        * @default included_plan
@@ -3185,6 +3507,14 @@ export interface components {
        */
       billing: "included_plan";
       limits?: components["schemas"]["ResearchLimits"];
+    };
+    /** ResearchTeamConfig */
+    ResearchTeamConfig: {
+      /** Max Agents */
+      max_agents: number;
+      swarm?: components["schemas"]["SwarmConfig"] | null;
+      lead?: components["schemas"]["ModelOverride"] | null;
+      researcher?: components["schemas"]["ModelOverride"] | null;
     };
     /** ResumeRequest */
     ResumeRequest: {
@@ -3335,6 +3665,7 @@ export interface components {
       node_id: string;
       /** Question */
       question: string;
+      perspective?: components["schemas"]["LeadPerspective"] | null;
     };
     /** ReviewResponse */
     ReviewResponse: {
@@ -3484,6 +3815,10 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Perspective Answers */
+      perspective_answers?: components["schemas"]["PerspectiveAnswer"][];
+      /** Owner Directions */
+      owner_directions?: components["schemas"]["OwnerDirection"][];
       /**
        * Execution Pending
        * @description An accepted command is still queued or held by a worker.
@@ -3779,6 +4114,20 @@ export interface components {
       workspace_activity?: components["schemas"]["WorkspaceActivity"] | null;
       /** Workspace Files */
       workspace_files?: components["schemas"]["WorkspaceFile"][];
+      report_artifact?: components["schemas"]["WorkspaceFile"] | null;
+      team_plan?: components["schemas"]["TeamPlan"] | null;
+      discovery?: components["schemas"]["DiscoveryReading"] | null;
+      swarm_plan?: components["schemas"]["SwarmLeadPlan"] | null;
+      /** Swarm Action */
+      swarm_action?:
+        | (
+            | components["schemas"]["SwarmDelegate"]
+            | components["schemas"]["SwarmAskExpert"]
+            | components["schemas"]["SwarmFinish"]
+          )
+        | null;
+      /** Review Question */
+      review_question?: string | null;
     };
     /** StyleExample */
     StyleExample: {
@@ -3891,6 +4240,95 @@ export interface components {
       /** Version */
       version: number;
     };
+    /** SwarmAskExpert */
+    SwarmAskExpert: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "ask_expert";
+      consultation: components["schemas"]["SwarmConsultation"];
+    };
+    /** SwarmConfig */
+    SwarmConfig: {
+      /**
+       * Lead Count
+       * @default 2
+       */
+      lead_count: number;
+      /**
+       * Researchers Per Lead
+       * @default 20
+       */
+      researchers_per_lead: number;
+      /**
+       * Max Parallel
+       * @default 4
+       */
+      max_parallel: number;
+      /**
+       * Max Lead Turns
+       * @default 6
+       */
+      max_lead_turns: number;
+      /**
+       * Allow Consultations
+       * @default true
+       */
+      allow_consultations: boolean;
+    };
+    /** SwarmConsultation */
+    SwarmConsultation: {
+      /** Thesis */
+      thesis: string;
+      /** Question */
+      question: string;
+      /** Options */
+      options: string[];
+    };
+    /** SwarmDelegate */
+    SwarmDelegate: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "delegate";
+      /** Rationale */
+      rationale: string;
+      /** Assignments */
+      assignments: components["schemas"]["TeamAssignment"][];
+    };
+    /** SwarmFinish */
+    SwarmFinish: {
+      /**
+       * @description discriminator enum property added by openapi-typescript
+       * @enum {string}
+       */
+      action: "finish";
+      /** Findings */
+      findings: string;
+      /** Limitations */
+      limitations: string[];
+    };
+    /** SwarmLeadPlan */
+    SwarmLeadPlan: {
+      /** Leads */
+      leads: components["schemas"]["TeamAssignment"][];
+    };
+    /** TeamAssignment */
+    TeamAssignment: {
+      /** Title */
+      title: string;
+      /** Objective */
+      objective: string;
+    };
+    /** TeamPlan */
+    TeamPlan: {
+      /** Assignments */
+      assignments: components["schemas"]["TeamAssignment"][];
+      /** Review Question */
+      review_question?: string | null;
+    };
     /** UsageOperations */
     UsageOperations: {
       /** Attempts Started 24H */
@@ -3983,7 +4421,7 @@ export interface components {
        * Source
        * @enum {string}
        */
-      source: "brief" | "artifact_count" | "iteration" | "output";
+      source: "brief" | "artifact_count" | "iteration" | "output" | "previous_iteration";
       /** Node Id */
       node_id?: string | null;
       /** Port */
@@ -6180,6 +6618,167 @@ export interface operations {
       };
     };
   };
+  list_research_sessions: {
+    parameters: {
+      query?: {
+        limit?: number;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["RecentRunSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  start_research_session: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["ResearchSessionStart"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["CommandReceipt"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  get_research_session_setup: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ResearchSessionSetup"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  add_research_session_direction: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OwnerDirectionInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnerDirection"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  export_research_session_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/zip": string;
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
   search_runs: {
     parameters: {
       query?: {
@@ -6200,6 +6799,7 @@ export interface operations {
           | null;
         agent_id?: string | null;
         unassigned?: boolean;
+        sessions_only?: boolean;
         exclude_id?: string | null;
         before_created_at?: string | null;
         before_id?: string | null;

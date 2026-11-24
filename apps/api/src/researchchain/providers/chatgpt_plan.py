@@ -4,11 +4,11 @@ import asyncio
 import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 import httpx
 
-from researchchain.graph import MAX_RESPONSE_SECONDS
+from researchchain.graph import MAX_RESPONSE_SECONDS, ReasoningEffort, ResponseVerbosity
 from researchchain.providers.chatgpt_auth import (
     RESOURCE,
     ChatGPTAuth,
@@ -17,6 +17,7 @@ from researchchain.providers.chatgpt_auth import (
     safe_identifier,
 )
 from researchchain.providers.credentials import ConnectionError
+from researchchain.research_prompt import json_bytes
 from researchchain.web_research import (
     WebResearch,
     WebSearchProgress,
@@ -29,6 +30,42 @@ from researchchain.web_research import (
 class ModelChoice:
     slug: str
     display_name: str
+    reasoning_efforts: tuple[ReasoningEffort, ...] = ()
+    default_reasoning_effort: ReasoningEffort | None = None
+    supports_verbosity: bool = False
+    default_verbosity: ResponseVerbosity | None = None
+
+
+def catalog_choice(model: dict[str, Any], previous: ModelChoice | None) -> ModelChoice:
+    efforts: list[ReasoningEffort] = []
+    levels = model.get("supported_reasoning_levels")
+    if isinstance(levels, list):
+        for level in levels:
+            effort = level.get("effort") if isinstance(level, dict) else None
+            if effort is not None and effort in get_args(ReasoningEffort) and effort not in efforts:
+                efforts.append(effort)
+    default_effort = model.get("default_reasoning_level")
+    supports_verbosity = model.get("support_verbosity") is True
+    verbosity = model.get("default_verbosity")
+    if previous:
+        # A model slug selects one wire target. Conflicting duplicate entries can
+        # advertise only the controls and defaults confirmed by both entries.
+        efforts = [effort for effort in previous.reasoning_efforts if effort in efforts]
+        if previous.default_reasoning_effort != default_effort:
+            default_effort = None
+        supports_verbosity = previous.supports_verbosity and supports_verbosity
+        if previous.default_verbosity != verbosity:
+            verbosity = None
+    return ModelChoice(
+        slug=model["slug"],
+        display_name=previous.display_name if previous else model["display_name"],
+        reasoning_efforts=tuple(efforts),
+        default_reasoning_effort=default_effort if default_effort in efforts else None,
+        supports_verbosity=supports_verbosity,
+        default_verbosity=verbosity
+        if supports_verbosity and verbosity in get_args(ResponseVerbosity)
+        else None,
+    )
 
 
 @dataclass(frozen=True)
@@ -55,14 +92,14 @@ class ChatGPTPlan:
             models = body["models"]
             if not isinstance(models, list):
                 raise ValueError
-            choices = []
+            choices: dict[str, ModelChoice] = {}
             for model in models:
                 if model.get("visibility") == "list":
                     slug, name = model["slug"], model["display_name"]
                     if not isinstance(slug, str) or not isinstance(name, str):
                         raise ValueError
-                    choices.append(ModelChoice(slug, name))
-            return account, choices
+                    choices[slug] = catalog_choice(model, choices.get(slug))
+            return account, list(choices.values())
         except (KeyError, TypeError, ValueError, AttributeError):
             raise ConnectionError("OpenAI returned an invalid model catalog.") from None
 
@@ -82,37 +119,50 @@ class ChatGPTPlan:
         on_web_progress: Callable[[WebSearchProgress], None] | None = None,
         web_search: bool | Literal["auto"] = False,
         analyst_options: dict[str, Any] | None = None,
+        request_body: dict[str, Any] | None = None,
     ) -> Completion:
         if not 0 < timeout_seconds <= MAX_RESPONSE_SECONDS or not 0 < output_chars <= 200000:
             raise ValueError("A bounded time and output allowance are required.")
+        if request_body is None:
+            body: dict[str, Any] = {
+                "model": model,
+                "input": input_items
+                if input_items is not None
+                else [{"role": "user", "content": prompt}],
+                "store": False,
+                "stream": True,
+            }
+            if instructions is not None:
+                body["instructions"] = instructions
+            if output_schema is not None:
+                body["text"] = {
+                    "format": {
+                        "type": "json_schema",
+                        "name": "research_result",
+                        "strict": True,
+                        "schema": output_schema,
+                    }
+                }
+            if web_search:
+                body.update(web_request_options(web_search))
+            if analyst_options is not None:
+                body.update(analyst_options)
+        else:
+            body = request_body
+        if (
+            body.get("model") != model
+            or body.get("stream") is not True
+            or body.get("store") is not False
+        ):
+            raise ValueError(
+                "The research request must stream the pinned model with storage disabled."
+            )
+        payload = json_bytes(body)
         # Refresh is serialized and has its own network timeout. Never silently use
         # a different account after model selection or a pinned research manifest.
         account, token = await asyncio.to_thread(self.auth.access)
         if account != account_id:
             raise ConnectionError("The active ChatGPT account changed. Select its model again.")
-        body: dict[str, Any] = {
-            "model": model,
-            "input": input_items
-            if input_items is not None
-            else [{"role": "user", "content": prompt}],
-            "store": False,
-            "stream": True,
-        }
-        if instructions is not None:
-            body["instructions"] = instructions
-        if output_schema is not None:
-            body["text"] = {
-                "format": {
-                    "type": "json_schema",
-                    "name": "research_result",
-                    "strict": True,
-                    "schema": output_schema,
-                }
-            }
-        if web_search:
-            body.update(web_request_options(web_search))
-        if analyst_options is not None:
-            body.update(analyst_options)
         text = ""
         observed_items: dict[str, dict[str, Any]] = {}
         completed_ids: set[str] = set()
@@ -147,8 +197,11 @@ class ChatGPTPlan:
                 async with client.stream(
                     "POST",
                     f"{RESOURCE}/responses",
-                    headers={"Authorization": f"Bearer {token}"},
-                    json=body,
+                    headers={
+                        "Authorization": f"Bearer {token}",
+                        "Content-Type": "application/json",
+                    },
+                    content=payload,
                 ) as response:
                     if response.status_code != 200:
                         # Error bodies may contain arbitrary provider diagnostics;

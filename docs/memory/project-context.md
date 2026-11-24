@@ -48,3 +48,20 @@ agent and supply usability feedback. Preserve that as the next step.
 
 The anchor report can guide development but cannot also be an uncontaminated
 holdout. Writing resemblance alone is not a measure of research quality.
+
+On 2026-11-24 the owner specified a source-only entry for the Research desk.
+A week of charts, notes and conversations precedes the working sentence. Batch
+intake, visible settings and a methodology graph should make the handoffs and
+owner decisions legible. A lead should delegate parallel assignments, each
+researcher should have its own workspace, and the owner should be able to see
+ongoing work, supply judgment and read a report with its charts.
+See [adaptive research teams](../decisions/0023-adaptive-research-teams.md).
+
+The owner also wants several Astra leads to delegate simpler investigations
+to Sol researchers. A lead can bring a trade idea and alternatives to the
+owner for judgment, then use the answer to revise its investigation before
+the report is written. [Research swarms](../decisions/0024-research-swarms.md).
+
+For new Research desk studies in either team structure, the owner's preferred
+defaults are Astra 6.2 leads, Sol 6.2 researchers, High thinking effort and
+High response detail. The owner wants to adjust the two levels with sliders.

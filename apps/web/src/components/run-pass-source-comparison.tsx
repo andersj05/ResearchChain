@@ -1,4 +1,5 @@
 import type { components } from "@researchchain/contracts";
+import { defaultPassComparisonLabels, type PassComparisonLabels } from "@/lib/run-inspection";
 
 type WebResearch = components["schemas"]["WebResearch"];
 type WebSource = WebResearch["sources"][number];
@@ -42,9 +43,11 @@ function SourceList({ sources }: { sources: WebSource[] }) {
 export function RunPassSourceComparison({
   comparison,
   current,
+  labels = defaultPassComparisonLabels,
 }: {
   comparison?: WebResearch | null;
   current?: WebResearch | null;
+  labels?: PassComparisonLabels;
 }) {
   if (!comparison && !current) return null;
   const before = recordedSources(comparison);
@@ -52,13 +55,13 @@ export function RunPassSourceComparison({
   const shared = [...before.values()].filter((source) => after.has(source.url));
   const sides = [
     {
-      label: "Comparison pass",
+      label: labels.comparison,
       otherRecord: current,
       record: comparison,
       sources: [...before.values()].filter((source) => !after.has(source.url)),
     },
     {
-      label: "Open run pass",
+      label: labels.current,
       otherRecord: comparison,
       record: current,
       sources: [...after.values()].filter((source) => !before.has(source.url)),

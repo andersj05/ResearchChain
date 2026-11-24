@@ -16,15 +16,21 @@ export function EvidencePicker({
   onChange,
   disabled = false,
   label = "Evidence for this run",
+  onAttachChart,
+  attachedCharts = [],
+  showSelected = true,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
   disabled?: boolean;
   label?: string;
+  onAttachChart?: (known: EvidenceRecord[]) => void;
+  attachedCharts?: EvidenceRecord[];
+  showSelected?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
-  const [initialSelection] = useState(selected);
+  const [initialSelection] = useState(showSelected ? selected : []);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
   const [orderMessage, setOrderMessage] = useState("");
   const moveFocus = useRef<string>(null);
@@ -52,7 +58,7 @@ export function EvidencePicker({
     moveFocus.current = null;
   }, [selected]);
 
-  const known = mergeSources(retained, library.items);
+  const known = mergeSources([...attachedCharts, ...retained], library.items);
   const visible = query ? library.items : known;
   const byId = new Map(known.map((item) => [item.id, item]));
   const unresolved = selected.filter((id) => !byId.has(id));
@@ -74,7 +80,16 @@ export function EvidencePicker({
       <legend>
         {label} <span className="count">{selected.length}</span>
       </legend>
-      {selected.length > 0 && (
+      {onAttachChart && (
+        <Button
+          className="button small"
+          disabled={disabled || selected.length >= 100}
+          onClick={() => onAttachChart(known)}
+        >
+          Upload a chart
+        </Button>
+      )}
+      {showSelected && selected.length > 0 && (
         <details className="evidence-selected">
           <summary>Selected sources ({selected.length})</summary>
           <ul>
@@ -187,11 +202,7 @@ export function EvidencePicker({
           </label>
         ))}
         {!library.loading && !library.error && !visible.length && (
-          <p className="muted">
-            {query
-              ? "No matching sources."
-              : "Add sources in the Evidence tab to include them here."}
-          </p>
+          <p className="muted">{query ? "No matching sources." : "No saved sources yet."}</p>
         )}
       </div>
       {library.loading && (

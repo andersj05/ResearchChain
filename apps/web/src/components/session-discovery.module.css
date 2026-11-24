@@ -1,0 +1,183 @@
+.sheet {
+  display: grid;
+  gap: 20px;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  padding: clamp(16px, 3vw, 36px);
+  overflow-wrap: anywhere;
+}
+.sheet h2,
+.sheet h3,
+.sheet h4 {
+  line-height: 1.28;
+}
+.sheet h2 {
+  font-size: clamp(20px, 2.4vw, 29px);
+  letter-spacing: -0.035em;
+}
+.spread {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: clamp(20px, 3.7vw, 48px);
+  align-items: start;
+}
+.reading,
+.proposal,
+.sources,
+.decision,
+.issued,
+.issued li {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.observation,
+.sentence {
+  font-size: clamp(17px, 2vw, 23px);
+  line-height: 1.5;
+  max-width: 64ch;
+  white-space: pre-wrap;
+}
+.proposal {
+  padding-block: 16px 4px;
+  border-top: 1px solid var(--line);
+}
+.proposal h3,
+.decision h3 {
+  font-size: clamp(17px, 1.7vw, 21px);
+}
+.proposal dl {
+  margin: 0;
+}
+.proposal dt,
+.byline,
+.excerpt small {
+  font-size: 12px;
+  color: var(--muted);
+}
+.proposal dt {
+  font-weight: 600;
+}
+.proposal dd {
+  margin: 2px 0 8px;
+}
+.references,
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.references a,
+.issued a {
+  font-size: 13px;
+}
+.proposal button {
+  justify-self: start;
+}
+.sources {
+  border-inline-start: 1px solid var(--line);
+  padding-inline-start: clamp(16px, 2.2vw, 28px);
+}
+.sources h3,
+.issued h3 {
+  font-size: 15px;
+}
+.sources article:target {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  scroll-margin-top: 16px;
+}
+.sources article + article {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.sources h4,
+.sources p {
+  font-size: 13px;
+}
+.byline,
+.excerpt,
+.chart {
+  margin-top: 6px;
+}
+.chart {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  max-height: 220px;
+  object-fit: contain;
+}
+.excerpt blockquote {
+  margin: 8px 0;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--border-strong);
+  white-space: pre-wrap;
+}
+.excerpt p {
+  line-height: 1.5;
+}
+.decision {
+  background: var(--amber-soft);
+  border-inline-start: 3px solid var(--amber);
+  padding: clamp(14px, 2vw, 24px);
+}
+.decision label {
+  font-weight: 600;
+  font-size: 13px;
+}
+.decision textarea {
+  font: inherit;
+  width: 100%;
+  min-width: 0;
+  min-height: 80px;
+  resize: vertical;
+  border: 1px solid var(--border-strong);
+  padding: 10px 12px;
+  background: var(--surface);
+  color: var(--ink);
+}
+.issued {
+  border-inline-start: 3px solid var(--blue);
+  padding-inline-start: 18px;
+}
+.issued ol {
+  display: grid;
+  gap: 14px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.issued li {
+  gap: 4px;
+}
+.issued a {
+  justify-self: start;
+}
+.history,
+.issued details {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+.history summary,
+.issued summary {
+  font-weight: 500;
+  font-size: 13px;
+  width: fit-content;
+}
+.history[open] > .spread,
+.issued details[open] ol {
+  margin-top: 18px;
+}
+@media (max-width: 680px) {
+  .spread {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .sources {
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--line);
+    padding: 14px 0 0;
+  }
+}

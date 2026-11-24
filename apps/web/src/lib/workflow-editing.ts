@@ -1,4 +1,5 @@
 import { researchDefaults } from "./workflow";
+import type { StepModelSettings } from "./model-settings";
 import type {
   Graph,
   SubgraphRef,
@@ -10,7 +11,7 @@ import type {
 } from "./workflow";
 
 export type GraphScope = SubgraphRef | null;
-export type StepModelChange = { scope: GraphScope; nodeId: string; model: string };
+export type StepModelChange = { scope: GraphScope; nodeId: string; settings: StepModelSettings };
 export type TemplateKind =
   | "note"
   | "review"
@@ -66,11 +67,11 @@ export function updateGraph(workflow: Workflow, scope: GraphScope, graph: Graph)
 }
 
 export function updateStepModels(workflow: Workflow, changes: StepModelChange[]): Workflow {
-  const byScope = new Map<string, { scope: GraphScope; models: Map<string, string> }>();
-  for (const { scope, nodeId, model } of changes) {
+  const byScope = new Map<string, { scope: GraphScope; models: Map<string, StepModelSettings> }>();
+  for (const { scope, nodeId, settings } of changes) {
     const key = scopeKey(scope);
-    const group = byScope.get(key) ?? { scope, models: new Map<string, string>() };
-    group.models.set(nodeId, model);
+    const group = byScope.get(key) ?? { scope, models: new Map<string, StepModelSettings>() };
+    group.models.set(nodeId, settings);
     byScope.set(key, group);
   }
 
@@ -79,9 +80,9 @@ export function updateStepModels(workflow: Workflow, changes: StepModelChange[])
     const graph = graphAt(next, scope);
     if (!graph) continue;
     const nodes = graph.nodes.map((node) => {
-      const model = models.get(node.id);
-      if (node.config?.type !== "research" || model === undefined) return node;
-      return { ...node, config: { ...node.config, model: model || undefined } };
+      const settings = models.get(node.id);
+      if (node.config?.type !== "research" || !settings) return node;
+      return { ...node, config: { ...node.config, ...settings } };
     });
     next = updateGraph(next, scope, { ...graph, nodes });
   }
@@ -95,6 +96,16 @@ export function referenceOf(node: WorkflowNode): SubgraphRef | undefined {
 }
 
 export type GraphCrumb = { ref: SubgraphRef; via: string };
+
+export function sameGraphPath(left: GraphCrumb[], right: GraphCrumb[]) {
+  return (
+    left.length === right.length &&
+    left.every((crumb, index) => {
+      const other = right[index]!;
+      return crumb.via === other.via && scopeKey(crumb.ref) === scopeKey(other.ref);
+    })
+  );
+}
 
 export function reachableControlNodes(graph: Graph) {
   const nodes = new Set(graph.nodes.map(({ id }) => id));
@@ -138,6 +149,14 @@ export function* reachableWorkflowGraphs(workflow: Workflow, { controlOnly = fal
       pending.push({ graph: bodies[0]!, path: [...path, { ref, via: node.id }] });
     }
   }
+}
+
+export function workflowLimitCaps(workflow: Workflow) {
+  for (const { nodes } of reachableWorkflowGraphs(workflow)) {
+    if (nodes.some(({ config }) => config?.type === "research" && config.team?.swarm))
+      return { parallelSteps: 20, researchRequests: 1021 };
+  }
+  return { parallelSteps: 16, researchRequests: 100 };
 }
 
 export function workflowStepAtRunPath(workflow: Workflow, executionPath: string) {
@@ -188,6 +207,9 @@ export function portsFor(node: WorkflowNode): Port[] {
     ...(node.kind === "note" ? [port("input", "text", "text")] : []),
     ...controlOutputs(node).map((name) => port("output", name, "control")),
     ...(node.kind === "note" || node.kind === "research" ? [port("output", "text", "text")] : []),
+    ...(node.config?.type === "research" && node.config.team
+      ? [port("output", "review_question", "text")]
+      : []),
     ...(node.kind === "research"
       ? [port("input", "context", "text"), port("input", "feedback", "text")]
       : []),
@@ -200,26 +222,33 @@ export function portsFor(node: WorkflowNode): Port[] {
         ]
       : []),
     ...(node.kind === "review"
-      ? [port("output", "decision", "text"), port("output", "feedback", "text")]
+      ? [
+          port("input", "question", "text"),
+          port("output", "decision", "text"),
+          port("output", "feedback", "text"),
+        ]
       : []),
     ...(node.kind === "loop" ? [port("output", "iterations", "number")] : []),
   ];
 }
 
 export function compatiblePorts(a?: Port, b?: Port): boolean {
-  return !!a && !!b && a.node !== b.node && a.direction !== b.direction && a.type === b.type;
+  if (!a || !b || a.node === b.node || a.direction === b.direction || a.type !== b.type)
+    return false;
+  const [source, target] = a.direction === "output" ? [a, b] : [b, a];
+  return target.name !== "question" || source.name === "review_question";
 }
 
-function outputReference(value: ValueSource) {
-  if (value.source === "output" && value.node_id && value.port) {
+function outputReference(value: ValueSource, timing: "output" | "previous_iteration" = "output") {
+  if (value.source === timing && value.node_id && value.port) {
     return { sourceId: value.node_id, output: value.port };
   }
 }
 
-export function outputBindings(graph: Graph) {
+export function outputBindings(graph: Graph, timing: "output" | "previous_iteration" = "output") {
   return graph.nodes.flatMap((target) =>
     Object.entries(target.inputs ?? {}).flatMap(([input, value]) => {
-      const reference = outputReference(value);
+      const reference = outputReference(value, timing);
       return reference ? [{ target, input, ...reference }] : [];
     }),
   );
@@ -739,7 +768,7 @@ export function removeStep<G extends Graph>(graph: G, id: string): G {
         ...item,
         inputs: Object.fromEntries(
           Object.entries(item.inputs ?? {}).filter(
-            ([, source]) => source.source !== "output" || !removed.has(source.node_id ?? ""),
+            ([, source]) => !removed.has(source.node_id ?? ""),
           ),
         ),
       })),

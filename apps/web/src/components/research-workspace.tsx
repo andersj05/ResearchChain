@@ -20,7 +20,9 @@ export function canPreviewWorkspaceFile(file: WorkspaceFile) {
   );
 }
 
-function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<string> }) {
+type PreviewProps = { file: WorkspaceFile; sources: Set<string>; files?: WorkspaceFile[] };
+
+function TextPreview({ file, sources, files }: PreviewProps) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -45,19 +47,13 @@ function TextPreview({ file, sources }: { file: WorkspaceFile; sources: Set<stri
   if (file.media_type === "text/csv" || /\.csv$/i.test(file.name))
     return <CsvPreview text={text} />;
   return file.name.toLowerCase().endsWith(".md") ? (
-    <ResearchMarkdown text={text} sources={sources} />
+    <ResearchMarkdown text={text} sources={sources} files={files} />
   ) : (
     <pre tabIndex={0}>{text}</pre>
   );
 }
 
-export function WorkspaceFilePreview({
-  file,
-  sources,
-}: {
-  file: WorkspaceFile;
-  sources: Set<string>;
-}) {
+export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
   return (
     <div className="workspace-file-preview">
       {imageTypes.has(file.media_type) ? (
@@ -69,7 +65,7 @@ export function WorkspaceFilePreview({
           loading="lazy"
         />
       ) : canPreviewWorkspaceFile(file) ? (
-        <TextPreview key={file.artifact_id} file={file} sources={sources} />
+        <TextPreview key={file.artifact_id} file={file} sources={sources} files={files} />
       ) : (
         <p className="muted">Download this file to inspect it in full.</p>
       )}
@@ -113,7 +109,7 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
       <p className="field-hint">
         {file.name} · {file.byte_size.toLocaleString()} bytes
       </p>
-      <WorkspaceFilePreview file={file} sources={sources} />
+      <WorkspaceFilePreview file={file} sources={sources} files={files} />
     </section>
   );
 }

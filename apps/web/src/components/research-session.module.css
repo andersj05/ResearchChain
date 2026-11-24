@@ -1,0 +1,406 @@
+.page {
+  width: min(1180px, 100%);
+  margin: 0 auto;
+  padding: clamp(24px, 5vw, 64px) clamp(16px, 4vw, 48px) 48px;
+  display: grid;
+  gap: 22px;
+}
+.intro {
+  display: grid;
+  gap: 12px;
+}
+.intro h1 {
+  max-width: 35ch;
+  font-size: clamp(26px, 3.4vw, 42px);
+  letter-spacing: -0.045em;
+  line-height: 1.14;
+}
+.meta,
+.summary,
+.actions,
+.receiptLinks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+.meta time,
+.summary,
+.settings,
+.detailHeading p,
+.empty,
+.live span,
+.receipts li > span,
+.assignments p {
+  color: var(--muted);
+}
+.meta time,
+.summary {
+  font-size: 12px;
+}
+.summary span + span {
+  border-left: 1px solid var(--border-strong);
+  padding-left: 12px;
+}
+.settings {
+  font-size: 13px;
+  min-width: 0;
+}
+.profileList {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-top: 14px;
+}
+.profileList table {
+  width: 100%;
+  max-width: 48rem;
+  border-collapse: collapse;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.profileList caption {
+  color: var(--ink);
+  font-weight: 600;
+  text-align: left;
+  padding-bottom: 6px;
+}
+.profileList th,
+.profileList td {
+  border-bottom: 1px solid var(--line);
+  padding: 6px 10px 6px 0;
+  vertical-align: top;
+}
+.profileList th {
+  color: var(--ink);
+  font-weight: 500;
+}
+.settings summary,
+.receipts summary,
+.findings summary {
+  width: fit-content;
+  color: var(--ink);
+  font-weight: 500;
+}
+.settings p,
+.judgment p {
+  white-space: pre-wrap;
+  margin-top: 8px;
+}
+.work {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.32fr) minmax(0, 1fr);
+  align-items: start;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.roster {
+  min-width: 0;
+  padding-block: 18px;
+}
+.roster h2 {
+  margin: 0 18px 12px;
+  font-size: 14px;
+}
+.roster button {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  padding: 11px 16px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.roster button[aria-current] {
+  background: var(--blue-soft);
+  border-left-color: var(--blue);
+}
+.roster button strong {
+  font-size: 13px;
+}
+.roster button span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.leadGroup {
+  border-block-start: 1px solid var(--line);
+  min-width: 0;
+}
+.leadGroup details {
+  margin: 0 0 8px 14px;
+  border-left: 1px solid var(--line);
+}
+.leadGroup summary {
+  font-size: 12px;
+  padding: 8px;
+  color: var(--muted);
+}
+.workspacePath {
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+.judgment form {
+  display: grid;
+  gap: 8px;
+}
+.judgment form > button {
+  justify-self: start;
+}
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  border: 0;
+  padding: 0;
+  min-width: 0;
+}
+.suggestions legend {
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+.suggestions button {
+  text-align: left;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+.suggestions button[aria-pressed="true"] {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+}
+.answerHistory {
+  display: grid;
+  gap: 14px;
+  padding: 0 0 0 20px;
+}
+.detail {
+  min-width: 0;
+  min-height: 260px;
+  align-self: stretch;
+  padding: clamp(16px, 2.6vw, 32px);
+  border-left: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+.detail > * + * {
+  margin-top: 18px;
+}
+.detailHeading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: start;
+  flex-wrap: wrap;
+}
+.detailHeading h2 {
+  font-size: 21px;
+  letter-spacing: -0.035em;
+}
+.detailHeading p {
+  margin-top: 4px;
+}
+.live {
+  display: grid;
+  gap: 3px;
+  border-left: 2px solid var(--blue);
+  padding-inline-start: 12px;
+}
+.live span,
+.receipts li > span {
+  font-size: 12px;
+}
+.findings > * + * {
+  margin-top: 12px;
+}
+.receipts {
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+}
+.receipts ol,
+.assignments {
+  margin: 12px 0 0;
+  padding-inline-start: 20px;
+}
+.receipts li > strong,
+.receipts li > span {
+  display: block;
+}
+.receipts li + li,
+.assignments li + li {
+  margin-top: 9px;
+}
+.receiptLinks {
+  gap: 12px;
+  font-size: 12px;
+  margin: 4px 0;
+}
+.judgment {
+  padding: clamp(16px, 2vw, 26px);
+  border: 1px solid #ddcda8;
+  background: var(--amber-soft);
+  display: grid;
+  gap: 8px;
+}
+.judgment p {
+  margin-top: 0;
+}
+.judgment label {
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 500;
+}
+.judgment textarea {
+  resize: vertical;
+  max-width: 100%;
+  width: 100%;
+  border: 1px solid var(--border-strong);
+  padding: 8px;
+}
+.notice {
+  padding: 12px 14px;
+  border-left: 2px solid var(--amber);
+  background: var(--amber-soft);
+}
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.footer > a {
+  color: var(--muted);
+  font-size: 13px;
+}
+.pass {
+  display: grid;
+  gap: 8px;
+  padding-block: 12px 0;
+}
+.guidance {
+  border-left: 2px solid var(--blue);
+  padding: 7px 14px;
+  background: var(--surface);
+}
+.guidance > summary {
+  width: fit-content;
+  font-weight: 500;
+}
+.guidanceBody,
+.guidance form {
+  display: grid;
+  gap: 8px;
+}
+.guidanceBody {
+  padding-top: 12px;
+}
+.guidance ol {
+  margin: 0;
+  padding-inline-start: 22px;
+}
+.guidance li + li {
+  margin-top: 9px;
+}
+.guidance li p {
+  white-space: pre-wrap;
+}
+.guidance time,
+.guidance li > span,
+.guidance form p {
+  color: var(--muted);
+  font-size: 12px;
+}
+.guidance form label {
+  font-weight: 500;
+  font-size: 13px;
+}
+.guidance textarea {
+  resize: vertical;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid var(--border-strong);
+}
+.guidance form button {
+  justify-self: start;
+}
+.pass label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.pass select {
+  max-width: 100%;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  padding: 4px 8px;
+}
+.pass > span,
+.activity time,
+.activity small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.activity {
+  border-block: 1px solid var(--line);
+  padding-block: 12px;
+}
+.activity summary {
+  width: fit-content;
+  font-weight: 500;
+}
+.activity ol {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+.activity li + li {
+  border-top: 1px solid var(--line);
+}
+.activity li button {
+  display: grid;
+  grid-template-columns: 6.3rem minmax(0, 1fr);
+  width: 100%;
+  text-align: left;
+  align-items: baseline;
+  gap: 8px;
+  border: 0;
+  padding: 8px 4px;
+  background: transparent;
+  overflow-wrap: anywhere;
+}
+.activity li button:hover {
+  background: var(--surface);
+}
+.activity small {
+  display: block;
+}
+@media (max-width: 680px) {
+  .page {
+    gap: 16px;
+  }
+  .work {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .roster {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2px;
+    padding: 12px;
+  }
+  .roster h2 {
+    grid-column: 1/-1;
+    margin: 0 0 4px;
+  }
+  .roster button {
+    align-content: start;
+    padding: 8px;
+  }
+  .swarmRoster {
+    display: block;
+  }
+  .detail {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}

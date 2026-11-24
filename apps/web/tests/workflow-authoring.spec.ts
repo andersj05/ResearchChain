@@ -262,7 +262,7 @@ test("remember visible connections across pinned subgraphs, reload, and reset", 
   async function enterBody() {
     await page
       .locator(".node-outline")
-      .getByRole("button", { name: /Review_Loop/ })
+      .getByRole("button", { name: /^Review_Loop/ })
       .click();
     await page.getByRole("button", { name: "Edit subgraph", exact: true }).click();
     await expect(crumbs).toContainText(`${body.name} v${version}`);

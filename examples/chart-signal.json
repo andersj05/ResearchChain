@@ -1,0 +1,254 @@
+{
+  "schema_version": "0.3",
+  "name": "Chart signal research",
+  "start_node": "frame",
+  "nodes": [
+    {
+      "id": "frame",
+      "kind": "research",
+      "label": "Read the chart and frame the signal",
+      "instructions": "Read the owner's idea and inspect the attached chart and text. Identify each series, source, units, axes, transformations, frequency, date range and apparent lead or lag. Flag a dual axis, smoothing, revisions, rescaling, ambiguous legends or unavailable originals. Attribute what the owner proposes and what you can actually see. Never extract a numeric history from pixels. Name a plausible mechanism and a competing explanation. Propose one operational predictor X, future outcome Y, forecast origin, horizon and falsifier. Carry the chart's displayed period forward because it helped generate the hypothesis.",
+      "position": {
+        "x": 60,
+        "y": 100
+      },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1"
+      }
+    },
+    {
+      "id": "sources",
+      "kind": "research",
+      "label": "Find the series and release history",
+      "instructions": "Investigate the proposed predictor and target. Find original series owners, identifiers, definitions, units, observation calendars, release times, vintage or revision policy and accessible numeric histories. Seek an independent source for the mechanism. Trace republished material to its origin. Cite the dated sources actually returned. Distinguish a usable observation history from a link to a series. Describe the common coverage and the interval already seen on the chart without inspecting alternative holdout results. In conclusion carry forward the proposed X, Y, timing and mechanism. Suggest a single chronological cutoff, benchmark and loss for the owner to approve, plus any history or permissions still needed.",
+      "position": {
+        "x": 380,
+        "y": 100
+      },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": true,
+        "analyst": {
+          "max_passes": 3,
+          "skill": "Start with series definitions and point-in-time availability. Use a follow-up pass to resolve a conflicting unit, unavailable vintage or mismatched time zone. Search using public series names and metadata. Record the original publisher and what each source actually establishes."
+        }
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "frame",
+          "port": "text"
+        }
+      }
+    },
+    {
+      "id": "design",
+      "kind": "review",
+      "label": "Approve the forecast design",
+      "instructions": "Which signal should we test? Freeze the forecast origin, transformation, target horizon, holdout start (with time zone), benchmark and loss before scoring. The default compares a linear signal forecast with the training mean using RMSE. Name any planned sensitivity check. If you already saw the proposed test period on the chart, label the exercise retrospective or choose an unseen period.",
+      "position": {
+        "x": 700,
+        "y": 100
+      }
+    },
+    {
+      "id": "panel",
+      "kind": "research",
+      "label": "Build a point-in-time observation table",
+      "instructions": "Implement the approved design using the supplied sources, the series discovery and the owner's feedback. Pin observation and release dates, units, timezone, transformations, original series and vintage. Align one predictor known at each forecast origin with the outcome over (forecast_at, target_end] and its actual release time. Check duplicates, missing periods, calendar alignment, stale inputs, label overlap and revisions. Record exclusions. Do not fill gaps from a screenshot, assume midnight for unknown release times, invent a vintage, or treat simulated data as observed. In Python save outputs/observations.csv with columns signal_available,forecast_at,target_end,target_available,x,y. Use ISO timestamps with offsets and numeric x,y. Save outputs/sources.md with the approved design, holdout start, source IDs or dated links, transformations and coverage. If construction is impossible, save the specific data request and tell the next analyst the test is blocked. Keep scores and holdout outcomes out of the design process.",
+      "position": {
+        "x": 1020,
+        "y": 100
+      },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": "auto",
+        "analyst": {
+          "max_passes": 5,
+          "workspace": true,
+          "skill": "Read the staged files. Obtain missing public observations through the enabled search when available. A catalog entry alone supplies no observations. Build the panel with Python and verify the saved file receipt, row count and time range. Preserve vintage and row provenance when combining sources. Pass the exact filenames, frozen cutoff, chart-seen period and unresolved gaps forward."
+        }
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "sources",
+          "port": "text"
+        },
+        "feedback": {
+          "source": "output",
+          "node_id": "design",
+          "port": "feedback"
+        }
+      }
+    },
+    {
+      "id": "forecast",
+      "kind": "research",
+      "label": "Score the frozen holdout",
+      "instructions": "Inspect the connected panel and sources.md and the owner's approved design. If the data are absent, estimated only, or their timing cannot be verified, return a data-gap verdict and the exact missing input. For the default test invoke the installed scorer on observations.csv with the approved cutoff. Keep all rows of the holdout out of fitting and purge training labels unavailable at the cutoff. Report training, purged and test counts, dates, model and benchmark RMSE in target units, and out-of-sample R² when defined. Explain the in-sample association separately. If the owner explicitly approved a different method, implement it in recorded Python and compare on identical origins. Run only the prespecified sensitivity check as confirmatory. Label further variations exploratory. Account for overlapping windows, effective sample size, selection from the displayed chart and any lack of unseen observations. Save a dated comparison chart or loss table when supported. Carry the panel provenance, period, metrics, qualification and actual artifact names in conclusion.",
+      "position": {
+        "x": 1340,
+        "y": 100
+      },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "analyst": {
+          "max_passes": 5,
+          "workspace": true,
+          "skill": "Use a Python action to call subprocess.run([sys.executable, '/opt/researchchain/signal_holdout.py', 'observations.csv', cutoff], check=True) for the default benchmark. It fits once on eligible training rows and saves holdout-predictions.csv, holdout-metrics.json and holdout-method.py under outputs/. Inspect the execution receipt before quoting results. Do not change the cutoff, release dates or horizon to rescue a poor result. If the scorer reports a timing or sample problem, investigate it against originals or report the gap."
+        }
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "panel",
+          "port": "text"
+        },
+        "feedback": {
+          "source": "output",
+          "node_id": "design",
+          "port": "feedback"
+        }
+      }
+    },
+    {
+      "id": "challenge",
+      "kind": "research",
+      "label": "Look for a competing explanation",
+      "instructions": "Try to falsify the claimed relationship. Use an independent dated source for a concrete confounder, release convention, revision or structural break. Check the design against common trends, contemporaneous reactions, seasonality, hindsight, chart selection and overlapping returns. Identify the strongest objection and an observation that would decide it. A reprint of the same series adds no independent confirmation. Preserve the approved method, source provenance, numerical comparison, saved filenames and qualifications from the forecast pass. If the analysis stopped at a gap, preserve that outcome and look for the precise missing evidence. State separately what was observed, what was predicted and what remains unresolved.",
+      "position": {
+        "x": 1660,
+        "y": 100
+      },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1",
+        "web_search": true,
+        "analyst": {
+          "max_passes": 3,
+          "skill": "Search for evidence that could overturn the leading interpretation, including primary methodology or documented regime changes. Follow a material counterexample to its source. Keep search references and the calculation receipt distinguishable. Do not tune the model on the held-out results."
+        }
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "forecast",
+          "port": "text"
+        },
+        "feedback": {
+          "source": "output",
+          "node_id": "design",
+          "port": "feedback"
+        }
+      }
+    },
+    {
+      "id": "verdict",
+      "kind": "review",
+      "label": "Weigh the result and the challenge",
+      "instructions": "Does the forecast comparison change your view? Weigh the benchmark, the strongest objection and whether the test period was genuinely unseen. Record your judgment and the next evidence or forward observation you want. Approve to draft the memo or reject to revise the experiment.",
+      "position": {
+        "x": 1980,
+        "y": 100
+      }
+    },
+    {
+      "id": "memo",
+      "kind": "research",
+      "label": "Write the signal research memo",
+      "instructions": "Answer the owner's original question in the first paragraph. Use one of: insufficient evidence, descriptive association only, no improvement over benchmark, or tentative held-out improvement. Use the most defensible description and qualify a previously viewed test period as retrospective. Present the forecast definition, cutoff, dates, sample sizes, errors with units and the benchmark when measured. Cite the specific uploaded evidence and dated sources carried forward. Link claims to saved artifact names only when they exist. Attribute the owner's judgment, describe the strongest objection and close with the next prospective test or specific data request. Leave unavailable numbers blank and explain why.",
+      "position": {
+        "x": 2300,
+        "y": 100
+      },
+      "config": {
+        "type": "research",
+        "stage": "custom",
+        "prompt_version": "custom-1"
+      },
+      "inputs": {
+        "context": {
+          "source": "output",
+          "node_id": "challenge",
+          "port": "text"
+        },
+        "feedback": {
+          "source": "output",
+          "node_id": "verdict",
+          "port": "feedback"
+        }
+      }
+    },
+    {
+      "id": "finish",
+      "kind": "finish",
+      "label": "Finish",
+      "position": {
+        "x": 2620,
+        "y": 100
+      }
+    }
+  ],
+  "edges": [
+    {
+      "source": "frame",
+      "target": "sources"
+    },
+    {
+      "source": "sources",
+      "target": "design"
+    },
+    {
+      "source": "design",
+      "target": "panel"
+    },
+    {
+      "source": "panel",
+      "target": "forecast"
+    },
+    {
+      "source": "forecast",
+      "target": "challenge"
+    },
+    {
+      "source": "challenge",
+      "target": "verdict"
+    },
+    {
+      "source": "verdict",
+      "target": "memo"
+    },
+    {
+      "source": "memo",
+      "target": "finish"
+    }
+  ],
+  "research": {
+    "provider": "chatgpt_plan",
+    "model": "gpt-6.1-sol",
+    "billing": "included_plan",
+    "limits": {
+      "max_model_calls": 18,
+      "max_tool_calls": 18,
+      "max_input_bytes": 8000000,
+      "max_output_characters": 100000,
+      "max_response_seconds": 300,
+      "max_total_tokens": 1000000
+    }
+  },
+  "budgets": {
+    "max_node_executions": 16,
+    "max_active_seconds": 3600,
+    "max_concurrency": 1
+  }
+}

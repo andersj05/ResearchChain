@@ -2555,6 +2555,219 @@
         }
       }
     },
+    "/api/research-sessions": {
+      "post": {
+        "summary": "Start Research Session",
+        "operationId": "start_research_session",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ResearchSessionStart"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommandReceipt"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "summary": "List Research Sessions",
+        "operationId": "list_research_sessions",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 50,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/RecentRunSummary"
+                  },
+                  "title": "Response List Research Sessions"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/research-sessions/{run_id}/setup": {
+      "get": {
+        "summary": "Get Research Session Setup",
+        "operationId": "get_research_session_setup",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResearchSessionSetup"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/research-sessions/{run_id}/directions": {
+      "post": {
+        "summary": "Add Research Session Direction",
+        "operationId": "add_research_session_direction",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerDirectionInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerDirection"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/research-sessions/{run_id}/report.zip": {
+      "get": {
+        "summary": "Download Session Report",
+        "operationId": "export_research_session_report",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/runs/search": {
       "get": {
         "summary": "Search Runs",
@@ -2636,6 +2849,16 @@
               "type": "boolean",
               "default": false,
               "title": "Unassigned"
+            }
+          },
+          {
+            "name": "sessions_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Sessions Only"
             }
           },
           {
@@ -3591,6 +3814,84 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ContentPreview"
+      },
+      "DiscoveryProposal": {
+        "properties": {
+          "sentence": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Sentence"
+          },
+          "alternative": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Alternative"
+          },
+          "first_check": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "First Check"
+          },
+          "weaken_if": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Weaken If"
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Evidence Ids"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["sentence", "alternative", "first_check", "weaken_if", "evidence_ids"],
+        "title": "DiscoveryProposal"
+      },
+      "DiscoveryReading": {
+        "properties": {
+          "observation": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Observation"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "citations": {
+            "items": {
+              "$ref": "#/components/schemas/ResearchCitation"
+            },
+            "type": "array",
+            "maxItems": 12,
+            "title": "Citations"
+          },
+          "proposals": {
+            "items": {
+              "$ref": "#/components/schemas/DiscoveryProposal"
+            },
+            "type": "array",
+            "maxItems": 2,
+            "title": "Proposals"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["observation", "question", "citations", "proposals"],
+        "title": "DiscoveryReading"
       },
       "EvaluationArchive": {
         "properties": {
@@ -5731,7 +6032,7 @@
           },
           "max_concurrency": {
             "type": "integer",
-            "maximum": 16.0,
+            "maximum": 20.0,
             "minimum": 1.0,
             "title": "Max Concurrency",
             "default": 4
@@ -5922,6 +6223,45 @@
         ],
         "title": "ImportedEvaluationOutput"
       },
+      "LeadPerspective": {
+        "properties": {
+          "action_path": {
+            "type": "string",
+            "title": "Action Path"
+          },
+          "lead_title": {
+            "type": "string",
+            "title": "Lead Title"
+          },
+          "thesis": {
+            "type": "string",
+            "title": "Thesis"
+          },
+          "question": {
+            "type": "string",
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Options"
+          },
+          "worker_paths": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "title": "Worker Paths"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["action_path", "lead_title", "thesis", "question", "options"],
+        "title": "LeadPerspective"
+      },
       "LinkExchange": {
         "properties": {
           "code": {
@@ -5973,6 +6313,14 @@
       },
       "ModelAttempt": {
         "properties": {
+          "owner_direction_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "title": "Owner Direction Ids"
+          },
           "web_actions_completed": {
             "anyOf": [
               {
@@ -6150,6 +6498,57 @@
         "required": ["id", "path", "stage", "model", "status", "created_at"],
         "title": "ModelAttempt"
       },
+      "ModelOverride": {
+        "properties": {
+          "model": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9._:-]{1,120}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ModelOverride"
+      },
       "NodeTypeSpec": {
         "properties": {
           "kind": {
@@ -6226,6 +6625,49 @@
         "type": "object",
         "required": ["observed_at", "window_started_at", "workers", "queue", "storage", "usage"],
         "title": "OperationsSnapshot"
+      },
+      "OwnerDirection": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Text"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "text", "created_at"],
+        "title": "OwnerDirection"
+      },
+      "OwnerDirectionInput": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Text"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "text"],
+        "title": "OwnerDirectionInput"
       },
       "OwnerSession": {
         "properties": {
@@ -6401,6 +6843,32 @@
         "required": ["items", "has_more"],
         "title": "PendingReviewsPage"
       },
+      "PerspectiveAnswer": {
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["approve", "reject"],
+            "title": "Decision"
+          },
+          "feedback": {
+            "type": "string",
+            "title": "Feedback",
+            "default": ""
+          },
+          "action_path": {
+            "type": "string",
+            "title": "Action Path"
+          },
+          "interrupt_id": {
+            "type": "string",
+            "title": "Interrupt Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["decision", "action_path", "interrupt_id"],
+        "title": "PerspectiveAnswer"
+      },
       "PortSpec": {
         "properties": {
           "name": {
@@ -6513,6 +6981,43 @@
           "display_name": {
             "type": "string",
             "title": "Display Name"
+          },
+          "reasoning_efforts": {
+            "items": {
+              "type": "string",
+              "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+            },
+            "type": "array",
+            "title": "Reasoning Efforts"
+          },
+          "default_reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Reasoning Effort"
+          },
+          "supports_verbosity": {
+            "type": "boolean",
+            "title": "Supports Verbosity",
+            "default": false
+          },
+          "default_verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Default Verbosity"
           }
         },
         "additionalProperties": false,
@@ -7435,6 +7940,19 @@
             "title": "Prompt Version",
             "default": "research-1"
           },
+          "style_excerpt": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 32000,
+                "pattern": "^[^\\x00]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Style Excerpt"
+          },
           "model": {
             "anyOf": [
               {
@@ -7446,6 +7964,38 @@
               }
             ],
             "title": "Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "string",
+                "const": "model_default"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
           },
           "web_search": {
             "anyOf": [
@@ -7474,6 +8024,16 @@
                 "type": "null"
               }
             ]
+          },
+          "team": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResearchTeamConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -7484,14 +8044,14 @@
         "properties": {
           "max_model_calls": {
             "type": "integer",
-            "maximum": 100.0,
+            "maximum": 1022.0,
             "minimum": 0.0,
             "title": "Max Model Calls",
             "default": 3
           },
           "max_tool_calls": {
             "type": "integer",
-            "maximum": 100.0,
+            "maximum": 1022.0,
             "minimum": 0.0,
             "title": "Max Tool Calls",
             "default": 3
@@ -7614,6 +8174,326 @@
         ],
         "title": "ResearchManifest"
       },
+      "ResearchSessionSetup": {
+        "properties": {
+          "brief": {
+            "type": "string",
+            "maxLength": 10000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Brief"
+          },
+          "start_from_sources": {
+            "type": "boolean",
+            "title": "Start From Sources",
+            "default": false
+          },
+          "style_excerpt": {
+            "type": "string",
+            "maxLength": 32000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Style Excerpt",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
+            "title": "Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "researcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "swarm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Evidence Ids"
+          },
+          "max_input_bytes": {
+            "type": "integer",
+            "maximum": 8000000.0,
+            "minimum": 1000.0,
+            "title": "Max Input Bytes",
+            "default": 4000000
+          },
+          "max_agents": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Agents",
+            "default": 3
+          },
+          "max_passes": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Max Passes",
+            "default": 6
+          },
+          "max_active_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Max Active Seconds",
+            "default": 1800
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false
+          },
+          "review_mode": {
+            "type": "string",
+            "enum": ["when_needed", "always", "never"],
+            "title": "Review Mode",
+            "default": "when_needed"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["brief", "model"],
+        "title": "ResearchSessionSetup"
+      },
+      "ResearchSessionStart": {
+        "properties": {
+          "brief": {
+            "type": "string",
+            "maxLength": 10000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Brief"
+          },
+          "start_from_sources": {
+            "type": "boolean",
+            "title": "Start From Sources",
+            "default": false
+          },
+          "style_excerpt": {
+            "type": "string",
+            "maxLength": 32000,
+            "pattern": "^[^\\x00]*$",
+            "title": "Style Excerpt",
+            "default": ""
+          },
+          "model": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9._:-]{1,120}$",
+            "title": "Model"
+          },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "researcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "editor": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "swarm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "evidence_ids": {
+            "items": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "type": "array",
+            "maxItems": 100,
+            "title": "Evidence Ids"
+          },
+          "max_input_bytes": {
+            "type": "integer",
+            "maximum": 8000000.0,
+            "minimum": 1000.0,
+            "title": "Max Input Bytes",
+            "default": 4000000
+          },
+          "max_agents": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Agents",
+            "default": 3
+          },
+          "max_passes": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Max Passes",
+            "default": 6
+          },
+          "max_active_seconds": {
+            "type": "integer",
+            "maximum": 3600.0,
+            "minimum": 60.0,
+            "title": "Max Active Seconds",
+            "default": 1800
+          },
+          "web_search": {
+            "type": "boolean",
+            "title": "Web Search",
+            "default": false
+          },
+          "review_mode": {
+            "type": "string",
+            "enum": ["when_needed", "always", "never"],
+            "title": "Review Mode",
+            "default": "when_needed"
+          },
+          "baseline_run_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baseline Run Id"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "provider_account_id": {
+            "type": "string",
+            "pattern": "^oaiapp_[a-zA-Z0-9_-]{1,180}$",
+            "title": "Provider Account Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["brief", "model", "id", "provider_account_id"],
+        "title": "ResearchSessionStart"
+      },
       "ResearchSettings": {
         "properties": {
           "provider": {
@@ -7628,6 +8508,30 @@
             "title": "Model",
             "default": "gpt-6.1-sol"
           },
+          "reasoning_effort": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoning Effort"
+          },
+          "verbosity": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": ["low", "medium", "high"]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Verbosity"
+          },
           "billing": {
             "type": "string",
             "const": "included_plan",
@@ -7641,6 +8545,50 @@
         "additionalProperties": false,
         "type": "object",
         "title": "ResearchSettings"
+      },
+      "ResearchTeamConfig": {
+        "properties": {
+          "max_agents": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Max Agents"
+          },
+          "swarm": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmConfig"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "lead": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "researcher": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ModelOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["max_agents"],
+        "title": "ResearchTeamConfig"
       },
       "ResumeRequest": {
         "properties": {
@@ -7947,6 +8895,16 @@
           "question": {
             "type": "string",
             "title": "Question"
+          },
+          "perspective": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeadPerspective"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "additionalProperties": false,
@@ -8263,6 +9221,20 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "perspective_answers": {
+            "items": {
+              "$ref": "#/components/schemas/PerspectiveAnswer"
+            },
+            "type": "array",
+            "title": "Perspective Answers"
+          },
+          "owner_directions": {
+            "items": {
+              "$ref": "#/components/schemas/OwnerDirection"
+            },
+            "type": "array",
+            "title": "Owner Directions"
           },
           "execution_pending": {
             "type": "boolean",
@@ -8942,6 +9914,88 @@
             },
             "type": "array",
             "title": "Workspace Files"
+          },
+          "report_artifact": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceFile"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "team_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TeamPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "discovery": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DiscoveryReading"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "swarm_plan": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SwarmLeadPlan"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "swarm_action": {
+            "anyOf": [
+              {
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/SwarmDelegate"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwarmAskExpert"
+                  },
+                  {
+                    "$ref": "#/components/schemas/SwarmFinish"
+                  }
+                ],
+                "discriminator": {
+                  "propertyName": "action",
+                  "mapping": {
+                    "ask_expert": "#/components/schemas/SwarmAskExpert",
+                    "delegate": "#/components/schemas/SwarmDelegate",
+                    "finish": "#/components/schemas/SwarmFinish"
+                  }
+                }
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Swarm Action"
+          },
+          "review_question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Question"
           }
         },
         "additionalProperties": false,
@@ -9253,6 +10307,220 @@
         "required": ["id", "version"],
         "title": "SubgraphRef"
       },
+      "SwarmAskExpert": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "ask_expert",
+            "title": "Action",
+            "default": "ask_expert"
+          },
+          "consultation": {
+            "$ref": "#/components/schemas/SwarmConsultation"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["consultation"],
+        "title": "SwarmAskExpert"
+      },
+      "SwarmConfig": {
+        "properties": {
+          "lead_count": {
+            "type": "integer",
+            "maximum": 4.0,
+            "minimum": 1.0,
+            "title": "Lead Count",
+            "default": 2
+          },
+          "researchers_per_lead": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Researchers Per Lead",
+            "default": 20
+          },
+          "max_parallel": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Max Parallel",
+            "default": 4
+          },
+          "max_lead_turns": {
+            "type": "integer",
+            "maximum": 12.0,
+            "minimum": 2.0,
+            "title": "Max Lead Turns",
+            "default": 6
+          },
+          "allow_consultations": {
+            "type": "boolean",
+            "title": "Allow Consultations",
+            "default": true
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "SwarmConfig"
+      },
+      "SwarmConsultation": {
+        "properties": {
+          "thesis": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Thesis"
+          },
+          "question": {
+            "type": "string",
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Question"
+          },
+          "options": {
+            "items": {
+              "type": "string",
+              "maxLength": 300,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 5,
+            "title": "Options"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["thesis", "question", "options"],
+        "title": "SwarmConsultation"
+      },
+      "SwarmDelegate": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "delegate",
+            "title": "Action",
+            "default": "delegate"
+          },
+          "rationale": {
+            "type": "string",
+            "maxLength": 3000,
+            "minLength": 1,
+            "title": "Rationale"
+          },
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAssignment"
+            },
+            "type": "array",
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Assignments"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["rationale", "assignments"],
+        "title": "SwarmDelegate"
+      },
+      "SwarmFinish": {
+        "properties": {
+          "action": {
+            "type": "string",
+            "const": "finish",
+            "title": "Action",
+            "default": "finish"
+          },
+          "findings": {
+            "type": "string",
+            "maxLength": 6000,
+            "minLength": 1,
+            "title": "Findings"
+          },
+          "limitations": {
+            "items": {
+              "type": "string",
+              "maxLength": 3000,
+              "minLength": 1
+            },
+            "type": "array",
+            "maxItems": 8,
+            "minItems": 1,
+            "title": "Limitations"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["findings", "limitations"],
+        "title": "SwarmFinish"
+      },
+      "SwarmLeadPlan": {
+        "properties": {
+          "leads": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAssignment"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Leads"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["leads"],
+        "title": "SwarmLeadPlan"
+      },
+      "TeamAssignment": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "objective": {
+            "type": "string",
+            "maxLength": 2000,
+            "minLength": 1,
+            "title": "Objective"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["title", "objective"],
+        "title": "TeamAssignment"
+      },
+      "TeamPlan": {
+        "properties": {
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/TeamAssignment"
+            },
+            "type": "array",
+            "maxItems": 4,
+            "minItems": 1,
+            "title": "Assignments"
+          },
+          "review_question": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Review Question"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["assignments"],
+        "title": "TeamPlan"
+      },
       "UsageOperations": {
         "properties": {
           "attempts_started_24h": {
@@ -9460,7 +10728,7 @@
         "properties": {
           "source": {
             "type": "string",
-            "enum": ["brief", "artifact_count", "iteration", "output"],
+            "enum": ["brief", "artifact_count", "iteration", "output", "previous_iteration"],
             "title": "Source"
           },
           "node_id": {

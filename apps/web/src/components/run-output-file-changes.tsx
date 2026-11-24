@@ -3,7 +3,7 @@ import { contentDownloadUrl } from "@/lib/evidence";
 import { graphLocation } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { canPreviewWorkspaceFile, WorkspaceFilePreview } from "./research-workspace";
-import { latestWorkspaceFiles, workspaceFileSources, type SavedFile } from "./run-files";
+import { latestWorkspaceFiles, workspaceFileContext, type SavedFile } from "./run-files";
 
 function FileVersion({
   entry,
@@ -37,7 +37,7 @@ function FileVersion({
               {open && (
                 <WorkspaceFilePreview
                   file={entry.file}
-                  sources={workspaceFileSources(run, entry.path, entry.attemptId)}
+                  {...workspaceFileContext(run, entry.path, entry.attemptId)}
                 />
               )}
             </details>

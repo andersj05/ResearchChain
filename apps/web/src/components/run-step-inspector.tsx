@@ -1,16 +1,21 @@
 import { Button } from "@ui-sdk/react/button";
 import { CopyRunLink } from "./copy-run-link";
+import { sessionUrl } from "@/lib/research-sessions";
 import { ArrowUpRight, Check, X } from "lucide-react";
-import type { RunSnapshot } from "@/lib/workflow";
-import { outputBindings } from "@/lib/workflow-editing";
+import type { Graph, RunSnapshot, ValueSource, WorkflowNode } from "@/lib/workflow";
+import { outputBindings, portsFor } from "@/lib/workflow-editing";
 import {
   attemptPath,
   childGraphs,
+  directLoopIteration,
   eventPath,
   feedbackRecipients,
   graphLocation,
+  nextLoopIteration,
   pendingReviews,
+  previousIterationOutput,
   reviewPath,
+  type DirectLoopIteration,
   type StepStatus,
 } from "@/lib/run-inspection";
 import { StepResearchResults } from "./research-results";
@@ -55,6 +60,58 @@ function StepEvent({ event }: { event: Event }) {
   );
 }
 
+function PreviousIterationSource({
+  run,
+  graph,
+  node,
+  input,
+  source,
+  iteration,
+  select,
+}: {
+  run: RunSnapshot;
+  graph: Graph;
+  node: WorkflowNode;
+  input: string;
+  source: ValueSource;
+  iteration?: DirectLoopIteration;
+  select: (path: string, attemptId?: string) => void;
+}) {
+  const producers = graph.nodes.filter((step) => step.id === source.node_id);
+  const producer = producers.length === 1 ? producers[0] : undefined;
+  const port =
+    producer &&
+    portsFor(producer).find(
+      (port) => port.direction === "output" && port.name === source.port && port.type !== "control",
+    );
+  const inputPort = portsFor(node).find(
+    (port) => port.direction === "input" && port.name === input,
+  );
+  if (!iteration) return "Saved loop iteration unavailable";
+  if (!producer || !port || port.type !== inputPort?.type)
+    return "Previous iteration source unavailable";
+  if (iteration.number === 1) {
+    return (
+      <span>
+        {producer.label} · {port.name} · Initial value in iteration 1 (
+        {port.type === "number" ? "0" : "empty text"})
+      </span>
+    );
+  }
+  const previous = previousIterationOutput(run, iteration, producer);
+  const label = `${producer.label} · ${port.name} · Iteration ${iteration.number - 1}`;
+  if (!previous) return <span>{label} (saved output unavailable)</span>;
+  return (
+    <button
+      type="button"
+      className="text-link"
+      onClick={() => select(previous.path, previous.attemptId)}
+    >
+      {label}
+    </button>
+  );
+}
+
 export function RunStepInspector({
   run,
   path,
@@ -82,6 +139,9 @@ export function RunStepInspector({
 }) {
   const { node, graph, prefix } = graphLocation(run, path);
   const review = pendingReviews(run).find((item) => reviewPath(item) === path);
+  const choosingSentence =
+    review?.path === "root/working_sentence" &&
+    !!run.research_manifest?.tool_config.discovery_version;
   const events = run.events.filter((event) => eventPath(event) === path);
   const passCount =
     run.model_attempts?.filter((attempt) => attemptPath(attempt) === path).length ?? 0;
@@ -90,6 +150,15 @@ export function RunStepInspector({
   const children = childGraphs(run, node, path, states);
   const inputs = Object.entries(node.inputs ?? {});
   const outputs = outputBindings(graph).filter((binding) => binding.sourceId === node.id);
+  const nextIterationOutputs = outputBindings(graph, "previous_iteration").filter(
+    (binding) => binding.sourceId === node.id,
+  );
+  const iteration =
+    nextIterationOutputs.length ||
+    inputs.some(([, source]) => source.source === "previous_iteration")
+      ? directLoopIteration(run, path)
+      : undefined;
+  const next = nextLoopIteration(iteration);
   const kind = nodePresentation(node).label;
   const previous = new Set(
     graph.edges.filter((edge) => edge.target === node.id).map((edge) => `${prefix}/${edge.source}`),
@@ -117,6 +186,8 @@ export function RunStepInspector({
     ? [...latestWorkspaceFiles(run)].filter(([, file]) => reviewFilePaths.has(file.path))
     : [];
   const feedbackTargets = review ? feedbackRecipients(graph, node.id) : [];
+  const nextFeedbackTargets =
+    review && next ? feedbackRecipients(graph, node.id, "previous_iteration") : [];
   return (
     <section className="run-step-panel" aria-label="Selected step">
       <div className="step-detail-heading">
@@ -149,6 +220,30 @@ export function RunStepInspector({
         <div className={reviewInputs.length ? "run-decision-grid" : undefined}>
           <div className="review-box" aria-label={`Review ${review.node_id}`}>
             <h3>{review.question}</h3>
+            {choosingSentence && (
+              <a href={`${sessionUrl(run.id)}#source-led-investigation`}>
+                Read the lead’s proposal and choose a sentence in the Research desk
+              </a>
+            )}
+            {review.perspective && (
+              <>
+                <p>
+                  <strong>{review.perspective.lead_title} · Working thesis</strong>
+                  <br />
+                  {review.perspective.thesis}
+                </p>
+                {!!review.perspective.options?.length && (
+                  <p>Suggested perspectives · {review.perspective.options.join(" · ")}</p>
+                )}
+                {run.research_manifest?.tool_config?.session === "brief-led-1" && (
+                  <a
+                    href={`${sessionUrl(run.id)}#consultation-${encodeURIComponent(review.interrupt_id)}`}
+                  >
+                    Open this consultation in the Research desk
+                  </a>
+                )}
+              </>
+            )}
             <p>
               {review.path && prefix !== "root" && (
                 <>
@@ -176,18 +271,29 @@ export function RunStepInspector({
                     Feedback goes to {feedbackTargets.map((item) => item.label).join(", ")}.
                   </p>
                 )}
+                {next && nextFeedbackTargets.length > 0 && (
+                  <p className="field-hint">
+                    If the loop continues, feedback goes to{" "}
+                    {nextFeedbackTargets.map((item) => item.label).join(", ")} in iteration{" "}
+                    {next.number}.
+                  </p>
+                )}
               </>
             )}
             <div className="actions">
               <Button
                 className="button primary"
-                disabled={busy}
+                disabled={
+                  busy ||
+                  ((!!review.perspective || choosingSentence) &&
+                    !feedback[review.interrupt_id]?.trim())
+                }
                 onClick={() =>
                   onResume("approve", review.interrupt_id, feedback[review.interrupt_id] ?? "")
                 }
               >
                 <Check size={15} aria-hidden />
-                Approve and continue
+                {review.perspective ? "Send perspective to lead" : "Approve and continue"}
               </Button>
               <Button
                 className="button"
@@ -286,7 +392,7 @@ export function RunStepInspector({
           ))}
         </div>
       )}
-      {(inputs.length > 0 || outputs.length > 0) && (
+      {(inputs.length > 0 || outputs.length > 0 || nextIterationOutputs.length > 0) && (
         <details className="step-configuration step-bindings">
           <summary>Data bindings</summary>
           {inputs.length > 0 && (
@@ -308,6 +414,16 @@ export function RunStepInspector({
                           {" · "}
                           {value.port}
                         </button>
+                      ) : value.source === "previous_iteration" ? (
+                        <PreviousIterationSource
+                          run={run}
+                          graph={graph}
+                          node={node}
+                          input={name}
+                          source={value}
+                          iteration={iteration}
+                          select={select}
+                        />
                       ) : (
                         value.source.replaceAll("_", " ")
                       )}
@@ -335,6 +451,35 @@ export function RunStepInspector({
                     </dd>
                   </div>
                 ))}
+              </dl>
+            </section>
+          )}
+          {nextIterationOutputs.length > 0 && (
+            <section aria-labelledby="step-next-iteration-bindings">
+              <h4 id="step-next-iteration-bindings">Next iteration bindings</h4>
+              <dl>
+                {nextIterationOutputs.map(({ target, input, output }) => {
+                  const nextPath = next && `${next.prefix}/${target.id}`;
+                  const label = `${target.label} · ${input}`;
+                  return (
+                    <div key={`${target.id}/${input}`}>
+                      <dt>{output}</dt>
+                      <dd>
+                        {next && nextPath && states.has(nextPath) ? (
+                          <button
+                            type="button"
+                            className="text-link"
+                            onClick={() => select(nextPath)}
+                          >
+                            {label} · Iteration {next.number}
+                          </button>
+                        ) : (
+                          <span>{label} (no recorded use in the next iteration)</span>
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })}
               </dl>
             </section>
           )}

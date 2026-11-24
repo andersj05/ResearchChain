@@ -21,7 +21,7 @@ for (const width of [1440, 390]) {
     });
     expect(source.ok()).toBeTruthy();
     const evidenceId = (await source.json()).id;
-    await page.goto("/");
+    await page.goto("/?view=workflow");
     await page.getByRole("button", { name: "New workflow", exact: true }).click();
     await page.getByText("Build your agent", { exact: true }).click();
     await expect(page.getByText(/Templates are optional examples/)).toBeVisible();

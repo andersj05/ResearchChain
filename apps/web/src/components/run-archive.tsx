@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type RunArchivePage, type RunSummary } from "@/lib/workflow";
 import { formatTime, RunStatus, runStatusLabels } from "./run-status";
+import { sessionUrl } from "@/lib/research-sessions";
 
 function ArchiveResults({
   query,
@@ -9,12 +10,13 @@ function ArchiveResults({
 }: {
   query: string;
   busy: boolean;
-  onSelect: (run: RunSummary) => void;
+  onSelect?: (run: RunSummary) => void;
 }) {
   const [cursors, setCursors] = useState<RunSummary[]>([]);
   const [retry, setRetry] = useState(0);
   const [response, setResponse] = useState<{ path: string; page: RunArchivePage | null }>();
   const params = new URLSearchParams(query);
+  const sessionsOnly = params.get("sessions_only") === "true";
   const cursor = cursors.at(-1);
   if (cursor) {
     params.set("before_created_at", cursor.created_at);
@@ -59,14 +61,9 @@ function ArchiveResults({
         </div>
       ) : page.items.length ? (
         <ul aria-label="Saved runs">
-          {page.items.map(({ run, brief_excerpt }) => (
-            <li key={run.id}>
-              <button
-                className="run-row"
-                type="button"
-                disabled={busy}
-                onClick={() => onSelect(run)}
-              >
+          {page.items.map(({ run, brief_excerpt }) => {
+            const content = (
+              <>
                 <strong>{run.workflow_name}</strong>
                 <span className="run-row-meta">
                   <RunStatus status={run.status} />
@@ -80,9 +77,34 @@ function ArchiveResults({
                   <span className="code-label">{run.id.slice(0, 8)}</span>
                 </span>
                 {brief_excerpt && <span className="archive-brief">{brief_excerpt}</span>}
-              </button>
-            </li>
-          ))}
+              </>
+            );
+            return (
+              <li key={run.id}>
+                {onSelect ? (
+                  <button
+                    className="run-row"
+                    type="button"
+                    disabled={busy}
+                    onClick={() => onSelect(run)}
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <a
+                    className="run-row"
+                    href={
+                      sessionsOnly
+                        ? sessionUrl(run.id)
+                        : `?view=runs&run=${encodeURIComponent(run.id)}`
+                    }
+                  >
+                    {content}
+                  </a>
+                )}
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className="muted" role="status">
@@ -120,20 +142,27 @@ function ArchiveResults({
 export function RunArchive({
   agentId,
   excludeRun,
+  sessionsOnly = false,
   busy = false,
   onSelect,
 }: {
   agentId?: string | null;
   excludeRun?: string;
+  sessionsOnly?: boolean;
   busy?: boolean;
-  onSelect: (run: RunSummary) => void;
+  onSelect?: (run: RunSummary) => void;
 }) {
   const [open, setOpen] = useState(false);
   const disclosure = useRef<HTMLElement>(null);
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
-  const [searchRequest, setSearchRequest] = useState({ search: "", status: "", revision: 0 });
+  const [searchRequest, setSearchRequest] = useState({
+    search: "",
+    status: "",
+    revision: 0,
+  });
   const query = new URLSearchParams({ search: searchRequest.search });
+  if (sessionsOnly) query.set("sessions_only", "true");
   if (searchRequest.status) query.set("status", searchRequest.status);
   if (agentId) query.set("agent_id", agentId);
   if (excludeRun) {
@@ -142,7 +171,7 @@ export function RunArchive({
   }
   const choose = (run: RunSummary) => {
     disclosure.current?.focus();
-    onSelect(run);
+    onSelect?.(run);
     setOpen(false);
   };
 
@@ -153,7 +182,11 @@ export function RunArchive({
       onToggle={(event) => setOpen(event.currentTarget.open)}
     >
       <summary ref={disclosure}>
-        {excludeRun ? "Search comparison runs" : "Search saved runs"}
+        {sessionsOnly
+          ? "Search past studies"
+          : excludeRun
+            ? "Search comparison runs"
+            : "Search saved runs"}
       </summary>
       {open && (
         <>
@@ -174,7 +207,11 @@ export function RunArchive({
                 type="search"
                 value={search}
                 maxLength={200}
-                placeholder="Brief, agent, workflow, or run ID"
+                placeholder={
+                  sessionsOnly
+                    ? "Study context, workflow, or study ID"
+                    : "Brief, agent, workflow, or run ID"
+                }
                 onChange={(event) => setSearch(event.target.value)}
               />
             </label>
@@ -199,7 +236,7 @@ export function RunArchive({
             key={`${query}:${searchRequest.revision}`}
             query={query.toString()}
             busy={busy}
-            onSelect={choose}
+            onSelect={onSelect ? choose : undefined}
           />
         </>
       )}

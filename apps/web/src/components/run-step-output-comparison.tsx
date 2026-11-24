@@ -1,9 +1,12 @@
 import { useState } from "react";
 import {
-  attemptPath,
   graphLocation,
   runStepLabel,
+  savedModelOutputs,
+  selectedModelOutput,
   type ComparisonPasses,
+  type PassComparisonLabels,
+  type SavedModelPass,
 } from "@/lib/run-inspection";
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
@@ -13,44 +16,9 @@ import { researchToolUrls } from "./research-tool-receipts";
 import { CopyRunLink } from "./copy-run-link";
 import { RunPassSourceComparison } from "./run-pass-source-comparison";
 
-type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
-type SavedPass = {
-  attempt: Attempt;
-  number: number;
-  kind: "Conclusion" | "Research lead" | "Workspace activity";
-};
 type PassSelection = ComparisonPasses & { path?: string; unavailable?: boolean };
 
-function savedOutputs(run: RunSnapshot) {
-  const outputs = new Map<string, SavedPass[]>();
-  const counts = new Map<string, number>();
-  for (const attempt of run.model_attempts ?? []) {
-    const path = attemptPath(attempt);
-    const number = (counts.get(path) ?? 0) + 1;
-    counts.set(path, number);
-    const result = attempt.result;
-    if (attempt.status !== "completed" || !result) continue;
-    const passes = outputs.get(path) ?? [];
-    const kind = result.workspace_activity
-      ? "Workspace activity"
-      : result.next_lead
-        ? "Research lead"
-        : "Conclusion";
-    passes.push({ attempt, number, kind });
-    outputs.set(path, passes);
-  }
-  return outputs;
-}
-
-function selectedOutput(passes: SavedPass[], id: string | undefined) {
-  return (
-    passes.find((item) => item.attempt.id === id) ??
-    passes.findLast((item) => item.kind === "Conclusion") ??
-    passes.at(-1)
-  );
-}
-
-function pathForPass(outputs: Map<string, SavedPass[]>, id: string | undefined) {
+function pathForPass(outputs: Map<string, SavedModelPass[]>, id: string | undefined) {
   return id
     ? [...outputs].find(([, passes]) => passes.some((pass) => pass.attempt.id === id))?.[0]
     : undefined;
@@ -59,8 +27,8 @@ function pathForPass(outputs: Map<string, SavedPass[]>, id: string | undefined) 
 function linkedPassSelection(
   runId: string,
   baselineId: string,
-  current: Map<string, SavedPass[]>,
-  earlier: Map<string, SavedPass[]>,
+  current: Map<string, SavedModelPass[]>,
+  earlier: Map<string, SavedModelPass[]>,
 ): PassSelection {
   if (typeof window === "undefined") return {};
   const params = new URL(window.location.href).searchParams;
@@ -91,21 +59,16 @@ function linkedPassSelection(
   };
 }
 
-function SavedOutput({
-  run,
-  title,
-  path,
-  passes,
-  pass,
-  onSelect,
-}: {
+type OutputSide = {
   run: RunSnapshot;
   title: string;
   path: string;
-  passes: SavedPass[];
-  pass?: SavedPass;
+  passes: SavedModelPass[];
+  pass?: SavedModelPass;
   onSelect: (id: string) => void;
-}) {
+};
+
+function SavedOutput({ run, title, path, passes, pass, onSelect }: OutputSide) {
   const attempt = pass?.attempt;
   const result = attempt?.result;
   const sources = new Set<string>();
@@ -175,6 +138,41 @@ function SavedOutput({
   );
 }
 
+export function SavedModelPassComparison({
+  comparison,
+  current,
+  labels,
+}: {
+  comparison: OutputSide;
+  current: OutputSide;
+  labels?: PassComparisonLabels;
+}) {
+  const before = comparison.pass?.attempt;
+  const after = current.pass?.attempt;
+  return (
+    <>
+      {before?.input_artifact_id && after?.input_artifact_id && (
+        <ModelRequestComparison
+          comparison={{ id: before.input_artifact_id, bytes: before.input_bytes }}
+          current={{ id: after.input_artifact_id, bytes: after.input_bytes }}
+          labels={labels}
+        />
+      )}
+      {before && after && (
+        <RunPassSourceComparison
+          comparison={before.result?.web_research}
+          current={after.result?.web_research}
+          labels={labels}
+        />
+      )}
+      <div className="comparison-output-versions">
+        <SavedOutput key={`comparison/${comparison.path}`} {...comparison} />
+        <SavedOutput key={`current/${current.path}`} {...current} />
+      </div>
+    </>
+  );
+}
+
 export function RunStepOutputComparison({
   run,
   baseline,
@@ -182,8 +180,8 @@ export function RunStepOutputComparison({
   run: RunSnapshot;
   baseline: RunSnapshot;
 }) {
-  const current = savedOutputs(run);
-  const earlier = savedOutputs(baseline);
+  const current = savedModelOutputs(run);
+  const earlier = savedModelOutputs(baseline);
   const paths = new Set([...current.keys(), ...earlier.keys()]);
   const defaultPath =
     [...current.keys()].find(
@@ -202,8 +200,8 @@ export function RunStepOutputComparison({
   if (!path) return selection.unavailable ? <p role="status">{unavailable}</p> : null;
   const baselinePasses = earlier.get(path) ?? [];
   const openPasses = current.get(path) ?? [];
-  const baselinePass = selectedOutput(baselinePasses, selection.baselineAttempt);
-  const openPass = selectedOutput(openPasses, selection.openAttempt);
+  const baselinePass = selectedModelOutput(baselinePasses, selection.baselineAttempt);
+  const openPass = selectedModelOutput(openPasses, selection.openAttempt);
   const options = open
     ? [...paths].map((value) => ({
         value,
@@ -254,52 +252,30 @@ export function RunStepOutputComparison({
               }}
             />
           </div>
-          {baselinePass?.attempt.input_artifact_id && openPass?.attempt.input_artifact_id && (
-            <ModelRequestComparison
-              comparison={{
-                id: baselinePass.attempt.input_artifact_id,
-                bytes: baselinePass.attempt.input_bytes,
-              }}
-              current={{
-                id: openPass.attempt.input_artifact_id,
-                bytes: openPass.attempt.input_bytes,
-              }}
-            />
-          )}
-          {baselinePass && openPass && (
-            <RunPassSourceComparison
-              comparison={baselinePass.attempt.result?.web_research}
-              current={openPass.attempt.result?.web_research}
-            />
-          )}
-          <div className="comparison-output-versions">
-            <SavedOutput
-              key={`baseline/${path}`}
-              run={baseline}
-              title="Comparison run"
-              path={path}
-              pass={baselinePass}
-              passes={baselinePasses}
-              onSelect={(id) =>
+          <SavedModelPassComparison
+            comparison={{
+              run: baseline,
+              title: "Comparison run",
+              path,
+              pass: baselinePass,
+              passes: baselinePasses,
+              onSelect: (id) =>
                 setSelection((previous) => ({
                   ...previous,
                   baselineAttempt: id,
                   unavailable: false,
-                }))
-              }
-            />
-            <SavedOutput
-              key={`current/${path}`}
-              run={run}
-              title="Open run"
-              path={path}
-              pass={openPass}
-              passes={openPasses}
-              onSelect={(id) =>
-                setSelection((previous) => ({ ...previous, openAttempt: id, unavailable: false }))
-              }
-            />
-          </div>
+                })),
+            }}
+            current={{
+              run,
+              title: "Open run",
+              path,
+              pass: openPass,
+              passes: openPasses,
+              onSelect: (id) =>
+                setSelection((previous) => ({ ...previous, openAttempt: id, unavailable: false })),
+            }}
+          />
         </>
       )}
     </details>

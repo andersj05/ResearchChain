@@ -1,0 +1,10 @@
+[
+  "Research question: Which mechanism best explains the apparent disagreement between two markets?",
+  "As-of date and time zone: [set the information cutoff]",
+  "Markets, instruments and comparison window: [name the legs, tenors and event window]",
+  "Horizon: [set the horizon for the view]",
+  "Observation: [describe what you noticed and attach the original chart or dated series]",
+  "My starting explanation: [state the mechanism and what the market may have priced]",
+  "Best rival explanation: [state what would predict the same move for a different reason]",
+  "What would change my view: [name one observation that separates the explanations]"
+]

@@ -6,10 +6,12 @@ saved pilots are optional examples. Evaluating them is not required to start.
 
 ## First experiment
 
-1. Select **New agent**, enter a name and choose a **Starting workflow**. Start
+1. From the Research desk, open **Workflows**. Select **New agent**, enter a name and choose a **Starting workflow**. Start
    with a blank graph, copy the current graph, or try the idea generation demo.
    The **Agent** selector switches between agents. Saved versions and runs belong
-   to each agent. [Try the idea generation demo](idea-generation-demo.md)
+   to each agent. [Try the idea generation demo](idea-generation-demo.md),
+   [test a chart signal](chart-signal-example.md), or
+   [retest a cross-asset view](equitycats-research-example.md).
 2. Select **Add model prompt**. Give the step a name and write your Instructions.
    **Custom instructions** follows your task rather than requiring hypothesis
    formation. The optional hypothesis, challenge and revision behaviors retain
@@ -97,11 +99,14 @@ and outputs. It is separate from model prompts and uses no model allowance. Read
 
 ## Where the model is used
 
-Choose **Workflow model** above the graph. Model steps inherit it, including steps
-in subgraphs. To assign a different model to a single step, select the step and
-choose its **Step model**. Select **Workflow default** to restore inheritance.
-Run setup lets you change the default, inspect overrides and manage the connected
-ChatGPT plan. Starting a run pins these choices in its saved revision.
+Choose **Workflow model** above the graph. Set **Thinking effort** and **Response
+detail** using the options advertised for that model. Model steps inherit these
+settings independently, including steps in subgraphs. Select a step to change
+its model, effort or detail. **Workflow default** restores inheritance, and
+**Model default** uses that model's own handling for effort or detail.
+Team steps also offer **Models by role** for the lead and researchers.
+Run setup lets you review and change these choices before the run pins them
+in its saved revision.
 
 Saved runs show their pinned selected model and the model identifiers actually
 reported by the provider, with per-attempt details. Missing provider metadata says
@@ -116,6 +121,11 @@ library and linked claims; **Runs** shows experiments for the selected agent;
 **Reports** holds editorial drafts. **Evaluate**, **Versions** and **Status** keep
 comparisons, saved workflow history and workspace health separate. Older bookmarks
 continue to work. Owner access is in **Settings**; manage the ChatGPT connection in run setup.
+
+In **Build**, switch to **Plan** to read the workflow in control order and edit the
+selected step in **Step details**. Expand a branch, loop, or subgraph to follow its
+steps from the root. **Collapse all** keeps the selected step's path open. Switch
+back to **Canvas** to see the same step and edit its connections.
 
 Sources can be filtered by availability and searched by title, author or publisher.
 Search applies to the loaded records; load more to include older sources. The linked

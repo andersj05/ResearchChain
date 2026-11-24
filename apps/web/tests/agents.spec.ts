@@ -42,7 +42,7 @@ test("open the requested view after a transient workspace read failure", async (
 });
 
 test("a failed startup read preserves the saved browser draft", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await expect(page.getByRole("button", { name: "New agent", exact: true })).toBeEnabled();
   const agent = await createAgent(page, "Startup draft recovery");
   const name = page.getByRole("textbox", { name: "Step name", exact: true });

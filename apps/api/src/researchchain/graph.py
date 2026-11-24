@@ -1,6 +1,8 @@
 """Versioned workflow documents and server-side structured-control validation."""
 
 from collections import deque
+from collections.abc import Iterator
+from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
@@ -22,13 +24,13 @@ PortType = Literal["control", "text", "number"]
 
 
 class ValueSource(StrictModel):
-    source: Literal["brief", "artifact_count", "iteration", "output"]
+    source: Literal["brief", "artifact_count", "iteration", "output", "previous_iteration"]
     node_id: str | None = None
     port: str | None = None
 
     @model_validator(mode="after")
     def validate_reference(self) -> Self:
-        if self.source == "output":
+        if self.source in ("output", "previous_iteration"):
             if not self.node_id or not self.port:
                 raise ValueError("Output references require node_id and port.")
         elif self.node_id is not None or self.port is not None:
@@ -83,6 +85,16 @@ class LoopConfig(StrictModel):
 
 ResearchStage = Literal["hypothesize", "challenge", "revise", "custom"]
 ModelSlug = Annotated[str, Field(pattern=r"^[a-zA-Z0-9._:-]{1,120}$")]
+ReasoningEffort = Literal["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+ResponseVerbosity = Literal["low", "medium", "high"]
+EffortOverride = ReasoningEffort | Literal["model_default"]
+VerbosityOverride = ResponseVerbosity | Literal["model_default"]
+
+
+class ModelOverride(StrictModel):
+    model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
+    reasoning_effort: EffortOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: VerbosityOverride | None = Field(default=None, exclude_if=lambda x: x is None)
 
 
 class AnalystConfig(StrictModel):
@@ -99,18 +111,47 @@ class AnalystConfig(StrictModel):
         return self
 
 
+class SwarmConfig(StrictModel):
+    lead_count: int = Field(default=2, ge=1, le=4)
+    researchers_per_lead: int = Field(default=20, ge=1, le=20)
+    max_parallel: int = Field(default=4, ge=1, le=20)
+    max_lead_turns: int = Field(default=6, ge=2, le=12)
+    allow_consultations: bool = True
+
+
+class ResearchTeamConfig(StrictModel):
+    max_agents: int = Field(ge=1, le=4)
+    swarm: SwarmConfig | None = Field(default=None, exclude_if=lambda value: value is None)
+    lead: ModelOverride | None = Field(
+        default=None, exclude_if=lambda v: not v or not v.model_dump()
+    )
+    researcher: ModelOverride | None = Field(
+        default=None, exclude_if=lambda v: not v or not v.model_dump()
+    )
+
+
 class ResearchConfig(StrictModel):
     type: Literal["research"] = "research"
     stage: ResearchStage = "hypothesize"
     prompt_version: Literal["research-1", "custom-1"] = "research-1"
+    style_excerpt: str | None = Field(
+        default=None, max_length=32000, pattern=r"^[^\x00]*$", exclude_if=lambda value: not value
+    )
     model: ModelSlug | None = Field(default=None, exclude_if=lambda value: value is None)
+    reasoning_effort: EffortOverride | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: VerbosityOverride | None = Field(default=None, exclude_if=lambda x: x is None)
 
     web_search: bool | Literal["auto"] = False
     sec_financials: bool = False
     analyst: AnalystConfig | None = Field(default=None, exclude_if=lambda value: value is None)
+    team: ResearchTeamConfig | None = Field(default=None, exclude_if=lambda value: value is None)
 
     @model_validator(mode="after")
     def matching_prompt(self) -> Self:
+        if self.style_excerpt and (self.stage != "custom" or self.team):
+            raise ValueError("A writing sample belongs to an individual custom writing step.")
+        if self.team and not (self.stage == "custom" and self.analyst and self.analyst.workspace):
+            raise ValueError("A research team requires a custom Codex analyst with a workspace.")
         if (self.web_search or self.sec_financials or self.analyst) and self.stage != "custom":
             raise ValueError("External research tools are available on custom model steps only.")
         expected = "custom-1" if self.stage == "custom" else "research-1"
@@ -128,11 +169,14 @@ class CodeConfig(StrictModel):
 
 
 MAX_RESPONSE_SECONDS = 600
+# An optional source reading, one coordinator and four leads taking twelve turns.
+# Eighty researchers and the editor can each take twelve passes. Account limits still apply.
+MAX_RESEARCH_CALLS = 2 + 4 * 12 + (4 * 20 + 1) * 12
 
 
 class ResearchLimits(StrictModel):
-    max_model_calls: int = Field(default=3, ge=0, le=100)
-    max_tool_calls: int = Field(default=3, ge=0, le=100)
+    max_model_calls: int = Field(default=3, ge=0, le=MAX_RESEARCH_CALLS)
+    max_tool_calls: int = Field(default=3, ge=0, le=MAX_RESEARCH_CALLS)
     max_input_bytes: int = Field(default=512000, ge=1000, le=8000000)
     max_output_characters: int = Field(default=24000, ge=1000, le=100000)
     max_response_seconds: float = Field(
@@ -144,8 +188,32 @@ class ResearchLimits(StrictModel):
 class ResearchSettings(StrictModel):
     provider: Literal["chatgpt_plan"] = "chatgpt_plan"
     model: ModelSlug = "gpt-6.1-sol"
+    reasoning_effort: ReasoningEffort | None = Field(default=None, exclude_if=lambda x: x is None)
+    verbosity: ResponseVerbosity | None = Field(default=None, exclude_if=lambda x: x is None)
     billing: Literal["included_plan"] = "included_plan"
     limits: ResearchLimits = Field(default_factory=ResearchLimits)
+
+
+@dataclass(frozen=True)
+class ModelSelection:
+    model: str
+    reasoning_effort: EffortOverride | None = None
+    verbosity: VerbosityOverride | None = None
+
+
+def resolve_model(
+    settings: ResearchSettings, config: ResearchConfig, role: ModelOverride | None = None
+) -> ModelSelection:
+    """Resolve each choice independently. Keep explicit model defaults for the wire request."""
+    selected = ModelSelection(settings.model, settings.reasoning_effort, settings.verbosity)
+    for override in (config, role):
+        if override is not None:
+            selected = ModelSelection(
+                override.model or selected.model,
+                override.reasoning_effort or selected.reasoning_effort,
+                override.verbosity or selected.verbosity,
+            )
+    return selected
 
 
 NodeConfig = Annotated[
@@ -174,7 +242,7 @@ class WorkflowEdge(StrictModel):
 class ExecutionBudgets(StrictModel):
     max_node_executions: int = Field(default=256, ge=1, le=10000)
     max_active_seconds: float = Field(default=120, gt=0, le=3600, allow_inf_nan=False)
-    max_concurrency: int = Field(default=4, ge=1, le=16)
+    max_concurrency: int = Field(default=4, ge=1, le=20)
 
 
 class GraphDefinition(StrictModel):
@@ -193,11 +261,12 @@ OUTPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
     "code": {"text": "text", "number": "number"},
     "review": {"decision": "text", "feedback": "text"},
-    "research": {"text": "text"},
+    "research": {"text": "text", "review_question": "text"},
     "loop": {"iterations": "number"},
 }
 INPUT_PORTS: dict[str, dict[str, PortType]] = {
     "note": {"text": "text"},
+    "review": {"question": "text"},
     "code": {"text": "text", "number": "number"},
     "research": {"context": "text", "feedback": "text"},
 }
@@ -223,12 +292,18 @@ def source_type(
     ports = OUTPUT_PORTS.get(nodes[source.node_id].kind, {})
     if source.port not in ports:
         raise ValueError(f"Unknown output port {source.node_id}.{source.port}.")
+    if source.port == "review_question":
+        config = nodes[source.node_id].config
+        if not isinstance(config, ResearchConfig) or config.team is None:
+            raise ValueError("Only a research team can supply a review question.")
     return ports[source.port]
 
 
 def validate_predicate(
     predicate: Predicate, nodes: dict[str, WorkflowNode], available: set[str]
 ) -> None:
+    if predicate.left.source == "previous_iteration":
+        raise ValueError("Previous iteration outputs are available only to step inputs.")
     kind = source_type(predicate.left, nodes, available)
     if (kind == "text") != isinstance(predicate.value, str):
         raise ValueError("Predicate values must match the input port type.")
@@ -248,7 +323,11 @@ def _located_value_error(
 
 
 def validate_graph(
-    graph: GraphDefinition, *, legacy: bool = False, location: tuple[str | int, ...] = ()
+    graph: GraphDefinition,
+    *,
+    legacy: bool = False,
+    allow_previous_iteration: bool = False,
+    location: tuple[str | int, ...] = (),
 ) -> None:
     nodes = {node.id: node for node in graph.nodes}
     if len(nodes) != len(graph.nodes):
@@ -368,6 +447,16 @@ def validate_graph(
     walk(graph.start_node, None)
     if visited != set(nodes):
         raise ValueError("Every node must be reachable from the start.")
+    previous_outputs = (
+        guaranteed_outputs(graph)
+        if allow_previous_iteration
+        and any(
+            source.source == "previous_iteration"
+            for node in graph.nodes
+            for source in node.inputs.values()
+        )
+        else set()
+    )
     # Availability follows actual join semantics, not mere reachability.
     available: dict[str, set[str]] = {}
     for node_id in order:
@@ -384,7 +473,28 @@ def validate_graph(
         for port, source in node.inputs.items():
             try:
                 expected = INPUT_PORTS.get(node.kind, {}).get(port)
-                if expected is None or source_type(source, nodes, before) != expected:
+                if (
+                    node.kind == "review"
+                    and port == "question"
+                    and (source.source != "output" or source.port != "review_question")
+                ):
+                    raise ValueError("Connect the review question to a research team's question.")
+                sources = before
+                if source.source == "previous_iteration":
+                    if not allow_previous_iteration:
+                        raise ValueError(
+                            "Previous iteration outputs require a direct loop body with no "
+                            "ordinary subgraph callers."
+                        )
+                    if isinstance(node.config, ResearchConfig):
+                        if port == "context" and node.config.stage in ("challenge", "revise"):
+                            raise ValueError("This research preset needs context on iteration 1.")
+                        if port == "feedback" and source.port != "feedback":
+                            raise ValueError(
+                                "Reviewer feedback must come from a review's feedback port."
+                            )
+                    sources = previous_outputs
+                if expected is None or source_type(source, nodes, sources) != expected:
                     raise ValueError(
                         f"Input {node_id}.{port} is unknown or has an incompatible type."
                     )
@@ -438,8 +548,19 @@ class Workflow(GraphDefinition):
         }
         if len(definitions) != len(self.subgraphs):
             raise ValueError("Subgraph id/version pairs must be unique within the revision.")
+        ordinary_bodies = {
+            (node.config.ref.id, node.config.ref.version)
+            for graph in all_graphs
+            for node in graph.nodes
+            if isinstance(node.config, SubgraphConfig)
+        }
         for index, definition in enumerate(self.subgraphs):
-            validate_graph(definition, location=("subgraphs", index))
+            # An unused version can retain its inputs when a caller pins a newer version.
+            validate_graph(
+                definition,
+                allow_previous_iteration=(definition.id, definition.version) not in ordinary_bodies,
+                location=("subgraphs", index),
+            )
         visiting: set[tuple[str, int]] = set()
         costs: dict[tuple[str, int], int] = {}
 
@@ -489,22 +610,65 @@ class Workflow(GraphDefinition):
                 visiting.remove(key)
         return self
 
-    def research_models(self) -> set[str]:
-        """Models to validate at start, excluding archived subgraph versions."""
-        assert self.research is not None
-        models = {self.research.model}
+    def executable_research_configs(self) -> Iterator[ResearchConfig]:
+        """Visit research nodes in the root and its pinned subgraph versions."""
         definitions = {(item.id, item.version): item for item in self.subgraphs}
         pending: list[GraphDefinition] = [self]
         while pending:
             for node in pending.pop().nodes:
                 config = node.config
-                if isinstance(config, ResearchConfig) and config.model:
-                    models.add(config.model)
+                if isinstance(config, ResearchConfig):
+                    yield config
                 elif isinstance(config, (LoopConfig, SubgraphConfig)):
                     body = definitions.pop((config.ref.id, config.ref.version), None)
                     if body:
                         pending.append(body)
-        return models
+
+    def has_research_swarm(self) -> bool:
+        return any(
+            config.team and config.team.swarm for config in self.executable_research_configs()
+        )
+
+    @model_validator(mode="after")
+    def validate_run_limits(self) -> Self:
+        # Wider budgets are available only to a workflow that can execute a swarm.
+        limits: list[tuple[tuple[str, ...], int, int]] = [
+            (("budgets", "max_concurrency"), self.budgets.max_concurrency, 16)
+        ]
+        if self.research:
+            budget = self.research.limits
+            limits.extend(
+                [
+                    (("research", "limits", "max_model_calls"), budget.max_model_calls, 100),
+                    (("research", "limits", "max_tool_calls"), budget.max_tool_calls, 100),
+                ]
+            )
+        exceeded = [(path, value, limit) for path, value, limit in limits if value > limit]
+        if exceeded and not self.has_research_swarm():
+            raise ValidationError.from_exception_data(
+                "Workflow",
+                [
+                    {"type": "less_than_equal", "loc": path, "input": value, "ctx": {"le": limit}}
+                    for path, value, limit in exceeded
+                ],
+            )
+        return self
+
+    def research_selections(self) -> set[ModelSelection]:
+        """Settings for executable roles, excluding archived subgraph versions."""
+        assert self.research is not None
+        # The workflow's pinned model must remain available even if every step overrides it.
+        selections = {ModelSelection(self.research.model)}
+        for config in self.executable_research_configs():
+            if config.team:
+                selections.add(resolve_model(self.research, config, config.team.lead))
+                selections.add(resolve_model(self.research, config, config.team.researcher))
+            else:
+                selections.add(resolve_model(self.research, config))
+        return selections
+
+    def research_models(self) -> set[str]:
+        return {selection.model for selection in self.research_selections()}
 
     def canonical_document(self) -> dict[str, Any]:
         """Keep legacy content hashes stable; API responses include normalized defaults."""

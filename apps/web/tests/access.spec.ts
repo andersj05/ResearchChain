@@ -6,6 +6,7 @@ import {
   type APIRequestContext,
   type Page,
   type PlaywrightWorkerArgs,
+  type Route,
 } from "@playwright/test";
 import example from "../../../examples/research-workflow.json";
 import { seed } from "./report-fixture";
@@ -30,7 +31,7 @@ function operator(command: string): { code?: string } {
 async function login(page: Page, value = password) {
   await page.getByLabel("Owner password", { exact: true }).fill(value);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
-  await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toBeVisible();
 }
 
 async function ownerApi(
@@ -69,7 +70,7 @@ for (const width of [1440, 390]) {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.setViewportSize({ width, height: 900 });
-    await page.goto("/");
+    await page.goto("/?view=workflow");
     await expect(page.getByRole("heading", { name: "Owner sign-in", exact: true })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Build", exact: true })).toHaveCount(0);
     expect((await request.get("/api/revisions")).status()).toBe(401);
@@ -136,7 +137,9 @@ test("first owner setup exchanges a link once and removes it from the address", 
     if (request.url().endsWith("/api/access/exchange")) exchanges += 1;
   });
   await page.goto(`/#owner-link=${code}`);
-  await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("textbox", { name: "Context for the lead (optional)", exact: true }),
+  ).toBeVisible();
   expect(page.url()).not.toContain(code);
   expect(exchanges).toBe(1);
   expect(requestUrls.every((url) => !url.includes(code!))).toBe(true);
@@ -253,18 +256,28 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
   const api = await ownerApi(playwright);
   try {
     await page.context().addCookies((await api.storageState()).cookies);
-    await page.goto("/");
+    const pendingRead = Promise.withResolvers<Route>();
+    await page.route("**/api/runs", (route) => pendingRead.resolve(route), { times: 1 });
+    await page.goto("/?view=workflow");
+    const oldRead = await pendingRead.promise;
     await expect(page.getByRole("tab", { name: "Build", exact: true })).toBeVisible();
     const other = await page.context().newPage();
-    await other.goto("/");
+    await other.goto("/?view=workflow");
     await expect(
       other.getByRole("button", { name: "Validate workflow", exact: true }),
     ).toBeEnabled();
     await page.getByRole("button", { name: "Settings", exact: true }).click();
     await page.getByLabel("New password", { exact: true }).fill(password + "-changed");
+    const refreshed = other.waitForResponse("**/api/access/status");
     await page.getByRole("button", { name: "Save owner password", exact: true }).click();
     await expect(page.getByText("Password saved.", { exact: false })).toBeVisible();
-    expect((await api.get("/api/revisions")).status()).toBe(401);
+    await (await refreshed).finished();
+    // Deliver the old session's actual response after the browser has the replacement cookie.
+    const rejected = await api.get("/api/runs");
+    expect(rejected.status()).toBe(401);
+    const delivered = page.waitForResponse("**/api/runs");
+    await oldRead.fulfill({ response: rejected });
+    await (await delivered).finished();
     await other.getByRole("button", { name: "Validate workflow", exact: true }).click();
     await expect(other.getByRole("status", { name: "Workspace status" })).toHaveText(
       "Workflow valid. Ready to run.",
@@ -279,7 +292,7 @@ test("password rotation refreshes other tabs and sign-out hides both workspaces"
 });
 
 test("pre-sign-in drafts require an explicit owner import", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?view=workflow");
   await page.evaluate(
     (workflow) => {
       localStorage.setItem("researchchain.workflow.v0.1", JSON.stringify(workflow));

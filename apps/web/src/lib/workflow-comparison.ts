@@ -72,9 +72,11 @@ function stepSettings(node: WorkflowNode | undefined, graph: Graph | undefined) 
   const inputs = Object.fromEntries(
     Object.entries(node.inputs ?? {}).map(([port, binding]) => [
       `${inputPrefix}${port}`,
-      binding.source === "output"
-        ? `${binding.node_id} · ${binding.port}`
-        : binding.source.replaceAll("_", " "),
+      binding.source === "previous_iteration"
+        ? `Previous iteration · ${binding.node_id} · ${binding.port}`
+        : binding.source === "output"
+          ? `${binding.node_id} · ${binding.port}`
+          : binding.source.replaceAll("_", " "),
     ]),
   );
   const next = Object.fromEntries(
@@ -128,8 +130,11 @@ function readableWiringSettings(
     if (name === "First step" || name.startsWith(nextPrefix)) return stepName(value);
     if (name.startsWith(inputPrefix)) {
       const source = side.step?.inputs?.[name.slice(inputPrefix.length)];
-      if (source?.source === "output") {
-        if (source.node_id && source.port) return `${stepName(source.node_id)} · ${source.port}`;
+      if (source?.source === "output" || source?.source === "previous_iteration") {
+        if (source.node_id && source.port) {
+          const label = `${stepName(source.node_id)} · ${source.port}`;
+          return source.source === "previous_iteration" ? `Previous iteration · ${label}` : label;
+        }
       } else if (source) {
         return builtInSourceLabels[source.source] ?? value;
       }

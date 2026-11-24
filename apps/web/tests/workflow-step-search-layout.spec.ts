@@ -52,7 +52,8 @@ for (const width of [390, 1440]) {
     expect((await top(filter)) - headingBox.y).toBeLessThan(64);
     expect(await top(search)).toBeLessThan(await top(placement));
     expect(await top(placement)).toBeLessThan(await top(add));
-    expect(await top(add)).toBeLessThan(await top(outline));
+    expect(await top(search)).toBeLessThan(await top(outline));
+    expect(await top(outline)).toBeLessThan(await top(placement));
     await expectWrappedLabel(outline.getByText(longReviewName, { exact: true }));
 
     await filter.selectOption("review");

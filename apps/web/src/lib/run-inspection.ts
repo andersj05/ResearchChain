@@ -5,12 +5,17 @@ type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 export type ComparisonPasses = { baselineAttempt?: string; openAttempt?: string };
+export type PassComparisonLabels = { comparison: string; current: string };
+export const defaultPassComparisonLabels = {
+  comparison: "Comparison pass",
+  current: "Open run pass",
+};
 export type ReviewBookmark = { checkpointId: string; interruptId: string };
 
 export function runInspectionUrl(
   location: string,
   run: string,
-  key: "compare" | "attempt" | "review",
+  key: "compare" | "attempt" | "review" | "iterations",
   id: string,
 ) {
   const url = new URL(location);
@@ -52,9 +57,89 @@ export function attemptPath(attempt: Attempt) {
   const segments = attempt.path.split("/");
   // Step IDs can themselves be named analyst-pass-2. Only strip the receipt
   // suffix one segment beyond the normal node path (root/id[/body/id…]).
-  return segments.length % 2 === 1 && /^analyst-pass-\d+$/.test(segments.at(-1)!)
+  const teamMember = /^agent-[1-4]$/.test(segments.at(-2) ?? "");
+  return (segments.length % 2 === 1 || teamMember) && /^analyst-pass-\d+$/.test(segments.at(-1)!)
     ? segments.slice(0, -1).join("/")
     : attempt.path;
+}
+
+export type SavedModelPass = {
+  attempt: Attempt;
+  number: number;
+  kind: "Conclusion" | "Research lead" | "Workspace activity";
+};
+
+export function savedModelOutputs(run: RunSnapshot) {
+  const outputs = new Map<string, SavedModelPass[]>();
+  const counts = new Map<string, number>();
+  for (const attempt of run.model_attempts ?? []) {
+    const path = attemptPath(attempt);
+    const number = (counts.get(path) ?? 0) + 1;
+    counts.set(path, number);
+    const result = attempt.result;
+    if (attempt.status !== "completed" || !result) continue;
+    const passes = outputs.get(path) ?? [];
+    const kind = result.workspace_activity
+      ? "Workspace activity"
+      : result.next_lead
+        ? "Research lead"
+        : "Conclusion";
+    passes.push({ attempt, number, kind });
+    outputs.set(path, passes);
+  }
+  return outputs;
+}
+
+export function selectedModelOutput(passes: SavedModelPass[], id?: string) {
+  return (
+    passes.find((item) => item.attempt.id === id) ??
+    passes.findLast((item) => item.kind === "Conclusion") ??
+    passes.at(-1)
+  );
+}
+
+export function iterationDifference(left: string, right: string) {
+  const a = left.split("/");
+  const b = right.split("/");
+  if (a.length !== b.length) return 0;
+  let difference = 0;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] === b[index]) continue;
+    if (difference || index < 2 || index % 2 !== 0) return 0;
+    const before = /^iteration-([1-9]\d*)$/.exec(a[index]!);
+    const after = /^iteration-([1-9]\d*)$/.exec(b[index]!);
+    if (!before || !after) return 0;
+    difference = Number(after[1]) - Number(before[1]);
+  }
+  return difference;
+}
+
+export function iterationPeers(paths: Iterable<string>, path: string) {
+  return [...paths]
+    .flatMap((candidate) => {
+      const difference = iterationDifference(path, candidate);
+      return difference ? [{ path: candidate, difference }] : [];
+    })
+    .sort((left, right) => left.difference - right.difference);
+}
+
+export type IterationOutput = { path: string; attemptId: string };
+export type IterationComparison = { comparison: IterationOutput; current: IterationOutput };
+
+export function linkedIterationComparison(run: RunSnapshot, value: string) {
+  const [before, after, extra] = value.toLowerCase().split(",");
+  if (!before || !after || extra !== undefined) return;
+  const paths = new Map<string, string>();
+  for (const [path, passes] of savedModelOutputs(run)) {
+    for (const { attempt } of passes) paths.set(attempt.id, path);
+  }
+  const earlier = paths.get(before);
+  const later = paths.get(after);
+  if (!earlier || !later || iterationDifference(earlier, later) <= 0) return;
+  return {
+    comparison: { path: earlier, attemptId: before },
+    current: { path: later, attemptId: after },
+  };
 }
 
 export function pendingReviews(run: RunSnapshot) {
@@ -173,6 +258,9 @@ export function graphLocation(run: RunSnapshot, path: string) {
   for (let i = 1; i < parts.length - 1; i += 2) {
     const node = graph.nodes.find((item) => item.id === parts[i]);
     if (!node) break;
+    if (node.config?.type === "research" && node.config.team) {
+      return { graph, prefix, parents, node };
+    }
     const ref = referenceOf(node);
     const body = run.workflow.subgraphs?.find(
       (item) => item.id === ref?.id && item.version === ref.version,
@@ -187,6 +275,72 @@ export function graphLocation(run: RunSnapshot, path: string) {
   return { graph, prefix, parents, node };
 }
 
+export type DirectLoopIteration = { caller: string; number: number; limit: number };
+
+export function directLoopIteration(
+  run: RunSnapshot,
+  path: string,
+): DirectLoopIteration | undefined {
+  const { prefix, node, parents } = graphLocation(run, path);
+  if (path !== `${prefix}/${node.id}`) return;
+  let iteration: DirectLoopIteration | undefined;
+  for (const parent of parents) {
+    const caller = graphLocation(run, parent.path);
+    if (parent.path !== `${caller.prefix}/${caller.node.id}`) return;
+    const selector = path.slice(parent.path.length + 1).split("/", 1)[0]!;
+    const config = caller.node.config;
+    if (config?.type === "subgraph" && selector === "body") {
+      iteration = undefined;
+    } else if (config?.type === "loop") {
+      const number = Number(/^iteration-([1-9]\d*)$/.exec(selector)?.[1]);
+      if (!Number.isInteger(number) || number > config.max_iterations) return;
+      iteration = { caller: parent.path, number, limit: config.max_iterations };
+    } else {
+      return;
+    }
+  }
+  return iteration;
+}
+
+export function nextLoopIteration(iteration?: DirectLoopIteration) {
+  if (!iteration || iteration.number >= iteration.limit) return;
+  const number = iteration.number + 1;
+  return { number, prefix: `${iteration.caller}/iteration-${number}` };
+}
+
+export function previousIterationOutput(
+  run: RunSnapshot,
+  iteration: DirectLoopIteration,
+  node: WorkflowNode,
+) {
+  const number = iteration.number - 1;
+  const path = `${iteration.caller}/iteration-${number}/${node.id}`;
+  const checkPath = `${iteration.caller}/check-${number}`;
+  const callerId = iteration.caller.split("/").at(-1);
+  if (
+    number < 1 ||
+    !run.events.some(
+      (event) => event.kind === "loop" && event.node_id === callerId && event.path === checkPath,
+    )
+  )
+    return;
+  const event = run.events.find(
+    (event) => event.kind === node.kind && event.node_id === node.id && eventPath(event) === path,
+  );
+  if (!event || (node.kind === "code" && !event.code)) return;
+  if (node.kind === "review" && event.review_response?.decision !== "approve") return;
+  if (node.kind !== "research") return { path };
+  const attempt = run.model_attempts?.findLast(
+    (item) =>
+      item.status === "completed" &&
+      item.result &&
+      !item.result.next_lead &&
+      !item.result.workspace_activity &&
+      attemptPath(item) === path,
+  );
+  return attempt ? { path, attemptId: attempt.id } : undefined;
+}
+
 export function runStepLabel(run: RunSnapshot, path: string) {
   const { node, parents } = graphLocation(run, path);
   const context = parents.map((parent) => {
@@ -196,11 +350,14 @@ export function runStepLabel(run: RunSnapshot, path: string) {
   return [node.label, ...context].join(" · ");
 }
 
-export function feedbackRecipients(graph: Graph, reviewId: string) {
+export function feedbackRecipients(
+  graph: Graph,
+  reviewId: string,
+  timing: "output" | "previous_iteration" = "output",
+) {
   return graph.nodes.filter((node) =>
     Object.values(node.inputs ?? {}).some(
-      (input) =>
-        input.source === "output" && input.node_id === reviewId && input.port === "feedback",
+      (input) => input.source === timing && input.node_id === reviewId && input.port === "feedback",
     ),
   );
 }

@@ -42,7 +42,11 @@ import {
   ideaGenerationWorkflow,
   ideaGenerationBrief,
   discretionaryMacroWorkflow,
+  chartSignalWorkflow,
+  chartSignalBrief,
   discretionaryMacroBrief,
+  equityCatsWorkflow,
+  equityCatsBrief,
   exampleWorkflow,
   admissionTimeout,
   type CommandReceipt,
@@ -325,6 +329,7 @@ export function Workbench() {
     url.searchParams.delete("attempt");
     url.searchParams.delete("review");
     url.searchParams.delete("checkpoint");
+    url.searchParams.delete("iterations");
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
     try {
@@ -372,6 +377,8 @@ export function Workbench() {
       current: workflow,
       ideas: ideaGenerationWorkflow,
       macro: discretionaryMacroWorkflow,
+      chart: chartSignalWorkflow,
+      equitycats: equityCatsWorkflow,
     };
     const document = { ...structuredClone(starters[starter]), name };
     const created = await api<AgentDetail>("agents", { id, workflow: document });
@@ -383,6 +390,14 @@ export function Workbench() {
     } else if (starter === "macro") {
       setBrief(discretionaryMacroBrief);
       setMessage(`Agent “${name}” created. Open Run workflow to edit the example macro brief.`);
+    } else if (starter === "chart") {
+      setBrief(chartSignalBrief);
+      setMessage(
+        `Agent “${name}” created. Open Run workflow to attach your chart and describe your idea.`,
+      );
+    } else if (starter === "equitycats") {
+      setBrief(equityCatsBrief);
+      setMessage(`Agent “${name}” created. Open Run workflow to define the cross-asset test.`);
     } else setMessage(`Agent “${name}” created. Add your steps and save a version.`);
   }
   async function loadLatestAgent() {
@@ -504,6 +519,7 @@ export function Workbench() {
     if (changedRun || fromInbox) {
       url.searchParams.delete("review");
       url.searchParams.delete("checkpoint");
+      url.searchParams.delete("iterations");
     }
     if (fromInbox) {
       url.searchParams.delete("agent");
@@ -789,7 +805,12 @@ export function Workbench() {
             void action(loadLatestAgent);
           }}
         />
-        <AccessControls key={accessActive ? "active" : "locked"} />
+        <div className="workbench-destinations">
+          <a className="button small" href="?view=research">
+            Research desk
+          </a>
+          <AccessControls key={accessActive ? "active" : "locked"} />
+        </div>
       </header>
       <Tabs className="workbench-tabs" value={tab} onValueChange={switchTab}>
         <div className="navigation-bar">

@@ -11,7 +11,8 @@ from psycopg.rows import DictRow
 from researchchain.database import Database
 from researchchain.dispatch_models import CommandReceipt, DispatchError, QueueLimits
 from researchchain.models import ResumeRequest, RunRequest
-from researchchain.revisions import ConflictError
+from researchchain.research_sessions import ResearchSessionStart, session_workflow
+from researchchain.revisions import ConflictError, save_revision
 from researchchain.runtime import RunStore
 
 
@@ -90,14 +91,36 @@ class RunQueue:
 
     def start(self, request: RunRequest) -> CommandReceipt:
         with self._admission() as conn:
-            exists = conn.execute("SELECT 1 FROM runs WHERE id = %s", (request.id,)).fetchone()
-            if not exists and not self._own_run(conn, request.id):
-                raise DispatchError("This run is being admitted. Retry the same request.")
-            command = self.runs.start_command(conn, request)
-            if not exists:
-                self._enqueue(conn, command)
-            # An old interrupted command is never requeued by an HTTP retry.
-            return receipt(command)
+            return self._start(conn, request)
+
+    def start_session(self, request: ResearchSessionStart) -> CommandReceipt:
+        workflow = session_workflow(request)
+        with self._admission() as conn:
+            revision = save_revision(conn, workflow)
+            return self._start(
+                conn,
+                RunRequest(
+                    id=request.id,
+                    revision_id=revision.id,
+                    baseline_run_id=request.baseline_run_id,
+                    brief=request.brief,
+                    evidence_ids=request.evidence_ids,
+                    provider_account_id=request.provider_account_id,
+                ),
+                research_session=True,
+            )
+
+    def _start(
+        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+    ) -> CommandReceipt:
+        exists = conn.execute("SELECT 1 FROM runs WHERE id = %s", (request.id,)).fetchone()
+        if not exists and not self._own_run(conn, request.id):
+            raise DispatchError("This run is being admitted. Retry the same request.")
+        command = self.runs.start_command(conn, request, research_session=research_session)
+        if not exists:
+            self._enqueue(conn, command)
+        # An old interrupted command is never requeued by an HTTP retry.
+        return receipt(command)
 
     def resume(self, run_id: UUID, request: ResumeRequest) -> CommandReceipt:
         with self._admission() as conn:

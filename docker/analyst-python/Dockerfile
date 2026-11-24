@@ -5,4 +5,5 @@ RUN python -m pip install --no-cache-dir --only-binary=:all: \
     -r /opt/researchchain/requirements.txt
 ENV MPLBACKEND=Agg MPLCONFIGDIR=/tmp/matplotlib HOME=/tmp
 COPY run.py /opt/researchchain/run.py
+COPY signal_holdout.py /opt/researchchain/signal_holdout.py
 ENTRYPOINT ["python", "-I", "-B", "/opt/researchchain/run.py"]

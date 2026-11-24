@@ -17,13 +17,13 @@ from researchchain.graph import Workflow
 from researchchain.main import create_app
 from researchchain.models import ResumeRequest, RunRequest, RunSnapshot
 from researchchain.providers.chatgpt_plan import Completion
-from researchchain.research import ResearchExecutor
+from researchchain.research import ChatGPTResearchProvider, ResearchExecutor
 from researchchain.research_models import ProviderAccount, ProviderModel, ProviderStatus
 from researchchain.revisions import ConflictError, RevisionStore
 from researchchain.runtime import RunStore
 
 
-class FakeProvider:
+class FakeProvider(ChatGPTResearchProvider):
     """Only synthetic text; no credentials or external network calls in tests."""
 
     def __init__(self) -> None:
@@ -48,14 +48,22 @@ class FakeProvider:
         return ProviderStatus(
             accounts=[self.account],
             models=[
-                ProviderModel(slug="test-model", display_name="Fixture model"),
-                ProviderModel(slug="analysis-model", display_name="Analysis model"),
+                ProviderModel(
+                    slug="test-model",
+                    display_name="Fixture model",
+                    reasoning_efforts=["low", "medium", "high"],
+                    default_reasoning_effort="medium",
+                    supports_verbosity=True,
+                    default_verbosity="medium",
+                ),
+                ProviderModel(
+                    slug="analysis-model",
+                    display_name="Analysis model",
+                    reasoning_efforts=["low", "high", "xhigh"],
+                    default_reasoning_effort="high",
+                ),
             ],
         )
-
-    def pin_account(self, account_id: str, models: set[str]) -> ProviderAccount:
-        assert account_id == self.account.id and models <= {"test-model", "analysis-model"}
-        return self.account
 
     def run_analyst(
         self, model: str, passes: int, step: Any, guard: Any, *, workspace: bool = False

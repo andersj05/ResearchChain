@@ -4,9 +4,15 @@ from datetime import datetime
 from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import Field, StringConstraints, model_validator
 
-from researchchain.graph import ResearchSettings, ResearchStage, StrictModel
+from researchchain.graph import (
+    ReasoningEffort,
+    ResearchSettings,
+    ResearchStage,
+    ResponseVerbosity,
+    StrictModel,
+)
 from researchchain.sec_financials import SecFinancials, SecLookup
 from researchchain.web_research import WebResearch
 
@@ -116,6 +122,124 @@ class WorkspaceActivity(StrictModel):
     files: list[WorkspaceFile] = Field(default_factory=list)
 
 
+OwnerQuestion = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=1000)
+]
+
+
+class TeamAssignment(ResearchModel):
+    title: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+    objective: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)
+    ]
+
+
+class DiscoveryProposal(ResearchModel):
+    sentence: OwnerQuestion
+    alternative: OwnerQuestion
+    first_check: OwnerQuestion
+    weaken_if: OwnerQuestion
+    evidence_ids: list[UUID] = Field(min_length=1, max_length=8)
+
+
+class DiscoveryReading(ResearchModel):
+    observation: OwnerQuestion
+    question: OwnerQuestion
+    citations: list[ResearchCitation] = Field(max_length=12)
+    proposals: list[DiscoveryProposal] = Field(max_length=2)
+
+    @model_validator(mode="after")
+    def grounded_proposals(self) -> Self:
+        if len({p.sentence.casefold() for p in self.proposals}) != len(self.proposals):
+            raise ValueError("Each proposed working sentence must be distinct.")
+        captured = {c.evidence_id for c in self.citations if c.basis != "metadata_only"}
+        for proposal in self.proposals:
+            ids = set(proposal.evidence_ids)
+            if len(ids) != len(proposal.evidence_ids) or not ids <= captured:
+                raise ValueError("Each proposal must reference its distinct, cited source content.")
+        return self
+
+
+class TeamPlan(ResearchModel):
+    assignments: list[TeamAssignment] = Field(min_length=1, max_length=4)
+    review_question: OwnerQuestion | None = None
+
+    @model_validator(mode="after")
+    def distinct_assignments(self) -> Self:
+        if len({a.title.casefold() for a in self.assignments}) != len(self.assignments):
+            raise ValueError("Each research assignment needs its own title.")
+        return self
+
+
+class SwarmLeadPlan(ResearchModel):
+    leads: list[TeamAssignment] = Field(min_length=1, max_length=4)
+
+    @model_validator(mode="after")
+    def independent_mandates(self) -> Self:
+        titles = {lead.title.casefold() for lead in self.leads}
+        objectives = {" ".join(lead.objective.casefold().split()) for lead in self.leads}
+        if len(titles) != len(self.leads) or len(objectives) != len(self.leads):
+            raise ValueError("Each swarm lead requires a distinct title and research mandate.")
+        return self
+
+
+class SwarmConsultation(ResearchModel):
+    thesis: Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=2000)]
+    question: OwnerQuestion
+    options: list[
+        Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=300)]
+    ] = Field(max_length=5)
+
+    @model_validator(mode="after")
+    def distinct_options(self) -> Self:
+        if len({s.casefold() for s in self.options}) != len(self.options):
+            raise ValueError("Each proposed owner option must be distinct.")
+        return self
+
+
+class SwarmDelegate(ResearchModel):
+    action: Literal["delegate"] = "delegate"
+    rationale: Sentence
+    assignments: list[TeamAssignment] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def distinct_assignments(self) -> Self:
+        if len({a.title.casefold() for a in self.assignments}) != len(self.assignments):
+            raise ValueError("Each delegated assignment in this batch needs a distinct title.")
+        return self
+
+
+class SwarmAskExpert(ResearchModel):
+    action: Literal["ask_expert"] = "ask_expert"
+    consultation: SwarmConsultation
+
+
+class SwarmFinish(ResearchModel):
+    action: Literal["finish"] = "finish"
+    findings: Annotated[
+        str, StringConstraints(strip_whitespace=True, min_length=1, max_length=6000)
+    ]
+    limitations: list[Sentence] = Field(min_length=1, max_length=8)
+
+
+SwarmAction = Annotated[SwarmDelegate | SwarmAskExpert | SwarmFinish, Field(discriminator="action")]
+
+
+class OwnerDirectionInput(ResearchModel):
+    id: UUID
+    text: str = Field(min_length=1, max_length=3000)
+
+    @model_validator(mode="after")
+    def nonblank_text(self) -> Self:
+        if not self.text.strip():
+            raise ValueError("Write a direction for the team.")
+        return self
+
+
+class OwnerDirection(OwnerDirectionInput):
+    created_at: datetime
+
+
 class StoredResearchResult(ResearchResult):
     """Metadata added by the server; never part of the model output schema."""
 
@@ -128,6 +252,12 @@ class StoredResearchResult(ResearchResult):
         default=None, exclude_if=lambda x: x is None
     )
     workspace_files: list[WorkspaceFile] = Field(default_factory=list, exclude_if=lambda x: not x)
+    report_artifact: WorkspaceFile | None = Field(default=None, exclude_if=lambda x: x is None)
+    team_plan: TeamPlan | None = Field(default=None, exclude_if=lambda x: x is None)
+    discovery: DiscoveryReading | None = Field(default=None, exclude_if=lambda x: x is None)
+    swarm_plan: SwarmLeadPlan | None = Field(default=None, exclude_if=lambda x: x is None)
+    swarm_action: SwarmAction | None = Field(default=None, exclude_if=lambda x: x is None)
+    review_question: OwnerQuestion | None = Field(default=None, exclude_if=lambda x: x is None)
 
 
 class EvidenceSnapshot(StrictModel):
@@ -155,6 +285,7 @@ class ResearchManifest(StrictModel):
 
 
 class ModelAttempt(StrictModel):
+    owner_direction_ids: list[UUID] = Field(default_factory=list, exclude_if=lambda x: not x)
     web_actions_completed: int | None = Field(default=None, ge=0)
     admission_policy_revision: int | None = Field(default=None, ge=1)
     id: UUID
@@ -190,6 +321,10 @@ class ProviderAccount(StrictModel):
 class ProviderModel(StrictModel):
     slug: str
     display_name: str
+    reasoning_efforts: list[ReasoningEffort] = Field(default_factory=list)
+    default_reasoning_effort: ReasoningEffort | None = None
+    supports_verbosity: bool = False
+    default_verbosity: ResponseVerbosity | None = None
 
 
 class ProviderStatus(StrictModel):

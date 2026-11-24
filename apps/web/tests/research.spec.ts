@@ -94,6 +94,10 @@ test("change a model override from Build and Run setup before pinning the run", 
   const workflowModel = page.getByRole("combobox", { name: "Workflow model", exact: true });
   const stepModel = page.getByRole("combobox", { name: "Step model", exact: true });
   await workflowModel.selectOption("test-model");
+  await page.getByText("Response settings", { exact: true }).click();
+  const shared = page.getByRole("group", { name: "Workflow response settings", exact: true });
+  await shared.getByRole("combobox", { name: "Thinking effort" }).selectOption("medium");
+  await shared.getByRole("combobox", { name: "Response detail" }).selectOption("high");
   await expect(stepModel).toHaveValue("");
   await stepModel.selectOption("test-model");
   await page.getByRole("button", { name: "Run workflow", exact: true }).click();
@@ -104,13 +108,32 @@ test("change a model override from Build and Run setup before pinning the run", 
   const setupStepModel = page.getByRole("combobox", { name: "Form hypotheses", exact: true });
   await expect(setupStepModel).toHaveValue("test-model");
   await setupStepModel.selectOption("analysis-model");
-  await page.getByRole("button", { name: "Start run", exact: true }).click();
+  const start = page.getByRole("button", { name: "Start run", exact: true });
+  await expect(start).toBeDisabled();
+  const override = page.getByRole("group", {
+    name: "Form hypotheses response settings",
+    exact: true,
+  });
+  await override.getByRole("combobox", { name: "Thinking effort" }).selectOption("xhigh");
+  await override.getByRole("combobox", { name: "Response detail" }).selectOption("model_default");
+  await start.click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
     timeout: 30000,
   });
   const runId = new URL(page.url()).searchParams.get("run");
   const snapshot: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
-  expect(snapshot.research_manifest?.settings.model).toBe("test-model");
+  expect(snapshot.research_manifest?.settings).toMatchObject({
+    model: "test-model",
+    reasoning_effort: "medium",
+    verbosity: "high",
+  });
+  expect(
+    snapshot.workflow.nodes.find((node) => node.label === "Form hypotheses")?.config,
+  ).toMatchObject({
+    model: "analysis-model",
+    reasoning_effort: "xhigh",
+    verbosity: "model_default",
+  });
   expect(snapshot.model_attempts?.[0]?.model).toBe("analysis-model");
 });
 

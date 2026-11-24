@@ -50,9 +50,16 @@ from researchchain.provider_signin import SignInService
 from researchchain.provider_signin_api import signin_router
 from researchchain.providers.credentials import ConnectionError as ProviderConnectionError
 from researchchain.registry import NodeTypeSpec, node_types
-from researchchain.report_api import report_router
+from researchchain.report_api import ZIP_RESPONSE, report_router, zip_download
 from researchchain.research import ResearchProvider
-from researchchain.research_models import ProviderStatus
+from researchchain.research_directions import record_direction
+from researchchain.research_models import OwnerDirection, OwnerDirectionInput, ProviderStatus
+from researchchain.research_session_export import export_session_report
+from researchchain.research_sessions import (
+    ResearchSessionSetup,
+    ResearchSessionStart,
+    session_setup,
+)
 from researchchain.retention_api import retention_router
 from researchchain.retention_models import RetentionError
 from researchchain.revisions import ConflictError, NotFoundError, RevisionStore
@@ -259,6 +266,52 @@ def create_app(
     @app.post("/api/runs", response_model=CommandReceipt, status_code=202, operation_id="start_run")
     def start_run(request: RunRequest) -> CommandReceipt:
         return queue.start(request)
+
+    @app.post(
+        "/api/research-sessions",
+        response_model=CommandReceipt,
+        status_code=202,
+        operation_id="start_research_session",
+    )
+    def start_research_session(request: ResearchSessionStart) -> CommandReceipt:
+        return queue.start_session(request)
+
+    @app.get(
+        "/api/research-sessions",
+        response_model=list[RecentRunSummary],
+        operation_id="list_research_sessions",
+    )
+    def list_research_sessions(
+        limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    ) -> list[RecentRunSummary]:
+        return runs.list(limit, sessions_only=True)
+
+    @app.get(
+        "/api/research-sessions/{run_id}/setup",
+        response_model=ResearchSessionSetup,
+        operation_id="get_research_session_setup",
+    )
+    def get_research_session_setup(run_id: UUID) -> ResearchSessionSetup:
+        return session_setup(runs.get(run_id))
+
+    @app.post(
+        "/api/research-sessions/{run_id}/directions",
+        response_model=OwnerDirection,
+        operation_id="add_research_session_direction",
+    )
+    def add_research_session_direction(
+        run_id: UUID, request: OwnerDirectionInput
+    ) -> OwnerDirection:
+        return record_direction(runs.database, run_id, request)
+
+    @app.get(
+        "/api/research-sessions/{run_id}/report.zip",
+        operation_id="export_research_session_report",
+        response_class=Response,
+        responses=ZIP_RESPONSE,
+    )
+    def download_session_report(run_id: UUID) -> Response:
+        return zip_download(export_session_report(runs.database, run_id), f"research-{run_id}.zip")
 
     @app.get("/api/runs", response_model=list[RecentRunSummary], operation_id="list_runs")
     def list_runs(

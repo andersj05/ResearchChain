@@ -204,8 +204,8 @@ export function WorkflowStepSearch({
           )}
         </>
       )}
-      {palette}
       {!searching && children}
+      {palette}
     </>
   );
 }

@@ -7,6 +7,10 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
+from discovery_fixture import DiscoveryProvider
+from equitycats_fixture import equitycats_completion
+from session_browser_fixture import BrowserTeam
+from swarm_browser_fixture import swarm_completion, swarm_models
 from test_provider_signin import BrowserHarness
 from test_web_research import WebProvider
 
@@ -18,7 +22,32 @@ if not os.environ.get("DATABASE_SCHEMA", "").startswith("e2e_"):
 
 
 class BrowserProvider(WebProvider):
+    def __init__(self):
+        super().__init__()
+        self.team = BrowserTeam()
+        self.discovery = DiscoveryProvider()
+
+    def status(self):
+        catalog = super().status()
+        catalog.models.extend(swarm_models())
+        return catalog
+
     async def complete(self, manifest: Any, prepared: Any, on_delta: Any) -> Completion:
+        if (
+            manifest.tool_config.get("discovery_version")
+            and "proposals" in prepared.schema["properties"]
+        ):
+            return await self.discovery.complete(manifest, prepared, on_delta)
+        swarm_response = await swarm_completion(prepared, on_delta)
+        if swarm_response is not None:
+            return swarm_response
+        team_response = await self.team.complete_study(manifest, prepared, on_delta)
+        if team_response is not None:
+            return team_response
+        if manifest.tool_config.get("discovery_version") and not manifest.tool_config.get(
+            "swarm_version"
+        ):
+            return await self.discovery.complete(manifest, prepared, on_delta)
         on_delta('{"schema_version":')
         if "Wait for cancellation" in str(prepared.input_items):
             await asyncio.sleep(60)
@@ -38,7 +67,7 @@ class BrowserProvider(WebProvider):
                 "<button>Model control</button>"
             )
             return replace(result, text=json.dumps(document))
-        return result
+        return equitycats_completion(prepared, result)
 
 
 # The real loopback flow uses fake OAuth and a disposable credential store.

@@ -34,6 +34,8 @@ def token_from(request: Request, access: AccessService) -> str | None:
 
 
 def clear_cookie(response: Response, access: AccessService) -> None:
+    # Only explicit sign-out clears the cookie. A denial for an old request can
+    # arrive after another tab has already installed the replacement session.
     response.delete_cookie(
         access.config.cookie_name,
         path="/",
@@ -62,11 +64,8 @@ def access_router(access: AccessService) -> APIRouter:
     router = APIRouter(prefix="/api/access", tags=["Owner access"])
 
     @router.get("/status", response_model=AccessStatus, operation_id="owner_access_status")
-    def status(request: Request, response: Response) -> AccessStatus:
-        result = access.status(token_from(request, access))
-        if not result.authenticated:
-            clear_cookie(response, access)
-        return result
+    def status(request: Request) -> AccessStatus:
+        return access.status(token_from(request, access))
 
     @router.post("/exchange", response_model=AccessStatus, operation_id="exchange_owner_link")
     def exchange(body: LinkExchange, request: Request, response: Response) -> AccessStatus:
@@ -204,8 +203,6 @@ class AccessMiddleware:
             await self.app(scope, limited_receive, private_send)
         except AccessError as error:
             response = JSONResponse({"detail": str(error)}, status_code=error.status)
-            if error.status == 401:
-                clear_cookie(response, self.access)
             if error.status == 429:
                 response.headers["Retry-After"] = "60"
             await response(scope, receive, private_send)

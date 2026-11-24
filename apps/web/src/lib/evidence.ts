@@ -2,6 +2,8 @@ import { apiFetch } from "@/lib/access";
 import type { components } from "@researchchain/contracts";
 
 export type EvidenceCreate = components["schemas"]["EvidenceCreate"];
+export type EvidenceInput = Pick<EvidenceCreate, "id" | "kind" | "title" | "rights"> &
+  Partial<EvidenceCreate>;
 export type EvidenceRecord = components["schemas"]["EvidenceRecord"];
 export type EvidencePage = components["schemas"]["EvidencePage"];
 export type EvidenceSnapshot = components["schemas"]["EvidenceSnapshot"];

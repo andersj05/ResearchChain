@@ -16,6 +16,7 @@ from psycopg.types.json import Jsonb
 from researchchain.agents import require_agent_revision, run_agent
 from researchchain.artifacts import EvidenceError, read_artifact
 from researchchain.compiler import (
+    LOOP_INPUT_COMPILER_VERSION,
     STRUCTURED_COMPILER_VERSION,
     ExecutionStopped,
     Guard,
@@ -25,6 +26,7 @@ from researchchain.compiler import (
 from researchchain.controls import ExecutionControl, control_state, set_terminal
 from researchchain.database import Database
 from researchchain.evidence import read_evidence
+from researchchain.graph import ResearchConfig
 from researchchain.models import (
     CancelResult,
     CheckpointStep,
@@ -32,7 +34,6 @@ from researchchain.models import (
     PendingReviewsPage,
     RecentRunSummary,
     ResumeRequest,
-    ReviewPrompt,
     RunArchiveItem,
     RunArchivePage,
     RunArchiveQuery,
@@ -49,10 +50,18 @@ from researchchain.research import (
     ChatGPTResearchProvider,
     ResearchExecutor,
     ResearchProvider,
+    fence_uncertain_effects,
     make_manifest,
     read_attempts,
     read_manifest,
 )
+from researchchain.research_directions import DIRECTIONS_VERSION
+from researchchain.research_discovery import DISCOVERY_VERSION
+from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
+from researchchain.research_session_report import REPORT_VERSION
+from researchchain.research_sessions import SESSION_VERSION
+from researchchain.research_swarm import SWARM_VERSION
+from researchchain.research_team import TEAM_VERSION
 from researchchain.retention_guards import require_retained_run
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
@@ -87,16 +96,29 @@ def recorded_events(state: StateSnapshot, workflow: Workflow) -> list[RunEvent]:
     outputs = state.values.get("outputs", {})
     events = []
     for path, event in state.values.get("records", {}).items():
-        if event["kind"] == "review" and "decision" in outputs.get(path, {}):
+        if event["kind"] == "review" and outputs.get(path, {}).get("decision") in {
+            "approve",
+            "reject",
+        }:
             event = {**event, "review_response": outputs[path]}
         events.append(RunEvent.model_validate(event))
     return events
 
 
 def compiler_version(workflow: Workflow) -> str:
+    if workflow.has_research_swarm():
+        return SWARM_VERSION
+    nodes = [node for graph in (workflow, *workflow.subgraphs) for node in graph.nodes]
     if any(
-        node.kind == "code" for graph in [workflow, *workflow.subgraphs] for node in graph.nodes
+        isinstance(node.config, ResearchConfig) and (node.config.team or node.config.style_excerpt)
+        for node in nodes
     ):
+        return TEAM_VERSION
+    if any(
+        source.source == "previous_iteration" for node in nodes for source in node.inputs.values()
+    ):
+        return LOOP_INPUT_COMPILER_VERSION
+    if any(node.kind == "code" for node in nodes):
         return CODE_COMPILER_VERSION
     return {
         "0.1": COMPILER_VERSION,
@@ -202,6 +224,9 @@ class RunStore:
             CODE_COMPILER_VERSION,
             STRUCTURED_COMPILER_VERSION,
             RESEARCH_COMPILER_VERSION,
+            LOOP_INPUT_COMPILER_VERSION,
+            TEAM_VERSION,
+            SWARM_VERSION,
         ):
             raise ConflictError("This run requires a compatible compiler version before recovery.")
         return row
@@ -254,7 +279,7 @@ class RunStore:
         if control["terminal_status"]:
             status = control["terminal_status"]
             pending = []
-        reviews = [ReviewPrompt(interrupt_id=item.id, **item.value) for item in pending]
+        reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
         return RunSnapshot(
             **run_agent(conn, manifest["id"]),
@@ -276,6 +301,18 @@ class RunStore:
             events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
             reviews=reviews,
+            owner_directions=control["owner_directions"],
+            perspective_answers=perspective_answers(
+                conn,
+                manifest["id"],
+                (
+                    item.path
+                    for item in attempts
+                    if item.result
+                    and item.result.swarm_action
+                    and item.result.swarm_action.action == "ask_expert"
+                ),
+            ),
             stop_reason=control["reason"] or worker_error,
             usage=RunUsage(
                 node_executions=control["node_executions"],
@@ -304,6 +341,7 @@ class RunStore:
     def _drive(self, conn: Connection[DictRow], manifest: DictRow, command: DictRow) -> RunSnapshot:
         if command["response"] is not None:
             return RunSnapshot.model_validate(command["response"])
+        fence_uncertain_effects(conn, manifest["id"])
         control = control_state(conn, manifest["id"])
         if control["terminal_status"]:
             snapshot = self._snapshot(conn, manifest)
@@ -343,19 +381,26 @@ class RunStore:
                 else:
                     initial["events"] = []
                 graph.invoke(initial, config, durability="sync")
-            elif command["kind"] == "resume" and any(
-                item.id == command["interrupt_id"] for item in pending
-            ):
-                graph.invoke(
-                    Command(
-                        resume={
-                            command["interrupt_id"]: (
-                                {"decision": command["decision"], "feedback": command["feedback"]}
-                                if workflow.schema_version == "0.3"
-                                else command["decision"]
-                            )
-                        }
+            elif command["kind"] == "resume" and (
+                selected := next(
+                    (
+                        (destination, review)
+                        for destination, review in checkpoint_reviews(manifest["id"], pending)
+                        if review.interrupt_id == command["interrupt_id"]
                     ),
+                    None,
+                )
+            ):
+                destination, review = selected
+                answer: Any = command["decision"]
+                if workflow.schema_version == "0.3":
+                    answer = {"decision": command["decision"], "feedback": command["feedback"]}
+                if review.perspective:
+                    answer.update(
+                        action_path=review.perspective.action_path, interrupt_id=review.interrupt_id
+                    )
+                graph.invoke(
+                    Command(resume={destination: answer}),
                     config,
                     durability="sync",
                 )
@@ -365,6 +410,8 @@ class RunStore:
         except ExecutionStopped as error:
             set_terminal(conn, manifest["id"], error.status, str(error))
         finally:
+            if researcher:
+                researcher.close()
             execution.end()
 
         snapshot = self._snapshot(conn, manifest)
@@ -387,7 +434,9 @@ class RunStore:
             )
         ]
 
-    def start_command(self, conn: Connection[DictRow], request: RunRequest) -> DictRow:
+    def start_command(
+        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+    ) -> DictRow:
         """Validate and journal inputs; the caller serializes admission and commits."""
         require_retained_run(conn, request.id)
         existing = conn.execute("SELECT * FROM runs WHERE id = %s", (request.id,)).fetchone()
@@ -400,6 +449,15 @@ class RunStore:
         ):
             raise ConflictError("This run ID already belongs to different inputs.")
         existing_research = read_manifest(conn, request.id) if existing else None
+        if (
+            research_session
+            and existing
+            and (
+                not existing_research
+                or existing_research.tool_config.get("session") != SESSION_VERSION
+            )
+        ):
+            raise ConflictError("This ID already belongs to a different run.")
         if existing and request.provider_account_id != (
             existing_research.account_id if existing_research else None
         ):
@@ -412,6 +470,13 @@ class RunStore:
         artifacts = [item.model_dump() for item in request.artifacts]
         if existing is None:
             if request.baseline_run_id is not None:
+                if research_session:
+                    baseline_manifest = read_manifest(conn, request.baseline_run_id)
+                    if (
+                        not baseline_manifest
+                        or baseline_manifest.tool_config.get("session") != SESSION_VERSION
+                    ):
+                        raise NotFoundError("Baseline research session not found.")
                 baseline = conn.execute(
                     "SELECT a.agent_id FROM runs r LEFT JOIN agent_runs a ON a.run_id = r.id "
                     "WHERE r.id = %s",
@@ -442,11 +507,17 @@ class RunStore:
                         "Select the connected provider account for this research run."
                     )
                 account = self.provider.pin_account(
-                    request.provider_account_id, workflow.research_models()
+                    request.provider_account_id, workflow.research_selections()
                 )
                 research_manifest = make_manifest(
                     conn, workflow, request.revision_id, request.evidence_ids, account
                 )
+                if research_session:
+                    research_manifest.tool_config["session"] = SESSION_VERSION
+                    if workflow.start_node == "discovery":
+                        research_manifest.tool_config["discovery_version"] = DISCOVERY_VERSION
+                    research_manifest.tool_config["session_report_version"] = REPORT_VERSION
+                    research_manifest.tool_config["owner_directions_version"] = DIRECTIONS_VERSION
             elif request.provider_account_id:
                 raise EvidenceError("Provider selection is only valid for a research workflow.")
             with conn.transaction():
@@ -500,6 +571,9 @@ class RunStore:
 
     def get(self, run_id: UUID) -> RunSnapshot:
         with self.database.connection() as conn:
+            # Progress can be requested before the start transaction commits.
+            # Only use the run lock after a saved run is visible to the reader.
+            manifest = self._manifest(conn, run_id)
             # Readers never wait for a model call. A live writer owns the run's
             # advisory lock; checkpoint reads and the attempt journal use MVCC.
             lock = conn.execute(
@@ -519,7 +593,7 @@ class RunStore:
             unfinished = command is not None
             return self._snapshot(
                 conn,
-                self._manifest(conn, run_id),
+                manifest,
                 interrupted=unfinished,
                 # Other readers briefly own this lock too. Only an unfinished
                 # command indicates that a worker may still be executing.
@@ -567,6 +641,9 @@ class RunStore:
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
                 "WHERE (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(sessions_only)s OR EXISTS (SELECT 1 FROM run_research_manifests rm "
+                "WHERE rm.run_id = r.id AND rm.manifest->'tool_config'->>'session' "
+                "= %(session_version)s)) "
                 "AND (NOT %(unassigned)s OR a.agent_id IS NULL) "
                 "AND (%(exclude_id)s::uuid IS NULL OR r.id <> %(exclude_id)s) "
                 "AND (%(before_created_at)s::timestamptz IS NULL "
@@ -577,6 +654,7 @@ class RunStore:
                 "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
                 {
                     **query.model_dump(),
+                    "session_version": SESSION_VERSION,
                     "search": query.search.strip(),
                     "limit": query.limit + int(look_ahead),
                 },
@@ -588,10 +666,14 @@ class RunStore:
                 for row in rows
             ]
 
-    def list(self, limit: int = 20, agent_id: UUID | None = None) -> list[RecentRunSummary]:
+    def list(
+        self, limit: int = 20, agent_id: UUID | None = None, *, sessions_only: bool = False
+    ) -> list[RecentRunSummary]:
         return [
             RecentRunSummary(**item.run.model_dump(), brief_excerpt=item.brief_excerpt)
-            for item in self._search_runs(RunArchiveQuery(limit=limit, agent_id=agent_id))
+            for item in self._search_runs(
+                RunArchiveQuery(limit=limit, agent_id=agent_id, sessions_only=sessions_only)
+            )
         ]
 
     def pending_reviews(
@@ -650,14 +732,27 @@ class RunStore:
         if self._unfinished(conn, run_id) is not None:
             raise ConflictError("Recover this run's interrupted request before reviewing it.")
         snapshot = self._snapshot(conn, manifest)
+        review = next(
+            (item for item in snapshot.reviews if item.interrupt_id == request.interrupt_id), None
+        )
         if (
             snapshot.status != "paused"
-            or not any(item.interrupt_id == request.interrupt_id for item in snapshot.reviews)
+            or review is None
             or snapshot.checkpoint_id != request.checkpoint_id
         ):
             raise ConflictError(
                 "This review is no longer current. Refresh the run before deciding."
             )
+        if review.perspective and request.decision == "approve" and not request.feedback.strip():
+            raise ConflictError("Write an answer for the research lead before continuing.")
+        if (
+            review.path == "root/working_sentence"
+            and snapshot.research_manifest
+            and snapshot.research_manifest.tool_config.get("discovery_version")
+            and request.decision == "approve"
+            and not request.feedback.strip()
+        ):
+            raise ConflictError("Write a working sentence before assigning research.")
         command = conn.execute(
             "INSERT INTO run_commands "
             "(id, run_id, kind, checkpoint_id, interrupt_id, decision, feedback) "

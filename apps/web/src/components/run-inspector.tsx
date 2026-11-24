@@ -9,21 +9,26 @@ import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
 import { RunModelActivity, type ModelActivityFilter } from "./run-model-activity";
 import { RunDecisions, type FeedbackBriefDraft } from "./run-decisions";
 import { RunFiles, savedRunFiles } from "./run-files";
+import { RunOutputs, type OutputFilter } from "./run-outputs";
+import { RunIterationComparison } from "./run-iteration-comparison";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
 import {
   attemptPath,
   bookmarkedReview,
   graphLocation,
+  linkedIterationComparison,
   pendingReviews,
   preferredPath,
   reviewPath,
   runInspectionUrl,
   stepStates,
+  type IterationComparison,
   type ReviewBookmark,
 } from "@/lib/run-inspection";
 import { PinnedEvidence } from "@/components/pinned-evidence";
 import { useOwner } from "@/components/access-context";
+import { sessionUrl } from "@/lib/research-sessions";
 import { ownerStoragePrefix } from "@/lib/access";
 import { pruneReviewDrafts, readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { Button } from "@ui-sdk/react/button";
@@ -31,7 +36,7 @@ import type { RecentRunSummary, RunSnapshot } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
 export type ReviewFocus = { runId: string; path: string };
-type RunView = "step" | "activity" | "decisions" | "files" | "context" | "comparison";
+type RunView = "step" | "outputs" | "activity" | "decisions" | "files" | "context" | "comparison";
 
 function runLinkTarget(run: RunSnapshot) {
   if (typeof window === "undefined") return {};
@@ -52,6 +57,9 @@ function runLinkTarget(run: RunSnapshot) {
   if (id && id !== run.id && /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/.test(id)) {
     return { comparison: id };
   }
+  const iterations = params.get("iterations");
+  if (iterations !== null)
+    return { iterations: linkedIterationComparison(run, iterations) ?? null };
   return {};
 }
 
@@ -107,21 +115,32 @@ function RunWorkspace({
     reviewFocus ? undefined : link.reviewBookmark,
   );
   const [comparison, setComparison] = useState(link.comparison);
+  const [iterationComparison, setIterationComparison] = useState<
+    IterationComparison | null | undefined
+  >(reviewFocus ? undefined : link.iterations);
   const [lastFocus, setLastFocus] = useState(reviewFocus);
   const [manual, setManual] = useState<string | null>(reviewFocus?.path ?? link.path ?? null);
   const [selectedView, setView] = useState<RunView>(
-    comparison && !reviewFocus ? "comparison" : "step",
+    reviewFocus
+      ? "step"
+      : comparison
+        ? "comparison"
+        : link.iterations !== undefined
+          ? "outputs"
+          : "step",
   );
   const staleReviewLink = reviewBookmark && !bookmarkedReview(run, reviewBookmark);
   const view = staleReviewLink ? "decisions" : selectedView;
   const navigation = useRef(0);
-  const [showGraph, setShowGraph] = useState(() => {
+  const [showStepMap, setShowStepMap] = useState(() => {
     try {
       return localStorage.getItem(mapPreference) !== "false";
     } catch {
       return true;
     }
   });
+  const [showOutputMap, setShowOutputMap] = useState(false);
+  const showGraph = view === "outputs" ? showOutputMap : showStepMap;
   const [attemptId, setAttemptId] = useState(reviewFocus ? undefined : link.attemptId);
   const [feedback, setFeedback] = useState(() => readReviewDrafts(reviewDraftKey));
   const [feedbackBrief, setFeedbackBrief] = useState<FeedbackBriefDraft | null>(null);
@@ -130,6 +149,7 @@ function RunWorkspace({
     fitFiltered: false,
   });
   const [fileQuery, setFileQuery] = useState("");
+  const [outputFilter, setOutputFilter] = useState<OutputFilter>({ query: "", kind: "" });
   const pendingFeedback = pruneReviewDrafts(run, feedback);
   if (pendingFeedback !== feedback) setFeedback(pendingFeedback);
   const reviewDrafts = JSON.stringify(pendingFeedback);
@@ -143,6 +163,7 @@ function RunWorkspace({
       setManual(reviewFocus.path);
       setView("step");
       setAttemptId(undefined);
+      setIterationComparison(undefined);
     }
   }
   const states = stepStates(run);
@@ -150,6 +171,7 @@ function RunWorkspace({
   const path = manual ?? current;
   const readingPane = useRef<HTMLDivElement>(null);
   const focusOnInspect = useRef(false);
+  const comparingIterations = Boolean(iterationComparison);
   useLayoutEffect(() => {
     const pane = readingPane.current;
     if (!pane) return;
@@ -158,7 +180,7 @@ function RunWorkspace({
       focusOnInspect.current = false;
       pane.focus();
     }
-  }, [path, view, attemptId]);
+  }, [path, view, attemptId, comparingIterations]);
   useLayoutEffect(() => {
     if (reviewFocus) readingPane.current?.focus();
   }, [reviewFocus]);
@@ -174,9 +196,20 @@ function RunWorkspace({
       window.history.replaceState(null, "", url);
     }
   };
+  const clearIterationLink = () => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has("iterations")) {
+      url.searchParams.delete("iterations");
+      window.history.replaceState(null, "", url);
+    }
+  };
   const changeView = (next: RunView) => {
     navigation.current += 1;
     clearReviewBookmark();
+    if (next !== "outputs") {
+      clearIterationLink();
+      setIterationComparison(undefined);
+    }
     setView(next);
   };
   const select = (value: string, id?: string) => {
@@ -205,9 +238,13 @@ function RunWorkspace({
     changeView("step");
   };
   const toggleGraph = () => {
-    setShowGraph(!showGraph);
+    if (view === "outputs") {
+      setShowOutputMap(!showOutputMap);
+      return;
+    }
+    setShowStepMap(!showStepMap);
     try {
-      localStorage.setItem(mapPreference, String(!showGraph));
+      localStorage.setItem(mapPreference, String(!showStepMap));
     } catch {
       // The map remains usable if browser storage is disabled.
     }
@@ -233,6 +270,11 @@ function RunWorkspace({
           <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
         </div>
         <div className="actions run-actions">
+          {run.research_manifest?.tool_config?.session === "brief-led-1" && (
+            <a className="button small" href={sessionUrl(run.id)}>
+              Open research session
+            </a>
+          )}
           <Button className="button small" disabled={busy} onClick={() => onIterate()}>
             Iterate from this run
             <ArrowRight size={14} aria-hidden />
@@ -404,6 +446,13 @@ function RunWorkspace({
         </button>
         <button
           type="button"
+          aria-pressed={view === "outputs"}
+          onClick={() => changeView("outputs")}
+        >
+          Outputs
+        </button>
+        <button
+          type="button"
           aria-pressed={view === "activity"}
           onClick={() => changeView("activity")}
         >
@@ -438,6 +487,40 @@ function RunWorkspace({
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
         {staleReviewLink && <p role="status">This review link is out of date.</p>}
+        {view === "outputs" &&
+          (iterationComparison ? (
+            <RunIterationComparison
+              run={run}
+              selection={iterationComparison}
+              onChange={(selection) => {
+                clearIterationLink();
+                setIterationComparison(selection);
+              }}
+              onBack={() => {
+                focusOnInspect.current = true;
+                clearIterationLink();
+                setIterationComparison(undefined);
+              }}
+            />
+          ) : (
+            <>
+              {iterationComparison === null && (
+                <p role="status">This saved iteration comparison is unavailable.</p>
+              )}
+              <RunOutputs
+                run={run}
+                inspect={inspectFromPanel}
+                filter={outputFilter}
+                onFilterChange={setOutputFilter}
+                onCompare={(selection) => {
+                  focusOnInspect.current = true;
+                  clearIterationLink();
+                  changeView("outputs");
+                  setIterationComparison(selection);
+                }}
+              />
+            </>
+          ))}
         {view === "activity" && (
           <RunModelActivity
             run={run}

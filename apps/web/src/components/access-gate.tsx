@@ -5,6 +5,7 @@ import { Button } from "@ui-sdk/react/button";
 import { LockKeyhole } from "lucide-react";
 import { OwnerContext } from "@/components/access-context";
 import { Workbench } from "@/components/workbench";
+import { ResearchDesk } from "@/components/research-desk";
 import {
   accessSnapshot,
   initializeAccess,
@@ -182,10 +183,29 @@ export function AccessGate() {
             aria-hidden={!authenticated}
             data-owner-workspace={ownerStoragePrefix(view.owner)}
           >
-            <Workbench key={ownerStoragePrefix(view.owner)} />
+            <OwnerWorkspace key={ownerStoragePrefix(view.owner)} />
           </div>
         </OwnerContext.Provider>
       )}
     </>
   );
+}
+
+function OwnerWorkspace() {
+  // The gate mounts this component only after client-side owner authentication.
+  const [query] = useState(() => new URLSearchParams(window.location.search));
+  if (
+    query.has("session") ||
+    query.has("fromSession") ||
+    ["research", "methodology"].includes(query.get("view") ?? "") ||
+    !["view", "agent", "run", "revision"].some((key) => query.has(key))
+  )
+    return (
+      <ResearchDesk
+        session={query.get("session")}
+        fromSession={query.get("fromSession")}
+        methodology={query.get("view") === "methodology"}
+      />
+    );
+  return <Workbench />;
 }
