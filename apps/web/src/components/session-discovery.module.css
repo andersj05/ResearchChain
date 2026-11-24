@@ -84,6 +84,11 @@
 .issued h3 {
   font-size: 15px;
 }
+.sources article:target {
+  outline: 2px solid var(--blue);
+  outline-offset: 4px;
+  scroll-margin-top: 16px;
+}
 .sources article + article {
   padding-top: 12px;
   border-top: 1px solid var(--line);

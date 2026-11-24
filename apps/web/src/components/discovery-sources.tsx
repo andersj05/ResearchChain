@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/workflow";
 import {
   evidenceUrl,
@@ -37,6 +37,8 @@ function CaptureMaterial({
   const [error, setError] = useState("");
   const identity = useRef("");
   const saving = useRef(false);
+  const firstField = useRef<HTMLInputElement>(null);
+  useEffect(() => firstField.current?.focus(), []);
   async function save() {
     if (saving.current || disabled) return;
     saving.current = true;
@@ -95,6 +97,7 @@ function CaptureMaterial({
             Chart file
             <input
               type="file"
+              ref={firstField}
               accept="image/png,image/jpeg,image/webp"
               required
               onChange={(event) => {
@@ -109,6 +112,7 @@ function CaptureMaterial({
         <label>
           Source title
           <input
+            ref={kind === "image" ? undefined : firstField}
             required
             maxLength={240}
             value={title}

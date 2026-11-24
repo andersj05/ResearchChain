@@ -99,19 +99,21 @@ function FirstReading({
   reading,
   sources,
   choose,
+  children,
 }: {
   run: RunSnapshot;
   reading: Reading;
   sources: ReturnType<typeof useSourceDetails>;
   choose?: (sentence: string) => void;
+  children?: React.ReactNode;
 }) {
   return (
     <div className={styles.spread}>
       <div className={styles.reading}>
         <p className={styles.observation}>{reading.observation}</p>
         {reading.proposals.map((p, i) => (
-          <article className={styles.proposal} key={i}>
-            <h3>{p.sentence}</h3>
+          <article className={styles.proposal} key={i} aria-labelledby={`proposal-${i}`}>
+            <h3 id={`proposal-${i}`}>{p.sentence}</h3>
             <dl>
               <dt>Another explanation</dt>
               <dd>{p.alternative}</dd>
@@ -137,6 +139,7 @@ function FirstReading({
         {!reading.proposals.length && (
           <p>The lead has an open question. You can write a sentence or park this packet.</p>
         )}
+        {children}
       </div>
       <SourceNotes run={run} reading={reading} sources={sources} />
     </div>
@@ -183,40 +186,45 @@ function ChooseSentence({
                 input.current?.focus();
               }
         }
-      />
-      <form
-        className={styles.decision}
-        onSubmit={(event) => {
-          event.preventDefault();
-          if (!disabled && sentence.trim()) respond("approve", sentence);
-        }}
       >
-        <h3>{reading.question}</h3>
-        <label htmlFor="working-sentence">Your working sentence</label>
-        <textarea
-          id="working-sentence"
-          ref={input}
-          rows={3}
-          maxLength={6000}
-          value={sentence}
-          disabled={disabled}
-          placeholder="What should the researchers try to establish?"
-          onChange={(e) => edit(e.target.value)}
-        />
-        <div className={styles.actions}>
-          <button className="button primary" disabled={disabled || !sentence.trim()} type="submit">
-            Assign research
-          </button>
-          <button
-            className="button"
+        <form
+          className={styles.decision}
+          onSubmit={(event) => {
+            event.preventDefault();
+            if (!disabled && sentence.trim()) respond("approve", sentence);
+          }}
+        >
+          <h3>{reading.question}</h3>
+          <label htmlFor="working-sentence">Your working sentence</label>
+          <textarea
+            id="working-sentence"
+            ref={input}
+            rows={3}
+            maxLength={6000}
+            value={sentence}
             disabled={disabled}
-            type="button"
-            onClick={() => respond("reject", sentence)}
-          >
-            Park this study
-          </button>
-        </div>
-      </form>
+            placeholder="What should the researchers try to establish?"
+            onChange={(e) => edit(e.target.value)}
+          />
+          <div className={styles.actions}>
+            <button
+              className="button primary"
+              disabled={disabled || !sentence.trim()}
+              type="submit"
+            >
+              Assign research
+            </button>
+            <button
+              className="button"
+              disabled={disabled}
+              type="button"
+              onClick={() => respond("reject", sentence)}
+            >
+              Park this study
+            </button>
+          </div>
+        </form>
+      </FirstReading>
     </>
   );
 }

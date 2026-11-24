@@ -244,7 +244,7 @@ export function ResearchBriefOptions({
             />
           </label>
           <label className={draft.swarm ? styles.fullField : undefined}>
-            {draft.swarm ? "Editorial review" : "Expert review"}
+            {draft.swarm || draft.start_from_sources ? "Editorial review" : "Expert review"}
             <select
               value={draft.review_mode}
               onChange={(event) =>
