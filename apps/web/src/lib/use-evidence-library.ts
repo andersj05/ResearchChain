@@ -31,6 +31,22 @@ export function mergeSources(first: EvidenceRecord[], second: EvidenceRecord[]) 
   return [...new Map([...first, ...second].map((item) => [item.id, item])).values()];
 }
 
+export async function refreshSourcePages(
+  loaded: number,
+  isCurrent: () => boolean,
+  query = "",
+  availability?: EvidenceAvailability,
+  kind?: EvidenceKind,
+) {
+  let page = await listSources(query, availability, 0, kind);
+  const pages = [page.items];
+  while (isCurrent() && page.next_offset != null && page.next_offset < loaded) {
+    page = await listSources(query, availability, page.next_offset, kind);
+    pages.push(page.items);
+  }
+  return { ...page, items: mergeSources([], pages.flat()) };
+}
+
 async function readSource(id: string, signal?: AbortSignal): Promise<EvidenceRecord | null> {
   try {
     const timeout = AbortSignal.timeout(15000);
@@ -189,24 +205,47 @@ export function useEvidenceLibrary(
   availability?: EvidenceAvailability,
   enabled = true,
   kind?: EvidenceKind,
+  retainLoadedPages = false,
 ) {
   const [generation, setGeneration] = useState(0);
   const [results, setResults] = useState<Results>();
   const [pendingPage, setPendingPage] = useState<Results>();
+  const paginationVersion = useRef(0);
   const refresh = () => setGeneration((value) => value + 1);
+  const current =
+    enabled &&
+    results?.scope.query === query &&
+    results.scope.generation === generation &&
+    results.scope.availability === availability &&
+    results.scope.kind === kind
+      ? results
+      : undefined;
+  const previousResults = useEffectEvent(() => ({ current, pendingPage }));
   useEffect(() => {
     if (!enabled) return;
     let active = true;
     const scope = { query, availability, kind, generation };
     async function load() {
+      const { current: previous, pendingPage } = retainLoadedPages ? previousResults() : {};
+      if (previous && previous === pendingPage) return;
+      const version = paginationVersion.current;
+      const isCurrent = () => active && paginationVersion.current === version;
       try {
-        const page = await listSources(query, availability, 0, kind);
-        if (active) setResults({ scope, page });
+        const page = previous
+          ? await refreshSourcePages(
+              previous.page.next_offset ?? previous.page.total,
+              isCurrent,
+              query,
+              availability,
+              kind,
+            )
+          : await listSources(query, availability, 0, kind);
+        if (isCurrent()) setResults({ scope, page });
       } catch (cause) {
-        if (active)
+        if (isCurrent())
           setResults({
             scope,
-            page: { items: [], total: 0 },
+            page: previous?.page ?? { items: [], total: 0 },
             error: cause instanceof Error ? cause.message : "Unable to load evidence.",
           });
       }
@@ -216,15 +255,7 @@ export function useEvidenceLibrary(
       active = false;
       clearTimeout(timer);
     };
-  }, [availability, enabled, generation, kind, query]);
-  const current =
-    enabled &&
-    results?.scope.query === query &&
-    results.scope.generation === generation &&
-    results.scope.availability === availability &&
-    results.scope.kind === kind
-      ? results
-      : undefined;
+  }, [availability, enabled, generation, kind, query, retainLoadedPages]);
   const next = current?.page.next_offset ?? null;
   async function more() {
     if (!current) return;
@@ -232,6 +263,7 @@ export function useEvidenceLibrary(
       refresh();
       return;
     }
+    paginationVersion.current += 1;
     setPendingPage(current);
     try {
       const page = await listSources(query, availability, next, kind);

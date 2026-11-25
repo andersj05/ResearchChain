@@ -54,6 +54,7 @@ export function DiscoverySources({
   onChange,
   onPin,
   onPendingCapture,
+  onQueuedFiles,
   onSaving,
 }: {
   storageKey: string;
@@ -64,6 +65,7 @@ export function DiscoverySources({
   onChange: (ids: string[]) => void;
   onPin: (item: EvidenceRecord) => void;
   onPendingCapture: (value: PendingCapture) => void;
+  onQueuedFiles: (queued: boolean) => void;
   onSaving: (value: boolean) => void;
 }) {
   const [draft, setDraft] = useState(() => readResearchCaptureDraft(storageKey));
@@ -155,7 +157,10 @@ export function DiscoverySources({
           attribution={attribution}
           onPin={onPin}
           onSaving={setPinning}
-          onPending={setFilePending}
+          onPending={(queued) => {
+            setFilePending(queued);
+            onQueuedFiles(queued);
+          }}
           onChooseRights={focusRights}
         >
           <fieldset disabled={locked} className={styles.provenance}>

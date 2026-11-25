@@ -2,6 +2,19 @@
 
 Updated 2026-11-25.
 
+## Keeping your place in Reports and Sources
+
+Opening a saved report brings its heading and actions into view. **All reports**
+returns to the exact result, with the previous search, sort, and scroll position.
+The primary Reports actions fit one row on a 320 px phone. Workbench Sources
+keeps the open source, collection filters, loaded pages, reading position, and
+unfinished Add source form when you switch tabs. It refreshes saved sources when
+you return.
+
+The Research Desk opens Workflows, Sources, and Reports in a new tab while
+unsubmitted files are queued so their titles, attribution, and original bytes
+stay available in the setup. Thirty-six focused production Chromium cases passed.
+
 ## Preserving research and report drafts
 
 Reports keeps the section, filter, selection, and text scroll when you visit
@@ -14,7 +27,8 @@ Opening an archived study's baseline, saved pass, or editor report keeps the
 staged setup available. The swarm roster renders worker rows only for expanded
 teams. In an 80-assignment Chromium case, opening one team showed 20 worker rows
 in the DOM. The search still found all 80 assignments.
-Thirty-seven focused production Chromium cases passed.
+The `954fff3` merge passed 325 browser cases in CI.
+[Drafts and swarm roster PR](https://github.com/andersj05/ResearchChain/pull/166).
 
 ## Finding a workspace and revisiting material
 

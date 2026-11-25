@@ -141,14 +141,34 @@ export function ResearchDesk({
           : "launch";
   const showingDraft = deskView === "launch";
   const recent = useRecentStudies(active && showingDraft);
-  const [draftScope, setDraftScope] = useState<string | null | undefined>(() =>
-    showingDraft ? fromSession : undefined,
-  );
+  const [{ scope: draftScope, queuedFiles }, setDraftSetup] = useState<{
+    scope: string | null | undefined;
+    queuedFiles: boolean;
+  }>(() => ({ scope: showingDraft ? fromSession : undefined, queuedFiles: false }));
   const [sourceAppend, setSourceAppend] = useState<ArchivedSourceAppend>();
-  if (showingDraft && draftScope !== fromSession) setDraftScope(fromSession);
+  if (showingDraft && draftScope !== fromSession)
+    setDraftSetup({ scope: fromSession, queuedFiles: false });
   if (sourceAppend && (!showingDraft || sourceAppend.scope !== fromSession))
     setSourceAppend(undefined);
   const readingWithDraft = deskView === "session" && draftScope !== undefined;
+  const onQueuedFiles = useCallback(
+    (queued: boolean) => {
+      setDraftSetup((current) =>
+        current.scope === draftScope && current.queuedFiles !== queued
+          ? { ...current, queuedFiles: queued }
+          : current,
+      );
+    },
+    [draftScope],
+  );
+  const workbenchLinkProps =
+    active && queuedFiles
+      ? {
+          target: "_blank",
+          rel: "noopener",
+          "aria-description": "Opens in a new tab to keep queued files.",
+        }
+      : undefined;
   const revisitMatchesDraft =
     readingWithDraft && draftScope?.toLowerCase() === session?.toLowerCase();
   const learningWithDraft = deskView === "methodology" && draftScope !== undefined;
@@ -335,9 +355,15 @@ export function ResearchDesk({
             >
               Methodology
             </a>
-            <a href="?view=workflow">Workflows</a>
-            <a href="?view=evidence">Sources</a>
-            <a href="?view=reports">Reports</a>
+            <a href="?view=workflow" {...workbenchLinkProps}>
+              Workflows
+            </a>
+            <a href="?view=evidence" {...workbenchLinkProps}>
+              Sources
+            </a>
+            <a href="?view=reports" {...workbenchLinkProps}>
+              Reports
+            </a>
           </nav>
           <AccessControls key={active ? "active" : "locked"} />
         </div>
@@ -355,6 +381,7 @@ export function ResearchDesk({
             <ResearchLauncher
               key={draftScope ?? "new"}
               fromSession={draftScope}
+              onQueuedFiles={onQueuedFiles}
               recentStudies={recent.studies}
               sourceAppend={sourceAppend?.scope === draftScope ? sourceAppend : undefined}
               onSourceAppendHandled={(handled) =>

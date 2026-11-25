@@ -2543,6 +2543,15 @@ td time {
   min-height: 100%;
   background: var(--surface);
 }
+@media (max-width: 420px) {
+  .report-desk > .evidence-header {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+  .report-desk > .evidence-header > .actions {
+    gap: 6px;
+  }
+}
 .report-desk h2 {
   font-size: 20px;
   letter-spacing: -0.03em;
