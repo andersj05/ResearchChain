@@ -130,6 +130,8 @@ function WritingSample({
   );
 }
 
+export const researchSettingsControlsId = "study-settings-controls";
+
 export function ResearchBriefOptions({
   draft,
   update,
@@ -172,7 +174,13 @@ export function ResearchBriefOptions({
             · {draft.max_passes} passes · {time}
           </span>
         </summary>
-        <div className={styles.settingGrid}>
+        <div
+          id={researchSettingsControlsId}
+          className={styles.settingGrid}
+          role="region"
+          aria-label="Research settings"
+          tabIndex={-1}
+        >
           {reuseSettings}
           <SwarmControls draft={draft} update={update} />
           {!draft.swarm && (
