@@ -3715,6 +3715,25 @@ td time {
   }
 }
 
+@media (max-width: 480px) {
+  .workspace-tabs {
+    gap: 4px;
+  }
+  .workspace-tabs [role="tab"] {
+    flex: 1 0 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .workspace-tabs {
+    gap: 0;
+  }
+  .workspace-tabs [role="tab"] {
+    padding-inline: 0;
+  }
+}
+
 @media (max-width: 850px) {
   .agent-switcher {
     order: 0;
