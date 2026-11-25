@@ -2,6 +2,25 @@
 
 Updated 2026-11-25.
 
+## Run setup and review continuity
+
+Workbench shows the exact loaded agent version in Build and Run setup. A revision
+shared by multiple versions uses its saved revision number. The Start action
+explains when it will save the loaded graph as the newest agent version.
+**Return to run setup** reopens a matching unconfirmed start for inspection.
+Only an explicit start sends the request again.
+
+Returning to **Decisions** focuses the exact review link when it is still open.
+When the review has cleared, focus moves to a nearby open review. **Compare with
+baseline** opens in a separate tab when the study reader has an in-progress
+setup behind it, which keeps the selected files and archive search in place.
+
+The study reader indexes exact analyst workspace paths once per run snapshot.
+In a paired Node benchmark of 489 synthetic receipts, the median grouping step
+went from 12.9 to 0.13 ms. With 975 receipts it went from 27.6 to 0.25 ms.
+Production Chromium exercises the same grouping with 480 passes and a new
+result arriving during inspection.
+
 ## Baseline reports and section search
 
 **Baseline report** opens the completed editor report from the recorded baseline
@@ -18,6 +37,10 @@ combines type, availability and text search alongside exact source links.
 Original-size panning and Escape keep the report's reading and focus position.
 Completed studies with standalone structured editor results link directly to
 their final saved findings. Twenty focused production Chromium cases passed.
+The `849c431` report-reading merge was installed and verified on Desktop. Studies
+and Reports returned HTTP 200, and the API reported healthy with two connected
+workers. CI passed 654 API tests with three skips and 275 browser cases.
+[Report-reading PR](https://github.com/andersj05/ResearchChain/pull/159).
 
 ## Finding sources and reading reports
 
