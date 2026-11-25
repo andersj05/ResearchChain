@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { RunSnapshot } from "@/lib/workflow";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
@@ -54,6 +54,7 @@ export function LeadConsultation({
   onSelect,
   onAnswer,
   disabled,
+  actionNotice,
 }: {
   review: Review;
   runId: string;
@@ -62,6 +63,7 @@ export function LeadConsultation({
   onSelect: Selection;
   onAnswer: (text: string) => Promise<void>;
   disabled: boolean;
+  actionNotice?: ReactNode;
 }) {
   const request = review.perspective!;
   const [text, setText] = useState(() => readReviewDrafts(draftKey)[review.interrupt_id] ?? "");
@@ -142,6 +144,7 @@ export function LeadConsultation({
         <button className="button primary" type="submit" disabled={disabled || !text.trim()}>
           Send perspective to lead
         </button>
+        {actionNotice}
       </form>
     </section>
   );

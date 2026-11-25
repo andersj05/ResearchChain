@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { components } from "@researchchain/contracts";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { readReviewDrafts } from "@/lib/run-review-drafts";
@@ -154,6 +154,7 @@ function ChooseSentence({
   disabled,
   respond,
   sources,
+  actionNotice,
 }: {
   run: RunSnapshot;
   reading: Reading;
@@ -162,6 +163,7 @@ function ChooseSentence({
   disabled: boolean;
   respond: (decision: Decision["decision"], sentence: string) => void;
   sources: ReturnType<typeof useSourceDetails>;
+  actionNotice?: ReactNode;
 }) {
   const [sentence, setSentence] = useState(
     () => readReviewDrafts(draftKey)[review.interrupt_id] ?? "",
@@ -223,6 +225,7 @@ function ChooseSentence({
               Park this study
             </button>
           </div>
+          {actionNotice}
         </form>
       </FirstReading>
     </>
@@ -261,6 +264,7 @@ export function SessionDiscovery({
   disabled,
   respond,
   onSelect,
+  actionNotice,
 }: {
   run: RunSnapshot;
   review?: Review;
@@ -270,6 +274,7 @@ export function SessionDiscovery({
   disabled: boolean;
   respond: (decision: Decision["decision"], sentence: string) => void;
   onSelect: SelectPass;
+  actionNotice?: ReactNode;
 }) {
   const sources = useSourceDetails(run.evidence_ids ?? []);
   const reading = run.model_attempts?.find(
@@ -294,6 +299,7 @@ export function SessionDiscovery({
           draftKey={draftKey}
           disabled={disabled}
           respond={respond}
+          actionNotice={actionNotice}
         />
       ) : (
         <>

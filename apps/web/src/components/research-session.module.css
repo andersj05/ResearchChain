@@ -343,12 +343,26 @@
   border-left: 2px solid var(--amber);
   background: var(--amber-soft);
 }
+.actionError {
+  padding: 9px 12px;
+  border-inline-start: 2px solid var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.actionError p + p {
+  margin-block-start: 4px;
+}
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+.footer .actionError {
+  flex-basis: 100%;
 }
 .footer > a {
   color: var(--muted);

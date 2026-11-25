@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
@@ -30,29 +30,34 @@ import { sessionSwarm } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
 
 type Props = { runId: string; onNewStudy: (fromSession?: string) => void };
+type Review = NonNullable<RunSnapshot["review"]>;
+type Decision = "approve" | "reject";
+type SessionAction =
+  | { name: "resume"; review: Review; decision: Decision; feedback: string }
+  | { name: "cancel" | "recover" };
+type ActionFailure = {
+  review?: Review;
+  checkpoint?: string | null;
+  message: string;
+  checking: boolean;
+};
 
 function OwnerQuestion({
-  run,
   question,
+  draftKey,
   busy,
-  act,
+  onAnswer,
+  actionNotice,
 }: {
-  run: RunSnapshot;
-  question: NonNullable<RunSnapshot["review"]>;
+  question: Review;
+  draftKey: string;
   busy: boolean;
-  act: (action: string, body: object) => Promise<void>;
+  onAnswer: (decision: Decision, feedback: string) => Promise<void>;
+  actionNotice?: ReactNode;
 }) {
-  const { owner } = useOwner();
-  const key = ownerStoragePrefix(owner) + ".research.review." + run.id;
-  const [answer, setAnswer] = useState(() => readReviewDrafts(key)[question.interrupt_id] ?? "");
-  function respond(decision: "approve" | "reject") {
-    return act("resume", {
-      checkpoint_id: run.checkpoint_id,
-      interrupt_id: question.interrupt_id,
-      decision,
-      feedback: answer,
-    });
-  }
+  const [answer, setAnswer] = useState(
+    () => readReviewDrafts(draftKey)[question.interrupt_id] ?? "",
+  );
   return (
     <section
       className={styles.judgment}
@@ -71,17 +76,22 @@ function OwnerQuestion({
         disabled={busy}
         onChange={(event) => {
           setAnswer(event.target.value);
-          rememberAnswer(key, question.interrupt_id, event.target.value);
+          rememberAnswer(draftKey, question.interrupt_id, event.target.value);
         }}
       />
       <div className={styles.actions}>
-        <Button className="button primary" disabled={busy} onClick={() => respond("approve")}>
+        <Button
+          className="button primary"
+          disabled={busy}
+          onClick={() => onAnswer("approve", answer)}
+        >
           Continue to report
         </Button>
-        <Button className="button" disabled={busy} onClick={() => respond("reject")}>
+        <Button className="button" disabled={busy} onClick={() => onAnswer("reject", answer)}>
           End at this review
         </Button>
       </div>
+      {actionNotice}
     </section>
   );
 }
@@ -90,7 +100,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
   const [readError, setReadError] = useState("");
-  const [actionError, setActionError] = useState("");
+  const [actionFailure, setActionFailure] = useState<ActionFailure>();
+  const sending = useRef(false);
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
@@ -126,6 +137,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           throw new ApiError("This run belongs to Workflows.", [], 404);
         setRun(next);
         setReadError("");
+        setActionFailure((failure) =>
+          failure?.checking ? { ...failure, checking: false } : failure,
+        );
         if (next.execution_pending || ["queued", "running", "paused"].includes(next.status)) {
           timer = setTimeout(observe, next.status === "paused" ? 4000 : 1200);
         }
@@ -166,34 +180,54 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     target.scrollIntoView({ block: "start" });
   }, [loaded]);
 
-  async function act(action: string, body: object) {
-    if (busy || !active) return;
+  async function act(action: SessionAction) {
+    if (sending.current || !active) return;
+    const checkpoint = run?.checkpoint_id;
+    const review = action.name === "resume" ? action.review : undefined;
+    if (review && (!checkpoint || run?.execution_pending || actionFailure?.checking)) return;
+    const body =
+      action.name === "resume"
+        ? {
+            checkpoint_id: checkpoint,
+            interrupt_id: action.review.interrupt_id,
+            decision: action.decision,
+            feedback: action.feedback,
+          }
+        : {};
+    sending.current = true;
     setBusy(true);
-    setActionError("");
+    setActionFailure(undefined);
     try {
-      await api(`runs/${encodeURIComponent(runId)}/${action}`, body);
+      await api(`runs/${encodeURIComponent(runId)}/${action.name}`, body);
       setConfirmStop(false);
-      if (action === "resume" && "interrupt_id" in body && typeof body.interrupt_id === "string") {
-        const id = body.interrupt_id;
-        setAcceptedReviews((accepted) => [...accepted, id]);
-        rememberAnswer(draftKey, id, "");
+      if (review) {
+        setAcceptedReviews((accepted) => [...accepted, review.interrupt_id]);
+        rememberAnswer(draftKey, review.interrupt_id, "");
       }
     } catch (cause) {
-      setActionError(cause instanceof Error ? cause.message : "The action could not be confirmed.");
+      setActionFailure({
+        review,
+        checkpoint,
+        message: cause instanceof Error ? cause.message : "The action could not be confirmed.",
+        checking: !!review,
+      });
     } finally {
+      sending.current = false;
       setBusy(false);
       setRefresh((n) => n + 1);
     }
   }
-  const error = readError || actionError;
+  function respond(review: Review, decision: Decision, feedback: string) {
+    return act({ name: "resume", review, decision, feedback });
+  }
   const fullRun = `/?view=runs&run=${encodeURIComponent(runId)}`;
   if (!run)
     return (
       <main className={styles.page}>
         <h1>Research session</h1>
-        {error ? (
+        {readError ? (
           <div role="alert">
-            <p>{error}</p>
+            <p>{readError}</p>
             <button onClick={() => setRefresh((n) => n + 1)}>Refresh session</button> ·{" "}
             <a href={fullRun}>Open run inspector</a>
           </div>
@@ -219,6 +253,47 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const questions = pendingReviews(run).filter(
     (review) => !acceptedReviews.includes(review.interrupt_id),
   );
+  const failedReview = actionFailure?.review;
+  const unavailableReview =
+    failedReview && !questions.some((review) => review.interrupt_id === failedReview.interrupt_id)
+      ? failedReview
+      : undefined;
+  const refreshedReview =
+    failedReview &&
+    !unavailableReview &&
+    !actionFailure?.checking &&
+    !run.execution_pending &&
+    run.checkpoint_id &&
+    run.checkpoint_id !== actionFailure?.checkpoint;
+  const actionNotice = actionFailure && (
+    <div className={styles.actionError} role="alert">
+      <p>{actionFailure.message}</p>
+      {unavailableReview && (
+        <p>
+          {unavailableReview.perspective
+            ? `The question from ${unavailableReview.perspective.lead_title}`
+            : "The earlier question"}{" "}
+          is unavailable at the current checkpoint.
+        </p>
+      )}
+      {actionFailure.checking &&
+        (readError ? (
+          <p>
+            Could not check the current question.{" "}
+            <button className="text-link" onClick={() => setRefresh((n) => n + 1)}>
+              Refresh session
+            </button>
+          </p>
+        ) : (
+          <p>Checking the current question…</p>
+        ))}
+      {refreshedReview && <p>The study has refreshed. You can try again.</p>}
+    </div>
+  );
+  function noticeFor(review?: Review) {
+    return review && review.interrupt_id === failedReview?.interrupt_id ? actionNotice : undefined;
+  }
+  const reviewsDisabled = busy || !active || run.execution_pending || !!actionFailure?.checking;
   const consultations = questions.filter((review) => review.perspective);
   const returnQuestion = consultations.find((review) => review.interrupt_id === returnToReview);
   const question = questions.find((review) => !review.perspective);
@@ -395,9 +470,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           )}
         </details>
       </div>
-      {error && (
+      {readError && (
         <div className={styles.notice} role="alert">
-          {error}{" "}
+          {readError}{" "}
           <button className="text-link" onClick={() => setRefresh((n) => n + 1)}>
             Refresh session
           </button>
@@ -413,20 +488,15 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           decision={sentenceDecision}
           team={team}
           draftKey={draftKey}
-          disabled={busy || !active || run.execution_pending}
+          disabled={reviewsDisabled || !run.checkpoint_id}
+          actionNotice={noticeFor(sentenceReview)}
           onSelect={selectWorkspace}
-          respond={(decision, feedback) =>
-            sentenceReview &&
-            run.checkpoint_id &&
-            void act("resume", {
-              checkpoint_id: run.checkpoint_id,
-              interrupt_id: sentenceReview.interrupt_id,
-              decision,
-              feedback,
-            })
-          }
+          respond={(decision, feedback) => {
+            if (sentenceReview) void respond(sentenceReview, decision, feedback);
+          }}
         />
       )}
+      {unavailableReview?.path === "root/working_sentence" && actionNotice}
       {run.checkpoint_id &&
         consultations.map((review) => (
           <LeadConsultation
@@ -435,21 +505,16 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             runId={runId}
             lanes={lanes}
             draftKey={draftKey}
+            actionNotice={noticeFor(review)}
             onSelect={(key, pass) => {
               selectWorkspace(key, pass);
               setReturnToReview(review.interrupt_id);
             }}
-            disabled={busy || !active || run.execution_pending}
-            onAnswer={(feedback) =>
-              act("resume", {
-                checkpoint_id: run.checkpoint_id,
-                interrupt_id: review.interrupt_id,
-                decision: "approve",
-                feedback,
-              })
-            }
+            disabled={reviewsDisabled}
+            onAnswer={(feedback) => respond(review, "approve", feedback)}
           />
         ))}
+      {unavailableReview?.perspective && actionNotice}
       <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
       {(!discovery || sentenceDecision?.decision === "approve") && (
         <SessionDirections
@@ -470,11 +535,16 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         <OwnerQuestion
           key={question.interrupt_id}
           question={question}
-          run={run}
-          busy={busy || !active}
-          act={act}
+          draftKey={draftKey}
+          busy={reviewsDisabled}
+          actionNotice={noticeFor(question)}
+          onAnswer={(decision, feedback) => respond(question, decision, feedback)}
         />
       )}
+      {unavailableReview &&
+        unavailableReview.path !== "root/working_sentence" &&
+        !unavailableReview.perspective &&
+        actionNotice}
       {recordedJudgment && (
         <details className={styles.settings}>
           <summary>Recorded editorial judgment</summary>
@@ -503,13 +573,14 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
       </div>
       <SessionActivity lanes={lanes} select={selectWorkspace} />
       <footer className={styles.footer}>
+        {!failedReview && actionNotice}
         <a href={fullRun}>Open run inspector</a>
         <div className={styles.actions}>
           {run.status === "interrupted" && !live && (
             <Button
               className="button"
               disabled={busy || !active}
-              onClick={() => act("recover", {})}
+              onClick={() => act({ name: "recover" })}
             >
               Recover session
             </Button>
@@ -520,11 +591,18 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
                 <Button
                   className="button"
                   disabled={busy || !active}
-                  onClick={() => act("cancel", {})}
+                  onClick={() => act({ name: "cancel" })}
                 >
                   Confirm stop
                 </Button>
-                <Button className="button" disabled={busy} onClick={() => setConfirmStop(false)}>
+                <Button
+                  className="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setConfirmStop(false);
+                    if (!failedReview) setActionFailure(undefined);
+                  }}
+                >
                   Keep session
                 </Button>
               </>
