@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@ui-sdk/react/dialog";
 import { Files, Upload, X } from "lucide-react";
 import { api } from "@/lib/workflow";
 import {
@@ -37,6 +45,41 @@ function kindFor(name: string): Row["kind"] {
   return "text";
 }
 
+function canPreviewChart(row: Row) {
+  return (
+    row.kind === "image" &&
+    !row.invalid &&
+    (!row.file.type || clipboardImageExtensions.has(row.file.type))
+  );
+}
+
+function LocalChart({ file, title }: { file: File; title: string }) {
+  const [failed, setFailed] = useState(false);
+  const attach = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image) return;
+      const url = URL.createObjectURL(file);
+      image.src = url;
+      return () => {
+        image.removeAttribute("src");
+        URL.revokeObjectURL(url);
+      };
+    },
+    [file],
+  );
+  if (failed)
+    return (
+      <p role="alert" className={styles.queuedChartError}>
+        This image could not be previewed.
+      </p>
+    );
+  // A local File is displayed directly by the browser and never sent to an image optimizer.
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img ref={attach} className={styles.original} alt={title} onError={() => setFailed(true)} />
+  );
+}
+
 export function SourceFileBatch({
   attribution,
   count,
@@ -56,11 +99,14 @@ export function SourceFileBatch({
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState("");
   const [notice, setNotice] = useState("");
+  const [previewId, setPreviewId] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
+  const previewOpener = useRef<HTMLButtonElement>(null);
   const saving = useRef(false);
   const depth = useRef(0);
   const pastedCharts = useRef(0);
   const permitted = attribution.rights && attribution.rights !== "unknown";
+  const preview = disabled ? undefined : rows.find((row) => row.id === previewId);
 
   function choose(files: FileList | File[] | null, pasted = false) {
     if (disabled || saving.current || !files?.length) return;
@@ -252,13 +298,30 @@ export function SourceFileBatch({
                       onChange={(event) => edit(row.id, { title: event.target.value })}
                     />
                   </label>
-                  <small>
-                    {row.title !== row.file.name && `${row.file.name} · `}
-                    {(row.file.size / 1024).toLocaleString(undefined, {
-                      maximumFractionDigits: 1,
-                    })}{" "}
-                    KB
-                  </small>
+                  <div className={styles.fileInfo}>
+                    <small>
+                      {row.title !== row.file.name && `${row.file.name} · `}
+                      {(row.file.size / 1024).toLocaleString(undefined, {
+                        maximumFractionDigits: 1,
+                      })}{" "}
+                      KB
+                    </small>
+                    {canPreviewChart(row) && (
+                      <button
+                        className="text-link"
+                        type="button"
+                        aria-haspopup="dialog"
+                        aria-label={`Preview queued chart ${row.title.trim() || row.file.name}`}
+                        disabled={disabled}
+                        onClick={(event) => {
+                          previewOpener.current = event.currentTarget;
+                          setPreviewId(row.id);
+                        }}
+                      >
+                        Preview chart
+                      </button>
+                    )}
+                  </div>
                   {(row.invalid || row.error) && (
                     <p className="error">{row.invalid || row.error}</p>
                   )}
@@ -367,6 +430,53 @@ export function SourceFileBatch({
           {progress || notice}
         </p>
       )}
+      <Dialog
+        open={!!preview}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(undefined);
+        }}
+      >
+        <DialogBackdrop className="dialog-backdrop" />
+        <DialogContent
+          className={styles.chartDialog}
+          initialFocus="content"
+          finalFocus={() => previewOpener.current}
+        >
+          {preview && (
+            <>
+              <header>
+                <div>
+                  <DialogTitle>{preview.title.trim() || preview.file.name}</DialogTitle>
+                  <DialogDescription>
+                    Preview from this device. Edit the packet title before pinning.
+                  </DialogDescription>
+                </div>
+                <DialogClose aria-label="Close queued chart preview" className="button icon-button">
+                  <X size={18} aria-hidden />
+                </DialogClose>
+              </header>
+              <LocalChart
+                key={preview.id}
+                file={preview.file}
+                title={preview.title.trim() || preview.file.name}
+              />
+              <footer>
+                <label className={styles.queuedChartTitle}>
+                  Packet title
+                  <input
+                    type="text"
+                    maxLength={240}
+                    value={preview.title}
+                    disabled={!!preview.command}
+                    onChange={(event) => edit(preview.id, { title: event.target.value })}
+                  />
+                </label>
+                <DialogClose className="button">Done</DialogClose>
+              </footer>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

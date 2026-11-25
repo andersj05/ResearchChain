@@ -8,7 +8,8 @@ Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**
 
 Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
 
-Open a queued file's **File attribution** to set its own author or observation
+Open **Preview chart** on a queued image to check it and edit its packet title
+before pinning. Open a queued file's **File attribution** to set its own author or observation
 date. Fields use batch attribution until edited. **Use batch attribution**
 restores those defaults for the file.
 
