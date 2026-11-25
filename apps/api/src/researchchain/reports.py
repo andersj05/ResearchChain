@@ -388,6 +388,7 @@ class Reports:
         revision_id: UUID | None = None,
         *,
         study_origin: tuple[UUID, UUID] | None = None,
+        search: str = "",
     ) -> list[ReportSummary]:
         with self.database.connection() as conn:
             if revision_id:
@@ -399,6 +400,7 @@ class Reports:
                 )
             else:
                 origin_filter = ""
+                search_filter = ""
                 params: tuple[str, ...] = ()
                 if study_origin is not None:
                     origin_filter = (
@@ -407,10 +409,17 @@ class Reports:
                         "AND r.document #>> '{provenance,attempt,id}' = %s "
                     )
                     params = tuple(map(str, study_origin))
+                if search := search.strip():
+                    search_filter = (
+                        "AND strpos(lower(concat_ws(' ', r.document->>'title', "
+                        "r.document->>'change_note')), lower(%s)) > 0 "
+                    )
+                    params = (*params, search)
                 rows = conn.execute(
                     "SELECT document FROM report_revisions r WHERE NOT EXISTS "
                     "(SELECT 1 FROM report_revisions n WHERE n.replaces_id = r.id) "
                     + origin_filter
+                    + search_filter
                     + "ORDER BY created_at DESC,id DESC LIMIT 100",
                     params,
                 )

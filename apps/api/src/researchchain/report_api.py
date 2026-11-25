@@ -1,9 +1,9 @@
 """Editorial APIs never invoke a provider or publish reports."""
 
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
 from researchchain.database import Database
@@ -58,13 +58,15 @@ def report_router(database: Database) -> APIRouter:
 
     @router.get("/reports", operation_id="list_reports")
     def list_reports(
-        study_run_id: UUID | None = None, study_attempt_id: UUID | None = None
+        study_run_id: UUID | None = None,
+        study_attempt_id: UUID | None = None,
+        search: Annotated[str, Query(max_length=200, pattern=r"^[^\x00]*$")] = "",
     ) -> list[ReportSummary]:
         if study_run_id is None and study_attempt_id is None:
-            return reports.list()
+            return reports.list(search=search)
         if study_run_id is None or study_attempt_id is None:
             raise HTTPException(422, "Supply both the study and its saved editor attempt.")
-        return reports.list(study_origin=(study_run_id, study_attempt_id))
+        return reports.list(study_origin=(study_run_id, study_attempt_id), search=search)
 
     @router.post("/reports", status_code=201, operation_id="create_report")
     def create_report(request: ReportCreate) -> ReportRevision:

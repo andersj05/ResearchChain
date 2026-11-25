@@ -3,7 +3,12 @@
 import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { mergeSources, readSources, useEvidenceLibrary } from "@/lib/use-evidence-library";
+import {
+  mergeSources,
+  readSources,
+  useEvidenceLibrary,
+  type EvidenceAvailability,
+} from "@/lib/use-evidence-library";
 import {
   availabilityLabels,
   evidenceUrl,
@@ -21,6 +26,7 @@ export function EvidencePicker({
   onAdd,
   allowBatchPin = false,
   allowKindFilter = false,
+  allowAvailabilityFilter = false,
   disabled = false,
   label = "Evidence for this run",
   onAttachChart,
@@ -33,6 +39,7 @@ export function EvidencePicker({
   onAdd?: (record: EvidenceRecord) => void;
   allowBatchPin?: boolean;
   allowKindFilter?: boolean;
+  allowAvailabilityFilter?: boolean;
   disabled?: boolean;
   label?: string;
   onAttachChart?: (known: EvidenceRecord[]) => void;
@@ -42,6 +49,7 @@ export function EvidencePicker({
 }) {
   const [search, setSearch] = useState("");
   const [kind, setKind] = useState<EvidenceKind | "">("");
+  const [availability, setAvailability] = useState<EvidenceAvailability | "">("");
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
   const [initialSelection] = useState(showSelected ? selected : []);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
@@ -50,8 +58,9 @@ export function EvidencePicker({
   const pickerId = useId();
   const query = search.trim();
   const filterKind = allowKindFilter && kind ? kind : undefined;
-  const hasFilters = Boolean(query || filterKind);
-  const library = useEvidenceLibrary(query, undefined, true, filterKind);
+  const filterAvailability = allowAvailabilityFilter && availability ? availability : undefined;
+  const hasFilters = Boolean(query || filterKind || filterAvailability);
+  const library = useEvidenceLibrary(query, filterAvailability, true, filterKind);
 
   useEffect(() => {
     if (!initialSelection.length) return;
@@ -213,26 +222,50 @@ export function EvidencePicker({
           )}
         </details>
       )}
-      {allowKindFilter ? (
-        <div className="evidence-search-filters">
+      {allowKindFilter || allowAvailabilityFilter ? (
+        <div
+          className="evidence-search-filters"
+          data-availability-filter={allowAvailabilityFilter || undefined}
+        >
           {searchField}
-          <label>
-            Source type
-            <select
-              value={kind}
-              onChange={(event) => {
-                setKind(event.currentTarget.value as EvidenceKind | "");
-                library.refresh();
-              }}
-            >
-              <option value="">All types</option>
-              {Object.entries(sourceTypeLabels).map(([value, title]) => (
-                <option key={value} value={value}>
-                  {title}
-                </option>
-              ))}
-            </select>
-          </label>
+          {allowKindFilter && (
+            <label>
+              Source type
+              <select
+                value={kind}
+                onChange={(event) => {
+                  setKind(event.currentTarget.value as EvidenceKind | "");
+                  library.refresh();
+                }}
+              >
+                <option value="">All types</option>
+                {Object.entries(sourceTypeLabels).map(([value, title]) => (
+                  <option key={value} value={value}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {allowAvailabilityFilter && (
+            <label>
+              Availability
+              <select
+                value={availability}
+                onChange={(event) => {
+                  setAvailability(event.currentTarget.value as EvidenceAvailability | "");
+                  library.refresh();
+                }}
+              >
+                <option value="">All sources</option>
+                {Object.entries(availabilityLabels).map(([value, title]) => (
+                  <option key={value} value={value}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </div>
       ) : (
         searchField

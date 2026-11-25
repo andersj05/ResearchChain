@@ -130,17 +130,19 @@ for (const width of [390, 1440]) {
     await last.press("Enter");
     await expect(text).toHaveValue(unsaved);
     await editor.getByText("Revision history", { exact: true }).click();
-    await editor.getByRole("button", { name: /^Revision 2 · Human/ }).click();
-    await expect(page).toHaveURL(`/?view=reports&report=${previous.id}`);
-    await expect(heading).toHaveValue("Market context");
-    await expect(text).toHaveValue(sections[0]!.body);
-    await expect(text).toBeDisabled();
-    await editor.getByRole("button", { name: "Open latest revision", exact: true }).click();
+    const [inspection] = await Promise.all([
+      page.waitForEvent("popup"),
+      editor.getByRole("link", { name: /^Revision 2 · Human \(new tab\)/ }).click(),
+    ]);
+    const opened = editorFields(inspection);
+    await expect(inspection).toHaveURL(`/?view=reports&report=${previous.id}`);
+    await expect(opened.heading).toHaveValue("Market context");
+    await expect(opened.text).toHaveValue(sections[0]!.body);
+    await expect(opened.text).toBeDisabled();
+    await inspection.close();
     await expect(page).toHaveURL(`/?view=reports&report=${head.id}`);
-    await expect(last).toBeEnabled();
-    await expect(heading).toHaveValue("Market context");
-    await expect(filter).toBeEmpty();
-    await last.press("Enter");
+    await expect(last).toHaveAttribute("aria-current", "true");
+    await expect(heading).toHaveValue("Liquidity by maturity");
     await expect(text).toHaveValue(unsaved);
     expect(writes()).toBe(0);
   });

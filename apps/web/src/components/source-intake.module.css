@@ -179,6 +179,9 @@
 .panel :global(.evidence-search-filters) > label {
   margin: 0;
 }
+.panel :global(.evidence-search-filters[data-availability-filter]) {
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+}
 .panel :global(.evidence-options) {
   max-height: 200px;
 }
@@ -499,6 +502,15 @@ button.thumb:hover:enabled {
   margin-top: 8px;
 }
 @media (max-width: 560px) {
+  .panel :global(.evidence-search-filters[data-availability-filter]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .panel :global(.evidence-search-filters[data-availability-filter]) > input {
+    grid-column: 1 / -1;
+  }
+  .panel :global(.evidence-search-filters[data-availability-filter]) select {
+    width: 100%;
+  }
   .provenance {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

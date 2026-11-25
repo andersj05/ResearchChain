@@ -5818,6 +5818,7 @@ export interface operations {
       query?: {
         study_run_id?: string | null;
         study_attempt_id?: string | null;
+        search?: string;
       };
       header?: never;
       path?: never;

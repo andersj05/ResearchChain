@@ -61,6 +61,8 @@ test("pin the loaded search results in reading order and keep exact source versi
   await page.keyboard.press("Tab");
   await expect(library.getByRole("combobox", { name: "Source type" })).toBeFocused();
   await page.keyboard.press("Tab");
+  await expect(library.getByRole("combobox", { name: "Availability" })).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(batch).toBeFocused();
   await page.keyboard.press("Enter");
   await expect(links).toHaveCount(3);

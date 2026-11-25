@@ -35,12 +35,12 @@ for (const width of [390, 1440]) {
       record,
     ];
     await page.route(
-      (url) => url.pathname === "/api/reports" && !url.search,
+      (url) => url.pathname === "/api/reports" && (!url.search || url.searchParams.has("search")),
       (route) => route.fulfill({ json: summaries }),
     );
     await page.setViewportSize({ width, height: 844 });
     await page.goto("/?view=reports");
-    const search = page.getByRole("searchbox", { name: "Find a recent report" });
+    const search = page.getByRole("searchbox", { name: "Find a report" });
     await search.fill(tag);
     await page.getByRole("combobox", { name: "Sort reports" }).selectOption("title");
     const row = page.locator(".report-browser-row").filter({ hasText: record.title });

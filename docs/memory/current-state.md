@@ -2,6 +2,18 @@
 
 Updated 2026-11-25.
 
+## Finding older reports and captured sources
+
+Reports searches the title and latest change note across saved report series.
+It returns up to 100 matches. A saved report with 101 newer reports was found
+and reopened at its exact revision. With unfinished work in the editor, a
+revision history link opens that revision in a separate tab. Clean history
+browsing brings the opened revision heading into view and focuses it.
+
+Saved sources can filter by availability in Research Desk. In the synthetic
+108-record metadata case, **Captured** found all three captured reports on the
+first page. Existing pins stayed in their prior order.
+
 ## Resuming work in study settings, the archive, and report references
 
 Research settings shortcuts reopen the settings they point to. Returning from
@@ -14,6 +26,7 @@ Workbench reuses the exact immutable agent head returned during startup. A
 production Chromium fixture with 72 versions and 20 runs removed one request on
 direct Reports and Sources. The removed response carried 45,055 decoded bytes
 and 2,690 browser-reported transfer bytes. Older revisions still load by exact ID.
+[Settings, archive, and reference PR](https://github.com/andersj05/ResearchChain/pull/169).
 
 ## Returning to reviews, model receipts, and versions
 
@@ -26,6 +39,7 @@ An explicitly selected team file stays open as a newer file with the same name
 arrives. **Open latest version** loads the newer file. The current Research Desk
 link and a follow-up’s **previous study** link keep queued files available.
 A follow-up with queued files opens the fresh Desk in a separate tab.
+[Review and live file continuity PR](https://github.com/andersj05/ResearchChain/pull/168).
 
 ## Keeping your place in Reports and Sources
 

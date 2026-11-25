@@ -1570,6 +1570,18 @@
               ],
               "title": "Study Attempt Id"
             }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "^[^\\x00]*$",
+              "default": "",
+              "title": "Search"
+            }
           }
         ],
         "responses": {
