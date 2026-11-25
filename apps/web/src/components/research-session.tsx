@@ -43,6 +43,7 @@ type Props = {
   runId: string;
   onNewStudy: (fromSession?: string) => void;
   titleRef?: (title: HTMLHeadingElement | null) => void;
+  openComparisonInNewTab?: boolean;
   onReuseSource?: (source: EvidenceRecord) => void;
 };
 type Review = NonNullable<RunSnapshot["review"]>;
@@ -116,7 +117,13 @@ function OwnerQuestion({
   );
 }
 
-function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Props) {
+function ResearchSessionView({
+  runId,
+  onNewStudy,
+  titleRef,
+  openComparisonInNewTab,
+  onReuseSource,
+}: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
   const [readingSourcesRequested, setReadingSourcesRequested] = useState(false);
@@ -464,8 +471,12 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
             </a>
           )}
           {run.baseline_run_id && (
-            <a href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}>
-              Compare with baseline
+            <a
+              href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}
+              target={openComparisonInNewTab ? "_blank" : undefined}
+              rel={openComparisonInNewTab ? "noopener" : undefined}
+            >
+              {openComparisonInNewTab ? "Compare with baseline (new tab)" : "Compare with baseline"}
             </a>
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}

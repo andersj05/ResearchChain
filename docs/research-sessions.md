@@ -225,6 +225,7 @@ Choose **Revisit material** beside the study title to start another experiment
 with the previous context, sample, sources and settings. Before starting, open **Compare with previous
 setup** to see packet changes, reading order, model roles, limits and context.
 In the revised study, **Compare with baseline** opens the original alongside the
-revision in the run inspector. Use **Open research session** to return to the
-revision. To read the original by itself, choose **Open baseline session** under
-**Sources and settings**.
+revision in the run inspector. When a study setup is open, the comparison opens
+in a new tab and the setup keeps its staged files. Use **Open research session**
+in the inspector to open the revision. To read the original by itself, choose
+**Open baseline session** under **Sources and settings**.

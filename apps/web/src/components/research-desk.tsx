@@ -400,6 +400,7 @@ export function ResearchDesk({
           <ResearchSession
             runId={session}
             titleRef={focusReaderTitle}
+            openComparisonInNewTab={readingWithDraft}
             onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
             onNewStudy={(source) => {
               window.location.assign(
