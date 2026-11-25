@@ -104,6 +104,11 @@
 .provenance legend {
   font-size: 13px;
 }
+.provenanceHint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
+}
 .paste {
   margin-top: 20px;
   padding-top: 16px;

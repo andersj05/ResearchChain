@@ -27,7 +27,8 @@ export async function readSources(ids: string[]) {
 }
 
 export function useSourceDetails(ids: string[]) {
-  const key = ids.join(",");
+  // A packet's order belongs to its renderer. Fetch details for its source set.
+  const key = Array.from(new Set(ids)).sort().join(",");
   const [result, setResult] = useState<{ key: string; items: EvidenceRecord[] }>();
   useEffect(() => {
     if (!key) return;

@@ -14,6 +14,7 @@ import {
 export function EvidencePicker({
   selected,
   onChange,
+  onAdd,
   disabled = false,
   label = "Evidence for this run",
   onAttachChart,
@@ -22,6 +23,7 @@ export function EvidencePicker({
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
+  onAdd?: (record: EvidenceRecord) => void;
   disabled?: boolean;
   label?: string;
   onAttachChart?: (known: EvidenceRecord[]) => void;
@@ -188,7 +190,8 @@ export function EvidencePicker({
               onChange={(event) => {
                 if (event.target.checked) {
                   setRetained((previous) => mergeSources(previous, [item]));
-                  onChange([...selected, item.id]);
+                  if (onAdd) onAdd(item);
+                  else onChange([...selected, item.id]);
                 } else remove(item.id);
               }}
             />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Files, Upload, X } from "lucide-react";
 import { api } from "@/lib/workflow";
 import {
@@ -42,11 +42,9 @@ export function SourceFileBatch({
   onPin,
   onPending,
   onSaving,
-  children,
 }: {
   attribution: Attribution;
   count: number;
-  children: ReactNode;
   disabled: boolean;
   onPin: (source: EvidenceRecord) => void;
   onPending: (pending: boolean) => void;
@@ -222,7 +220,6 @@ export function SourceFileBatch({
           <small>You can also paste a screenshot while you’re on the desk.</small>
         </span>
       </button>
-      {children}
       {!!rows.length && (
         <div className={styles.queue}>
           <ul aria-label="Files to pin">

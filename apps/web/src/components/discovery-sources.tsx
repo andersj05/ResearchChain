@@ -37,12 +37,15 @@ export function DiscoverySources({
   const [error, setError] = useState("");
   const [filePending, setFilePending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const rightsSelect = useRef<HTMLSelectElement>(null);
   const writing = useRef(false);
   const command = useRef<EvidenceInput | null>(null);
   const touched = !!(title || body || url);
   const locked = disabled || saving;
   const attribution: Attribution = { author: author.trim(), as_of_date: date || null, rights };
   const label = kind === "link" ? "link" : kind === "discussion" ? "conversation" : "note";
+  const needsRights = kind !== "link" && rights === "unknown";
+  const canPinText = !!(kind === "link" ? url.trim() : body.trim()) && !needsRights;
 
   function changeText(nextTitle: string, nextBody: string, nextUrl: string) {
     setTitle(nextTitle);
@@ -53,7 +56,7 @@ export function DiscoverySources({
     onEditing(!!(nextTitle || nextBody || nextUrl) || filePending);
   }
   async function pinText() {
-    if (locked || writing.current || ids.length >= 100) return;
+    if (locked || writing.current || ids.length >= 100 || !canPinText) return;
     writing.current = true;
     setSaving(true);
     setError("");
@@ -83,6 +86,48 @@ export function DiscoverySources({
     <div className={styles.intake}>
       <section className={styles.panel} aria-labelledby="intake-heading">
         <h2 id="intake-heading">Add material</h2>
+        <fieldset
+          disabled={locked}
+          className={styles.provenance}
+          onChange={() => {
+            command.current = null;
+          }}
+        >
+          <legend>Source details</legend>
+          <p id="desk-capture-details" className={styles.provenanceHint}>
+            Applies to files and pasted sources. Files, notes and conversations require usage
+            rights.
+          </p>
+          <label>
+            Usage rights
+            <select
+              ref={rightsSelect}
+              value={rights}
+              aria-describedby="desk-capture-details"
+              onChange={(e) => setRights(e.target.value as typeof rights)}
+            >
+              <option value="unknown">Select rights</option>
+              {(["owned", "permission", "open_license", "public_domain"] as const).map((r) => (
+                <option key={r} value={r}>
+                  {rightsLabels[r]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            Author or speaker
+            <input
+              maxLength={240}
+              placeholder="Optional"
+              value={author}
+              onChange={(e) => setAuthor(e.target.value)}
+            />
+          </label>
+          <label>
+            As of
+            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+          </label>
+        </fieldset>
         <SourceFileBatch
           count={ids.length}
           disabled={locked}
@@ -93,41 +138,7 @@ export function DiscoverySources({
             setFilePending(pending);
             onEditing(pending || touched);
           }}
-        >
-          <fieldset
-            disabled={locked}
-            className={styles.provenance}
-            onChange={() => {
-              command.current = null;
-            }}
-          >
-            <legend>Source details</legend>
-            <label>
-              Usage rights
-              <select value={rights} onChange={(e) => setRights(e.target.value as typeof rights)}>
-                <option value="unknown">Select rights</option>
-                {(["owned", "permission", "open_license", "public_domain"] as const).map((r) => (
-                  <option key={r} value={r}>
-                    {rightsLabels[r]}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Author or speaker
-              <input
-                maxLength={240}
-                placeholder="Optional"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-              />
-            </label>
-            <label>
-              As of
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </label>
-          </fieldset>
-        </SourceFileBatch>
+        />
         <form
           aria-label="Paste a source"
           className={styles.paste}
@@ -200,11 +211,7 @@ export function DiscoverySources({
               </p>
             )}
             <div className={styles.actions}>
-              <button
-                className="button"
-                type="submit"
-                disabled={kind === "link" ? !url.trim() : !body.trim() || rights === "unknown"}
-              >
+              <button className="button" type="submit" disabled={!canPinText}>
                 Pin {label}
               </button>
               {touched && (
@@ -213,6 +220,18 @@ export function DiscoverySources({
                 </button>
               )}
               {kind === "link" && <small>Stores the URL as a reference.</small>}
+              {needsRights && !!body.trim() && (
+                <small>
+                  <button
+                    className="text-link"
+                    type="button"
+                    onClick={() => rightsSelect.current?.focus()}
+                  >
+                    Select usage rights
+                  </button>{" "}
+                  to pin this {label}.
+                </small>
+              )}
             </div>
           </fieldset>
         </form>
@@ -222,6 +241,7 @@ export function DiscoverySources({
           label="Saved sources"
           selected={ids}
           onChange={onChange}
+          onAdd={onPin}
           attachedCharts={known}
           showSelected={false}
           disabled={locked || filePending}
