@@ -54,8 +54,21 @@ export async function prepare(request: APIRequestContext, tag: string) {
     },
     timeout: 45000,
   });
-  expect(runResponse.status()).toBe(200);
-  return { source, chart, run: await runResponse.json() };
+  expect(runResponse.status(), runResponse.ok() ? undefined : await runResponse.text()).toBe(200);
+  const run = await runResponse.json();
+  const attempt = run.model_attempts?.[0];
+  const attemptStatus = attempt?.status ?? "missing";
+  const attemptReason = attempt?.reason ? ` ${attempt.reason}` : "";
+  expect(
+    Boolean(
+      attempt?.status === "completed" &&
+      attempt.input_artifact_id &&
+      attempt.response_artifact_id &&
+      attempt.result,
+    ),
+    `Synthetic report setup requires a recorded completed attempt. Run status ${run.status}, first attempt ${attemptStatus}.${attemptReason}`,
+  ).toBe(true);
+  return { source, chart, run };
 }
 export function styleBody(tag: string) {
   return {
@@ -94,6 +107,6 @@ export async function seed(request: APIRequestContext, tag: string) {
       style_guide_id: guide.id,
     },
   });
-  expect(response.status()).toBe(201);
+  expect(response.status(), response.ok() ? undefined : await response.text()).toBe(201);
   return { ...context, guide, record: (await response.json()) as ReportRevision };
 }
