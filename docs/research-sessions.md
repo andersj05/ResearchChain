@@ -32,7 +32,8 @@ date. Fields use batch attribution until edited. **Use batch attribution**
 restores those defaults for the file.
 
 **Saved sources** selects existing library records. Search by title or
-attribution. Use **Preview** to inspect original charts and **Pin this chart** to
+attribution and use **Source type** to narrow the results before loading more.
+Use **Preview** to inspect original charts and **Pin this chart** to
 add the version on screen. Choose **Pin loaded results** to append the matches
 in their current order. The action skips sources already pinned. Load more
 matches to include them, or narrow the search if the group exceeds the packet's
@@ -120,7 +121,8 @@ During a study, **Sources and settings** shows the model, effort and detail
 pinned for each role. The same panel lists sources in pinned order. It retrieves
 titles and authors for matching source versions and keeps the study’s recorded
 dates and availability. **Preview chart** opens the pinned original and lets
-you page through the available charts in reading order. A workspace's **Model
+you page through the available charts in reading order. Turn on **Original
+size** to scroll through the chart at its saved resolution. A workspace's **Model
 passes** includes the saved request for each pass. **Revisit material** restores
 your choices for the next experiment.
 

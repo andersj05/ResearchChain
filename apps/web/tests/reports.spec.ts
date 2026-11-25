@@ -198,6 +198,169 @@ for (const width of [1440, 390]) {
   });
 }
 
+test("preview only the selected unsaved report section and retain the draft on a phone", async ({
+  page,
+  request,
+}) => {
+  const { record } = await seed(request, crypto.randomUUID().slice(0, 8));
+  let saves = 0;
+  await page.route("**/api/reports/revisions", (route) => {
+    if (route.request().method() === "POST") saves++;
+    return route.continue();
+  });
+  page.on("dialog", (dialog) => dialog.accept());
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?view=reports&report=${record.id}`);
+  const editor = page.getByRole("region", { name: "Report editor", exact: true });
+  const text = editor.getByRole("textbox", { name: "Section text", exact: true });
+  const heading = editor.getByRole("textbox", { name: "Section heading", exact: true });
+  const outline = editor.getByRole("navigation", { name: "Report sections" });
+  const open = editor.getByRole("button", { name: "Preview draft section", exact: true });
+  const close = editor.getByRole("button", { name: "Return to section text", exact: true });
+  const preview = editor.getByRole("region", { name: "Unsaved section preview", exact: true });
+  const firstHeading = "Edited release summary";
+  const secondHeading = "Independent comparison";
+  const firstText = "**Ordinary report text stays plain.**\n<img src='https://preview.test/a.png'>";
+  const secondText = "An unsaved comparison belongs only to this section.";
+
+  await heading.fill(firstHeading);
+  await text.fill(firstText);
+  await text.evaluate((input: HTMLTextAreaElement) => input.setSelectionRange(2, 16));
+  await expect(preview).toHaveCount(0);
+  await open.press("Enter");
+  await expect(preview.getByRole("heading", { name: firstHeading })).toBeVisible();
+  await expect(preview).toContainText("**Ordinary report text stays plain.**");
+  await expect(preview).toContainText("<img src='https://preview.test/a.png'>");
+  await expect(preview.locator("img")).toHaveCount(0);
+  await close.press("Enter");
+  await expect(text).toBeFocused();
+  expect(
+    await text.evaluate((input: HTMLTextAreaElement) => [input.selectionStart, input.selectionEnd]),
+  ).toEqual([2, 16]);
+
+  await editor.getByRole("button", { name: "Add section", exact: true }).click();
+  await heading.fill(secondHeading);
+  await text.fill(secondText);
+  await open.press("Enter");
+  await expect(preview.getByRole("heading", { name: secondHeading })).toBeVisible();
+  await expect(preview).toContainText(secondText);
+  await expect(preview).not.toContainText(firstText);
+  await outline.getByRole("button", { name: new RegExp(firstHeading) }).press("Enter");
+  await expect(preview.getByRole("heading", { name: firstHeading })).toBeVisible();
+  await expect(preview).not.toContainText(secondText);
+  await close.press("Enter");
+  await expect(text).toHaveValue(firstText);
+
+  await page.reload();
+  await expect(editor.getByText("Unsaved edits · Recovered from this browser")).toBeVisible();
+  await expect(text).toHaveValue(firstText);
+  await outline.getByRole("button", { name: new RegExp(secondHeading) }).press("Enter");
+  await expect(text).toHaveValue(secondText);
+  const saved = editor.locator("details.report-preview");
+  await saved.locator("summary").press("Enter");
+  await expect(saved).toContainText(record.sections[0]!.body);
+  await expect(saved).not.toContainText(firstHeading);
+  await expect(saved).not.toContainText(secondHeading);
+  expect(saves).toBe(0);
+  const unchanged: ReportView = await (await request.get(`/api/reports/${record.id}`)).json();
+  expect(unchanged.current_revision_id).toBe(record.id);
+  expect(unchanged.revision).toEqual(record);
+});
+
+test("preview study draft links and figures from the saved editor inventory only", async ({
+  page,
+  request,
+}) => {
+  const { record, chart } = await seed(request, crypto.randomUUID().slice(0, 8));
+  const view: ReportView = await (await request.get(`/api/reports/${record.id}`)).json();
+  const artifact = chart.artifact!;
+  const recorded = "https://preview.test/recorded";
+  const unrecorded = "https://preview.test/unrecorded";
+  const artifactPath = `/api/artifacts/${encodeURIComponent(artifact.id)}/content`;
+  let figureReads = 0;
+  let externalReads = 0;
+  let saves = 0;
+  await page.route("https://preview.test/**", (route) => {
+    externalReads++;
+    return route.abort();
+  });
+  await page.route(`**${artifactPath}?preview=true`, (route) => {
+    figureReads++;
+    return route.continue();
+  });
+  await page.route("**/api/reports/revisions", (route) => {
+    if (route.request().method() === "POST") saves++;
+    return route.continue();
+  });
+  await page.route(`**/api/reports/${record.id}`, (route) =>
+    route.fulfill({
+      json: {
+        ...view,
+        revision: {
+          ...record,
+          provenance: {
+            ...record.provenance,
+            renderer: "study-markdown-1",
+            recorded_urls: [recorded],
+            attempt: {
+              ...record.provenance.attempt,
+              result: {
+                ...record.provenance.attempt.result,
+                workspace_files: [
+                  {
+                    name: "pinned.png",
+                    media_type: "image/png",
+                    artifact_id: artifact.id,
+                    byte_size: artifact.byte_size,
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    }),
+  );
+  await page.goto(`/?view=reports&report=${record.id}`);
+  const text = page.getByRole("textbox", { name: "Section text", exact: true });
+  await text.fill(
+    [
+      "**Unsaved study wording**",
+      `[Recorded reference](${recorded})`,
+      `[Unrecorded reference](${unrecorded})`,
+      "![Pinned editor figure](pinned.png)",
+      `![External figure](${unrecorded}/figure.png)`,
+    ].join("\n\n"),
+  );
+  expect(figureReads).toBe(0);
+  await page.getByRole("button", { name: "Preview draft section", exact: true }).press("Enter");
+  const preview = page.getByRole("region", { name: "Unsaved section preview" });
+  await expect(preview.locator("strong")).toHaveText("Unsaved study wording");
+  await expect(
+    preview.getByRole("link", { name: "Recorded reference", exact: true }),
+  ).toHaveAttribute("href", recorded);
+  await expect(preview.getByRole("link", { name: "Unrecorded reference" })).toHaveCount(0);
+  await expect(preview).toContainText("Unrecorded reference");
+  await expect(preview.getByRole("img")).toHaveCount(1);
+  const figure = preview.getByRole("img", { name: "Pinned editor figure" });
+  await expect(figure).toHaveAttribute("src", `${artifactPath}?preview=true`);
+  await expect
+    .poll(() =>
+      figure.evaluate((image: HTMLImageElement) => {
+        image.scrollIntoView({ block: "nearest" });
+        return image.naturalWidth;
+      }),
+    )
+    .toBe(1);
+  const editedHeading = "Adjusted section heading";
+  await page.getByRole("textbox", { name: "Section heading", exact: true }).fill(editedHeading);
+  await expect(preview.getByRole("heading", { name: editedHeading, exact: true })).toBeVisible();
+  await expect(figure).toHaveAttribute("src", `${artifactPath}?preview=true`);
+  expect(figureReads).toBe(1);
+  expect(externalReads).toBe(0);
+  expect(saves).toBe(0);
+});
+
 test("complete an attempted report save from its missing change note on a phone", async ({
   page,
   request,

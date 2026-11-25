@@ -2656,6 +2656,28 @@ td time {
   padding: 18px;
   resize: vertical;
 }
+.report-section-text-controls {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.report-section-text-controls label {
+  margin-top: 0;
+}
+.report-section-draft-preview {
+  max-height: min(60dvh, 460px);
+  overflow: auto;
+  margin-top: 7px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+.report-section-draft-preview > h3 {
+  margin: 0 0 12px;
+}
 .report-prose {
   white-space: pre-wrap;
   overflow-wrap: anywhere;

@@ -20,6 +20,7 @@ from researchchain.evidence_models import (
     ContentId,
     EvidenceAvailability,
     EvidenceCreate,
+    EvidenceKind,
     EvidencePage,
     EvidenceRecord,
     UploadRights,
@@ -114,8 +115,9 @@ def evidence_router(database: Database) -> APIRouter:
         offset: Annotated[int, Query(ge=0)] = 0,
         search: Annotated[str, Query(max_length=240, pattern=r"^[^\x00]*$")] = "",
         availability: EvidenceAvailability | None = None,
+        kind: EvidenceKind | None = None,
     ) -> EvidencePage:
-        return evidence.list(limit, offset, search, availability)
+        return evidence.list(limit, offset, search, availability, kind=kind)
 
     @router.get(
         "/evidence/{evidence_id}", response_model=EvidenceRecord, operation_id="get_evidence"

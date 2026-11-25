@@ -20,22 +20,46 @@ export type ChartPreviewSource = {
 };
 
 function ChartImage({ artifactId, title }: Pick<ChartPreviewSource, "artifactId" | "title">) {
+  const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
+  const [originalSize, setOriginalSize] = useState(false);
   return unavailable ? (
     <p className={styles.chartPreviewError} role="alert">
       The original chart could not be loaded.
     </p>
   ) : (
-    <Image
-      className={styles.original}
-      unoptimized
-      src={contentUrl(artifactId)}
-      alt={title}
-      width={1200}
-      height={720}
-      loading="eager"
-      onError={() => setUnavailable(true)}
-    />
+    <>
+      <div className={styles.chartViewTools}>
+        <button
+          className="button small"
+          type="button"
+          disabled={!loaded}
+          aria-pressed={originalSize}
+          onClick={() => setOriginalSize(!originalSize)}
+        >
+          Original size
+        </button>
+      </div>
+      <div
+        className={styles.chartViewport}
+        role="region"
+        aria-label="Chart image"
+        tabIndex={originalSize ? 0 : undefined}
+        data-original-size={originalSize || undefined}
+      >
+        <Image
+          className={styles.original}
+          unoptimized
+          src={contentUrl(artifactId)}
+          alt={title}
+          width={1200}
+          height={720}
+          loading="eager"
+          onLoad={() => setLoaded(true)}
+          onError={() => setUnavailable(true)}
+        />
+      </div>
+    </>
   );
 }
 

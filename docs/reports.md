@@ -31,6 +31,10 @@ interpretation and speculative scenario. Split mixed claims into separate sectio
 when they need different labels. A fact section needs captured supporting evidence,
 but the label and citation presence do not verify its truth.
 
+**Preview draft section** shows the current section's edited heading and text.
+For a study report, it renders links and figures from the original editor pass.
+**Return to section text** restores the caret in the editor.
+
 Attach source references with a location, relationship, rationale and optional
 exact quotation. The server checks quoted text against the captured original and
 preserves source representation, including inherited chart-derived uncertainty.

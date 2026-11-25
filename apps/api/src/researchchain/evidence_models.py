@@ -14,6 +14,7 @@ AccessRights = Literal[
     "unknown", "owned", "public_domain", "open_license", "permission", "restricted"
 ]
 UploadRights = Literal["owned", "public_domain", "open_license", "permission"]
+EvidenceKind = Literal["link", "report", "discussion", "image", "dataset", "text"]
 EvidenceAvailability = Literal["available", "reference_only", "missing", "paywalled"]
 Representation = Literal[
     "original", "chart_screenshot", "ocr_interpretation", "digitized_estimate", "numeric_data"
@@ -67,7 +68,7 @@ class ContentPreview(StrictModel):
 class EvidenceFields(EvidenceModel):
     id: UUID
     title: str = Field(min_length=1, max_length=240)
-    kind: Literal["link", "report", "discussion", "image", "dataset", "text"]
+    kind: EvidenceKind
     representation: Representation = "original"
     availability: EvidenceAvailability = "available"
     source_url: HttpUrl | None = Field(default=None, max_length=2000)

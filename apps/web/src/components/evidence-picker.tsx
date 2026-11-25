@@ -8,16 +8,26 @@ import {
   availabilityLabels,
   evidenceUrl,
   sourceMetadata,
+  type EvidenceKind,
   type EvidenceRecord,
 } from "@/lib/evidence";
 
 const sourceLimit = 100;
+const sourceTypes = {
+  image: "Images and charts",
+  text: "Text and notes",
+  report: "Reports",
+  discussion: "Discussions",
+  dataset: "Datasets",
+  link: "Links",
+} satisfies Record<EvidenceKind, string>;
 
 export function EvidencePicker({
   selected,
   onChange,
   onAdd,
   allowBatchPin = false,
+  allowKindFilter = false,
   disabled = false,
   label = "Evidence for this run",
   onAttachChart,
@@ -29,6 +39,7 @@ export function EvidencePicker({
   onChange: (ids: string[]) => void;
   onAdd?: (record: EvidenceRecord) => void;
   allowBatchPin?: boolean;
+  allowKindFilter?: boolean;
   disabled?: boolean;
   label?: string;
   onAttachChart?: (known: EvidenceRecord[]) => void;
@@ -37,6 +48,7 @@ export function EvidencePicker({
   renderResultAction?: (item: EvidenceRecord, visible: EvidenceRecord[]) => ReactNode;
 }) {
   const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<EvidenceKind | "">("");
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
   const [initialSelection] = useState(showSelected ? selected : []);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
@@ -44,7 +56,9 @@ export function EvidencePicker({
   const moveFocus = useRef<string>(null);
   const pickerId = useId();
   const query = search.trim();
-  const library = useEvidenceLibrary(query);
+  const filterKind = allowKindFilter && kind ? kind : undefined;
+  const hasFilters = Boolean(query || filterKind);
+  const library = useEvidenceLibrary(query, undefined, true, filterKind);
 
   useEffect(() => {
     if (!initialSelection.length) return;
@@ -67,11 +81,11 @@ export function EvidencePicker({
   }, [selected]);
 
   const known = mergeSources([...attachedCharts, ...retained], library.items);
-  const visible = query ? library.items : known;
+  const visible = hasFilters ? library.items : known;
   const byId = new Map(known.map((item) => [item.id, item]));
   const selectedIds = new Set(selected);
   const batch =
-    allowBatchPin && query && visible.length > 1
+    allowBatchPin && hasFilters && visible.length > 1
       ? visible.filter((item) => !selectedIds.has(item.id))
       : null;
   const slots = Math.max(0, sourceLimit - selected.length);
@@ -102,6 +116,20 @@ export function EvidencePicker({
     onChange(ordered);
     setOrderMessage(`${title} moved to position ${destination + 1} of ${selected.length}.`);
   }
+
+  const searchField = (
+    <input
+      aria-label="Search evidence library"
+      type="search"
+      maxLength={240}
+      value={search}
+      onChange={(event) => setSearch(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.preventDefault();
+      }}
+      placeholder="Title, author, publisher, or date"
+    />
+  );
   return (
     <fieldset className="evidence-picker" disabled={disabled}>
       <legend>
@@ -192,17 +220,30 @@ export function EvidencePicker({
           )}
         </details>
       )}
-      <input
-        aria-label="Search evidence library"
-        type="search"
-        maxLength={240}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.preventDefault();
-        }}
-        placeholder="Title, author, publisher, or date"
-      />
+      {allowKindFilter ? (
+        <div className="evidence-search-filters">
+          {searchField}
+          <label>
+            Source type
+            <select
+              value={kind}
+              onChange={(event) => {
+                setKind(event.currentTarget.value as EvidenceKind | "");
+                library.refresh();
+              }}
+            >
+              <option value="">All types</option>
+              {Object.entries(sourceTypes).map(([value, title]) => (
+                <option key={value} value={value}>
+                  {title}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+      ) : (
+        searchField
+      )}
       {batch && (
         <div className="actions field-hint">
           <Button
@@ -254,7 +295,7 @@ export function EvidencePicker({
           );
         })}
         {!library.loading && !library.error && !visible.length && (
-          <p className="muted">{query ? "No matching sources." : "No saved sources yet."}</p>
+          <p className="muted">{hasFilters ? "No matching sources." : "No saved sources yet."}</p>
         )}
       </div>
       {library.loading && (

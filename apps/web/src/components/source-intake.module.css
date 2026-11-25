@@ -170,6 +170,15 @@
   border: 0;
   padding: 0;
 }
+.panel :global(.evidence-search-filters) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: end;
+  gap: 8px;
+}
+.panel :global(.evidence-search-filters) > label {
+  margin: 0;
+}
 .panel :global(.evidence-options) {
   max-height: 200px;
 }
@@ -348,6 +357,30 @@ button.thumb:hover:enabled {
 .chartDialog footer div {
   display: flex;
   gap: 6px;
+}
+.chartViewTools {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 18px;
+}
+.chartViewTools button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
+.chartViewport {
+  height: min(60dvh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--paper);
+}
+.chartViewport:focus-visible {
+  outline-offset: -2px;
+}
+.chartViewport[data-original-size] .original {
+  width: auto;
+  height: auto;
+  max-width: none;
+  margin-inline: auto;
 }
 .original {
   display: block;

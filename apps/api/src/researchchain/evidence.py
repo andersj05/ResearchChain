@@ -25,6 +25,7 @@ from researchchain.evidence_models import (
     ContentPreview,
     EvidenceAvailability,
     EvidenceCreate,
+    EvidenceKind,
     EvidencePage,
     EvidenceRecord,
 )
@@ -156,15 +157,18 @@ class EvidenceStore:
         offset: int = 0,
         search: str = "",
         availability: EvidenceAvailability | None = None,
+        *,
+        kind: EvidenceKind | None = None,
     ) -> EvidencePage:
         matches = (
             "FROM evidence_records WHERE (%(search)s = '' OR strpos(lower(concat_ws(' ', "
             "document->>'title', document->>'publisher', document->>'author', "
             "document->>'as_of_date', document->>'published_date')), lower(%(search)s)) > 0) "
             "AND (%(availability)s::text IS NULL "
-            "OR coalesce(document->>'availability', 'available') = %(availability)s)"
+            "OR coalesce(document->>'availability', 'available') = %(availability)s) "
+            "AND (%(kind)s::text IS NULL OR document->>'kind' = %(kind)s)"
         )
-        filters = {"search": search.strip(), "availability": availability}
+        filters = {"search": search.strip(), "availability": availability, "kind": kind}
         with self.database.connection() as conn:
             rows = conn.execute(
                 f"SELECT document {matches} ORDER BY created_at DESC, id DESC "

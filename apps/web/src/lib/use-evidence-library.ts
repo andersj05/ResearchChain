@@ -1,18 +1,29 @@
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { apiFetch } from "@/lib/access";
 import { api } from "@/lib/workflow";
-import type { EvidencePage, EvidenceRecord } from "@/lib/evidence";
+import type { EvidenceKind, EvidencePage, EvidenceRecord } from "@/lib/evidence";
 
 export type EvidenceAvailability = NonNullable<EvidenceRecord["availability"]>;
 
-type Scope = { query: string; availability?: EvidenceAvailability; generation: number };
+type Scope = {
+  query: string;
+  availability?: EvidenceAvailability;
+  kind?: EvidenceKind;
+  generation: number;
+};
 type Results = { scope: Scope; page: EvidencePage; error?: string };
 
-export function listSources(query = "", availability?: EvidenceAvailability, offset = 0) {
+export function listSources(
+  query = "",
+  availability?: EvidenceAvailability,
+  offset = 0,
+  kind?: EvidenceKind,
+) {
   const params = new URLSearchParams({ limit: "50" });
   if (offset) params.set("offset", String(offset));
   if (query) params.set("search", query);
   if (availability) params.set("availability", availability);
+  if (kind) params.set("kind", kind);
   return api<EvidencePage>(`evidence?${params}`);
 }
 
@@ -177,6 +188,7 @@ export function useEvidenceLibrary(
   query: string,
   availability?: EvidenceAvailability,
   enabled = true,
+  kind?: EvidenceKind,
 ) {
   const [generation, setGeneration] = useState(0);
   const [results, setResults] = useState<Results>();
@@ -185,10 +197,10 @@ export function useEvidenceLibrary(
   useEffect(() => {
     if (!enabled) return;
     let active = true;
-    const scope = { query, availability, generation };
+    const scope = { query, availability, kind, generation };
     async function load() {
       try {
-        const page = await listSources(query, availability);
+        const page = await listSources(query, availability, 0, kind);
         if (active) setResults({ scope, page });
       } catch (cause) {
         if (active)
@@ -204,12 +216,13 @@ export function useEvidenceLibrary(
       active = false;
       clearTimeout(timer);
     };
-  }, [availability, enabled, generation, query]);
+  }, [availability, enabled, generation, kind, query]);
   const current =
     enabled &&
     results?.scope.query === query &&
     results.scope.generation === generation &&
-    results.scope.availability === availability
+    results.scope.availability === availability &&
+    results.scope.kind === kind
       ? results
       : undefined;
   const next = current?.page.next_offset ?? null;
@@ -221,7 +234,7 @@ export function useEvidenceLibrary(
     }
     setPendingPage(current);
     try {
-      const page = await listSources(query, availability, next);
+      const page = await listSources(query, availability, next, kind);
       setResults((latest) =>
         latest === current
           ? {
