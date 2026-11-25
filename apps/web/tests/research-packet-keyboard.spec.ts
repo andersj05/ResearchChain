@@ -38,6 +38,17 @@ test("keyboard packet edits keep focus and announce the reading order at phone w
 
   const unpinAll = packet.getByRole("button", { name: "Unpin all", exact: true });
   const undo = packet.getByRole("button", { name: "Undo unpin all", exact: true });
+  const originalIds = await list
+    .getByRole("link")
+    .evaluateAll((links) =>
+      links.map((link) => new URL((link as HTMLAnchorElement).href).searchParams.get("evidence")!),
+    );
+  const refreshedIds: string[] = [];
+  await page.route("**/api/evidence/*", (route) => {
+    const id = new URL(route.request().url()).pathname.split("/").at(-1)!;
+    if (originalIds.includes(id)) refreshedIds.push(id);
+    return route.continue();
+  });
   await unpinAll.focus();
   await page.keyboard.press("Enter");
   await expect(list).toHaveCount(0);
@@ -56,6 +67,7 @@ test("keyboard packet edits keep focus and announce the reading order at phone w
   await expect(status).toHaveText("Restored 3 sources in reading order.");
   await expect(unpinAll).toBeFocused();
   await expect(undo).toHaveCount(0);
+  expect([...refreshedIds].sort()).toEqual([...originalIds].sort());
 
   const alpha = packet.getByRole("button", { name: "Unpin Alpha weekly close" });
   const bravo = packet.getByRole("button", { name: "Unpin Bravo follow-up" });
@@ -70,6 +82,12 @@ test("keyboard packet edits keep focus and announce the reading order at phone w
   await expect(packet.getByRole("heading", { name: "Study packet" })).toBeFocused();
   await expect(status).toHaveText("Unpinned Bravo follow-up. 0 sources in the packet.");
   await expect(list).toHaveCount(0);
+  const alphaId = originalIds[1]!;
+  const reread = page.waitForRequest(`**/api/evidence/${alphaId}`);
+  await library.getByRole("checkbox", { name: "Alpha weekly close" }).check();
+  await reread;
+  await expect(list.getByRole("link")).toContainText("Alpha weekly close");
+  expect(refreshedIds.filter((id) => id === alphaId)).toHaveLength(2);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
