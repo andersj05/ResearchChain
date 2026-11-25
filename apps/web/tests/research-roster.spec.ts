@@ -4,7 +4,7 @@ import { expect, test } from "./fixtures";
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 type Result = NonNullable<Attempt["result"]>;
 
-test("finds an assignment among 80 researchers and keeps the active workspace on a phone", async ({
+test("finds assignments among 80 researchers by text and live status on a phone", async ({
   page,
 }) => {
   const runId = crypto.randomUUID();
@@ -40,6 +40,10 @@ test("finds an assignment among 80 researchers and keeps the active workspace on
   const firstReceipt = receipt("root/team/lead-1/agent-1", {
     conclusion: "The first region supplied a saved opening observation.",
   });
+  const lastReceipt = receipt("root/team/lead-4/agent-20", {
+    conclusion: "The last synthetic cohort supplied its term premium finding.",
+  });
+  let lastFinished = false;
   const attempts = [
     receipt("root/team/plan", { swarm_plan: { leads } }),
     ...leads.map((_, leadIndex) =>
@@ -86,7 +90,12 @@ test("finds an assignment among 80 researchers and keeps the active workspace on
           evidence: [],
           tool_config: { session: "brief-led-1" },
         },
-        model_attempts: attempts,
+        model_attempts: [
+          ...attempts,
+          lastFinished
+            ? lastReceipt
+            : { ...lastReceipt, status: "requesting", finished_at: null, result: null },
+        ],
       },
     }),
   );
@@ -141,5 +150,24 @@ test("finds an assignment among 80 researchers and keeps the active workspace on
   await search.press("Escape");
   await expect(search).toBeEmpty();
   await expect(leadTwo.locator("details")).toHaveJSProperty("open", true);
+
+  const status = roster.getByRole("combobox", { name: "Workspace status" });
+  await status.selectOption("Active");
+  await expect(roster.getByRole("status")).toHaveText("1 matching workspace");
+  await expect(matches.getByRole("button")).toContainText("Weekly release 20");
+  await expect(workspace).toContainText(firstReceipt.result!.conclusion);
+  await search.fill("Lead 3");
+  await expect(roster.getByRole("status")).toHaveText("No matching workspaces.");
+  await search.fill("Lead 4 term premium");
+  await search.press("Enter");
+  await expect(workspace).toBeFocused();
+  await expect(workspace).toContainText(lastReceipt.path);
+  lastFinished = true;
+  await expect(roster.getByRole("status")).toHaveText("No matching workspaces.");
+  await expect(status).toHaveValue("Active");
+  await expect(workspace).toContainText(lastReceipt.result!.conclusion);
+  await status.selectOption("Completed");
+  await expect(roster.getByRole("status")).toHaveText("1 matching workspace");
+  await expect(matches.getByRole("button")).toHaveAttribute("aria-current", "true");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

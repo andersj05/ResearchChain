@@ -418,12 +418,14 @@ export function SessionWorkspaceDetail({
   returnToReview,
   returnToJudgment,
   returnToIndex,
+  onReturnToSavedFile,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
   returnToReview?: { id: string; title: string };
   returnToJudgment?: boolean;
   returnToIndex?: StudyIndexReturn;
+  onReturnToSavedFile: (targetId: string) => void;
 } & PassSelection) {
   const selected = lane.attempts.find((attempt) => attempt.id === passId);
   return (
@@ -458,7 +460,13 @@ export function SessionWorkspaceDetail({
           Return to your judgment
         </a>
       )}
-      {selected && returnToIndex && <StudyIndexLink {...returnToIndex} className="text-link" />}
+      {selected && returnToIndex && (
+        <StudyIndexLink
+          {...returnToIndex}
+          className="text-link"
+          onReturn={returnToIndex.index === "files" ? onReturnToSavedFile : undefined}
+        />
+      )}
       {selected ? (
         <>
           <div className={styles.detailHeading}>

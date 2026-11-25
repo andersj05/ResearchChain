@@ -405,7 +405,11 @@ export function WorkflowEditor({
               workflow={workflow}
               scope={scope}
               selected={selectedId}
-              onSelect={openStep}
+              onSelect={(id, location) => {
+                // Search indexes a shared definition once. Keep the active caller for its steps.
+                const target = scopeKey(location.at(-1)?.ref ?? null);
+                openStep(id, target === scopeKey(scope) ? validPath : location);
+              }}
               palette={
                 <div className="step-palette">
                   <label className="step-placement">

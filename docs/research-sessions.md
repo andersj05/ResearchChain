@@ -26,6 +26,9 @@ sources. Choose usage rights before pinning a file, note or conversation. Add th
 author or speaker and observation date when known. Pin separately when
 attribution or rights differ.
 
+While you review the study settings, the first-reading bar links back to any
+queued files or unfinished pasted source.
+
 Open **Preview chart** on a queued image to check it and edit its packet title
 before pinning. Open a queued file's **File attribution** to set its own author or observation
 date. Fields use batch attribution until edited. **Use batch attribution**
@@ -168,7 +171,10 @@ checkpoint independently.
 The lead's saved plan lists each assignment and its objective. Select a researcher
 under **Workspaces** to see the current request, saved leads, web activity, Python
 results and files as they arrive. Researchers can use the same filename in their
-own workspaces. Open an earlier pass or an activity entry to inspect the request
+own workspaces. In a swarm, combine **Find a workspace** with **Workspace status**
+to find active, queued or blocked assignments without expanding each lead. Status
+matches update as the study runs and keep the current workspace open.
+Open an earlier pass or an activity entry to inspect the request
 and response that produced it. The reader shows the findings, files and sources
 recorded for that pass, and the link remembers the workspace and pass. Choose
 **Inspect pass in Runs** to see structured request inputs, or **Back to latest
@@ -185,7 +191,7 @@ the originating row.
 producing pass and content ID. If an assignment saved another version under
 the same filename, both versions stay available. Preview a file or open the
 saved pass that produced it, then choose **Back to saved files** to resume the
-same search.
+same search at its file, even after closing the file list.
 
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.

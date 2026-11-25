@@ -77,6 +77,7 @@ export function ReportDesk() {
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [styles, setStyles] = useState<StyleGuide[]>([]);
   const [view, setView] = useState<ReportView | null>(null);
+  const [savedSection, setSavedSection] = useState<{ revisionId: string; sectionId: string }>();
   const [page, setPage] = useState<"reports" | "styles">("reports");
   const [study, setStudy] = useState(() => {
     if (typeof window === "undefined") return null;
@@ -134,8 +135,9 @@ export function ReportDesk() {
     setStudy(null);
     window.history.replaceState(null, "", url);
   }
-  async function open(id: string) {
+  async function open(id: string, sectionId?: string) {
     const saved = await api<ReportView>(`reports/${id}`);
+    setSavedSection(sectionId ? { revisionId: saved.revision.id, sectionId } : undefined);
     setView(saved);
     setPage("reports");
     setCreating(false);
@@ -143,6 +145,7 @@ export function ReportDesk() {
     remember(id);
   }
   function leave() {
+    setSavedSection(undefined);
     setView(null);
     remember(null);
     setEpoch((e) => e + 1);
@@ -228,6 +231,9 @@ export function ReportDesk() {
           key={view.revision.id}
           view={view}
           styles={styles}
+          initialSectionId={
+            savedSection?.revisionId === view.revision.id ? savedSection.sectionId : undefined
+          }
           onOpen={open}
           onRefresh={async () => setView(await api<ReportView>(`reports/${view.revision.id}`))}
         />

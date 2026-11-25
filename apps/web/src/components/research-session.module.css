@@ -178,7 +178,11 @@
   color: var(--muted);
   font-size: 12px;
 }
+.rosterSearch label:not(:first-child) {
+  margin-top: 4px;
+}
 .rosterSearch input,
+.rosterSearch select,
 .activitySearch input {
   min-width: 0;
   width: 100%;
@@ -186,6 +190,7 @@
   padding: 6px 8px;
   border: 1px solid var(--border-strong);
   background: var(--surface);
+  color: var(--ink);
   font-size: 13px;
 }
 .rosterMatchCount,
@@ -578,6 +583,7 @@
     padding: 8px;
   }
   .rosterSearch input,
+  .rosterSearch select,
   .activitySearch input {
     min-height: 44px;
     font-size: 16px;
