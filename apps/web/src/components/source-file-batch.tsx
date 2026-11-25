@@ -22,6 +22,8 @@ type Row = {
   file: File;
   kind: EvidenceCreate["kind"];
   title: string;
+  authorOverride?: string;
+  dateOverride?: string;
   invalid?: string;
   error?: string;
   command?: EvidenceInput;
@@ -117,6 +119,15 @@ export function SourceFileBatch({
     onPending(next.length > 0);
     setNotice("");
   }
+  function edit(
+    id: string,
+    patch: Partial<Pick<Row, "kind" | "title" | "authorOverride" | "dateOverride">>,
+  ) {
+    if (disabled || saving.current) return;
+    setRows((list) =>
+      list.map((row) => (row.id === id && !row.command ? { ...row, ...patch } : row)),
+    );
+  }
   async function pin() {
     if (saving.current || disabled || !permitted || !rows.length) return;
     saving.current = true;
@@ -146,6 +157,8 @@ export function SourceFileBatch({
               title: row.title.trim() || row.file.name.slice(0, 240),
               kind: row.kind,
               ...attribution,
+              author: (row.authorOverride ?? attribution.author ?? "").trim(),
+              as_of_date: (row.dateOverride ?? attribution.as_of_date) || null,
               representation: row.kind === "image" ? "chart_screenshot" : "original",
               artifact_id: artifact.id,
             };
@@ -155,6 +168,8 @@ export function SourceFileBatch({
             );
           }
           const source = await api<EvidenceRecord>("evidence", command);
+          if (source.id !== command.id)
+            throw new Error("The server returned a different source record.");
           onPin(source);
           completed++;
           setRows((list) => list.filter((item) => item.id !== row.id));
@@ -234,12 +249,7 @@ export function SourceFileBatch({
                       value={row.title}
                       disabled={disabled || !!row.command}
                       maxLength={240}
-                      onChange={(event) => {
-                        const title = event.target.value;
-                        setRows((list) =>
-                          list.map((item) => (item.id === row.id ? { ...item, title } : item)),
-                        );
-                      }}
+                      onChange={(event) => edit(row.id, { title: event.target.value })}
                     />
                   </label>
                   <small>
@@ -252,6 +262,62 @@ export function SourceFileBatch({
                   {(row.invalid || row.error) && (
                     <p className="error">{row.invalid || row.error}</p>
                   )}
+                  {!row.invalid && (
+                    <details className={styles.fileAttribution}>
+                      <summary>
+                        File attribution<span className="sr-only"> for {row.file.name}</span>
+                        {(row.authorOverride !== undefined || row.dateOverride !== undefined) &&
+                          " · Edited"}
+                      </summary>
+                      <fieldset disabled={disabled || !!row.command}>
+                        <legend className="sr-only">Attribution for {row.file.name}</legend>
+                        <p>
+                          {row.command
+                            ? "Retry keeps the author and date from this file’s first request."
+                            : "Starts with the batch author and date. Clear a field if it’s unknown for this file."}
+                        </p>
+                        <label>
+                          Author / speaker
+                          <input
+                            type="text"
+                            maxLength={240}
+                            value={
+                              (row.command
+                                ? row.command.author
+                                : (row.authorOverride ?? attribution.author)) ?? ""
+                            }
+                            onChange={(event) =>
+                              edit(row.id, { authorOverride: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          As-of date
+                          <input
+                            type="date"
+                            value={
+                              (row.command
+                                ? row.command.as_of_date
+                                : (row.dateOverride ?? attribution.as_of_date)) ?? ""
+                            }
+                            onChange={(event) => edit(row.id, { dateOverride: event.target.value })}
+                          />
+                        </label>
+                        {!row.command &&
+                          (row.authorOverride !== undefined || row.dateOverride !== undefined) && (
+                            <button
+                              className="text-link"
+                              type="button"
+                              onClick={() =>
+                                edit(row.id, { authorOverride: undefined, dateOverride: undefined })
+                              }
+                            >
+                              Use batch author and date
+                            </button>
+                          )}
+                      </fieldset>
+                    </details>
+                  )}
                 </div>
                 {(row.kind === "text" || row.kind === "discussion") && (
                   <select
@@ -259,13 +325,7 @@ export function SourceFileBatch({
                     disabled={disabled || !!row.command}
                     value={row.kind}
                     onChange={(event) =>
-                      setRows(
-                        rows.map((item) =>
-                          item === row
-                            ? { ...item, kind: event.target.value as "text" | "discussion" }
-                            : item,
-                        ),
-                      )
+                      edit(row.id, { kind: event.target.value as "text" | "discussion" })
                     }
                   >
                     <option value="text">Note</option>

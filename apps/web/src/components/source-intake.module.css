@@ -361,6 +361,41 @@ button.thumb:hover:enabled {
 .queue li p {
   font-size: 12px;
 }
+.fileAttribution {
+  min-width: 0;
+  margin-top: 5px;
+}
+.fileAttribution summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 12px;
+}
+.fileAttribution fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 7px 12px;
+  margin-top: 7px;
+}
+.fileAttribution p {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+.fileAttribution label {
+  font-size: 12px;
+}
+.fileAttribution button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.queue li:has(.fileAttribution[open]) {
+  align-items: flex-start;
+}
+@media (min-width: 1120px) {
+  .fileAttribution fieldset {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .feedback,
 .meta {
   margin-top: 8px;
