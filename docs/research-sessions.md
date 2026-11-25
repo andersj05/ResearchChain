@@ -14,9 +14,10 @@ validation. A file with an unconfirmed pin stays queued for its exact retry.
 Original uploads can overlap while the pins keep their queue order.
 
 To look up another study while you assemble a packet, open **Studies** and
-choose **Return to study setup** to keep working with the staged files in the
-same tab. If a first reading was accepted during the visit, **Open study**
-opens the confirmed session.
+select the saved study. **Research desk** takes you back to the same in-tab
+setup. From the archive, choose **Return to study setup**. Browser history
+also preserves the staged files. If a first reading was accepted during the
+visit, **Open study** opens the confirmed session.
 
 Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
 
@@ -108,9 +109,10 @@ choice needs attention.
 During a study, **Sources and settings** shows the model, effort and detail
 pinned for each role. The same panel lists sources in pinned order. It retrieves
 titles and authors for matching source versions and keeps the study’s recorded
-dates and availability. A workspace's **Model passes** includes the saved
-request for each pass. **Revisit material** restores your choices for the next
-experiment.
+dates and availability. **Preview chart** opens the pinned original and lets
+you page through the available charts in reading order. A workspace's **Model
+passes** includes the saved request for each pass. **Revisit material** restores
+your choices for the next experiment.
 
 ### Run a swarm
 

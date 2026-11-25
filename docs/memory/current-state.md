@@ -4,10 +4,13 @@ Updated 2026-11-25.
 
 ## Source queue and batch uploads
 
-Opening **Studies** from a setup keeps the file queue and edited attribution
-in memory in the same tab. **Return to study setup** and browser history restore
-the queue. A start confirmed during the archive visit offers the original study
-link on return. A page reload clears the unpinned file queue.
+Opening **Studies** and reading a saved study keeps the file queue and edited
+attribution in memory in the same tab. **Return to study setup** and browser
+history restore the queue. A start confirmed during the visit offers the
+original study link on return. A page reload clears the unpinned file queue.
+
+Pinned chart previews load the exact matched originals on demand, with
+previous and next navigation in the study’s saved order.
 
 Batch pinning overlaps original uploads, publishes pins in order, and retains
 the exact pending command for recovery. Synthetic Chromium covered the combined
