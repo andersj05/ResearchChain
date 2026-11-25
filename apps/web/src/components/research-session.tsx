@@ -9,6 +9,7 @@ import { pendingReviews } from "@/lib/run-inspection";
 import { evidenceUrl } from "@/lib/evidence";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
+import { pollVisiblePage } from "@/lib/poll-visible-page";
 import {
   sessionModelProfiles,
   sessionReport,
@@ -128,12 +129,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   }
   useEffect(() => {
     if (!active || busy) return;
-    let current = true;
-    let timer: ReturnType<typeof setTimeout>;
-    async function observe() {
+    return pollVisiblePage(async ({ isCurrent, schedule }) => {
       try {
         const next = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
-        if (!current) return;
+        if (!isCurrent()) return;
         if (next.research_manifest?.tool_config?.session !== "brief-led-1")
           throw new ApiError("This run belongs to Workflows.", [], 404);
         setRun(next);
@@ -142,28 +141,22 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           failure?.checking ? { ...failure, checking: false } : failure,
         );
         if (next.execution_pending || ["queued", "running", "paused"].includes(next.status)) {
-          timer = setTimeout(observe, next.status === "paused" ? 4000 : 1200);
+          schedule(next.status === "paused" ? 4000 : 1200);
         }
         if (
           !next.execution_pending &&
           ["completed", "rejected", "cancelled", "limited", "failed"].includes(next.status)
         )
-          storeReviewDrafts(ownerStoragePrefix(owner) + ".research.review." + runId, "{}");
+          storeReviewDrafts(draftKey, "{}");
       } catch (cause) {
-        if (!current) return;
+        if (!isCurrent()) return;
         setReadError(
           cause instanceof Error ? cause.message : "The session could not be refreshed.",
         );
-        if (!(cause instanceof ApiError) || (cause.status ?? 500) >= 500)
-          timer = setTimeout(observe, 4000);
+        if (!(cause instanceof ApiError) || (cause.status ?? 500) >= 500) schedule(4000);
       }
-    }
-    void observe();
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
-  }, [runId, refresh, busy, active, owner]);
+    });
+  }, [runId, refresh, busy, active, draftKey]);
 
   const loaded = !!run;
   useEffect(() => {

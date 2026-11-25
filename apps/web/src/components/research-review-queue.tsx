@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useOwner } from "./access-context";
 import { formatTime } from "./run-status";
 import { sessionUrl } from "@/lib/research-sessions";
+import { pollVisiblePage } from "@/lib/poll-visible-page";
 import { api, type PendingReviewsPage } from "@/lib/workflow";
 import styles from "./research-desk.module.css";
 
@@ -41,26 +42,19 @@ function ReviewPage({
 
   useEffect(() => {
     if (!active) return;
-    let current = true;
-    let timer: ReturnType<typeof setTimeout>;
     const path = `runs/reviews?sessions_only=true&limit=${summary ? 1 : pageSize}&offset=${offset}`;
-    async function read() {
+    return pollVisiblePage(async ({ isCurrent, schedule }) => {
       try {
         const next = await api<PendingReviewsPage>(path);
-        if (!current) return;
+        if (!isCurrent()) return;
         setPage(next);
         setError(false);
       } catch {
-        if (current) setError(true);
+        if (isCurrent()) setError(true);
       } finally {
-        if (current) timer = setTimeout(read, 15000);
+        schedule(15000);
       }
-    }
-    void read();
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
+    });
   }, [active, offset, retry, summary]);
 
   if (summary) {
