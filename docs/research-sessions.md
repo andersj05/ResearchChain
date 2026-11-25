@@ -27,7 +27,8 @@ date. Fields use batch attribution until edited. **Use batch attribution**
 restores those defaults for the file.
 
 **Saved sources** selects existing library records. Search by title or
-attribution and choose **Pin loaded results** to append the matches on screen
+attribution. Use **Preview** to inspect original charts and **Pin this chart** to
+add the version on screen. Choose **Pin loaded results** to append the matches
 in their current order. The action skips sources already pinned. Load more
 matches to include them, or narrow the search if the group exceeds the packet's
 remaining space.
@@ -46,8 +47,9 @@ The library accepts originals up to 20 MiB each. A new desk study has an 8 MB li
 packet. Before anyone receives an assignment, the lead brings you an
 observation, a question and up to two possible working sentences. Each proposal
 names a rival explanation, its first check and what would weaken it. Follow a
-source title to see the cited passage or chart. A sparse packet can yield a
-question with no proposed sentence.
+source title to see the cited passage or chart. **Return to proposal** restores
+focus to the citation you opened. A sparse packet can yield a question with no
+proposed sentence.
 
 Choose **Use this sentence** to bring a proposal into **Your working sentence**.
 Edit it or write your own. For example, a lead might suggest checking whether
