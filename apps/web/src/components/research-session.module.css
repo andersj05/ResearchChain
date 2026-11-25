@@ -341,6 +341,20 @@
   border-top: 1px solid var(--line);
   font-size: 13px;
 }
+.baselineReport {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.baselineReport header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.baselineReport time {
+  color: var(--muted);
+}
 .receipts ol,
 .assignments {
   margin: 12px 0 0;

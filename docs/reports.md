@@ -31,6 +31,9 @@ interpretation and speculative scenario. Split mixed claims into separate sectio
 when they need different labels. A fact section needs captured supporting evidence,
 but the label and citation presence do not verify its truth.
 
+In longer reports, **Find a section** searches the draft's headings and text.
+Choose a matching section to edit it, or clear the search to see the full outline.
+
 **Preview draft section** shows the current section's edited heading and text.
 For a study report, it renders links and figures from the original editor pass.
 **Return to section text** restores the caret in the editor.

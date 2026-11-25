@@ -8,19 +8,12 @@ import {
   availabilityLabels,
   evidenceUrl,
   sourceMetadata,
+  sourceTypeLabels,
   type EvidenceKind,
   type EvidenceRecord,
 } from "@/lib/evidence";
 
 const sourceLimit = 100;
-const sourceTypes = {
-  image: "Images and charts",
-  text: "Text and notes",
-  report: "Reports",
-  discussion: "Discussions",
-  dataset: "Datasets",
-  link: "Links",
-} satisfies Record<EvidenceKind, string>;
 
 export function EvidencePicker({
   selected,
@@ -233,7 +226,7 @@ export function EvidencePicker({
               }}
             >
               <option value="">All types</option>
-              {Object.entries(sourceTypes).map(([value, title]) => (
+              {Object.entries(sourceTypeLabels).map(([value, title]) => (
                 <option key={value} value={value}>
                   {title}
                 </option>

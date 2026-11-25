@@ -8,11 +8,13 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   request,
 }) => {
   test.setTimeout(60_000);
+  const tag = crypto.randomUUID().slice(0, 8);
   const supportQuestion = "Does the priced path match your rates view?";
   const dissentQuestion = "Which dissenting scenario deserves more work?";
-  const analyst = { ...legacy, name: "Inbox rates editor" };
+  const brief = `Synthetic rates disagreement ${tag}`;
+  const analyst = { ...legacy, name: `Inbox rates editor ${tag}` };
   const workflow = structuredClone(example);
-  workflow.name = "Inbox macro analysis";
+  workflow.name = `Inbox macro analysis ${tag}`;
   workflow.schema_version = "0.3";
   workflow.nodes[1]!.kind = "review";
   workflow.nodes[1]!.instructions = supportQuestion;
@@ -44,7 +46,7 @@ test("the mobile inbox opens the exact parallel review across agents and handles
       id,
       agent_id: agents[1]!.agent.id,
       revision_id: agents[1]!.revision.id,
-      brief: "Synthetic rates disagreement",
+      brief,
     },
   });
   expect(admitted.status()).toBe(202);
@@ -55,22 +57,36 @@ test("the mobile inbox opens the exact parallel review across agents and handles
   await page.goto(`/?agent=${agents[0]!.agent.id}&view=runs`);
   await page.getByText("Review inbox", { exact: true }).click();
   const inbox = page.locator("details.review-inbox");
-  const item = inbox.getByRole("listitem").filter({ hasText: "Inbox macro analysis" });
+  const item = inbox.getByRole("listitem").filter({ hasText: workflow.name });
+  async function findParallelReview() {
+    const next = inbox.getByRole("button", { name: "Next page", exact: true });
+    // The real workspace queue is oldest-first and includes other parallel tests' runs.
+    for (let index = 0; index < 8; index += 1) {
+      await expect(inbox.getByText("Oldest runs first", { exact: true })).toBeVisible();
+      await expect(inbox.getByText("Loading reviews…", { exact: true })).toBeHidden();
+      if (await item.count()) break;
+      await expect(next).toBeEnabled();
+      await next.click();
+    }
+    await expect(item).toHaveCount(1);
+  }
+  await findParallelReview();
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
-  await expect(item.getByText("Synthetic rates disagreement", { exact: true })).toBeVisible();
+  await expect(item.getByText(brief, { exact: true })).toBeVisible();
   await expect(
     item.locator(".review-inbox-question").filter({ hasText: dissentQuestion }).getByRole("button"),
-  ).toHaveAccessibleDescription(`${dissentQuestion} Synthetic rates disagreement`);
+  ).toHaveAccessibleDescription(`${dissentQuestion} ${brief}`);
   const scope = page.getByRole("combobox", { name: "Show reviews for" });
   await expect(scope).toHaveValue("all");
   await scope.selectOption("agent");
-  const currentAgentReview = inbox.getByRole("listitem").filter({ hasText: "Inbox rates editor" });
+  const currentAgentReview = inbox.getByRole("listitem").filter({ hasText: analyst.name });
   await expect(currentAgentReview.getByRole("button", { name: "Open review" })).toHaveCount(1);
   await expect(
     currentAgentReview.getByText("Synthetic comparison run", { exact: true }),
   ).toBeVisible();
   await expect(item).toHaveCount(0);
   await scope.selectOption("all");
+  await findParallelReview();
   await expect(item.getByRole("button", { name: "Open review", exact: true })).toHaveCount(2);
   const scopedPage: PendingReviewsPage = await (
     await request.get(`/api/runs/reviews?limit=1&agent_id=${agents[1]!.agent.id}`)
@@ -83,6 +99,7 @@ test("the mobile inbox opens the exact parallel review across agents and handles
       exact: true,
     });
   const chooseQuestion = async (question: string) => {
+    await findParallelReview();
     await openQuestion(question).click();
     await expect(inbox).not.toHaveAttribute("open", "");
   };
@@ -134,7 +151,7 @@ test("the mobile inbox opens the exact parallel review across agents and handles
     .toBeTruthy();
   const history = page.getByRole("complementary", { name: "Recent runs" });
   await history.getByRole("button", { name: "Recent runs", exact: true }).click();
-  await history.getByRole("button", { name: /Inbox rates editor/ }).click();
+  await history.getByRole("button", { name: new RegExp(analyst.name) }).click();
   await expect.poll(() => new URL(page.url()).searchParams.get("run")).toBe(otherRun);
   await page.getByText("Review inbox", { exact: true }).click();
   await chooseQuestion(dissentQuestion);
@@ -165,7 +182,9 @@ test("the mobile inbox opens the exact parallel review across agents and handles
     .toEqual(["Keep the liquidity explanation in the scenario set."]);
 
   // Freeze one inbox response, then resolve it elsewhere before the owner clicks.
-  const live: PendingReviewsPage = await (await request.get("/api/runs/reviews")).json();
+  const live: PendingReviewsPage = await (
+    await request.get(`/api/runs/reviews?limit=1&agent_id=${agents[1]!.agent.id}`)
+  ).json();
   const old = live.items.find((entry) => entry.id === id)!;
   expect(old.reviews.map((review) => review.interrupt_id)).not.toContain(
     supportLink.searchParams.get("review"),

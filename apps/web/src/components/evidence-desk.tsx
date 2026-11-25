@@ -13,8 +13,10 @@ import {
   availabilityLabels,
   evidenceUrl,
   representationLabels,
+  sourceTypeLabels,
   type ClaimPage,
   type ClaimRecord,
+  type EvidenceKind,
   type EvidenceRecord,
 } from "@/lib/evidence";
 import { CollectionLayout } from "@/components/collection-layout";
@@ -24,6 +26,7 @@ import { ClaimForm } from "@/components/claim-form";
 
 export function EvidenceDesk() {
   const desk = useRef<HTMLElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
   const [sources, setSources] = useState<EvidenceRecord[]>([]);
   const [claims, setClaims] = useState<ClaimRecord[]>([]);
   const [selected, setSelected] = useState<EvidenceRecord | null>(null);
@@ -35,14 +38,15 @@ export function EvidenceDesk() {
   const [revising, setRevising] = useState<ClaimRecord>();
   const [search, setSearch] = useState("");
   const [availability, setAvailability] = useState<EvidenceAvailability>();
+  const [sourceType, setSourceType] = useState<EvidenceKind>();
   const [selectedClaims, setSelectedClaims] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadEpoch, setLoadEpoch] = useState(0);
   const query = search.trim();
-  const filtered = Boolean(query || availability);
-  const library = useEvidenceLibrary(query, availability, filtered);
+  const filtered = Boolean(query || availability || sourceType);
+  const library = useEvidenceLibrary(query, availability, filtered, sourceType);
   useEffect(() => {
     let active = true;
     async function load() {
@@ -91,6 +95,13 @@ export function EvidenceDesk() {
     const url = new URL(window.location.href);
     url.searchParams.set("evidence", record.id);
     window.history.replaceState(null, "", url);
+  }
+  function clearFilters() {
+    setSearch("");
+    setAvailability(undefined);
+    setSourceType(undefined);
+    library.refresh();
+    searchInput.current?.focus();
   }
   function sourceSaved(record: EvidenceRecord) {
     setSources((previous) => [record, ...previous.filter((item) => item.id !== record.id)]);
@@ -192,31 +203,64 @@ export function EvidenceDesk() {
               <label htmlFor="source-search">Find a source</label>
               <input
                 id="source-search"
+                ref={searchInput}
                 type="search"
                 maxLength={240}
                 placeholder="Title, author, publisher, or date"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
-              <label htmlFor="source-availability-filter">Availability</label>
-              <select
-                id="source-availability-filter"
-                value={availability ?? "all"}
-                onChange={(event) =>
-                  setAvailability(
-                    event.target.value === "all"
-                      ? undefined
-                      : (event.target.value as EvidenceAvailability),
-                  )
-                }
-              >
-                <option value="all">All sources</option>
-                {Object.entries(availabilityLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <div className="source-list-filters">
+                <div>
+                  <label htmlFor="source-availability-filter">Availability</label>
+                  <select
+                    id="source-availability-filter"
+                    value={availability ?? "all"}
+                    onChange={(event) =>
+                      setAvailability(
+                        event.target.value === "all"
+                          ? undefined
+                          : (event.target.value as EvidenceAvailability),
+                      )
+                    }
+                  >
+                    <option value="all">All sources</option>
+                    {Object.entries(availabilityLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="source-type-filter">Source type</label>
+                  <select
+                    id="source-type-filter"
+                    value={sourceType ?? ""}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value as EvidenceKind | "";
+                      setSourceType(value || undefined);
+                      library.refresh();
+                    }}
+                  >
+                    <option value="">All types</option>
+                    {Object.entries(sourceTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {filtered && (
+                <button
+                  type="button"
+                  className="button small clear-source-filters"
+                  onClick={clearFilters}
+                >
+                  Clear filters
+                </button>
+              )}
               {library.loading ? (
                 <p className="collection-count" role="status">
                   Finding sources…

@@ -20,6 +20,67 @@ async function edit(page: Page, body: string) {
     .getByRole("textbox", { name: "Revision change note", exact: true })
     .fill("Clarify the conditional argument.");
 }
+
+test("find a section in a long report and keep unsaved edits on a phone", async ({
+  page,
+  request,
+}) => {
+  const { record } = await seed(request, "section finder");
+  const sections = Array.from({ length: 12 }, (_, index) => ({
+    id: crypto.randomUUID(),
+    heading:
+      index === 0 ? "Market context" : index === 11 ? "Liquidity by maturity" : `Scenario ${index}`,
+    body:
+      index === 11
+        ? "The terminal mismatch period was December."
+        : `Synthetic discussion for section ${index + 1}.`,
+    kind: "interpretation" as const,
+    citations: [],
+    chart_ids: [],
+  }));
+  const response = await request.post("/api/reports/revisions", {
+    data: { ...saveBody(record, "Seed a longer synthetic draft"), sections },
+  });
+  expect(response.status()).toBe(201);
+  const longReport: ReportRevision = await response.json();
+  let revisionWrites = 0;
+  page.on("request", (item) => {
+    if (item.method() === "POST" && new URL(item.url()).pathname === "/api/reports/revisions")
+      revisionWrites += 1;
+  });
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto(`/?view=reports&report=${longReport.id}`);
+  const outline = page.getByRole("navigation", { name: "Report sections", exact: true });
+  const filter = page.getByRole("searchbox", { name: "Find a section", exact: true });
+  const text = page.getByRole("textbox", { name: "Section text", exact: true });
+  await expect(outline.getByRole("button")).toHaveCount(12);
+  const unsaved = "A revised operator note for the market context.";
+  await text.fill(unsaved);
+  await filter.fill(" MISMATCH PERIOD ");
+  await expect(outline.getByRole("button")).toHaveCount(1);
+  await expect(text).toHaveValue(unsaved);
+  const liquidity = outline.getByRole("button", { name: "12. Liquidity by maturity", exact: true });
+  await liquidity.press("Enter");
+  await expect(liquidity).toHaveAttribute("aria-current", "true");
+  await expect(text).toHaveValue(sections[11]!.body);
+  await filter.fill("operator NOTE");
+  const market = outline.getByRole("button", { name: "1. Market context", exact: true });
+  await expect(outline.getByRole("button")).toHaveCount(1);
+  await market.press("Enter");
+  await expect(text).toHaveValue(unsaved);
+  await filter.fill("unmatched transcript");
+  await expect(outline.getByRole("status")).toHaveText("No sections match your search.");
+  await expect(text).toHaveValue(unsaved);
+  await page.getByRole("button", { name: "Clear search", exact: true }).press("Enter");
+  await expect(filter).toBeFocused();
+  await expect(filter).toBeEmpty();
+  await expect(outline.getByRole("button")).toHaveCount(12);
+  await expect(market).toHaveAttribute("aria-current", "true");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(revisionWrites).toBe(0);
+  const savedView: ReportView = await (await request.get(`/api/reports/${longReport.id}`)).json();
+  expect(savedView.revision.sections[0]!.body).toBe(sections[0]!.body);
+});
 for (const width of [1440, 390]) {
   test(`report authoring, review, style pinning and export on ${width}px`, async ({
     page,

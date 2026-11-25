@@ -87,6 +87,9 @@ export function ReportEditor({
   });
   const [draft, setDraft] = useState<ReportDraft>(recovery.draft);
   const [selected, setSelected] = useState(record.sections[0]!.id);
+  const [sectionSearch, setSectionSearch] = useState("");
+  const sectionFilterInput = useRef<HTMLInputElement>(null);
+  const outlineId = useId();
   const [showDraftPreview, setShowDraftPreview] = useState(false);
   const sectionTextId = useId();
   const previewId = `${sectionTextId}-preview`;
@@ -105,8 +108,9 @@ export function ReportEditor({
   const retry = useRef<{ body: string; id: string } | null>(recovery.pending);
   const acting = useRef(false);
   const [pendingBody, setPendingBody] = useState<string | null>(recovery.pending?.body ?? null);
-  const draftBody = JSON.stringify(draft);
-  const dirty = draftBody !== JSON.stringify(original);
+  const draftBody = useMemo(() => JSON.stringify(draft), [draft]);
+  const originalBody = useMemo(() => JSON.stringify(original), [original]);
+  const dirty = draftBody !== originalBody;
   const stale = view.current_revision_id !== record.id;
   const retryingSave = stale && pendingBody === draftBody;
   const saveDisabled = busy || !dirty || !!invalidRecovery || (stale && !retryingSave);
@@ -114,6 +118,20 @@ export function ReportEditor({
   const showSaveContinuation = awaitingNote && dirty && !stale && !invalidRecovery;
   const showNoteMessage = showSaveContinuation && noteMissing;
   const section = draft.sections.find((s) => s.id === selected) ?? draft.sections[0]!;
+  const sectionQuery = sectionSearch.trim().toLowerCase();
+  const searchingSections = Boolean(sectionQuery);
+  const indexedSections = useMemo(
+    () =>
+      draft.sections.map((item, index) => ({
+        item,
+        index,
+        text: searchingSections ? `${item.heading}\n${item.body}`.toLowerCase() : "",
+      })),
+    [draft.sections, searchingSections],
+  );
+  const visibleSections = searchingSections
+    ? indexedSections.filter(({ text }) => text.includes(sectionQuery))
+    : indexedSections;
   const guide = styles.find((s) => s.id === draft.style_guide_id) ?? view.style_guide;
   const draftMarkdown = useMemo(
     () =>
@@ -369,19 +387,52 @@ export function ReportEditor({
                 </select>
               </label>
             </div>
-            <nav className="report-outline" aria-label="Report sections">
-              {draft.sections.map((s, i) => (
+            {(draft.sections.length >= 8 || sectionSearch) && (
+              <div className="report-outline-search">
+                <label>
+                  Find a section
+                  <input
+                    ref={sectionFilterInput}
+                    type="search"
+                    value={sectionSearch}
+                    maxLength={240}
+                    placeholder="Heading or text"
+                    aria-controls={outlineId}
+                    onChange={(event) => setSectionSearch(event.target.value)}
+                  />
+                </label>
+                {sectionSearch && (
+                  <button
+                    type="button"
+                    className="text-link"
+                    onClick={() => {
+                      setSectionSearch("");
+                      sectionFilterInput.current?.focus();
+                    }}
+                  >
+                    Clear search
+                  </button>
+                )}
+              </div>
+            )}
+            <nav id={outlineId} className="report-outline" aria-label="Report sections">
+              {visibleSections.map(({ item, index }) => (
                 <Button
-                  key={s.id}
+                  key={item.id}
                   className={
-                    s.id === section.id ? "report-outline-item selected" : "report-outline-item"
+                    item.id === section.id ? "report-outline-item selected" : "report-outline-item"
                   }
-                  aria-current={s.id === section.id ? "true" : undefined}
-                  onClick={() => setSelected(s.id)}
+                  aria-current={item.id === section.id ? "true" : undefined}
+                  onClick={() => setSelected(item.id)}
                 >
-                  {i + 1}. {s.heading}
+                  {index + 1}. {item.heading}
                 </Button>
               ))}
+              {!visibleSections.length && (
+                <p className="report-outline-empty" role="status">
+                  No sections match your search.
+                </p>
+              )}
             </nav>
             <div className="actions">
               <Button

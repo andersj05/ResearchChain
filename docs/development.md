@@ -297,9 +297,9 @@ When shared sources changed order, **Setup changes → Pinned source order** sho
 both runs’ full saved order.
 Search the entire evidence library by title, author, publisher, or saved date
 while keeping the selected records in view.
-The **Sources** workspace uses the same library search and applies availability
-before paging. Filtering the list keeps the open source and its linked claims
-in view.
+The **Sources** workspace combines library search, availability, and source type
+before paging. Filtering keeps the open source and its linked claims in view.
+**Clear filters** returns to the full list.
 
 **Model activity** can sort attempts by elapsed time or total reported tokens.
 Rows with missing measurements follow measured rows. Switch to **Timeline** to
