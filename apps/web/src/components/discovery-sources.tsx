@@ -268,6 +268,7 @@ export function DiscoverySources({
           selected={ids}
           onChange={onChange}
           onAdd={onPin}
+          allowBatchPin
           attachedCharts={known}
           showSelected={false}
           disabled={locked || filePending}

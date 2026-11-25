@@ -11,10 +11,13 @@ import {
   type EvidenceRecord,
 } from "@/lib/evidence";
 
+const sourceLimit = 100;
+
 export function EvidencePicker({
   selected,
   onChange,
   onAdd,
+  allowBatchPin = false,
   disabled = false,
   label = "Evidence for this run",
   onAttachChart,
@@ -24,6 +27,7 @@ export function EvidencePicker({
   selected: string[];
   onChange: (ids: string[]) => void;
   onAdd?: (record: EvidenceRecord) => void;
+  allowBatchPin?: boolean;
   disabled?: boolean;
   label?: string;
   onAttachChart?: (known: EvidenceRecord[]) => void;
@@ -63,8 +67,27 @@ export function EvidencePicker({
   const known = mergeSources([...attachedCharts, ...retained], library.items);
   const visible = query ? library.items : known;
   const byId = new Map(known.map((item) => [item.id, item]));
+  const selectedIds = new Set(selected);
+  const batch =
+    allowBatchPin && query && visible.length > 1
+      ? visible.filter((item) => !selectedIds.has(item.id))
+      : null;
+  const slots = Math.max(0, sourceLimit - selected.length);
+  const overCapacity = !!batch && batch.length > slots;
+  const batchHint = overCapacity
+    ? slots
+      ? `${slots} packet ${slots === 1 ? "slot" : "slots"} left. Narrow the search or pin sources individually.`
+      : `Packet holds ${sourceLimit} sources. Unpin a source to make room.`
+    : library.hasMore
+      ? `${visible.length} of ${library.total} results loaded.`
+      : "";
   const unresolved = selected.filter((id) => !byId.has(id));
   const remove = (id: string) => onChange(selected.filter((value) => value !== id));
+  function add(items: EvidenceRecord[]) {
+    setRetained((previous) => mergeSources(previous, items));
+    if (onAdd) items.forEach(onAdd);
+    else onChange([...selected, ...items.map((item) => item.id)]);
+  }
   function move(index: number, distance: -1 | 1, control: string, title: string) {
     const destination = index + distance;
     const id = selected[index];
@@ -85,7 +108,7 @@ export function EvidencePicker({
       {onAttachChart && (
         <Button
           className="button small"
-          disabled={disabled || selected.length >= 100}
+          disabled={disabled || !slots}
           onClick={() => onAttachChart(known)}
         >
           Upload a chart
@@ -178,6 +201,22 @@ export function EvidencePicker({
         }}
         placeholder="Title, author, publisher, or date"
       />
+      {batch && (
+        <div className="actions field-hint">
+          <Button
+            className="button small"
+            disabled={disabled || library.loading || !batch.length || overCapacity}
+            focusableWhenDisabled={!disabled}
+            aria-describedby={batchHint ? `${pickerId}-batch-hint` : undefined}
+            onClick={() => add(batch)}
+          >
+            {batch.length
+              ? `Pin ${batch.length} loaded ${batch.length === 1 ? "result" : "results"}`
+              : "Loaded results pinned"}
+          </Button>
+          {batchHint && <span id={`${pickerId}-batch-hint`}>{batchHint}</span>}
+        </div>
+      )}
       <div className="evidence-options">
         {visible.map((item) => (
           <label className="evidence-option" key={item.id}>
@@ -185,14 +224,11 @@ export function EvidencePicker({
               type="checkbox"
               aria-labelledby={`${pickerId}-${item.id}-name`}
               aria-describedby={`${pickerId}-${item.id}-details`}
-              checked={selected.includes(item.id)}
-              disabled={disabled || (selected.length >= 100 && !selected.includes(item.id))}
+              checked={selectedIds.has(item.id)}
+              disabled={disabled || (!slots && !selectedIds.has(item.id))}
               onChange={(event) => {
-                if (event.target.checked) {
-                  setRetained((previous) => mergeSources(previous, [item]));
-                  if (onAdd) onAdd(item);
-                  else onChange([...selected, item.id]);
-                } else remove(item.id);
+                if (event.target.checked) add([item]);
+                else remove(item.id);
               }}
             />
             <span className="evidence-option-copy">
