@@ -73,14 +73,16 @@ export function ReportSource({ source }: { source: EvidenceRecord }) {
 }
 export function ReportSectionSources({
   section,
-  view,
+  sources,
+  sourceBases,
   disabled,
   onChange,
   referenceDraft,
   onReferenceDraftChange,
 }: {
   section: ReportSection;
-  view: ReportView;
+  sources: EvidenceRecord[];
+  sourceBases: ReportView["source_bases"];
   disabled: boolean;
   onChange: (section: ReportSection) => void;
   referenceDraft?: SectionReferenceDraft;
@@ -89,16 +91,18 @@ export function ReportSectionSources({
   const citation = referenceDraft?.citation;
   const editing = referenceDraft?.editing ?? null;
   const error = referenceDraft?.error;
-  const sources = view.revision.sources;
+  const referenceSources = sources.filter((source) => sourceBases[source.id]);
   const charts = sources.filter(
     (s) => s.artifact && ["image/png", "image/jpeg", "image/webp"].includes(s.artifact.media_type),
   );
-  const currentSource = sources.find((s) => s.id === citation?.evidence_id);
+  const placedCharts = section.chart_ids ?? [];
+  const currentSource = referenceSources.find((s) => s.id === citation?.evidence_id);
   function changeCitation(citation: Citation) {
     onReferenceDraftChange({ citation, editing, error });
   }
   function choose(id: string) {
-    const basis = view.source_bases[id] as Citation["basis"];
+    const basis = sourceBases[id] as Citation["basis"] | undefined;
+    if (!basis) return;
     changeCitation({
       evidence_id: id,
       basis,
@@ -147,8 +151,8 @@ export function ReportSectionSources({
       {!citation ? (
         <Button
           className="button small"
-          disabled={disabled || !sources.length}
-          onClick={() => choose(sources[0]!.id)}
+          disabled={disabled || !referenceSources.length}
+          onClick={() => choose(referenceSources[0]!.id)}
         >
           Add source reference
         </Button>
@@ -158,7 +162,12 @@ export function ReportSectionSources({
           <label>
             Reference source
             <select value={citation.evidence_id} onChange={(e) => choose(e.target.value)}>
-              {sources.map((s) => (
+              {!currentSource && (
+                <option value={citation.evidence_id} disabled>
+                  Selected source unavailable
+                </option>
+              )}
+              {referenceSources.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.title}
                 </option>
@@ -166,6 +175,11 @@ export function ReportSectionSources({
             </select>
           </label>
           <p className="field-hint">Basis: {citation.basis.replaceAll("_", " ")}</p>
+          {!currentSource && (
+            <p className="field-hint">
+              Choose another source or retry draft source details in Report context.
+            </p>
+          )}
           {currentSource && (
             <a
               className="button small"
@@ -199,17 +213,18 @@ export function ReportSectionSources({
               placeholder="Page, section, row, or chart detail"
             />
           </label>
-          {currentSource?.artifact?.media_type.startsWith("text/") && (
-            <label>
-              Exact quotation (optional)
-              <textarea
-                maxLength={2000}
-                rows={3}
-                value={citation.quote}
-                onChange={(e) => changeCitation({ ...citation, quote: e.target.value })}
-              />
-            </label>
-          )}
+          {citation.basis !== "metadata_only" &&
+            currentSource?.artifact?.media_type.startsWith("text/") && (
+              <label>
+                Exact quotation (optional)
+                <textarea
+                  maxLength={2000}
+                  rows={3}
+                  value={citation.quote}
+                  onChange={(e) => changeCitation({ ...citation, quote: e.target.value })}
+                />
+              </label>
+            )}
           <label>
             Why this source matters
             <textarea
@@ -227,6 +242,7 @@ export function ReportSectionSources({
           <div className="actions">
             <Button
               className="button"
+              disabled={!currentSource}
               onClick={() => {
                 if (!citation.locator.trim() || !citation.rationale.trim()) {
                   onReferenceDraftChange({
@@ -265,13 +281,13 @@ export function ReportSectionSources({
           <label className="report-check" key={source.id}>
             <input
               type="checkbox"
-              checked={section.chart_ids?.includes(source.id) ?? false}
+              checked={placedCharts.includes(source.id)}
               onChange={(e) =>
                 onChange({
                   ...section,
                   chart_ids: e.target.checked
-                    ? [...(section.chart_ids ?? []), source.id]
-                    : section.chart_ids?.filter((id) => id !== source.id),
+                    ? [...placedCharts, source.id]
+                    : placedCharts.filter((id) => id !== source.id),
                 })
               }
             />
@@ -279,7 +295,7 @@ export function ReportSectionSources({
           </label>
         ))}
       </fieldset>
-      {(section.chart_ids ?? []).map((id) => {
+      {placedCharts.map((id) => {
         const source = charts.find((s) => s.id === id);
         return source?.artifact ? (
           <figure className="report-chart" key={id}>
@@ -288,7 +304,21 @@ export function ReportSectionSources({
               {source.title} · {source.representation} · As of {source.as_of_date ?? "unknown"}
             </figcaption>
           </figure>
-        ) : null;
+        ) : (
+          <div className="actions" key={id}>
+            <p className="field-hint">Chart {id.slice(0, 8)} preview unavailable.</p>
+            <Button
+              className="button small"
+              disabled={disabled}
+              aria-label={`Remove unavailable chart ${id.slice(0, 8)}`}
+              onClick={() =>
+                onChange({ ...section, chart_ids: placedCharts.filter((key) => key !== id) })
+              }
+            >
+              Remove chart
+            </Button>
+          </div>
+        );
       })}
     </div>
   );

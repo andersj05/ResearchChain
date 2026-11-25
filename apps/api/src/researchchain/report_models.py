@@ -195,6 +195,11 @@ class ReportView(ResearchModel):
     review_status: Literal["unreviewed", "accepted", "rejected"]
 
 
+class ReportDraftSources(ResearchModel):
+    sources: list[EvidenceRecord]
+    source_bases: dict[UUID, str]
+
+
 class ReportSummary(ResearchModel):
     id: UUID
     series_id: UUID

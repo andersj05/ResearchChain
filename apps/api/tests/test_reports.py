@@ -328,6 +328,39 @@ def test_numeric_derivatives_cannot_be_relabelled_original(database: Database) -
     assert Reports(database).save(request).sections[0].citations[0].basis == "estimate"
 
 
+def test_draft_sources_read_exact_bounded_records_and_authoritative_bases(
+    client: TestClient, database: Database
+) -> None:
+    image = ArtifactStore(database).put(PNG, "draft-source.png")
+    chart = EvidenceStore(database).create(
+        EvidenceCreate(
+            id=uuid4(),
+            title="Synthetic chart",
+            kind="image",
+            representation="chart_screenshot",
+            rights="owned",
+            artifact_id=image.id,
+        )
+    )
+    derived = evidence(database, parent_id=chart.id, text="The interpretation is synthetic.")
+    endpoint = "/api/reports/draft-sources"
+    ids = [derived.id, uuid4(), chart.id, derived.id]
+    with TestClient(client.app, base_url=str(client.base_url)) as anonymous:
+        assert anonymous.get(endpoint, params={"evidence_id": [str(derived.id)]}).status_code == 401
+
+    response = client.get(endpoint, params={"evidence_id": [str(key) for key in ids]})
+    assert response.status_code == 200
+    assert response.json() == {
+        "sources": [
+            derived.model_dump(mode="json", by_alias=True),
+            chart.model_dump(mode="json", by_alias=True),
+        ],
+        "source_bases": {str(derived.id): "estimate", str(chart.id): "image_interpretation"},
+    }
+    assert client.get(endpoint).status_code == 422
+    assert client.get(endpoint, params={"evidence_id": [str(derived.id)] * 101}).status_code == 422
+
+
 def test_noop_and_invalid_fact_sections_rejected(database: Database) -> None:
     record, _, _, _ = seeded(database)
     with pytest.raises(EvidenceError, match="Change the report"):

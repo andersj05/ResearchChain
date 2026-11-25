@@ -1686,6 +1686,51 @@
         }
       }
     },
+    "/api/reports/draft-sources": {
+      "get": {
+        "summary": "Read Draft Sources",
+        "operationId": "read_report_draft_sources",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDraftSources"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/reports/{key}": {
       "get": {
         "summary": "Get Report",
@@ -7396,6 +7441,31 @@
         "type": "object",
         "required": ["id", "title", "run_id", "attempt_id", "style_guide_id"],
         "title": "ReportCreate"
+      },
+      "ReportDraftSources": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "source_bases": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Source Bases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["sources", "source_bases"],
+        "title": "ReportDraftSources"
       },
       "ReportEdit": {
         "properties": {
