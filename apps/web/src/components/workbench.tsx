@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { Activity, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Undo2, Redo2, CheckCheck, X } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { AgentSwitcher, type StartingWorkflow } from "@/components/agent-switcher";
@@ -122,9 +122,11 @@ export function Workbench() {
   const runId = parameters.get("run");
   const [tab, setView] = useState(requestedView ?? (runId ? "runs" : "workflow"));
   const [buildOpened, setBuildOpened] = useState(tab === "workflow");
+  const [reportVisit, setReportVisit] = useState(tab === "reports" ? 1 : 0);
   const switchedTab = useRef(false);
   const setTab = useCallback((value: WorkspaceView) => {
     if (value === "workflow") setBuildOpened(true);
+    if (value === "reports") setReportVisit((visit) => visit + 1);
     setView(value);
   }, []);
   const [message, setMessage] = useState("");
@@ -1338,8 +1340,15 @@ export function Workbench() {
         <TabsPanel className="evidence-view" value="evidence">
           <EvidenceDesk />
         </TabsPanel>
-        <TabsPanel className="reports-view" value="reports">
-          <ReportDesk />
+        <TabsPanel
+          className="reports-view"
+          value="reports"
+          keepMounted={reportVisit > 0}
+          hidden={tab !== "reports"}
+        >
+          <Activity mode={tab === "reports" ? "visible" : "hidden"}>
+            <ReportDesk visit={reportVisit} />
+          </Activity>
         </TabsPanel>
         <TabsPanel className="evaluations-view" value="evaluations">
           {loaded ? <EvaluationDesk /> : <p role="status">Opening evaluations…</p>}

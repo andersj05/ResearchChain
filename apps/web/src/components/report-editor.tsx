@@ -36,12 +36,14 @@ import {
 export function ReportEditor({
   view,
   styles,
+  checkingRevision,
   initialSectionId,
   onOpen,
   onRefresh,
 }: {
   view: ReportView;
   styles: StyleGuide[];
+  checkingRevision: boolean;
   initialSectionId?: string;
   onOpen: (id: string, sectionId?: string) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -119,7 +121,8 @@ export function ReportEditor({
   const dirty = draftBody !== originalBody;
   const stale = view.current_revision_id !== record.id;
   const retryingSave = stale && pendingBody === draftBody;
-  const saveDisabled = busy || !dirty || !!invalidRecovery || (stale && !retryingSave);
+  const saveDisabled =
+    checkingRevision || busy || !dirty || !!invalidRecovery || (stale && !retryingSave);
   const noteMissing = !draft.change_note.trim();
   const showSaveContinuation = awaitingNote && dirty && !stale && !invalidRecovery;
   const showNoteMessage = showSaveContinuation && noteMissing;
