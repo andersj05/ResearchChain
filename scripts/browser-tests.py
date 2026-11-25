@@ -27,6 +27,9 @@ def browser_ports() -> tuple[int, int]:
 
 
 Database.from_env()
+local_build = "--production" in sys.argv[1:] and not os.environ.get("CI")
+browser_arguments = [option for option in sys.argv[1:] if option != "--production"]
+pnpm = "pnpm.cmd" if os.name == "nt" else "pnpm"
 web_port, api_port = browser_ports()
 database = Database(
     url=os.environ.get("TEST_DATABASE_URL", LOCAL_DATABASE_URL),
@@ -59,6 +62,9 @@ try:
             "RESEARCHCHAIN_BROWSER_WEB_PORT": str(web_port),
             "RESEARCHCHAIN_BROWSER_API_PORT": str(api_port),
         }
+        if local_build:
+            environment["RESEARCHCHAIN_BROWSER_USE_BUILD"] = "1"
+            subprocess.run([pnpm, "build"], env=environment, check=True)
         worker = subprocess.Popen(
             [sys.executable, "apps/api/tests/research_browser_fixture.py"],
             env=environment,
@@ -70,11 +76,11 @@ try:
         try:
             result = subprocess.run(
                 [
-                    "pnpm.cmd" if os.name == "nt" else "pnpm",
+                    pnpm,
                     "--filter",
                     "@researchchain/web",
                     "test:e2e",
-                    *sys.argv[1:],
+                    *browser_arguments,
                 ],
                 env=environment,
                 check=False,
