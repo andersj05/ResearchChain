@@ -314,7 +314,7 @@
   padding-inline: clamp(8px, 2vw, 24px);
 }
 .reportViewport {
-  overflow-anchor: none;
+  overflow-anchor: auto;
 }
 .detail > .focusedReport {
   max-height: max(65vh, calc(100dvh - 10rem));
