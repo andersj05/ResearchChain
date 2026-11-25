@@ -43,6 +43,7 @@ import {
   SessionWorkspaceLink,
 } from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
+import { StudyWorkbenchLink } from "./study-workbench-link";
 import styles from "./research-session.module.css";
 
 const sessionControlsId = "session-controls";
@@ -52,7 +53,7 @@ type Props = {
   revisitSetup?: { href: string; onClick: MouseEventHandler<HTMLAnchorElement> };
   openRevisitInNewTab?: boolean;
   titleRef?: (title: HTMLHeadingElement | null) => void;
-  openComparisonInNewTab?: boolean;
+  openWorkbenchInNewTab?: boolean;
   onReuseSource?: (source: EvidenceRecord) => void;
 };
 type Review = NonNullable<RunSnapshot["review"]>;
@@ -131,7 +132,7 @@ function ResearchSessionView({
   revisitSetup,
   openRevisitInNewTab,
   titleRef,
-  openComparisonInNewTab,
+  openWorkbenchInNewTab,
   onReuseSource,
 }: Props) {
   const { active, owner } = useOwner();
@@ -279,7 +280,9 @@ function ResearchSessionView({
           <div role="alert">
             <p>{readError}</p>
             <button onClick={() => setRefresh((n) => n + 1)}>Refresh session</button> ·{" "}
-            <a href={fullRun}>Open run inspector</a>
+            <StudyWorkbenchLink href={fullRun} newTab={openWorkbenchInNewTab}>
+              Open run inspector
+            </StudyWorkbenchLink>
           </div>
         ) : (
           <p role="status">Opening the research session…</p>
@@ -494,13 +497,12 @@ function ResearchSessionView({
             </a>
           )}
           {run.baseline_run_id && (
-            <a
+            <StudyWorkbenchLink
               href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}
-              target={openComparisonInNewTab ? "_blank" : undefined}
-              rel={openComparisonInNewTab ? "noopener" : undefined}
+              newTab={openWorkbenchInNewTab}
             >
-              {openComparisonInNewTab ? "Compare with baseline (new tab)" : "Compare with baseline"}
-            </a>
+              Compare with baseline
+            </StudyWorkbenchLink>
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
           <a href="#research-workspaces">Workspaces</a>
@@ -685,6 +687,7 @@ function ResearchSessionView({
           key={workspace.key}
           lane={workspace}
           run={run}
+          openWorkbenchInNewTab={openWorkbenchInNewTab}
           showStudySections={live}
           passId={passId}
           onPass={(id) =>
@@ -735,7 +738,9 @@ function ResearchSessionView({
         tabIndex={canStop ? -1 : undefined}
       >
         {!failedReview && actionNotice}
-        <a href={fullRun}>Open run inspector</a>
+        <StudyWorkbenchLink href={fullRun} newTab={openWorkbenchInNewTab}>
+          Open run inspector
+        </StudyWorkbenchLink>
         {canStop && (
           <div className={styles.actions}>
             {run.status === "interrupted" && !live && (
