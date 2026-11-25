@@ -208,6 +208,8 @@ editor findings** to open the editor’s exact saved pass.
 **Focus reading** gives the report the full workspace while keeping the current
 paragraph in view. Choose **Exit reading** or press Escape inside the report to
 return to the workspaces.
+Use **Inspect figure** next to a saved chart to read it at original size. Escape
+returns to that figure in the report.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
 Choose **Edit in Reports** to create an editable report from the saved Markdown
