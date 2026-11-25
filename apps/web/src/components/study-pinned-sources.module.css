@@ -19,6 +19,16 @@
   padding: 7px 0 7px 3px;
   border-bottom: 1px solid var(--line);
 }
+.sourceHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+.sourceHeading button {
+  min-height: 24px;
+  white-space: nowrap;
+}
 .sources a,
 .sources strong {
   color: var(--ink);

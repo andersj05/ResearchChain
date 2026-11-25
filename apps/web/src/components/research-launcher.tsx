@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources } from "./discovery-sources";
 import { StudyPacket, packetSize } from "./study-packet";
@@ -37,6 +37,11 @@ const StudySetupComparison = lazy(() =>
   })),
 );
 
+function browsingSavedStudies() {
+  const query = new URLSearchParams(window.location.search);
+  return query.get("studies") === "1" || !!query.get("session");
+}
+
 export function ResearchLauncher({ fromSession }: { fromSession: string | null }) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
@@ -46,6 +51,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const [baseline, setBaseline] = useState<ResearchSessionSetup>();
   const { draft, awaitingModelCatalog } = form;
   const [pending, setPending] = useState<ResearchSessionStart | null>(saved?.pending ?? null);
+  const [confirmedStart, setConfirmedStart] = useState<string>();
   const [loaded, setLoaded] = useState(Boolean(saved) || !fromSession);
   const [refreshSetup, setRefreshSetup] = useState(0);
   const [check, setCheck] = useState(0);
@@ -70,8 +76,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const inFlight = useRef(false);
   const admitted = useRef(false);
   const mounted = useRef(false);
+  const deferNavigation = useRef(false);
   const launchBar = useRef<HTMLDivElement>(null);
-  const catalog = useModelCatalog(active);
+  const catalog = useModelCatalog(active && !confirmedStart);
   const account = catalog.status?.accounts.find(
     (item) => item.active && item.signed_in && item.plan_enabled,
   );
@@ -100,6 +107,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     !busy &&
     !readingSample &&
     !editingSource &&
+    !confirmedStart &&
     (pending
       ? retryable &&
         !catalog.loading &&
@@ -111,8 +119,22 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     mounted.current = true;
     return () => {
       mounted.current = false;
+      if (browsingSavedStudies()) deferNavigation.current = true;
     };
   }, []);
+
+  const confirmAdmission = useCallback(
+    (runId: string) => {
+      admitted.current = true;
+      storeResearchBrief(key, null);
+      storeResearchCaptureDraft(captureKey, null);
+      if (deferNavigation.current || browsingSavedStudies()) {
+        setConfirmedStart(runId);
+        setStartError("");
+      } else window.location.assign(sessionUrl(runId));
+    },
+    [key, captureKey],
+  );
 
   useEffect(() => {
     const bar = launchBar.current;
@@ -128,7 +150,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       observer.disconnect();
       root.removeProperty(clearance);
     };
-  }, [active]);
+  }, [active, confirmedStart]);
 
   useEffect(() => {
     if (!active || !fromSession || loaded) return;
@@ -175,10 +197,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     ).then(
       () => {
         if (!current) return;
-        admitted.current = true;
-        storeResearchBrief(key, null);
-        storeResearchCaptureDraft(captureKey, null);
-        window.location.assign(sessionUrl(pending.id));
+        confirmAdmission(pending.id);
       },
       (cause: unknown) => {
         if (!current) return;
@@ -194,10 +213,11 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     return () => {
       current = false;
     };
-  }, [active, key, captureKey, busy, pending, check]);
+  }, [active, busy, pending, check, confirmAdmission]);
 
   async function start() {
     if (!canStart || !account || inFlight.current || admitted.current) return;
+    deferNavigation.current = false;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
       title: draft.title?.trim() || undefined,
@@ -218,22 +238,19 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     storeResearchBrief(key, { draft: exact, pending: request });
     try {
       const receipt = await api<CommandReceipt>("research-sessions", request, admissionTimeout);
-      if (!mounted.current) return;
+      if (!mounted.current && !browsingSavedStudies()) return;
       if (receipt.run_id !== request.id)
         throw new Error("The server returned a different session. Check this start request.");
-      admitted.current = true;
-      storeResearchBrief(key, null);
-      storeResearchCaptureDraft(captureKey, null);
-      window.location.assign(sessionUrl(receipt.run_id));
+      confirmAdmission(receipt.run_id);
     } catch (cause) {
-      if (!mounted.current) return;
+      if (!mounted.current && !browsingSavedStudies()) return;
       if (cause instanceof ApiError && [400, 422].includes(cause.status ?? 0)) setPending(null);
       setStartError(
         cause instanceof Error ? cause.message : "The server has not confirmed the start.",
       );
     } finally {
       inFlight.current = false;
-      if (mounted.current) setBusy(false);
+      setBusy(false);
     }
   }
 
@@ -254,6 +271,21 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           },
     );
     setStartError("");
+  }
+
+  if (confirmedStart) {
+    return (
+      <section className={styles.launch} aria-labelledby="research-title">
+        <h1 id="research-title" tabIndex={-1}>
+          Study started
+        </h1>
+        <div className={styles.intro}>
+          <a className="button primary" href={sessionUrl(confirmedStart)}>
+            Open study
+          </a>
+        </div>
+      </section>
+    );
   }
 
   const count = draft.evidence_ids.length;
@@ -277,7 +309,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
 
   return (
     <section className={styles.launch} aria-labelledby="research-title">
-      <h1 id="research-title">{fromSession ? "Revisit material" : "New study"}</h1>
+      <h1 id="research-title" tabIndex={-1}>
+        {fromSession ? "Revisit material" : "New study"}
+      </h1>
       <p className={styles.intro}>
         Gather the week’s material. The lead will suggest a sentence for you to investigate.
       </p>

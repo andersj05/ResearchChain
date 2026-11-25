@@ -35,7 +35,11 @@ import {
 import { sessionSwarm } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
 
-type Props = { runId: string; onNewStudy: (fromSession?: string) => void };
+type Props = {
+  runId: string;
+  onNewStudy: (fromSession?: string) => void;
+  titleRef?: (title: HTMLHeadingElement | null) => void;
+};
 type Review = NonNullable<RunSnapshot["review"]>;
 type ReturnOrigin =
   { kind: "consultation" | "judgment"; reviewId: string } | ({ kind: "index" } & StudyIndexReturn);
@@ -107,7 +111,7 @@ function OwnerQuestion({
   );
 }
 
-function ResearchSessionView({ runId, onNewStudy }: Props) {
+function ResearchSessionView({ runId, onNewStudy, titleRef }: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
   const [readingSourcesRequested, setReadingSourcesRequested] = useState(false);
@@ -232,7 +236,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   if (!run)
     return (
       <main className={styles.page}>
-        <h1>Research session</h1>
+        <h1 ref={readError ? titleRef : undefined} tabIndex={-1}>
+          Research session
+        </h1>
         {readError ? (
           <div role="alert">
             <p>{readError}</p>
@@ -348,7 +354,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           />
         </div>
         <div className={styles.titleRow}>
-          <h1>{title}</h1>
+          <h1 ref={titleRef} tabIndex={-1}>
+            {title}
+          </h1>
           <Button className="button" onClick={() => onNewStudy(run.id)}>
             Revisit material
           </Button>
@@ -482,7 +490,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               request.
             </p>
           )}
-          {sourceDetails.settingsRequested && (
+          {active && sourceDetails.settingsRequested && (
             <StudyPinnedSources lookup={sourceDetails} artifacts={run.artifacts} />
           )}
           {run.baseline_run_id && (
