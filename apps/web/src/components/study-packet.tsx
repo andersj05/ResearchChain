@@ -63,6 +63,8 @@ export function StudyPacket({
   retry?: () => void;
 }) {
   const [previewId, setPreviewId] = useState<string>();
+  const [sourceToMove, setSourceToMove] = useState<string>();
+  const [destination, setDestination] = useState<{ sourceId: string; index: number }>();
   const [edit, setEdit] = useState<{
     ids: string[];
     focusId: string;
@@ -89,18 +91,22 @@ export function StudyPacket({
   const canUndoBulkUnpin = !!appliedEdit?.restoreIds;
   const bulkUnpinId = `${packetId}-unpin-all`;
   const undoId = `${packetId}-undo-unpin-all`;
+  const sourceIndex = Math.max(0, ids.indexOf(sourceToMove ?? ""));
+  const sourceId = ids[sourceIndex];
+  const destinationIndex =
+    destination && destination.sourceId === sourceId
+      ? Math.min(destination.index, ids.length - 1)
+      : sourceIndex;
   useLayoutEffect(() => {
     if (appliedEdit) document.getElementById(appliedEdit.focusId)?.focus();
   }, [appliedEdit]);
 
-  function move(index: number, distance: -1 | 1, focusId: string, title: string) {
-    const destination = index + distance;
+  function move(index: number, destination: number, focusId: string, title: string) {
     const id = ids[index];
-    const neighbor = ids[destination];
-    if (!id || !neighbor) return;
+    if (disabled || !id || !ids[destination] || index === destination) return;
     const next = [...ids];
-    next[index] = neighbor;
-    next[destination] = id;
+    next.splice(index, 1);
+    next.splice(destination, 0, id);
     setEdit({
       ids: next,
       focusId,
@@ -175,6 +181,62 @@ export function StudyPacket({
       <p className="sr-only" role="status">
         {appliedEdit?.message ?? sourceCount(ids.length)}
       </p>
+      {ids.length > 1 && (
+        <details className={styles.moveSource}>
+          <summary>Move a source</summary>
+          <form
+            aria-label="Set reading order"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!sourceId) return;
+              const title = records[sourceIndex]?.title ?? `Source ${sourceId.slice(0, 8)}`;
+              move(sourceIndex, destinationIndex, `${packetId}-${sourceId}-source`, title);
+              setDestination(undefined);
+            }}
+          >
+            <fieldset disabled={disabled}>
+              <label>
+                Source
+                <select
+                  value={sourceId}
+                  onChange={(event) => {
+                    setSourceToMove(event.target.value);
+                    setDestination(undefined);
+                  }}
+                >
+                  {ids.map((id, index) => (
+                    <option key={id} value={id}>
+                      {index + 1}. {records[index]?.title ?? `Source ${id.slice(0, 8)}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                New position
+                <select
+                  value={destinationIndex}
+                  onChange={(event) => {
+                    if (sourceId) setDestination({ sourceId, index: Number(event.target.value) });
+                  }}
+                >
+                  {ids.map((id, index) => (
+                    <option key={id} value={index}>
+                      {index + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="button small"
+                type="submit"
+                disabled={sourceIndex === destinationIndex}
+              >
+                Move source
+              </button>
+            </fieldset>
+          </form>
+        </details>
+      )}
       {ids.length ? (
         <>
           <ol aria-label="Pinned material" className={styles.pins}>
@@ -211,6 +273,7 @@ export function StudyPacket({
                     </span>
                   )}
                   <a
+                    id={`${packetId}-${id}-source`}
                     href={evidenceUrl(id)}
                     target="_blank"
                     rel="noopener"
@@ -236,7 +299,7 @@ export function StudyPacket({
                           disabled={disabled || index === 0}
                           focusableWhenDisabled={!disabled}
                           aria-label={`Move ${title} up`}
-                          onClick={() => move(index, -1, upId, title)}
+                          onClick={() => move(index, index - 1, upId, title)}
                         >
                           <ChevronUp size={15} aria-hidden />
                         </Button>
@@ -246,7 +309,7 @@ export function StudyPacket({
                           disabled={disabled || index === ids.length - 1}
                           focusableWhenDisabled={!disabled}
                           aria-label={`Move ${title} down`}
-                          onClick={() => move(index, 1, downId, title)}
+                          onClick={() => move(index, index + 1, downId, title)}
                         >
                           <ChevronDown size={15} aria-hidden />
                         </Button>
