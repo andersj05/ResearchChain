@@ -196,7 +196,8 @@ same search at its file, even after closing the file list.
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.
 Expand a saved direction to see exactly which requests included it. Once the
-editor starts, the current study closes to further directions.
+editor starts, the current study closes to further directions. Any unsent note
+stays in **Team directions**, where you can copy it for a revised study.
 
 **Session controls** jumps from the study overview to its stop or recovery
 actions. Stopping uses a separate confirmation. Choose **Keep session** to
