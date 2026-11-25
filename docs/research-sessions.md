@@ -115,6 +115,10 @@ behind it. You can give the editor your judgment or end the study at that point.
 Open the report editor's workspace to read the saved Markdown with its figures.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
+Choose **Edit in Reports** to create an editable report from the saved Markdown
+with the figures, the original study and its recorded sources attached. Confirm
+the title and a style guide before creating the draft. Further edits and editorial
+feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
 
 Choose **Revisit material** to start another experiment with the previous context,
 sample, sources and settings. The new session links to its baseline so you can

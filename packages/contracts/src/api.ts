@@ -2947,6 +2947,8 @@ export interface components {
        * Format: uuid
        */
       style_guide_id: string;
+      /** Source Format */
+      source_format?: "session_markdown" | null;
     };
     /** ReportEdit */
     ReportEdit: {
@@ -3055,9 +3057,11 @@ export interface components {
       /**
        * Renderer
        * @default report-seed-1
-       * @constant
+       * @enum {string}
        */
-      renderer: "report-seed-1";
+      renderer: "report-seed-1" | "study-markdown-1";
+      /** Recorded Urls */
+      recorded_urls?: string[];
     };
     /** ReportRevision */
     ReportRevision: {

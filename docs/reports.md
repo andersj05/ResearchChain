@@ -5,6 +5,15 @@ a completed research attempt. The first revision preserves the recorded conclusi
 hypotheses, alternatives, falsifiers, limitations and evidence requests, together
 with the original run, model, workflow and prompt provenance.
 
+From a completed Research desk study, choose **Edit in Reports** beside the
+download action. The draft form opens on that report editor's final result.
+Confirm the title and pinned style guide, then create the draft. It starts with
+the saved Markdown, original editor files, recorded references and source
+snapshots. Open **Preview the saved report** to read the Markdown with its
+figures and recorded web links. **Original study and files** links back to the
+study and offers individual downloads. If the receipt is lost, the same browser
+tab restores the pending request so you can retry it after refreshing.
+
 Report creation copies a saved result. Section drafting and revision are human
 editing actions. The pinned guide is an editorial reference; it does not
 automatically rewrite the seed or demonstrate that the report matches the owner's
@@ -65,6 +74,8 @@ Export a saved revision as a ZIP with an offline `index.html`, a structured
 shows classifications, quotations, charts, dated sources, exact review status and
 the pinned guide. Original bytes retain their content hashes. Files use controlled
 content-addressed paths, and the HTML disables scripts and external resource loads.
+For a report drafted from a study, the bundle includes that editor's original
+Markdown, figures and other saved files in `study-files/`.
 
 The bundle records the current head at export, so an older accepted revision is
 not confused with a newer draft. It contains current source originals and seed

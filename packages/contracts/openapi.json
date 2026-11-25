@@ -7303,6 +7303,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Style Guide Id"
+          },
+          "source_format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "session_markdown"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Format"
           }
         },
         "additionalProperties": false,
@@ -7580,9 +7592,16 @@
           },
           "renderer": {
             "type": "string",
-            "const": "report-seed-1",
+            "enum": ["report-seed-1", "study-markdown-1"],
             "title": "Renderer",
             "default": "report-seed-1"
+          },
+          "recorded_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recorded Urls"
           }
         },
         "additionalProperties": false,

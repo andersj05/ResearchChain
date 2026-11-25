@@ -357,10 +357,22 @@ export function SessionWorkspaceDetail({
             </p>
           )}
         </div>
-        {report?.complete && (
-          <a className="button small" href={`/api/research-sessions/${run.id}/report.zip`} download>
-            Download report and files
-          </a>
+        {report?.complete && latest && (
+          <div className={styles.actions}>
+            <a
+              className="button small primary"
+              href={`/?${new URLSearchParams({ view: "reports", fromStudy: run.id, reportAttempt: latest.id })}`}
+            >
+              Edit in Reports
+            </a>
+            <a
+              className="button small"
+              href={`/api/research-sessions/${run.id}/report.zip`}
+              download
+            >
+              Download report and files
+            </a>
+          </div>
         )}
       </div>
       {active && latest && (

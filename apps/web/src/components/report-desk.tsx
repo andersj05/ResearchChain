@@ -15,7 +15,14 @@ export function ReportDesk() {
   const [styles, setStyles] = useState<StyleGuide[]>([]);
   const [view, setView] = useState<ReportView | null>(null);
   const [page, setPage] = useState<"reports" | "styles">("reports");
-  const [creating, setCreating] = useState(false);
+  const [study, setStudy] = useState(() => {
+    if (typeof window === "undefined") return null;
+    const params = new URLSearchParams(window.location.search);
+    const runId = params.get("fromStudy");
+    const attemptId = params.get("reportAttempt");
+    return runId && attemptId ? { runId, attemptId } : null;
+  });
+  const [creating, setCreating] = useState(!!study);
   const [styleEdit, setStyleEdit] = useState<StyleGuide | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -54,7 +61,10 @@ export function ReportDesk() {
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("report", id);
     else url.searchParams.delete("report");
+    url.searchParams.delete("fromStudy");
+    url.searchParams.delete("reportAttempt");
     url.searchParams.set("view", "reports");
+    setStudy(null);
     window.history.replaceState(null, "", url);
   }
   async function open(id: string) {
@@ -69,6 +79,10 @@ export function ReportDesk() {
     setView(null);
     remember(null);
     setEpoch((e) => e + 1);
+  }
+  function cancelCreate() {
+    setCreating(false);
+    if (study) remember(null);
   }
   const visibleReports = reports
     .filter((report) =>
@@ -96,6 +110,7 @@ export function ReportDesk() {
             <Button
               className="button"
               onClick={() => {
+                if (study) remember(null);
                 setCreating(true);
                 setPage("reports");
                 setStyleEdit(undefined);
@@ -138,7 +153,7 @@ export function ReportDesk() {
             styleWrites.current += 1;
             setStyles((items) => [guide, ...items.filter((s) => s.id !== guide.id)]);
             setStyleEdit(undefined);
-            setPage("styles");
+            setPage(study ? "reports" : "styles");
           }}
         />
       ) : view ? (
@@ -174,8 +189,10 @@ export function ReportDesk() {
       ) : creating ? (
         styles.length ? (
           <ReportCreateForm
+            key={study?.attemptId ?? "new"}
+            study={study ?? undefined}
             styles={styles}
-            onCancel={() => setCreating(false)}
+            onCancel={cancelCreate}
             onCreate={async (r) => open(r.id)}
           />
         ) : (
@@ -187,6 +204,11 @@ export function ReportDesk() {
             <Button className="button primary" onClick={() => setStyleEdit(null)}>
               New style guide
             </Button>
+            {study && (
+              <Button className="button" onClick={cancelCreate}>
+                Cancel report creation
+              </Button>
+            )}
           </div>
         )
       ) : (
