@@ -2,6 +2,19 @@
 
 Updated 2026-11-25.
 
+## Resuming work in study settings, the archive, and report references
+
+Research settings shortcuts reopen the settings they point to. Returning from
+an embedded archive result keeps the exact study focused and restores its
+position in both scroll areas. Reports keeps unfinished reference fields with
+their section. **Inspect selected source (new tab)** opens the captured record
+from that form while it stays available in the editor.
+
+Workbench reuses the exact immutable agent head returned during startup. A
+production Chromium fixture with 72 versions and 20 runs removed one request on
+direct Reports and Sources. The removed response carried 45,055 decoded bytes
+and 2,690 browser-reported transfer bytes. Older revisions still load by exact ID.
+
 ## Returning to reviews, model receipts, and versions
 
 **Back to review inbox** restores the exact request and its page. If that request
@@ -26,6 +39,7 @@ you return.
 The Research Desk opens Workflows, Sources, and Reports in a new tab while
 unsubmitted files are queued so their titles, attribution, and original bytes
 stay available in the setup. Thirty-six focused production Chromium cases passed.
+The `ed2204f` merge was verified on Desktop with 332 browser cases passing in CI.
 [Report and source continuity PR](https://github.com/andersj05/ResearchChain/pull/167).
 
 ## Preserving research and report drafts
