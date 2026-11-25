@@ -4,6 +4,7 @@ import {
   Activity,
   lazy,
   Suspense,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useRef,
@@ -30,6 +31,7 @@ const ResearchMethodology = lazy(() =>
   })),
 );
 const studiesUrl = "?view=research&studies=1";
+const readerTitle = "study-reader-title";
 
 function RecentStudies() {
   const { active } = useOwner();
@@ -124,6 +126,8 @@ export function ResearchDesk({
     showingDraft ? fromSession : undefined,
   );
   if (showingDraft && draftScope !== fromSession) setDraftScope(fromSession);
+  const readingWithDraft = deskView === "session" && draftScope !== undefined;
+  const returningToDraft = deskView === "studies" || readingWithDraft;
   const focusAfterNavigation = useRef<string>(null);
   const returnToDraft = draftScope
     ? `?fromSession=${encodeURIComponent(draftScope)}`
@@ -132,10 +136,22 @@ export function ResearchDesk({
   useLayoutEffect(() => {
     const id = focusAfterNavigation.current;
     if (!id) return;
+    if (id === readerTitle && deskView === "session") {
+      window.scrollTo(0, 0);
+      return;
+    }
     focusAfterNavigation.current = null;
+    if (id === readerTitle) return;
     document.getElementById(id)?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }, [deskView]);
+
+  const focusReaderTitle = useCallback((title: HTMLHeadingElement | null) => {
+    if (!title || focusAfterNavigation.current !== readerTitle) return;
+    focusAfterNavigation.current = null;
+    title.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, []);
 
   function navigateWithinDesk(event: MouseEvent<HTMLAnchorElement>, heading: string) {
     if (
@@ -160,12 +176,10 @@ export function ResearchDesk({
         <div className={styles.headerInner}>
           <a
             className={styles.homeLink}
-            href={deskView === "studies" ? returnToDraft : "?view=research"}
+            href={returningToDraft ? returnToDraft : "?view=research"}
             aria-current={deskView === "launch" && !fromSession ? "page" : undefined}
             onClick={
-              deskView === "studies"
-                ? (event) => navigateWithinDesk(event, "research-title")
-                : undefined
+              returningToDraft ? (event) => navigateWithinDesk(event, "research-title") : undefined
             }
           >
             Research desk
@@ -175,7 +189,7 @@ export function ResearchDesk({
               href={studiesUrl}
               aria-current={deskView === "studies" ? "page" : undefined}
               onClick={
-                showingDraft || deskView === "studies"
+                showingDraft || returningToDraft
                   ? (event) => navigateWithinDesk(event, "studies-title")
                   : undefined
               }
@@ -221,6 +235,7 @@ export function ResearchDesk({
         >
           <ResearchSession
             runId={session}
+            titleRef={focusReaderTitle}
             onNewStudy={(source) => {
               window.location.assign(
                 source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",
@@ -258,7 +273,15 @@ export function ResearchDesk({
                 {draftScope !== undefined ? "Return to study setup" : "New study"}
               </a>
             </div>
-            <RunArchive sessionsOnly expanded />
+            <RunArchive
+              sessionsOnly
+              expanded
+              onOpenLink={
+                draftScope !== undefined
+                  ? (event) => navigateWithinDesk(event, readerTitle)
+                  : undefined
+              }
+            />
           </section>
         </main>
       ) : null}

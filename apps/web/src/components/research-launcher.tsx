@@ -37,8 +37,9 @@ const StudySetupComparison = lazy(() =>
   })),
 );
 
-function onStudiesPage() {
-  return new URLSearchParams(window.location.search).get("studies") === "1";
+function browsingSavedStudies() {
+  const query = new URLSearchParams(window.location.search);
+  return query.get("studies") === "1" || !!query.get("session");
 }
 
 export function ResearchLauncher({ fromSession }: { fromSession: string | null }) {
@@ -118,7 +119,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     mounted.current = true;
     return () => {
       mounted.current = false;
-      if (onStudiesPage()) deferNavigation.current = true;
+      if (browsingSavedStudies()) deferNavigation.current = true;
     };
   }, []);
 
@@ -127,7 +128,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       admitted.current = true;
       storeResearchBrief(key, null);
       storeResearchCaptureDraft(captureKey, null);
-      if (deferNavigation.current || onStudiesPage()) {
+      if (deferNavigation.current || browsingSavedStudies()) {
         setConfirmedStart(runId);
         setStartError("");
       } else window.location.assign(sessionUrl(runId));
@@ -237,12 +238,12 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     storeResearchBrief(key, { draft: exact, pending: request });
     try {
       const receipt = await api<CommandReceipt>("research-sessions", request, admissionTimeout);
-      if (!mounted.current && !onStudiesPage()) return;
+      if (!mounted.current && !browsingSavedStudies()) return;
       if (receipt.run_id !== request.id)
         throw new Error("The server returned a different session. Check this start request.");
       confirmAdmission(receipt.run_id);
     } catch (cause) {
-      if (!mounted.current && !onStudiesPage()) return;
+      if (!mounted.current && !browsingSavedStudies()) return;
       if (cause instanceof ApiError && [400, 422].includes(cause.status ?? 0)) setPending(null);
       setStartError(
         cause instanceof Error ? cause.message : "The server has not confirmed the start.",

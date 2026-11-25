@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEventHandler } from "react";
 import { ownerStoragePrefix } from "@/lib/access";
 import { api, type RunArchivePage, type RunSummary } from "@/lib/workflow";
 import { useOwner } from "./access-context";
@@ -62,11 +62,13 @@ function ArchiveResults({
   query,
   busy,
   onSelect,
+  onOpenLink,
   pagination,
 }: {
   query: string;
   busy: boolean;
   onSelect?: (run: RunSummary) => void;
+  onOpenLink?: MouseEventHandler<HTMLAnchorElement>;
   pagination?: Pagination;
 }) {
   const [localCursors, setLocalCursors] = useState<ArchiveCursor[]>([]);
@@ -156,6 +158,7 @@ function ArchiveResults({
                 ) : (
                   <a
                     className="run-row"
+                    onClick={onOpenLink}
                     href={
                       sessionsOnly
                         ? sessionUrl(run.id)
@@ -229,6 +232,7 @@ export function RunArchive({
   expanded = false,
   busy = false,
   onSelect,
+  onOpenLink,
 }: {
   agentId?: string | null;
   excludeRun?: string;
@@ -236,6 +240,7 @@ export function RunArchive({
   expanded?: boolean;
   busy?: boolean;
   onSelect?: (run: RunSummary) => void;
+  onOpenLink?: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const { owner, active } = useOwner();
   const storageKey = sessionsOnly ? `${ownerStoragePrefix(owner)}.research.archive.v1` : undefined;
@@ -336,6 +341,7 @@ export function RunArchive({
         query={query.toString()}
         busy={busy}
         onSelect={onSelect ? choose : undefined}
+        onOpenLink={onOpenLink}
         pagination={
           sessionsOnly
             ? { cursors: view.cursors, onChange: (cursors) => updateView({ ...view, cursors }) }
