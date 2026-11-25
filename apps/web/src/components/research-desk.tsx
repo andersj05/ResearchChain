@@ -382,6 +382,7 @@ export function ResearchDesk({
               key={draftScope ?? "new"}
               fromSession={draftScope}
               onQueuedFiles={onQueuedFiles}
+              onOpenPreviousStudy={(event) => navigateWithinDesk(event, readerTitle)}
               recentStudies={recent.studies}
               sourceAppend={sourceAppend?.scope === draftScope ? sourceAppend : undefined}
               onSourceAppendHandled={(handled) =>
