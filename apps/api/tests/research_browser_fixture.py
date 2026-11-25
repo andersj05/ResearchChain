@@ -44,9 +44,7 @@ class BrowserProvider(WebProvider):
         team_response = await self.team.complete_study(manifest, prepared, on_delta)
         if team_response is not None:
             return team_response
-        if manifest.tool_config.get("discovery_version") and not manifest.tool_config.get(
-            "swarm_version"
-        ):
+        if manifest.tool_config.get("discovery_version"):
             return await self.discovery.complete(manifest, prepared, on_delta)
         on_delta('{"schema_version":')
         if "Wait for cancellation" in str(prepared.input_items):

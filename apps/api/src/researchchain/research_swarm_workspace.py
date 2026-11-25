@@ -240,7 +240,8 @@ def swarm_material(
     for index, mandate in enumerate(plan.leads, 1):
         actions = turns[index]
         expected = list(range(1, len(actions) + 1))
-        if sorted(actions) != expected or (config and len(actions) > config.max_lead_turns):
+        max_turns = config.max_lead_turns if config else None
+        if sorted(actions) != expected or (max_turns is not None and len(actions) > max_turns):
             raise ValueError("The lead's recorded turn sequence differs from its assignment.")
         decisions = []
         count = 0

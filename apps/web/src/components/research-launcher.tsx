@@ -35,6 +35,7 @@ import {
   type RecentRunSummary,
 } from "@/lib/workflow";
 import {
+  defaultSwarm,
   editableResearchBrief,
   initializeResearchBrief,
   newStudyModelProfiles,
@@ -222,7 +223,10 @@ export function ResearchLauncher({
       (setup) => {
         if (current) {
           setBaseline(setup);
-          setForm({ draft: editableResearchBrief(setup), awaitingModelCatalog: false });
+          setForm({
+            draft: { ...editableResearchBrief(setup), swarm: setup.swarm ?? defaultSwarm },
+            awaitingModelCatalog: false,
+          });
           setLoaded(true);
           setSetupError("");
         }
@@ -305,7 +309,7 @@ export function ResearchLauncher({
       confirmAdmission(receipt.run_id);
     } catch (cause) {
       if (!mounted.current && !browsingSavedStudies()) return;
-      if (cause instanceof ApiError && [400, 422].includes(cause.status ?? 0)) setPending(null);
+      if (cause instanceof ApiError && [400, 422].includes(cause.status ?? 0)) clearPending();
       setStartError(
         cause instanceof Error ? cause.message : "The server has not confirmed the start.",
       );
@@ -313,6 +317,18 @@ export function ResearchLauncher({
       inFlight.current = false;
       setBusy(false);
     }
+  }
+
+  function clearPending() {
+    setPending(null);
+    setForm((previous) =>
+      previous.draft.swarm
+        ? previous
+        : {
+            ...previous,
+            draft: { ...previous.draft, swarm: defaultSwarm },
+          },
+    );
   }
 
   function update(patch: Partial<ResearchBrief>) {
@@ -340,7 +356,7 @@ export function ResearchLauncher({
   function reuseSettings(setup: ResearchSessionSetup) {
     if (fromSession || frozen || inFlight.current) return false;
     setForm(({ draft }) => ({
-      draft: { ...draft, ...reusableResearchSettings(setup) },
+      draft: { ...draft, ...reusableResearchSettings(setup), swarm: setup.swarm ?? defaultSwarm },
       awaitingModelCatalog: false,
     }));
     setSourceAppendNotice("");
@@ -600,7 +616,7 @@ export function ResearchLauncher({
                     className="text-link"
                     type="button"
                     onClick={() => {
-                      setPending(null);
+                      clearPending();
                       setUnconfirmed(undefined);
                       setStartError("");
                     }}

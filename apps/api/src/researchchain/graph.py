@@ -98,13 +98,13 @@ class ModelOverride(StrictModel):
 
 
 class AnalystConfig(StrictModel):
-    max_passes: int = Field(default=4, ge=1, le=100)
+    max_passes: int | None = Field(default=4, ge=1, le=100)
     skill: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
     workspace: bool = Field(default=False, exclude_if=lambda enabled: not enabled)
 
     @model_validator(mode="after")
     def workspace_needs_synthesis(self) -> Self:
-        if self.workspace and self.max_passes < 2:
+        if self.workspace and self.max_passes is not None and self.max_passes < 2:
             raise ValueError(
                 "A Python workspace needs at least two passes for a tool and its result."
             )
@@ -115,7 +115,7 @@ class SwarmConfig(StrictModel):
     lead_count: int = Field(default=2, ge=1, le=4)
     researchers_per_lead: int = Field(default=20, ge=1, le=20)
     max_parallel: int = Field(default=4, ge=1, le=20)
-    max_lead_turns: int = Field(default=6, ge=2, le=12)
+    max_lead_turns: int | None = Field(default=6, ge=2, le=12)
     allow_consultations: bool = True
 
 
@@ -169,8 +169,8 @@ class CodeConfig(StrictModel):
 
 
 MAX_RESPONSE_SECONDS = 600
-# An optional source reading, one coordinator and four leads taking twelve turns.
-# Eighty researchers and the editor can each take twelve passes. Account limits still apply.
+# Shared swarm ceiling, sized for a source reading, a coordinator, four leads with
+# twelve turns each, and eighty researchers plus the editor with twelve passes each.
 MAX_RESEARCH_CALLS = 2 + 4 * 12 + (4 * 20 + 1) * 12
 
 
@@ -241,7 +241,7 @@ class WorkflowEdge(StrictModel):
 
 class ExecutionBudgets(StrictModel):
     max_node_executions: int = Field(default=256, ge=1, le=10000)
-    max_active_seconds: float = Field(default=120, gt=0, le=3600, allow_inf_nan=False)
+    max_active_seconds: float | None = Field(default=120, gt=0, le=3600, allow_inf_nan=False)
     max_concurrency: int = Field(default=4, ge=1, le=20)
 
 

@@ -8,7 +8,7 @@ import {
   RoleModelSettings,
   type ModelCatalog,
 } from "./model-picker";
-import type { ResearchBrief } from "@/lib/research-sessions";
+import { initialSwarm, type ResearchBrief } from "@/lib/research-sessions";
 import styles from "./research-desk.module.css";
 
 const reviewLabels: Record<ResearchBrief["review_mode"], string> = {
@@ -130,6 +130,93 @@ function WritingSample({
   );
 }
 
+function ResearchLimits({
+  draft,
+  update,
+}: {
+  draft: ResearchBrief;
+  update: (patch: Partial<ResearchBrief>) => void;
+}) {
+  const swarm = draft.swarm && { ...initialSwarm, ...draft.swarm };
+  const activeSeconds = draft.max_active_seconds;
+  let time = "No limit";
+  if (activeSeconds !== null) {
+    const minutes = Math.floor(activeSeconds / 60);
+    const seconds = activeSeconds % 60;
+    time =
+      Number.isInteger(activeSeconds) && activeSeconds >= 60 && activeSeconds <= 3600
+        ? `${minutes} min${seconds ? ` ${seconds} sec` : ""}`
+        : "1 to 60 min";
+  }
+  return (
+    <details
+      className={styles.researchLimits}
+      open={draft.max_passes !== null || activeSeconds !== null || swarm?.max_lead_turns != null}
+      onInvalidCapture={(event) => {
+        event.currentTarget.open = true;
+      }}
+    >
+      <summary>Optional execution limits</summary>
+      <div>
+        <label>
+          Passes per agent
+          <input
+            type="number"
+            min={2}
+            max={12}
+            step={1}
+            placeholder="As needed"
+            value={draft.max_passes ?? ""}
+            onChange={(event) =>
+              update({ max_passes: event.target.value ? event.target.valueAsNumber : null })
+            }
+          />
+        </label>
+        {swarm && (
+          <label>
+            Turns per lead
+            <input
+              type="number"
+              min={2}
+              max={12}
+              step={1}
+              placeholder="As needed"
+              value={swarm.max_lead_turns ?? ""}
+              onChange={(event) =>
+                update({
+                  swarm: {
+                    ...swarm,
+                    max_lead_turns: event.target.value ? event.target.valueAsNumber : null,
+                  },
+                })
+              }
+            />
+          </label>
+        )}
+        <label>
+          <span className={styles.timeLimitLabel}>
+            <span id="study-active-limit-label">Active time limit (seconds)</span>
+            <span id="study-active-limit-duration">{time}</span>
+          </span>
+          <input
+            type="number"
+            aria-labelledby="study-active-limit-label"
+            aria-describedby="study-active-limit-duration"
+            min={60}
+            max={3600}
+            step={1}
+            value={activeSeconds ?? ""}
+            onChange={(event) =>
+              update({ max_active_seconds: event.target.value ? event.target.valueAsNumber : null })
+            }
+          />
+        </label>
+        <p>With these fields empty, agents decide when their assignments are complete.</p>
+      </div>
+    </details>
+  );
+}
+
 export const researchSettingsControlsId = "study-settings-controls";
 
 export function ResearchBriefOptions({
@@ -152,13 +239,6 @@ export function ResearchBriefOptions({
   reuseSettings?: ReactNode;
 }) {
   const modelsDisabled = disabled || awaitingModelCatalog;
-  const activeSeconds = draft.max_active_seconds;
-  const minutes = Math.floor(activeSeconds / 60);
-  const seconds = activeSeconds % 60;
-  const time =
-    Number.isInteger(activeSeconds) && activeSeconds >= 60 && activeSeconds <= 3600
-      ? `${minutes} min${seconds ? ` ${seconds} sec` : ""}`
-      : "1 to 60 min";
   return (
     <div className={styles.options}>
       <details
@@ -170,12 +250,7 @@ export function ResearchBriefOptions({
       >
         <summary>
           Research settings
-          <span>
-            {draft.swarm
-              ? `${draft.swarm.lead_count} leads`
-              : `Up to ${draft.max_agents} ${draft.max_agents === 1 ? "agent" : "agents"}`}{" "}
-            · {draft.max_passes} passes · {time}
-          </span>
+          {draft.swarm && <span>Research Swarm · {draft.swarm.lead_count} leads</span>}
         </summary>
         <div
           id={researchSettingsControlsId}
@@ -186,51 +261,7 @@ export function ResearchBriefOptions({
         >
           {reuseSettings}
           <SwarmControls draft={draft} update={update} />
-          {!draft.swarm && (
-            <label>
-              Maximum research agents
-              <select
-                value={draft.max_agents}
-                onChange={(event) => update({ max_agents: Number(event.target.value) })}
-              >
-                {[1, 2, 3, 4].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
           <label>
-            Passes per agent
-            <input
-              type="number"
-              required
-              min={2}
-              max={12}
-              step={1}
-              value={draft.max_passes || ""}
-              onChange={(event) => update({ max_passes: event.target.valueAsNumber || 0 })}
-            />
-          </label>
-          <label>
-            <span className={styles.timeLimitLabel}>
-              <span id="study-active-limit-label">Active time limit (seconds)</span>
-              <span id="study-active-limit-duration">{time}</span>
-            </span>
-            <input
-              type="number"
-              aria-labelledby="study-active-limit-label"
-              aria-describedby="study-active-limit-duration"
-              required
-              min={60}
-              max={3600}
-              step={1}
-              value={activeSeconds || ""}
-              onChange={(event) => update({ max_active_seconds: event.target.valueAsNumber || 0 })}
-            />
-          </label>
-          <label className={draft.swarm ? styles.fullField : undefined}>
             Editorial review
             <select
               value={draft.review_mode}
@@ -278,7 +309,6 @@ export function ResearchBriefOptions({
             />
           </fieldset>
           <RoleModelSettings
-            key={draft.swarm ? "swarm" : "standard"}
             useSliders
             showOverrideCount={false}
             initiallyOpen
@@ -290,6 +320,7 @@ export function ResearchBriefOptions({
             disabled={modelsDisabled}
             onChange={(role, value) => update({ [role]: value })}
           />
+          <ResearchLimits draft={draft} update={update} />
         </div>
       </details>
       <WritingSample

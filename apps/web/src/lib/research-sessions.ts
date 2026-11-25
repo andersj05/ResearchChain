@@ -15,6 +15,7 @@ export const initialSwarm: Required<SwarmSettings> = {
   max_lead_turns: 6,
   allow_consultations: true,
 };
+export const defaultSwarm: Required<SwarmSettings> = { ...initialSwarm, max_lead_turns: null };
 export type ResearchBrief = Required<
   Pick<
     ResearchSessionSetup,
@@ -36,6 +37,19 @@ export type ResearchBrief = Required<
   Partial<Pick<ResearchSessionSetup, "title" | "start_from_sources" | "max_input_bytes">>;
 
 export const blankResearchBrief: ResearchBrief = {
+  brief: "",
+  style_excerpt: "",
+  model: "",
+  evidence_ids: [],
+  max_agents: 3,
+  max_passes: null,
+  max_active_seconds: null,
+  web_search: true,
+  review_mode: "when_needed",
+  swarm: defaultSwarm,
+};
+
+const legacyBlankResearchBrief: ResearchBrief = {
   brief: "",
   style_excerpt: "",
   model: "",
@@ -85,6 +99,7 @@ export function newStudyModelProfiles(models: readonly ProviderModel[], fallback
     ...settings,
     lead: role(leadModel),
     researcher: role(researcherModel),
+    editor: role(leadModel),
   };
 }
 
@@ -127,23 +142,32 @@ type SavedBrief = {
 const uuid = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
 export function initializeResearchBrief(saved: SavedBrief | null, fromSession: string | null) {
-  const draft = saved?.draft ?? blankResearchBrief;
   // Older desks saved their untouched empty form as soon as it opened. An explicit
   // null role or capability still records an owner choice and adds a key.
-  const fields = Object.keys(blankResearchBrief) as (keyof ResearchBrief)[];
   const untouched =
-    Object.keys(draft).length === fields.length &&
-    fields.every((key) =>
-      key === "evidence_ids"
-        ? draft.evidence_ids.length === 0
-        : draft[key] === blankResearchBrief[key],
-    );
+    !!saved &&
+    !fromSession &&
+    !saved.pending &&
+    [blankResearchBrief, legacyBlankResearchBrief].some((blank) => {
+      const fields = Object.keys(blank) as (keyof ResearchBrief)[];
+      return (
+        Object.keys(saved.draft).length === fields.length &&
+        fields.every((key) => JSON.stringify(saved.draft[key]) === JSON.stringify(blank[key]))
+      );
+    });
+  const draft = !saved || untouched ? blankResearchBrief : saved.draft;
+  const deskDraft = saved?.pending || draft.swarm ? draft : { ...draft, swarm: defaultSwarm };
   const awaitingModelCatalog =
     !fromSession && !saved?.pending && (!saved || !!saved.awaitingModelCatalog || untouched);
   return {
     draft: awaitingModelCatalog
-      ? { ...draft, lead: { model: leadModel }, researcher: { model: researcherModel } }
-      : draft,
+      ? {
+          ...deskDraft,
+          lead: { model: leadModel },
+          researcher: { model: researcherModel },
+          editor: { model: leadModel },
+        }
+      : deskDraft,
     awaitingModelCatalog,
   };
 }
@@ -161,7 +185,9 @@ function validDraft(value: ResearchBrief) {
     Array.isArray(value.evidence_ids) &&
     value.evidence_ids.length <= studySourceLimit &&
     value.evidence_ids.every((id) => typeof id === "string" && uuid.test(id)) &&
-    [value.max_agents, value.max_passes, value.max_active_seconds].every(Number.isInteger) &&
+    Number.isInteger(value.max_agents) &&
+    (value.max_passes === null || Number.isInteger(value.max_passes)) &&
+    (value.max_active_seconds === null || Number.isInteger(value.max_active_seconds)) &&
     typeof value.web_search === "boolean" &&
     ["when_needed", "always", "never"].includes(value.review_mode)
   );

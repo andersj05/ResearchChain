@@ -73,6 +73,7 @@ from researchchain.research_prompt import (
     PROMPT_VERSION,
     WORKSPACE_VERSION,
     PreparedResearch,
+    adaptive_analyst_prompt_hash,
     json_bytes,
     prepare_analyst_pass,
     prepare_research,
@@ -129,7 +130,7 @@ class ResearchProvider(Protocol):
     def run_analyst(
         self,
         model: str,
-        passes: int,
+        passes: int | None,
         step: AnalystPass,
         guard: Callable[[], None],
         *,
@@ -296,6 +297,11 @@ def make_manifest(
                 else {}
             ),
             **({"analyst_version": ANALYST_VERSION} if any(c.analyst for c in configs) else {}),
+            **(
+                {"adaptive_analyst_prompt_hash": adaptive_analyst_prompt_hash()}
+                if any(c.analyst and c.analyst.max_passes is None for c in configs)
+                else {}
+            ),
             **(
                 {"workspace_version": WORKSPACE_VERSION}
                 if any(c.analyst and c.analyst.workspace for c in configs)
@@ -594,6 +600,12 @@ class ResearchExecutor:
                 raise ExecutionStopped(
                     "This run requires its pinned analyst implementation.", "failed"
                 )
+            if (
+                node.config.analyst.max_passes is None
+                and self.manifest.tool_config.get("adaptive_analyst_prompt_hash")
+                != adaptive_analyst_prompt_hash()
+            ):
+                raise ExecutionStopped("This run requires its pinned adaptive analyst.", "failed")
             workspace = node.config.analyst.workspace
             if (
                 workspace
@@ -935,7 +947,8 @@ class ResearchExecutor:
                 if call is not None:
                     if len(call["arguments"]) > self.manifest.settings.limits.max_output_characters:
                         raise ValueError("The analyst tool call exceeds the response output limit.")
-                    if len(history) + 1 >= node.config.analyst.max_passes:
+                    max_passes = node.config.analyst.max_passes
+                    if max_passes is not None and len(history) + 1 >= max_passes:
                         raise ValueError("The analyst requested a follow-up after its final pass.")
                     if call["name"] == "run_python":
                         python = PythonRequest.model_validate_json(call["arguments"])

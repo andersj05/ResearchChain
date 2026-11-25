@@ -33,7 +33,8 @@ export function ExecutionLimitFields({
             min={min}
             max={max}
             step={key === "max_active_seconds" ? "any" : 1}
-            value={current[key]}
+            value={current[key] ?? ""}
+            placeholder={current[key] === null ? "No limit" : undefined}
             onChange={(event) =>
               onChange({ ...current, [key]: event.target.valueAsNumber || min }, `budget/${key}`)
             }

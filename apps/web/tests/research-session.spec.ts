@@ -6,7 +6,7 @@ import type { RunSnapshot } from "../src/lib/workflow";
 import { expect, test } from "./fixtures";
 import { styleBody } from "./report-fixture";
 
-test("follow parallel research from a source packet through owner judgment to an illustrated report", async ({
+test("inspect a legacy parallel study from its source packet through an illustrated report", async ({
   page,
   request,
 }, info) => {
@@ -18,13 +18,26 @@ test("follow parallel research from a source packet through owner judgment to an
   const guidance = "Check both series for a common release cutoff before comparing them.";
   const feedback = "Use quarterly order volume and show both series as synthetic units.";
   const marker = join(directory, `observed-${study}`);
+  await page.route("**/api/research-sessions", (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    // Admit a single-lead study through the legacy API shape, which existing saved runs use.
+    return route.continue({
+      postData: JSON.stringify({
+        ...route.request().postDataJSON(),
+        swarm: null,
+        max_agents: 2,
+        max_active_seconds: 1800,
+      }),
+    });
+  });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.goto("/");
   await pinDeskNote(page);
   await page.getByLabel("Context for the lead (optional)", { exact: true }).fill(brief);
 
-  await page.getByLabel("Maximum research agents").selectOption("2");
+  await page.getByText("Optional execution limits", { exact: true }).click();
   await page.getByLabel("Passes per agent").fill("3");
+  await page.getByLabel("Allow live web search").uncheck();
   const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
   const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
   const lead = page.getByRole("group", { name: "Research lead", exact: true });
@@ -58,6 +71,7 @@ test("follow parallel research from a source packet through owner judgment to an
     .getByRole("group", { name: "Response detail control" })
     .getByRole("button", { name: "Use model default" })
     .click();
+  await writerControls.getByLabel("Report editor model").selectOption("test-model");
   await writerControls
     .getByRole("group", { name: "Thinking effort control" })
     .getByRole("button", { name: "Use model default" })

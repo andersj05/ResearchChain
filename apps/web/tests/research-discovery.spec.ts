@@ -95,7 +95,7 @@ test("commission a different investigation from a week of pinned material and in
   await expect(sheet.getByText(judgment, { exact: true })).toBeVisible();
   await expect(assignments).toContainText("Compare weekly returns within each sector.");
   await assignments.getByRole("link", { name: "Inspect researcher request" }).click();
-  await expect(page).toHaveURL(/workspace=agent-1&pass=/);
+  await expect(page).toHaveURL(/workspace=lead-1%2Fagent-1&pass=/);
   const workspace = page.getByRole("region", { name: "Compare refinancing groups workspace" });
   await expect(workspace).toBeFocused();
   const saved = await workspace.getByRole("link", { name: "Saved request" }).getAttribute("href");

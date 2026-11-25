@@ -160,6 +160,7 @@ class SwarmRequest:
             return
         turn = len(lead.history) + 1
         capacity = self.config.researchers_per_lead - lead.workers
+        max_turns = self.config.max_lead_turns
         prepared.input_items.append(
             _packet(
                 "swarm_lead",
@@ -167,7 +168,7 @@ class SwarmRequest:
                     "lead_index": lead.index,
                     "mandate": lead.mandate.model_dump(),
                     "turn": turn,
-                    "max_turns": self.config.max_lead_turns,
+                    **({"max_turns": max_turns} if max_turns is not None else {}),
                     "workers_remaining": capacity,
                     "history": lead.history,
                 },
@@ -183,7 +184,7 @@ class SwarmRequest:
                     "tools": _tools(
                         capacity,
                         self.config.allow_consultations,
-                        turn == self.config.max_lead_turns,
+                        turn == max_turns,
                     ),
                 }
             ],
@@ -208,7 +209,8 @@ class SwarmRequest:
         name, args = call["name"], call["arguments"]
         if len(args) + len(completion.text) > output_limit:
             raise ValueError("The lead's tool arguments exceed the response output limit.")
-        if name != "finish" and len(self.lead.history) + 1 >= self.config.max_lead_turns:
+        max_turns = self.config.max_lead_turns
+        if name != "finish" and max_turns is not None and len(self.lead.history) + 1 >= max_turns:
             raise ValueError("The lead must finish on its last permitted turn.")
         args_dict = json.loads(args)
         if not isinstance(args_dict, dict) or "action" in args_dict:
@@ -492,7 +494,8 @@ def _run_swarm(
                     lead.pending = None
                     lead.return_tool_output()
             continue
-        if any(len(lead.history) >= settings.max_lead_turns for lead in active):
+        max_turns = settings.max_lead_turns
+        if max_turns is not None and any(len(lead.history) >= max_turns for lead in active):
             raise ExecutionStopped("A lead reached its turn limit before finishing.", "limited")
         decisions = _bounded_map(pool, limit, active, decide)
         by_lead: list[list[Worker]] = []

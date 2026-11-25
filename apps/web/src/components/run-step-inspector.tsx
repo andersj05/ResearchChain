@@ -220,7 +220,10 @@ export function RunStepInspector({
       </div>
       {node.config?.type === "research" && node.config.analyst && (
         <p className="field-hint">
-          {passCount} of {node.config.analyst.max_passes} research passes used
+          {passCount}
+          {node.config.analyst.max_passes !== null &&
+            ` of ${node.config.analyst.max_passes ?? 4}`}{" "}
+          research passes used
         </p>
       )}
       {review && (
@@ -511,7 +514,11 @@ export function RunStepInspector({
                   <>
                     <div>
                       <dt>Maximum research passes</dt>
-                      <dd>{node.config.analyst.max_passes}</dd>
+                      <dd>
+                        {node.config.analyst.max_passes === null
+                          ? "As needed"
+                          : (node.config.analyst.max_passes ?? 4)}
+                      </dd>
                     </div>
                     {node.config.analyst.skill && (
                       <div>

@@ -88,7 +88,9 @@ test("compare a revised packet and setup with the saved study only when asked", 
   const comparison = page.locator("details").filter({ has: summary });
   await expect(comparison).not.toHaveAttribute("open", "");
   await summary.click();
-  await expect(comparison).toContainText("The draft matches the previous setup.");
+  await expect(
+    comparison.getByRole("row", { name: /Team structure/ }).getByRole("cell"),
+  ).toHaveText(["Single lead", "Research swarm"]);
   expect(setupReads).toBe(initialReads);
   await summary.click();
 
@@ -103,7 +105,6 @@ test("compare a revised packet and setup with the saved study only when asked", 
     .fill("Identify the latest limit.");
   await page.getByLabel("Passes per agent", { exact: true }).fill("8");
   await page.getByRole("checkbox", { name: "Allow live web search", exact: true }).check();
-  await page.getByRole("combobox", { name: "Team structure", exact: true }).selectOption("swarm");
   await page
     .getByRole("combobox", { name: "Research lead model", exact: true })
     .selectOption("analysis-model");

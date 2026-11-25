@@ -9,7 +9,9 @@ for (const width of [390, 1440]) {
     const summary = page.locator("summary").filter({ hasText: /^Research settings/ });
     const settings = page.getByRole("region", { name: "Research settings", exact: true });
     const passes = page.getByRole("spinbutton", { name: "Passes per agent" });
+    const leads = page.getByRole("combobox", { name: "Research leads", exact: true });
 
+    await page.getByText("Optional execution limits", { exact: true }).click();
     await expect(passes).toBeEnabled();
     await passes.fill("7");
     for (const shortcut of [
@@ -22,7 +24,7 @@ for (const width of [390, 1440]) {
       await expect(passes).toBeVisible();
       await expect(settings).toBeFocused();
       await expect(passes).toHaveValue("7");
-      await expect(passes).toBeInViewport({ ratio: 1 });
+      await expect(leads).toBeInViewport({ ratio: 1 });
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,

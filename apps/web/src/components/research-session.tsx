@@ -552,14 +552,19 @@ function ResearchSessionView({
           {swarm && (
             <p>
               Up to {swarm.lead_count} leads · {swarm.researchers_per_lead} researchers per lead ·{" "}
-              {swarm.max_parallel} active slots · {swarm.max_lead_turns} turns per lead · Expert
-              consultations {swarm.allow_consultations ? "on" : "off"}
+              {swarm.max_parallel} active slots ·{" "}
+              {swarm.max_lead_turns === null
+                ? "Leads finish when ready"
+                : `${swarm.max_lead_turns} turns per lead`}{" "}
+              · Expert consultations {swarm.allow_consultations ? "on" : "off"}
             </p>
           )}
           <p>
-            {run.research_manifest?.settings.model} · {run.workflow.budgets?.max_active_seconds}s
-            active-time limit · {run.research_manifest?.settings.limits?.max_model_calls} model
-            requests maximum
+            {run.research_manifest?.settings.model} ·{" "}
+            {run.workflow.budgets?.max_active_seconds === null
+              ? "No active-time limit"
+              : `${run.workflow.budgets?.max_active_seconds ?? 120}s active-time limit`}{" "}
+            · {run.research_manifest?.settings.limits?.max_model_calls} model requests maximum
           </p>
           {profiles ? (
             <div className={styles.profileList}>

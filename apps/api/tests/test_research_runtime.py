@@ -2,6 +2,7 @@ import asyncio
 import json
 import threading
 from concurrent.futures import ThreadPoolExecutor
+from itertools import count
 from typing import Any
 from uuid import uuid4
 
@@ -66,11 +67,11 @@ class FakeProvider(ChatGPTResearchProvider):
         )
 
     def run_analyst(
-        self, model: str, passes: int, step: Any, guard: Any, *, workspace: bool = False
+        self, model: str, passes: int | None, step: Any, guard: Any, *, workspace: bool = False
     ) -> Any:
         history = []
         transcript: list[dict[str, Any]] = []
-        for _ in range(passes):
+        for _ in count() if passes is None else range(passes):
             guard()
             result, response = step(history, {"model": model, "input": transcript})
             history.append(result)

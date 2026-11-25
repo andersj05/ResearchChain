@@ -57,7 +57,8 @@ class ExecutionControl:
                 raise ExecutionStopped(
                     row["reason"] or "Run is already terminal.", row["terminal_status"]
                 )
-            if row["elapsed"] >= self.budgets.max_active_seconds:
+            time_limit = self.budgets.max_active_seconds
+            if time_limit is not None and row["elapsed"] >= time_limit:
                 raise ExecutionStopped("Active execution time limit reached.")
             if count and not row["already_counted"]:
                 if row["executions"] >= self.budgets.max_node_executions:
