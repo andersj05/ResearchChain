@@ -2,6 +2,12 @@
 
 Updated 2026-11-25.
 
+## Reading the active time limit
+
+Research settings shows the current active limit in minutes and seconds beside
+the exact seconds field. The numeric value and saved run limit still use seconds.
+The inline readout was verified at 320 and 1440 px.
+
 ## Faster report lists and live study reading
 
 Reports lists and revision history read summary fields while preserving the
@@ -18,6 +24,7 @@ comparison. A same-length edited receipt still appeared on the next poll.
 After a successful keyboard file pin, focus returns to **Drop files or browse**
 so the next file can be added directly. It respects a focus or route change
 while the upload was in progress.
+[Report reads and keyboard intake PR](https://github.com/andersj05/ResearchChain/pull/171).
 
 ## Finding older reports and captured sources
 
