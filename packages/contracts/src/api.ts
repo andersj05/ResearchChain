@@ -1212,7 +1212,7 @@ export interface components {
        * Max Passes
        * @default 4
        */
-      max_passes: number;
+      max_passes: number | null;
       /**
        * Skill
        * @default
@@ -1436,7 +1436,7 @@ export interface components {
        * Kind
        * @enum {string}
        */
-      kind: "start" | "resume";
+      kind: "start" | "resume" | "recover";
       /**
        * Accepted At
        * Format: date-time
@@ -2435,7 +2435,7 @@ export interface components {
        * Max Active Seconds
        * @default 120
        */
-      max_active_seconds: number;
+      max_active_seconds: number | null;
       /**
        * Max Concurrency
        * @default 4
@@ -2600,6 +2600,9 @@ export interface components {
       response_id?: string | null;
       /** Reason */
       reason?: string | null;
+      provider_failure?: components["schemas"]["ProviderFailure"] | null;
+      /** Superseded At */
+      superseded_at?: string | null;
       result?: components["schemas"]["StoredResearchResult"] | null;
       /**
        * Created At
@@ -2863,6 +2866,20 @@ export interface components {
       plan_enabled: boolean;
       /** Active */
       active: boolean;
+    };
+    /** ProviderFailure */
+    ProviderFailure: {
+      /** Http Status */
+      http_status?: number | null;
+      /**
+       * Source
+       * @enum {string}
+       */
+      source: "http" | "stream";
+      /** Code */
+      code?: string | null;
+      /** Request Id */
+      request_id?: string | null;
     };
     /** ProviderModel */
     ProviderModel: {
@@ -3482,12 +3499,12 @@ export interface components {
        * Max Passes
        * @default 6
        */
-      max_passes: number;
+      max_passes: number | null;
       /**
        * Max Active Seconds
        * @default 1800
        */
-      max_active_seconds: number;
+      max_active_seconds: number | null;
       /**
        * Web Search
        * @default false
@@ -3545,12 +3562,12 @@ export interface components {
        * Max Passes
        * @default 6
        */
-      max_passes: number;
+      max_passes: number | null;
       /**
        * Max Active Seconds
        * @default 1800
        */
-      max_active_seconds: number;
+      max_active_seconds: number | null;
       /**
        * Web Search
        * @default false
@@ -3841,6 +3858,11 @@ export interface components {
       code?: components["schemas"]["CodeExecution"] | null;
       review_response?: components["schemas"]["ReviewResponse"] | null;
     };
+    /** RunRecoveryRequest */
+    RunRecoveryRequest: {
+      /** Failed Command Id */
+      failed_command_id?: string | null;
+    };
     /** RunRequest */
     RunRequest: {
       /** Agent Id */
@@ -3907,6 +3929,8 @@ export interface components {
        * Format: date-time
        */
       created_at: string;
+      /** Recovery Command Id */
+      recovery_command_id?: string | null;
       /** Perspective Answers */
       perspective_answers?: components["schemas"]["PerspectiveAnswer"][];
       /** Owner Directions */
@@ -4367,7 +4391,7 @@ export interface components {
        * Max Lead Turns
        * @default 6
        */
-      max_lead_turns: number;
+      max_lead_turns: number | null;
       /**
        * Allow Consultations
        * @default true
@@ -7116,7 +7140,11 @@ export interface operations {
       };
       cookie?: never;
     };
-    requestBody?: never;
+    requestBody?: {
+      content: {
+        "application/json": components["schemas"]["RunRecoveryRequest"] | null;
+      };
+    };
     responses: {
       /** @description Successful Response */
       202: {

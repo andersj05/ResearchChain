@@ -3294,6 +3294,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RunRecoveryRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Successful Response",
@@ -3487,9 +3504,16 @@
       "AnalystConfig": {
         "properties": {
           "max_passes": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Passes",
             "default": 4
           },
@@ -3917,7 +3941,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["start", "resume"],
+            "enum": ["start", "resume", "recover"],
             "title": "Kind"
           },
           "accepted_at": {
@@ -6204,9 +6228,16 @@
             "default": 256
           },
           "max_active_seconds": {
-            "type": "number",
-            "maximum": 3600.0,
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 3600.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Active Seconds",
             "default": 120
           },
@@ -6644,6 +6675,28 @@
               }
             ],
             "title": "Reason"
+          },
+          "provider_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "superseded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded At"
           },
           "result": {
             "anyOf": [
@@ -7229,6 +7282,56 @@
         "type": "object",
         "required": ["id", "label", "signed_in", "plan_enabled", "active"],
         "title": "ProviderAccount"
+      },
+      "ProviderFailure": {
+        "properties": {
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 599.0,
+                "minimum": 100.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["http", "stream"],
+            "title": "Source"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_.:/\\[\\]-]{1,200}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_.:/\\[\\]-]{1,200}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source"],
+        "title": "ProviderFailure"
       },
       "ProviderModel": {
         "properties": {
@@ -8613,16 +8716,30 @@
             "default": 3
           },
           "max_passes": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 2.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Passes",
             "default": 6
           },
           "max_active_seconds": {
-            "type": "integer",
-            "maximum": 3600.0,
-            "minimum": 60.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3600.0,
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Active Seconds",
             "default": 1800
           },
@@ -8781,16 +8898,30 @@
             "default": 3
           },
           "max_passes": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 2.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Passes",
             "default": 6
           },
           "max_active_seconds": {
-            "type": "integer",
-            "maximum": 3600.0,
-            "minimum": 60.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3600.0,
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Active Seconds",
             "default": 1800
           },
@@ -9421,6 +9552,25 @@
         "required": ["node_id", "label", "kind", "detail"],
         "title": "RunEvent"
       },
+      "RunRecoveryRequest": {
+        "properties": {
+          "failed_command_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Command Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RunRecoveryRequest"
+      },
       "RunRequest": {
         "properties": {
           "agent_id": {
@@ -9571,6 +9721,18 @@
             "type": "string",
             "format": "date-time",
             "title": "Created At"
+          },
+          "recovery_command_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Command Id"
           },
           "perspective_answers": {
             "items": {
@@ -10730,9 +10892,16 @@
             "default": 4
           },
           "max_lead_turns": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 2.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Lead Turns",
             "default": 6
           },

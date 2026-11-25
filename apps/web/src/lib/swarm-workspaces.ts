@@ -49,12 +49,18 @@ export function sessionSwarm(run: RunSnapshot) {
   return swarm ? { ...initialSwarm, ...swarm } : null;
 }
 
-function receiptState(run: RunSnapshot, last: Attempt | undefined, waiting: State): State {
+function receiptState(
+  run: RunSnapshot,
+  last: Attempt | undefined,
+  waiting: State,
+  handedOff = false,
+): State {
   if (last?.status === "failed") return "Failed";
   if (last?.status === "limited") return "Limited";
   if (last?.status === "cancelled") return "Cancelled";
   if (last?.status === "unknown") return "Interrupted";
   if (last?.status === "completed" && waiting === "Completed") return waiting;
+  if (handedOff) return "Stopped";
   if (run.status === "interrupted") return "Interrupted";
   if (["completed", "failed", "limited", "cancelled", "rejected"].includes(run.status))
     return "Stopped";
@@ -62,7 +68,7 @@ function receiptState(run: RunSnapshot, last: Attempt | undefined, waiting: Stat
   return waiting;
 }
 
-function workerState(run: RunSnapshot, passes: Attempt[]) {
+function workerState(run: RunSnapshot, passes: Attempt[], handedOff = false) {
   const last = passes.findLast((attempt) => !attempt.superseded_at);
   return receiptState(
     run,
@@ -73,6 +79,7 @@ function workerState(run: RunSnapshot, passes: Attempt[]) {
       !last.result.next_lead
       ? "Completed"
       : "Queued",
+    handedOff,
   );
 }
 
@@ -89,6 +96,8 @@ export function swarmWorkspaces(
     (attempt) => attempt.path === "root/team/plan" && !attempt.superseded_at,
   );
   const mandates = director?.result?.swarm_plan?.leads ?? [];
+  const handedOff =
+    !!run.owner_report_request && run.events.some((event) => event.path === "root/team");
   const pendingSentence = pendingReviews(run).some(
     (review) => review.path === "root/working_sentence",
   );
@@ -132,7 +141,7 @@ export function swarmWorkspaces(
         ...assignment,
         attempts: passes,
         profile: profiles?.researcher,
-        state: workerState(run, passes),
+        state: workerState(run, passes, handedOff),
       };
     });
     const last = turns.findLast((attempt) => !attempt.superseded_at);
@@ -157,7 +166,7 @@ export function swarmWorkspaces(
         ...mandate,
         attempts: turns,
         profile: profiles?.lead,
-        state: receiptState(run, last, waiting),
+        state: receiptState(run, last, waiting, handedOff),
       },
       ...workers,
     );

@@ -44,7 +44,7 @@ class AdaptiveProvider(SwarmProvider):
 
 def test_adaptive_swarm_can_finish_after_the_former_desk_limits(database):
     def decision(state):
-        if state["turn"] <= 7:
+        if state["turn"] <= 13:
             return delegate(1, objective=f"Investigate observation {state['turn']}.")
         return finish()
 
@@ -58,7 +58,7 @@ def test_adaptive_swarm_can_finish_after_the_former_desk_limits(database):
         lead={"model": "analysis-model"},
         editor={"model": "analysis-model"},
         provider_account_id="oaiapp_fixture",
-        swarm={"lead_count": 1, "researchers_per_lead": 8, "max_lead_turns": None},
+        swarm={"lead_count": 1, "researchers_per_lead": 14, "max_lead_turns": None},
         max_passes=None,
         max_active_seconds=None,
         review_mode="never",
@@ -75,7 +75,7 @@ def test_adaptive_swarm_can_finish_after_the_former_desk_limits(database):
     assert done.status == "completed", done.stop_reason
     assert done.usage.active_seconds > 4000
     assert done.research_manifest.settings.limits.max_model_calls == MAX_RESEARCH_CALLS
-    assert any(attempt.path == "root/team/lead-1/turn-8" for attempt in done.model_attempts)
+    assert any(attempt.path == "root/team/lead-1/turn-14" for attempt in done.model_attempts)
     assert any(attempt.path.endswith("agent-1/analyst-pass-7") for attempt in done.model_attempts)
     assert session_setup(done).model_dump() == request.model_dump(
         exclude={"id", "provider_account_id"}

@@ -183,7 +183,7 @@ export function preferredPath(run: RunSnapshot) {
       (attempt) => attempt.status === "requesting" || attempt.status === "preparing",
     );
   if (active) return attemptPath(active);
-  const lastAttempt = run.model_attempts?.at(-1);
+  const lastAttempt = run.model_attempts?.findLast((attempt) => !attempt.superseded_at);
   if (lastAttempt && lastAttempt.status !== "completed") return attemptPath(lastAttempt);
   if (checkpoint[0]) return checkpoint[0].path;
   const event = run.events.findLast((item) =>
@@ -232,6 +232,7 @@ export function stepStates(run: RunSnapshot) {
   }
   const recorded = new Set(states.keys());
   for (const attempt of run.model_attempts ?? []) {
+    if (attempt.superseded_at) continue;
     const path = attemptPath(attempt);
     // An analyst may have another pass after it saves a valid result. The
     // graph step only completes once the executor records its final output.

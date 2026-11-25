@@ -86,9 +86,11 @@ def checkpoint_steps(state: StateSnapshot, status: str) -> list[CheckpointStep]:
         step_status: Literal["scheduled", "stopped"]
         if task.name.startswith("__"):
             continue
-        if task.error is not None:
+        if status in {"running", "queued"} and task.name in state.next:
+            step_status = "scheduled"
+        elif task.error is not None:
             step_status = "stopped"
-        elif status in {"running", "queued", "interrupted"} and task.name in state.next:
+        elif status == "interrupted" and task.name in state.next:
             step_status = "scheduled"
         else:
             continue
@@ -413,11 +415,11 @@ class RunStore:
                 try:
                     execution.begin()
                     if report_resume is not None:
-                        destination, request = report_resume
+                        destination, handoff = report_resume
                         graph.invoke(
                             Command(
                                 resume={
-                                    destination: {"decision": "approve", "feedback": request.text}
+                                    destination: {"decision": "approve", "feedback": handoff.text}
                                 }
                             ),
                             config,

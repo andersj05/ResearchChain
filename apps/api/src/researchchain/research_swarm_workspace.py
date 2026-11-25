@@ -208,7 +208,7 @@ def swarm_material(
         relative = row["path"][len(prefix) :]
         if relative == "plan":
             plan = StoredResearchResult.model_validate(row["result"]).swarm_plan
-        elif match := re.fullmatch(r"lead-([1-4])/turn-([1-9]|1[0-2])", relative):
+        elif match := re.fullmatch(r"lead-([1-4])/turn-([1-9][0-9]*)", relative):
             turns[int(match[1])][int(match[2])] = (
                 row["id"],
                 row["path"],
@@ -327,7 +327,7 @@ def swarm_material(
                 if entry is not None:
                     alias, file = entry
                     files[alias] = file
-    packet = {
+    packet: dict[str, Any] = {
         "format": "research-swarm-handoff-1",
         "team_path": path,
         "leads": leads,

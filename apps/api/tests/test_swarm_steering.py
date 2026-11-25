@@ -6,6 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Event
 from uuid import uuid4
 
+import pytest
 from access_fixtures import owner_client
 from swarm_browser_fixture import result
 from test_research_contracts import result_document
@@ -14,15 +15,17 @@ from test_research_swarm import SwarmProvider, consult, delegate, finish, packet
 
 from researchchain.artifacts import read_content
 from researchchain.main import create_app
+from researchchain.providers.chatgpt_auth import error_for_code
 from researchchain.runtime import RunStore
 from researchchain.worker import RunWorker
 
 
 class SteeringProvider(SwarmProvider):
-    def __init__(self, next_action, *, hold=None, revisit=False):
+    def __init__(self, next_action, *, hold=None, revisit=False, fail_at_handoff=False):
         super().__init__(next_action)
         self.hold = hold
         self.revisit = revisit
+        self.fail_at_handoff = fail_at_handoff
         self.waiting = Event()
         self.editor_packet = None
 
@@ -41,6 +44,8 @@ class SteeringProvider(SwarmProvider):
             self.waiting.set()
             while not self.released.is_set():
                 await asyncio.sleep(0.02)
+            if self.fail_at_handoff:
+                raise error_for_code("server_error", status=503, shape="error_object")
             if self.revisit and not any(
                 item.get("type") == "function_call_output" for item in prepared.input_items
             ):
@@ -140,12 +145,15 @@ def test_direct_a_researcher_and_a_lead_only_on_their_next_requests(database):
         assert packets(payload["input"])["owner_directions"][0]["text"] == worker["text"]
 
 
-def test_report_request_drains_admitted_work_and_skips_unstarted_assignments(database):
+@pytest.mark.parametrize("provider_fails", [False, True])
+def test_report_request_drains_admitted_work_and_skips_unstarted_assignments(
+    database, provider_fails
+):
     def actions(state):
         assert state["turn"] == 1, "The owner requested the report before a new lead turn."
         return delegate(2, state["lead_index"])
 
-    provider = SteeringProvider(actions, hold=(2, 1))
+    provider = SteeringProvider(actions, hold=(2, 1), fail_at_handoff=provider_fails)
     runs = RunStore(database, provider)
     setup = study()
     with owner_client(create_app(database, provider), workers=False) as client:
@@ -169,6 +177,16 @@ def test_report_request_drains_admitted_work_and_skips_unstarted_assignments(dat
             finally:
                 provider.released.set()
             assert active.result(timeout=20)
+        if provider_fails:
+            failed = runs.get(setup.id)
+            assert failed.status == "failed" and failed.recovery_command_id
+            assert str(failed.owner_report_request.id) == handoff["id"]
+            recovered = client.post(
+                f"/api/runs/{setup.id}/recover",
+                json={"failed_command_id": str(failed.recovery_command_id)},
+            )
+            assert recovered.status_code == 202, recovered.text
+            assert RunWorker(runs).run_once()
         assert client.post(path, json=handoff).json() == accepted.json()
         client.cookies.clear()
         assert client.post(path, json=handoff).status_code == 401
@@ -180,7 +198,8 @@ def test_report_request_drains_admitted_work_and_skips_unstarted_assignments(dat
     assert provider.editor_packet["owner_report_request"] == accepted.json()
     packet = json.loads(provider.editor_packet["additional_context"])
     assert packet["handoff_requested"] is True
-    assert len(packet["agents"]) == len(packet["unfinished_assignments"]) == 2
+    assert len(packet["agents"]) == (1 if provider_fails else 2)
+    assert len(packet["unfinished_assignments"]) == (3 if provider_fails else 2)
     assert all(lead["status"] == "unfinished" for lead in packet["leads"])
 
 

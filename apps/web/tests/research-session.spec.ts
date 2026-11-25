@@ -134,9 +134,9 @@ test("inspect a legacy parallel study from its source packet through an illustra
         .sort(),
     ).toEqual(["root/team/agent-1", "root/team/agent-2"]);
     await page.getByText("Guide the team", { exact: true }).click();
-    await page.getByLabel("Direction for upcoming passes").fill(guidance);
+    await page.getByLabel("Research direction").fill(guidance);
     await page.getByRole("button", { name: "Send direction" }).click();
-    await expect(page.getByText("Saved for upcoming passes", { exact: false })).toBeVisible();
+    await expect(page.getByText("Direction saved.", { exact: true })).toBeVisible();
     await expect(page.getByText(guidance, { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath("active-researchers.png"), fullPage: true });
   } finally {
