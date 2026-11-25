@@ -1,8 +1,9 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { RunSnapshot } from "@/lib/workflow";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { focusSessionWorkspace } from "./research-session-workspace";
+import { DraftReplacement, useDraftSuggestion } from "./session-draft-replacement";
 import styles from "./research-session.module.css";
 
 type Review = NonNullable<RunSnapshot["review"]>;
@@ -73,6 +74,7 @@ export function LeadConsultation({
 }) {
   const request = review.perspective!;
   const [text, setText] = useState(() => readReviewDrafts(draftKey)[review.interrupt_id] ?? "");
+  const input = useRef<HTMLTextAreaElement>(null);
   const id = `consultation-${review.interrupt_id}`;
   const lead = lanes.find((lane) =>
     lane.attempts.some((attempt) => attempt.path === request.action_path),
@@ -86,10 +88,15 @@ export function LeadConsultation({
     const pass = lane?.attempts.find((attempt) => attempt.path === path);
     return lane && pass ? [{ lane, pass }] : [];
   });
-  function edit(value: string) {
-    setText(value);
-    rememberAnswer(draftKey, review.interrupt_id, value);
-  }
+  const suggestion = useDraftSuggestion(
+    text,
+    request.options ?? [],
+    (value) => {
+      setText(value);
+      rememberAnswer(draftKey, review.interrupt_id, value);
+    },
+    () => input.current?.focus(),
+  );
   return (
     <section className={styles.judgment} id={id} aria-labelledby={id + "-title"} tabIndex={-1}>
       <h2 id={id + "-title"}>{request.lead_title} requests your perspective</h2>
@@ -130,7 +137,7 @@ export function LeadConsultation({
                 type="button"
                 className="button small"
                 aria-pressed={text === option}
-                onClick={() => edit(option)}
+                onClick={() => suggestion.choose(option)}
               >
                 {option}
               </button>
@@ -140,13 +147,22 @@ export function LeadConsultation({
         <label htmlFor={id + "-answer"}>Your perspective</label>
         <textarea
           id={id + "-answer"}
+          ref={input}
           required
           maxLength={6000}
           rows={3}
           value={text}
           disabled={disabled}
-          onChange={(event) => edit(event.target.value)}
+          onChange={(event) => suggestion.edit(event.target.value)}
         />
+        {suggestion.pending !== undefined && (
+          <DraftReplacement
+            suggestion={suggestion.pending}
+            disabled={disabled}
+            onKeep={suggestion.keep}
+            onReplace={suggestion.replace}
+          />
+        )}
         <button className="button primary" type="submit" disabled={disabled || !text.trim()}>
           Send perspective to lead
         </button>
