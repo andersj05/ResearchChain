@@ -2,6 +2,17 @@
 
 Updated 2026-11-25.
 
+## Capture and decision continuity
+
+File capture comes before the shared attribution fields. When a queued file
+needs usage rights, its action focuses the shared field. Opening a recent study
+or an exact decision keeps the staged setup in the same tab. The archive returns
+to the opened row and viewport position when the result is still present.
+
+The saved-study reader can add a verified source version to an open setup and
+return to the packet. Reports focuses a missing revision note before save and
+places the continuation beside the note.
+
 ## Reusing research settings
 
 **New study** can copy the operational settings of a recent study after an
@@ -29,6 +40,10 @@ previous and next navigation in the study’s saved order.
 Batch pinning overlaps original uploads, publishes pins in order, and retains
 the exact pending command for recovery. Synthetic Chromium covered the combined
 flows, including browser history, pending results, and equal-size originals.
+Desktop runs the `b387207` study navigation merge. The Studies route returned
+HTTP 200 and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 255 Chromium cases.
+[Study navigation PR](https://github.com/andersj05/ResearchChain/pull/154).
 
 ## Reading and editorial decisions
 

@@ -14,10 +14,11 @@ validation. A file with an unconfirmed pin stays queued for its exact retry.
 Original uploads can overlap while the pins keep their queue order.
 
 To look up another study while you assemble a packet, open **Studies** or
-select a saved study under **Recent research**. **Research desk** takes you back to the same in-tab
-setup. From the archive, choose **Return to study setup**. Browser history
-also preserves the staged files. If a first reading was accepted during the
-visit, **Open study** opens the confirmed session.
+select a saved study under **Recent research**. **Research desk** takes you back
+to the same in-tab setup. From the archive or **Decisions**, choose **Return to
+study setup**. Opening an exact decision and using browser history also keeps
+the staged files. If a first reading was accepted during the visit, **Open
+study** opens the confirmed session.
 
 Use **Paste a source** for a note, conversation or reference URL. You can add files
 before filling in **Source details**, which applies to both uploads and pasted
@@ -92,8 +93,9 @@ or ID. **Decisions** opens working sentences, lead questions and editorial
 reviews even after a study drops out of the recent list.
 
 When you open a study from the archive, the same tab remembers your submitted
-search, status filter and results page. **Reset search** clears the filters and
-returns to the first page.
+search, status filter and results page. Returning to **Studies** or going Back
+restores the opened result and its position when that result is still available.
+**Reset search** clears the filters and returns to the first page.
 
 ### Choose the model and thinking effort
 
