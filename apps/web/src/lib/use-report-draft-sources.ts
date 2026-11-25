@@ -33,25 +33,30 @@ export function useReportDraftSources(ids: string[]) {
     };
   }, [query, retry]);
 
-  const { sources, sourceBases } = useMemo(() => {
+  const { sources, sourceBases, unresolvedIds } = useMemo(() => {
     const byId = new Map(read?.data?.sources.map((source) => [source.id, source]));
     const sourceBases: ReportDraftSources["source_bases"] = {};
+    const unresolvedIds: string[] = [];
     // Reuse exact records while a different set loads, with membership owned by the draft.
     const sources = ids.flatMap((id) => {
       const source = byId.get(id);
       const basis = read?.data?.source_bases[id];
-      if (!source || !basis) return [];
+      if (!source || !basis) {
+        unresolvedIds.push(id);
+        return [];
+      }
       sourceBases[id] = basis;
       return [source];
     });
-    return { sources, sourceBases };
+    return { sources, sourceBases, unresolvedIds };
   }, [ids, read?.data]);
   const settled = read?.query === query && read.retry === retry;
   return {
     sources,
     sourceBases,
+    unresolvedIds,
     loading: Boolean(query) && !settled,
-    unavailable: settled && sources.length < ids.length,
+    unavailable: settled && unresolvedIds.length > 0,
     retry: () => setRetry((value) => value + 1),
   };
 }

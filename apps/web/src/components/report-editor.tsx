@@ -761,6 +761,7 @@ export function ReportEditor({
             section={section}
             sources={[...record.sources, ...addedSources.sources]}
             sourceBases={{ ...view.source_bases, ...addedSources.sourceBases }}
+            draftSourceLookup={addedSources}
             disabled={locked}
             onChange={editSection}
             referenceDraft={referenceDrafts.get(section.id)}

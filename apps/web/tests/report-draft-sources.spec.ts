@@ -128,12 +128,77 @@ for (const width of [390, 1440]) {
       .getByRole("button", { name: "Apply reference to draft", exact: true })
       .click();
     await chartToggle.check();
-    await expect(
-      sectionSources.getByRole("img", { name: chart.title, exact: true }),
-    ).toHaveAttribute("src", contentUrl(image.id) + "?preview=true");
+    const preview = sectionSources.getByRole("img", { name: chart.title, exact: true });
+    const previewUrl = contentUrl(image.id) + "?preview=true";
+    await expect(preview).toHaveAttribute("src", previewUrl);
     expect(saves).toEqual([]);
 
-    await page.reload();
+    const initialLookup = Promise.withResolvers<void>();
+    const failLookup = Promise.withResolvers<void>();
+    const retryLookup = Promise.withResolvers<void>();
+    const releaseRetry = Promise.withResolvers<void>();
+    const isChartLookup = (url: URL) =>
+      url.pathname === "/api/reports/draft-sources" &&
+      url.searchParams.getAll("evidence_id").includes(chart.id);
+    let lookups = 0;
+    await page.route(isChartLookup, async (route) => {
+      lookups += 1;
+      if (lookups === 1) {
+        initialLookup.resolve();
+        await failLookup.promise;
+        await route.fulfill({ status: 503, json: { detail: "Synthetic chart detail failure." } });
+        return;
+      }
+      const response = await route.fetch();
+      retryLookup.resolve();
+      await releaseRetry.promise;
+      await route.fulfill({ response });
+    });
+    const shortId = chart.id.slice(0, 8);
+    const loadingChart = sectionSources.getByText("Loading chart details…", { exact: true });
+    const missingChart = sectionSources.getByText(`Chart ${shortId} preview unavailable.`, {
+      exact: true,
+    });
+    const retryChart = sectionSources.getByRole("button", {
+      name: `Retry chart details ${shortId}`,
+    });
+    const removeChart = sectionSources.getByRole("button", {
+      name: `Remove unavailable chart ${shortId}`,
+    });
+    try {
+      await page.reload();
+      await initialLookup.promise;
+      await expect(loadingChart).toBeVisible();
+      await expect(missingChart).toHaveCount(0);
+      await expect(removeChart).toHaveCount(0);
+      await expect(retryChart).toHaveCount(0);
+
+      failLookup.resolve();
+      await expect(missingChart).toBeVisible();
+      await expect(loadingChart).toHaveCount(0);
+      await expect(removeChart).toBeEnabled();
+      await expect(
+        page.getByRole("button", { name: "Retry draft sources", exact: true }),
+      ).toBeEnabled();
+      await retryChart.press("Enter");
+      await retryLookup.promise;
+      await expect(loadingChart).toBeVisible();
+      await expect(missingChart).toHaveCount(0);
+      await expect(removeChart).toHaveCount(0);
+
+      releaseRetry.resolve();
+      await expect(preview).toHaveAttribute("src", previewUrl);
+      await expect(loadingChart).toHaveCount(0);
+      await expect(missingChart).toHaveCount(0);
+      await expect(retryChart).toHaveCount(0);
+      expect(lookups).toBe(2);
+      expect(saves).toEqual([]);
+    } finally {
+      failLookup.resolve();
+      releaseRetry.resolve();
+      await page.unroute(isChartLookup);
+    }
+
     await expect(
       page.getByText("Unsaved edits · Recovered from this browser", { exact: true }),
     ).toBeVisible();

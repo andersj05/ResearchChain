@@ -17,10 +17,18 @@ type IndexedFile = {
   lead?: string;
   attempt: Attempt;
   pass: number;
+  savedAt: number;
   search: string;
 };
+type FileCursor = Pick<IndexedFile, "key" | "file" | "savedAt">;
 
 const pageSize = 20;
+
+function newestFileFirst(left: FileCursor, right: FileCursor) {
+  const order = right.savedAt - left.savedAt || left.file.name.localeCompare(right.file.name);
+  if (order || left.key === right.key) return order;
+  return left.key < right.key ? -1 : 1;
+}
 
 function filesIn(attempt: Attempt) {
   const result = attempt.result;
@@ -49,6 +57,7 @@ function indexFiles(lanes: SessionWorkspace[]) {
   for (const lane of lanes) {
     const lead = lane.parentKey ? byLane.get(lane.parentKey)?.title : undefined;
     for (const [index, attempt] of lane.attempts.entries()) {
+      const savedAt = Date.parse(attempt.created_at);
       for (const file of filesIn(attempt)) {
         const key = JSON.stringify([lane.key, file.name, file.artifact_id]);
         // Later receipts carry workspace contents forward. Keep the first receipt
@@ -61,21 +70,18 @@ function indexFiles(lanes: SessionWorkspace[]) {
             lead,
             attempt,
             pass: index + 1,
+            savedAt,
             search: `${file.name} ${lane.title} ${lead ?? ""} ${attempt.path}`.toLowerCase(),
           });
         }
       }
     }
   }
-  return [...entries.values()].sort(
-    (a, b) =>
-      Date.parse(b.attempt.created_at) - Date.parse(a.attempt.created_at) ||
-      a.file.name.localeCompare(b.file.name),
-  );
+  return [...entries.values()].sort(newestFileFirst);
 }
 
 function FilePreview({ entry, lanes }: { entry: IndexedFile; lanes: SessionWorkspace[] }) {
-  const cutoff = Date.parse(entry.attempt.created_at);
+  const cutoff = entry.savedAt;
   const attempts =
     entry.lane.key === "editor"
       ? lanes.flatMap(({ attempts }) => attempts.filter((a) => Date.parse(a.created_at) <= cutoff))
@@ -103,11 +109,22 @@ export function StudyFiles({
 }) {
   const [open, setOpen] = useStudyIndex("files", returnRef);
   const [query, setQuery] = useState("");
-  const [shown, setShown] = useState(pageSize);
+  const [shownThrough, setShownThrough] = useState<FileCursor>();
   const [preview, setPreview] = useState<string>();
   const entries = useMemo(() => (open ? indexFiles(lanes) : []), [lanes, open]);
   const words = query.toLowerCase().trim().split(/\s+/);
   const matches = entries.filter(({ search }) => words.every((word) => search.includes(word)));
+  // A new file can arrive above the rows the owner has already reached.
+  const throughIndex = shownThrough
+    ? matches.findLastIndex((entry) => newestFileFirst(entry, shownThrough) <= 0)
+    : -1;
+  const visible = matches.slice(0, Math.max(pageSize, throughIndex + 1));
+
+  function keepThrough(entry: IndexedFile | undefined) {
+    if (!entry) return;
+    const { key, file, savedAt } = entry;
+    setShownThrough({ key, file, savedAt });
+  }
 
   return (
     <details
@@ -126,7 +143,7 @@ export function StudyFiles({
               value={query}
               onChange={(event) => {
                 setQuery(event.target.value);
-                setShown(pageSize);
+                setShownThrough(undefined);
               }}
               placeholder="Filename, assignment, lead, or path"
               maxLength={240}
@@ -139,7 +156,7 @@ export function StudyFiles({
           </p>
           {!!matches.length && (
             <ul className={styles.rows} aria-label="Saved file results">
-              {matches.slice(0, shown).map((entry) => {
+              {visible.map((entry) => {
                 const { key, file, lane, lead, attempt, pass } = entry;
                 const isPreview = preview === key;
                 const passLinkId = `study-file-pass-${encodeURIComponent(key)}`;
@@ -162,7 +179,10 @@ export function StudyFiles({
                             type="button"
                             className="button small"
                             aria-expanded={isPreview}
-                            onClick={() => setPreview(isPreview ? undefined : key)}
+                            onClick={() => {
+                              if (!isPreview) keepThrough(visible.at(-1));
+                              setPreview(isPreview ? undefined : key);
+                            }}
                           >
                             {isPreview ? "Close preview" : "Preview"}
                           </button>
@@ -172,7 +192,10 @@ export function StudyFiles({
                           runId={runId}
                           lane={lane}
                           pass={attempt.id}
-                          onSelect={(workspace, pass) => onSelect(workspace, pass, passLinkId)}
+                          onSelect={(workspace, pass) => {
+                            keepThrough(visible.at(-1));
+                            onSelect(workspace, pass, passLinkId);
+                          }}
                         >
                           Open saved pass
                         </SessionWorkspaceLink>
@@ -194,11 +217,13 @@ export function StudyFiles({
               })}
             </ul>
           )}
-          {matches.length > shown && (
+          {matches.length > visible.length && (
             <button
               className="button small"
               type="button"
-              onClick={() => setShown(shown + pageSize)}
+              onClick={() =>
+                keepThrough(matches[Math.min(visible.length + pageSize, matches.length) - 1])
+              }
             >
               Show more files
             </button>

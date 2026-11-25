@@ -81,9 +81,15 @@ export function Workbench() {
   const [activeAgent, setActiveAgent] = useState<AgentSummary | null>(null);
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const drafts = useRef(new Map<string, AgentDraft>());
+  const linkedBuildPreference = useRef<{
+    agentId: string;
+    revisionId: string;
+    previousAgent: string | null;
+  }>(null);
   const storageKey =
     storagePrefix + (activeAgent ? `.agent.${activeAgent.id}.workflow` : ".workflow.v0.1");
   const pendingKey = storagePrefix + ".run.pending";
+  const activeAgentKey = storagePrefix + ".active-agent";
   const [legacyAvailable, setLegacyAvailable] = useState(() =>
     legacyDraftAvailable(legacyKey, storagePrefix),
   );
@@ -189,6 +195,18 @@ export function Workbench() {
 
   useEffect(() => {
     let active = true;
+    const linkedBuildAgent =
+      (requestedView === "workflow" || (!requestedView && !runId)) && parameters.has("revision")
+        ? parameters.get("agent")?.toLowerCase()
+        : null;
+    let rememberedAgent: string | null | undefined;
+    if (linkedBuildAgent) {
+      try {
+        rememberedAgent = localStorage.getItem(activeAgentKey);
+      } catch {
+        /* Storage is optional. */
+      }
+    }
     async function read<T>(path: string): Promise<T> {
       try {
         return await api<T>(path);
@@ -245,7 +263,7 @@ export function Workbench() {
           parameters.get("agent") ?? restored?.agent_id ?? unconfirmed?.agent_id ?? null;
         if (!agentId && !parameters.has("revision") && !runId) {
           try {
-            agentId = localStorage.getItem(storagePrefix + ".active-agent");
+            agentId = localStorage.getItem(activeAgentKey);
           } catch {
             /* Storage is optional. */
           }
@@ -270,6 +288,11 @@ export function Workbench() {
             : revisionId
               ? await read<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
               : null;
+        if (
+          linkedBuildAgent &&
+          (detail?.agent.id !== linkedBuildAgent || latest?.id !== revisionId)
+        )
+          throw new Error("The requested workflow revision could not be verified.");
         const agentRuns = detail
           ? await read<RecentRunSummary[]>(`runs?agent_id=${detail.agent.id}`)
           : recentRuns;
@@ -299,6 +322,12 @@ export function Workbench() {
           setProviderAccount(draft.providerAccount);
           setEdited(true);
         }
+        if (linkedBuildAgent && latest && rememberedAgent !== undefined)
+          linkedBuildPreference.current = {
+            agentId: linkedBuildAgent,
+            revisionId: latest.id,
+            previousAgent: rememberedAgent,
+          };
         if (!restored && unconfirmed && linkedReadEpoch === runReadEpoch.current) {
           selectedRunId.current = unconfirmed.id;
           setUnconfirmedStartId(unconfirmed.id);
@@ -320,7 +349,16 @@ export function Workbench() {
     return () => {
       active = false;
     };
-  }, [initialize, parameters, pendingKey, requestedView, runId, setTab, storagePrefix]);
+  }, [
+    activeAgentKey,
+    initialize,
+    parameters,
+    pendingKey,
+    requestedView,
+    runId,
+    setTab,
+    storagePrefix,
+  ]);
 
   useEffect(() => {
     if (!loaded || !activeAgent) return;
@@ -335,13 +373,23 @@ export function Workbench() {
       providerAccount,
     };
     drafts.current.set(activeAgent.id, draft);
+    const linked = linkedBuildPreference.current;
+    linkedBuildPreference.current = null;
     try {
       localStorage.setItem(agentDraftKey(storagePrefix, activeAgent.id), JSON.stringify(draft));
+      // The exact draft must be restorable before Workflows can choose this linked agent.
+      if (
+        linked?.agentId === activeAgent.id &&
+        linked.revisionId === revision?.id &&
+        localStorage.getItem(activeAgentKey) === linked.previousAgent
+      )
+        localStorage.setItem(activeAgentKey, linked.agentId);
     } catch {
       /* The in-memory copy still protects switching in this session. */
     }
   }, [
     loaded,
+    activeAgentKey,
     activeAgent,
     revision,
     workflow,
@@ -381,8 +429,8 @@ export function Workbench() {
     url.searchParams.set("view", "workflow");
     window.history.replaceState(null, "", url);
     try {
-      if (id) localStorage.setItem(storagePrefix + ".active-agent", id);
-      else localStorage.removeItem(storagePrefix + ".active-agent");
+      if (id) localStorage.setItem(activeAgentKey, id);
+      else localStorage.removeItem(activeAgentKey);
     } catch {
       /* URL still identifies the agent. */
     }

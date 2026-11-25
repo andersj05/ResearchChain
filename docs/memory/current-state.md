@@ -2,6 +2,23 @@
 
 Updated 2026-11-25.
 
+## Recovering in-progress research work
+
+Unpinned files remain available while the owner reads the study archive. The
+browser can warn before the tab reloads or closes. Canceling the reload keeps
+the queue, and removing or pinning the last file clears the warning.
+
+Returning through **Workflows** remembers a valid bookmarked named-agent
+version and its draft. A failed revision read leaves the previous Agent
+preference in place, and a newer selection takes priority. A recovered report
+chart shows its lookup in progress and offers an inline retry after a failed
+lookup, with its placement kept throughout.
+
+**Saved files** keeps the revealed range as newer files arrive. An open preview
+stays on its exact artifact and **Back to saved files** restores the original
+row if it still matches. The phone fixture covered same-name versions and an
+actual removal.
+
 ## Inspecting a loaded workflow on a phone
 
 Loading **Demo template** or **Research example** brings the workspace and
@@ -9,6 +26,7 @@ its canvas into view on compact screens. Focus moves to the workspace
 message, with **Undo load** one Tab away. Undo restores the exact staged
 draft. A subsequent draft edit dismisses the template-specific undo action.
 Existing desktop focus and saved workflows are preserved.
+[Compact Build template PR](https://github.com/andersj05/ResearchChain/pull/174).
 
 ## Moving from the report outline into editing
 

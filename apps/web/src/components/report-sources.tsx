@@ -75,6 +75,7 @@ export function ReportSectionSources({
   section,
   sources,
   sourceBases,
+  draftSourceLookup,
   disabled,
   onChange,
   referenceDraft,
@@ -83,6 +84,7 @@ export function ReportSectionSources({
   section: ReportSection;
   sources: EvidenceRecord[];
   sourceBases: ReportView["source_bases"];
+  draftSourceLookup: { loading: boolean; unresolvedIds: string[]; retry: () => void };
   disabled: boolean;
   onChange: (section: ReportSection) => void;
   referenceDraft?: SectionReferenceDraft;
@@ -271,7 +273,7 @@ export function ReportSectionSources({
         </fieldset>
       )}
       <h3>Chart originals</h3>
-      {!charts.length && (
+      {!charts.length && !placedCharts.length && (
         <p className="muted">
           Add a captured PNG, JPEG, or WebP source to the report to place a chart here.
         </p>
@@ -297,16 +299,37 @@ export function ReportSectionSources({
       </fieldset>
       {placedCharts.map((id) => {
         const source = charts.find((s) => s.id === id);
-        return source?.artifact ? (
-          <figure className="report-chart" key={id}>
-            <img src={contentUrl(source.artifact.id) + "?preview=true"} alt={source.title} />
-            <figcaption>
-              {source.title} · {source.representation} · As of {source.as_of_date ?? "unknown"}
-            </figcaption>
-          </figure>
-        ) : (
+        if (source?.artifact) {
+          return (
+            <figure className="report-chart" key={id}>
+              <img src={contentUrl(source.artifact.id) + "?preview=true"} alt={source.title} />
+              <figcaption>
+                {source.title} · {source.representation} · As of {source.as_of_date ?? "unknown"}
+              </figcaption>
+            </figure>
+          );
+        }
+        const unresolved = draftSourceLookup.unresolvedIds.includes(id);
+        if (unresolved && draftSourceLookup.loading) {
+          return (
+            <p className="field-hint" role="status" key={id}>
+              Loading chart details…
+            </p>
+          );
+        }
+        return (
           <div className="actions" key={id}>
             <p className="field-hint">Chart {id.slice(0, 8)} preview unavailable.</p>
+            {unresolved && (
+              <Button
+                className="button small"
+                disabled={disabled}
+                aria-label={`Retry chart details ${id.slice(0, 8)}`}
+                onClick={draftSourceLookup.retry}
+              >
+                Retry chart details
+              </Button>
+            )}
             <Button
               className="button small"
               disabled={disabled}

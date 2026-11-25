@@ -19,6 +19,43 @@ async function expectDestination(page: Page, destination: (typeof destinations)[
   );
 }
 
+test("protects unpinned files from reload while reading the study archive", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?view=research");
+  await page.getByLabel("Source files").setInputFiles({
+    name: fileName,
+    mimeType: "text/plain",
+    buffer: Buffer.from("Keep this unpinned synthetic file when canceling a reload."),
+  });
+  const title = page.getByLabel(`Packet title for ${fileName}`);
+  await title.fill(fileTitle);
+  const nav = page.getByRole("navigation", { name: "Research navigation" });
+  await nav.getByRole("link", { name: "Studies", exact: true }).click();
+  await expect(page).toHaveURL(/studies=1/);
+
+  const [warning] = await Promise.all([
+    page.waitForEvent("dialog", { timeout: 5000 }),
+    page.evaluate(() => {
+      setTimeout(() => window.location.reload(), 0);
+    }),
+  ]);
+  expect(warning.type()).toBe("beforeunload");
+  await warning.dismiss();
+  await page.getByRole("link", { name: "Research desk", exact: true }).click();
+  await expect(title).toHaveValue(fileTitle);
+  await page.getByRole("button", { name: `Remove queued ${fileName}` }).click();
+  await expect(title).toHaveCount(0);
+
+  const extraWarnings: string[] = [];
+  page.on("dialog", async (dialog) => {
+    extraWarnings.push(dialog.type());
+    await dialog.accept();
+  });
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "New study", exact: true })).toBeVisible();
+  expect(extraWarnings).toEqual([]);
+});
+
 for (const width of [390, 1440]) {
   test(`keeps staged files when using the current Research desk link at ${width}px`, async ({
     page,
