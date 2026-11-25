@@ -188,8 +188,9 @@ export function ReportEditor({
     if (!outlineOrigin || !outlineJumpPending.current) return;
     outlineJumpPending.current = false;
     const input = sectionHeadingInput.current;
-    if (outlineOrigin.keyboard) input?.focus({ preventScroll: true });
-    input?.scrollIntoView({ block: "center" });
+    if (!input || input.matches(":disabled")) return;
+    if (outlineOrigin.keyboard) input.focus({ preventScroll: true });
+    input.scrollIntoView({ block: "center" });
   }, [outlineOrigin]);
 
   useEffect(() => {
@@ -247,7 +248,7 @@ export function ReportEditor({
   }
   function selectFromOutline(id: string, keyboard: boolean) {
     selectSection(id);
-    const compact = window.matchMedia("(max-width: 760px)").matches;
+    const compact = !locked && window.matchMedia("(max-width: 760px)").matches;
     outlineJumpPending.current = compact;
     setOutlineOrigin(compact ? { id, keyboard } : undefined);
   }
@@ -622,7 +623,7 @@ export function ReportEditor({
             <p className="sr-only" role="status">
               {moveNotice}
             </p>
-            {outlineOrigin && (
+            {outlineOrigin && !locked && (
               <button
                 type="button"
                 className="button small report-back-to-sections"

@@ -5,6 +5,27 @@ import { seed } from "./report-fixture";
 const query = "archive coupon";
 const lastTitle = "Archived funding ladder by maturity";
 
+async function saveRevision(
+  request: APIRequestContext,
+  record: ReportRevision,
+  sections: ReportSection[],
+  note: string,
+): Promise<ReportRevision> {
+  const response = await request.post("/api/reports/revisions", {
+    data: {
+      id: crypto.randomUUID(),
+      base_revision_id: record.id,
+      title: record.title,
+      style_guide_id: record.style_guide_id,
+      evidence_ids: record.sources.map(({ id }) => id),
+      sections,
+      change_note: note,
+    },
+  });
+  expect(response.status(), await response.text()).toBe(201);
+  return response.json();
+}
+
 async function longReport(request: APIRequestContext, width: number) {
   const { record } = await seed(request, `outline navigation ${width}`);
   const sections: ReportSection[] = Array.from({ length: 40 }, (_, index) => ({
@@ -17,20 +38,8 @@ async function longReport(request: APIRequestContext, width: number) {
     citations: [],
     chart_ids: [],
   }));
-  const response = await request.post("/api/reports/revisions", {
-    data: {
-      id: crypto.randomUUID(),
-      base_revision_id: record.id,
-      title: record.title,
-      style_guide_id: record.style_guide_id,
-      evidence_ids: record.sources.map(({ id }) => id),
-      sections,
-      change_note: "Seed the synthetic outline.",
-    },
-  });
-  expect(response.status(), await response.text()).toBe(201);
   return {
-    report: (await response.json()) as ReportRevision,
+    report: await saveRevision(request, record, sections, "Seed the synthetic outline."),
     middle: sections[20]!,
     last: sections[39]!,
   };
@@ -118,6 +127,23 @@ for (const width of [320, 390, 1440]) {
       await expect(outline.getByRole("button")).toHaveCount(2);
       await expect(heading).toHaveValue(last.heading);
       await expect(text).toHaveValue("An unsaved observation with a new search term.");
+
+      if (width === 390) {
+        await other.press("Enter");
+        await expect(back).toBeVisible();
+        const revised = report.sections.map((item, index) =>
+          index === 0 ? { ...item, body: "Synthetic external edit." } : item,
+        );
+        await saveRevision(request, report, revised, "Save an external head.");
+        await page.getByRole("tab", { name: "Sources", exact: true }).click();
+        const reportsTab = page.getByRole("tab", { name: "Reports", exact: true });
+        await reportsTab.click();
+        await expect(page.getByText(/A newer revision exists/)).toBeVisible();
+        await expect(heading).toBeDisabled();
+        await expect(other).toBeDisabled();
+        await expect(back).toHaveCount(0);
+        await expect(reportsTab).toBeFocused();
+      }
     }
 
     await expect(page).toHaveURL(reportUrl);
