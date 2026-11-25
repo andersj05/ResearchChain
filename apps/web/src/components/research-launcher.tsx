@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources } from "./discovery-sources";
 import { StudyPacket, packetSize } from "./study-packet";
+import { StudySetupComparison } from "./study-setup-comparison";
 import type { EvidenceRecord } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
@@ -37,6 +38,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const captureKey = `${key}.capture`;
   const [saved] = useState(() => readResearchBrief(key));
   const [form, setForm] = useState(() => initializeResearchBrief(saved, fromSession));
+  const [baseline, setBaseline] = useState<ResearchSessionSetup>();
   const { draft, awaitingModelCatalog } = form;
   const [pending, setPending] = useState<ResearchSessionStart | null>(saved?.pending ?? null);
   const [loaded, setLoaded] = useState(Boolean(saved) || !fromSession);
@@ -131,6 +133,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     ).then(
       (setup) => {
         if (current) {
+          setBaseline(setup);
           setForm({ draft: editableResearchBrief(setup), awaitingModelCatalog: false });
           setLoaded(true);
           setSetupError("");
@@ -283,6 +286,14 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         <p className={styles.origin}>
           Starting from a <a href={sessionUrl(fromSession)}>previous study</a>.
         </p>
+      )}
+      {fromSession && loaded && (
+        <StudySetupComparison
+          fromSession={fromSession}
+          baseline={baseline}
+          draft={{ ...draft, model, max_input_bytes: limit }}
+          records={[...records, ...captured.values()]}
+        />
       )}
       {setupError && (
         <div role="alert" className={styles.notice}>
