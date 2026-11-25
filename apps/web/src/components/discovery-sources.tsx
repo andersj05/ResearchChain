@@ -324,6 +324,7 @@ export function DiscoverySources({
           onAdd={onPin}
           allowBatchPin
           allowKindFilter
+          allowAvailabilityFilter
           attachedCharts={known}
           showSelected={false}
           disabled={locked || filePending}
