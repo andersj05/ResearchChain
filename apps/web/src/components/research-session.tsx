@@ -65,7 +65,7 @@ type ReturnOrigin =
 type Decision = "approve" | "reject";
 type SessionAction =
   | { name: "resume"; review: Review; decision: Decision; feedback: string }
-  | { name: "recover"; failedCommandId?: string }
+  | { name: "recover"; failedCommandId?: string; confirmUnrecorded?: boolean }
   | { name: "cancel" };
 type ActionFailure = {
   review?: Review;
@@ -151,6 +151,7 @@ function ResearchSessionView({
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  const [confirmedRecovery, setConfirmedRecovery] = useState<string>();
   const stopChoice = useRef<HTMLButtonElement>(null);
   const focusStopChoice = useRef(false);
   const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
@@ -259,7 +260,10 @@ function ResearchSessionView({
             feedback: action.feedback,
           }
         : action.name === "recover" && action.failedCommandId
-          ? { failed_command_id: action.failedCommandId }
+          ? {
+              failed_command_id: action.failedCommandId,
+              ...(action.confirmUnrecorded && { confirm_unrecorded: true }),
+            }
           : {};
     sending.current = true;
     setBusy(true);
@@ -384,6 +388,7 @@ function ResearchSessionView({
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
   const canStop = live || run.status === "paused" || run.status === "interrupted";
   const failedCommandId = run.recovery_command_id;
+  const confirmedUnrecorded = !!failedCommandId && confirmedRecovery === failedCommandId;
   const started = run.model_attempts?.length ?? 0;
   const activeSeconds = run.usage?.active_seconds;
   const report = sessionReport(editor, run.status);
@@ -631,11 +636,29 @@ function ResearchSessionView({
           {failedCommandId && (
             <>
               <p>Resume from the saved checkpoint. Retried requests use your plan allowance.</p>
+              {run.recovery_requires_confirmation && (
+                <label className={styles.resumeConfirmation}>
+                  <input
+                    type="checkbox"
+                    checked={confirmedUnrecorded}
+                    disabled={!active || busy}
+                    onChange={(event) =>
+                      setConfirmedRecovery(event.target.checked ? failedCommandId : undefined)
+                    }
+                  />
+                  Retry the request with no recorded outcome. It may use another request from your
+                  allowance.
+                </label>
+              )}
               <Button
                 className="button primary"
-                disabled={busy || !active}
+                disabled={
+                  busy || !active || (!!run.recovery_requires_confirmation && !confirmedUnrecorded)
+                }
                 pendingAnnouncement="Resuming research"
-                onClick={() => act({ name: "recover", failedCommandId })}
+                onClick={() =>
+                  act({ name: "recover", failedCommandId, confirmUnrecorded: confirmedUnrecorded })
+                }
               >
                 Resume research
               </Button>

@@ -213,6 +213,9 @@ class CheckpointStep(StrictModel):
 
 class RunSnapshot(RunSummary):
     recovery_command_id: UUID | None = Field(default=None, exclude_if=lambda x: x is None)
+    recovery_requires_confirmation: bool | None = Field(
+        default=None, exclude_if=lambda value: not value
+    )
     perspective_answers: list[PerspectiveAnswer] = Field(
         default_factory=list, exclude_if=lambda x: not x
     )

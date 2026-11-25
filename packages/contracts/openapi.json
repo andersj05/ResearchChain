@@ -9565,6 +9565,11 @@
               }
             ],
             "title": "Failed Command Id"
+          },
+          "confirm_unrecorded": {
+            "type": "boolean",
+            "title": "Confirm Unrecorded",
+            "default": false
           }
         },
         "additionalProperties": false,
@@ -9733,6 +9738,17 @@
               }
             ],
             "title": "Recovery Command Id"
+          },
+          "recovery_requires_confirmation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Requires Confirmation"
           },
           "perspective_answers": {
             "items": {

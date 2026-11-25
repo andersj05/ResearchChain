@@ -46,6 +46,11 @@ from researchchain.models import (
     Workflow,
     WorkflowNode,
 )
+from researchchain.providers.chatgpt_auth import (
+    GENERIC_PROVIDER_ERROR,
+    PROVIDER_OVERLOAD_CODES,
+    PROVIDER_OVERLOAD_MESSAGE,
+)
 from researchchain.research import (
     RESEARCH_COMPILER_VERSION,
     ChatGPTResearchProvider,
@@ -295,6 +300,15 @@ class RunStore:
         recovery = recovery_candidate(conn, manifest["id"]) if status == "failed" else None
         reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
+        stop_reason = control["reason"] or worker_error
+        if stop_reason == GENERIC_PROVIDER_ERROR and any(
+            attempt.status == "failed"
+            and attempt.superseded_at is None
+            and attempt.provider_failure
+            and attempt.provider_failure.code in PROVIDER_OVERLOAD_CODES
+            for attempt in attempts
+        ):
+            stop_reason = PROVIDER_OVERLOAD_MESSAGE
         research = read_manifest(conn, manifest["id"])
         report_request = control["owner_report_request"]
         can_request_report = bool(
@@ -339,6 +353,9 @@ class RunStore:
             checkpoint_steps=checkpoint_steps(state, status),
             status=status,
             recovery_command_id=recovery["id"] if recovery else None,
+            recovery_requires_confirmation=(recovery["requires_confirmation"] or None)
+            if recovery
+            else None,
             execution_pending=running or queued,
             events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
@@ -357,7 +374,7 @@ class RunStore:
                     and item.result.swarm_action.action == "ask_expert"
                 ),
             ),
-            stop_reason=control["reason"] or worker_error,
+            stop_reason=stop_reason,
             usage=RunUsage(
                 node_executions=control["node_executions"],
                 active_seconds=control["active_seconds"],

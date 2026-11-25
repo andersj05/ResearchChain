@@ -165,11 +165,17 @@ class RunQueue:
                 self._enqueue(conn, command)
             return receipt(command)
 
-    def recover(self, run_id: UUID, failed_command_id: UUID | None = None) -> CommandReceipt:
+    def recover(
+        self,
+        run_id: UUID,
+        failed_command_id: UUID | None = None,
+        *,
+        confirm_unrecorded: bool = False,
+    ) -> CommandReceipt:
         with self._admission() as conn:
             self.runs._manifest(conn, run_id)
             if failed_command_id is not None:
-                return self._recover_failed(conn, run_id, failed_command_id)
+                return self._recover_failed(conn, run_id, failed_command_id, confirm_unrecorded)
             command = self.runs._unfinished(conn, run_id)
             if command is None:
                 command = conn.execute(
@@ -226,7 +232,11 @@ class RunQueue:
             return save_report_request(conn, run_id, request)
 
     def _recover_failed(
-        self, conn: Connection[DictRow], run_id: UUID, failed_command_id: UUID
+        self,
+        conn: Connection[DictRow],
+        run_id: UUID,
+        failed_command_id: UUID,
+        confirm_unrecorded: bool,
     ) -> CommandReceipt:
         previous = conn.execute(
             "SELECT * FROM run_commands WHERE run_id = %s AND recovery_of = %s",
@@ -239,6 +249,10 @@ class RunQueue:
         failed = recovery_candidate(conn, run_id)
         if failed is None or failed["id"] != failed_command_id:
             raise ConflictError("This study failure cannot be resumed. Refresh the study.")
+        if failed["requires_confirmation"] and not confirm_unrecorded:
+            raise ConflictError(
+                "Confirm that a request with no recorded outcome may be sent again."
+            )
         command = conn.execute(
             "INSERT INTO run_commands "
             "(id, run_id, kind, recovery_of, checkpoint_id, interrupt_id, decision, feedback) "

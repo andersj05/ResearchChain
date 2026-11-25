@@ -1,7 +1,9 @@
 import { expect, test } from "./fixtures";
 import type { RunSnapshot } from "../src/lib/workflow";
 
-test("resume a failed swarm from its saved workspace", async ({ page }) => {
+test("confirm an unrecorded companion request and resume from the saved workspace", async ({
+  page,
+}) => {
   const runId = crypto.randomUUID();
   const commandId = crypto.randomUUID();
   const attemptId = crypto.randomUUID();
@@ -16,8 +18,9 @@ test("resume a failed swarm from its saved workspace", async ({ page }) => {
         created_at: now,
         execution_pending: status === "queued",
         status,
-        stop_reason: status === "failed" ? "OpenAI could not complete the request." : null,
+        stop_reason: status === "failed" ? "OpenAI was overloaded and stopped the request." : null,
         recovery_command_id: status === "failed" ? commandId : null,
+        recovery_requires_confirmation: status === "failed",
         checkpoint_id: "same-checkpoint",
         events: [],
         artifacts: [],
@@ -40,7 +43,12 @@ test("resume a failed swarm from its saved workspace", async ({ page }) => {
             finished_at: now,
             input_bytes: 0,
             output_characters: 0,
-            provider_failure: { source: "http", http_status: 503, request_id: "req_synthetic" },
+            provider_failure: {
+              source: "stream",
+              http_status: 200,
+              code: "server_is_overloaded",
+              request_id: "req_synthetic",
+            },
             superseded_at: status === "failed" ? null : now,
           },
         ],
@@ -59,7 +67,9 @@ test("resume a failed swarm from its saved workspace", async ({ page }) => {
   const workspace = page.locator("#current-research-workspace");
   const resume = page.getByRole("button", { name: "Resume research", exact: true });
   await expect(runStatus).toHaveText("Needs attention");
-  await expect(workspace).toContainText("HTTP 503 · Request ID req_synthetic");
+  await expect(workspace).toContainText("server_is_overloaded");
+  await expect(resume).toBeDisabled();
+  await page.getByRole("checkbox", { name: /Retry the request with no recorded outcome/ }).check();
   await resume.focus();
   await resume.press("Enter");
   await expect(
@@ -70,5 +80,6 @@ test("resume a failed swarm from its saved workspace", async ({ page }) => {
   await expect(resume).toHaveCount(0);
   await expect(page).toHaveURL(new RegExp(`session=${runId}&workspace=director&pass=${attemptId}`));
   await expect(workspace).toContainText("Earlier attempt on this step");
-  expect(submitted).toEqual([{ failed_command_id: commandId }, { failed_command_id: commandId }]);
+  const command = { failed_command_id: commandId, confirm_unrecorded: true };
+  expect(submitted).toEqual([command, command]);
 });
