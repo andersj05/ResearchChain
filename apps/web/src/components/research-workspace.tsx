@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ComponentPropsWithRef } from "react";
+import { memo, useEffect, useRef, useState, type ComponentPropsWithRef } from "react";
 import type { components } from "@researchchain/contracts";
 import { apiFetch } from "@/lib/access";
 import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
@@ -117,16 +117,29 @@ export function WorkspaceFiles({
   files,
   sources,
   label = "Workspace files",
+  keepSelectedVersion = false,
 }: {
   files: WorkspaceFile[];
   sources: Set<string>;
   label?: string;
+  keepSelectedVersion?: boolean;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<{
+    name: string;
+    preview?: Pick<PreviewProps, "file" | "files" | "sources">;
+  }>();
+  const picker = useRef<HTMLSelectElement>(null);
+  const latest = files.find((item) => item.name === selected?.name);
+  const retained = selected?.preview;
   const file =
-    files.find((item) => item.name === selected) ??
-    files.find((item) => imageTypes.has(item.media_type)) ??
-    files[0];
+    retained?.file ?? latest ?? files.find((item) => imageTypes.has(item.media_type)) ?? files[0];
+  const newer = retained && latest?.artifact_id !== retained.file.artifact_id ? latest : undefined;
+  function choose(next: WorkspaceFile) {
+    setSelected({
+      name: next.name,
+      preview: keepSelectedVersion ? { file: next, files, sources } : undefined,
+    });
+  }
   if (!file) return null;
   return (
     <section className="workspace-files" aria-label={label}>
@@ -135,9 +148,14 @@ export function WorkspaceFiles({
           {label}
           <select
             aria-label="Preview workspace file"
+            ref={picker}
             value={file.name}
-            onChange={(event) => setSelected(event.target.value)}
+            onChange={(event) => {
+              const next = files.find((item) => item.name === event.target.value);
+              if (next) choose(next);
+            }}
           >
+            {retained && !latest && <option value={file.name}>{file.name}</option>}
             {files.map((item) => (
               <option key={item.name} value={item.name}>
                 {item.name}
@@ -153,11 +171,28 @@ export function WorkspaceFiles({
         >
           Download
         </a>
+        {newer && (
+          <button
+            type="button"
+            className="button small"
+            onClick={() => {
+              choose(newer);
+              picker.current?.focus({ preventScroll: true });
+            }}
+          >
+            Open latest version
+          </button>
+        )}
       </div>
       <p className="field-hint">
         {file.name} · {file.byte_size.toLocaleString()} bytes
+        {newer && " · Earlier saved version"}
       </p>
-      <WorkspaceFilePreview file={file} sources={sources} files={files} />
+      <WorkspaceFilePreview
+        file={file}
+        sources={retained?.sources ?? sources}
+        files={retained?.files ?? files}
+      />
     </section>
   );
 }
@@ -165,9 +200,11 @@ export function WorkspaceFiles({
 export function ResearchWorkspace({
   attempts,
   running,
+  keepSelectedVersion,
 }: {
   attempts: Attempt[];
   running: boolean;
+  keepSelectedVersion?: boolean;
 }) {
   const files = new Map<string, WorkspaceFile>();
   const sources = new Set<string>();
@@ -232,7 +269,11 @@ export function ResearchWorkspace({
           !actions.length && <p className="field-hint">No Python actions recorded.</p>
         )}
       </section>
-      <WorkspaceFiles files={[...files.values()]} sources={sources} />
+      <WorkspaceFiles
+        files={[...files.values()]}
+        sources={sources}
+        keepSelectedVersion={keepSelectedVersion}
+      />
     </div>
   );
 }

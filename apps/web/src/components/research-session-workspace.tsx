@@ -766,7 +766,11 @@ function WorkspaceOverview({
         ) && (
           <details className={styles.receipts} open={!report || undefined} hidden={reading}>
             <summary>Workspace activity and files</summary>
-            <ResearchWorkspace attempts={lane.attempts} running={!!active} />
+            <ResearchWorkspace
+              attempts={lane.attempts}
+              running={!!active}
+              keepSelectedVersion={lane.key !== "editor"}
+            />
           </details>
         )}
       <RecordedSources urls={urls} hidden={reading} />
