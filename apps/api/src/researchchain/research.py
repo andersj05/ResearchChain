@@ -82,6 +82,7 @@ from researchchain.research_prompt import (
     validate_result,
     web_prompt_hash,
 )
+from researchchain.research_recovery import PEER_STOPPED_BEFORE_DISPATCH
 from researchchain.research_session_report import (
     REPORT_VERSION,
     confirm_editor_report,
@@ -377,6 +378,10 @@ def fence_uncertain_effects(conn: Connection[DictRow], run_id: UUID) -> None:
             set_terminal(conn, run_id, "failed", UNCERTAIN)
 
 
+class ResearchPeerStopped(ExecutionStopped):
+    """Admission is closed after another member of the research team failed."""
+
+
 class ResearchExecutor:
     def __init__(
         self,
@@ -414,13 +419,19 @@ class ResearchExecutor:
         if self.swarm_pool:
             self.swarm_pool.shutdown(wait=True, cancel_futures=True)
 
-    def guard(self, path: str, count: bool = False) -> None:
+    def guard(self, path: str, count: bool = False, *, settling: bool = False) -> None:
         if self.failure:
             reason, status = self.failure
             if status == "interrupted":
                 raise RuntimeError(reason)
-            raise ExecutionStopped(reason, status)
+            if not settling or status != "failed":
+                raise ResearchPeerStopped(reason, status)
         self.control.guard(path, count)
+
+    def stop_team(self, reason: str, status: str) -> None:
+        if "team_version" in self.manifest.tool_config:
+            with self.control.lock:
+                self.failure = self.failure or (reason, status)
 
     @contextmanager
     def session(self, path: str, *, count: bool = False) -> Iterator[None]:
@@ -431,16 +442,10 @@ class ResearchExecutor:
             except ReportHandoffRequested:
                 raise
             except Exception as error:
-                if "team_version" in self.manifest.tool_config:
-                    # Stop other assignments at their next guard or before acquiring a
-                    # slot. Interruptions leave the ordinary uncertainty fence intact.
-                    failure = (
-                        (str(error), error.status)
-                        if isinstance(error, ExecutionStopped)
-                        else ("Research team execution was interrupted.", "interrupted")
-                    )
-                    with self.control.lock:
-                        self.failure = self.failure or failure
+                if isinstance(error, ExecutionStopped):
+                    self.stop_team(str(error), error.status)
+                else:
+                    self.stop_team("Research team execution was interrupted.", "interrupted")
                 raise
 
     def __call__(
@@ -547,7 +552,7 @@ class ResearchExecutor:
                     on_delta(pending_web)
                     pending_web = None
                 if not task.done():
-                    self.guard(path)
+                    self.guard(path, settling=True)
             return await task
         finally:
             if not task.done():
@@ -780,6 +785,7 @@ class ResearchExecutor:
         swarm_delegation: dict[str, Any] | None = None,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
+        self.guard(path)
         attempt_id, previous, directions = self.reserve(node, path, selected.model)
         if previous:
             return previous
@@ -1001,9 +1007,9 @@ class ResearchExecutor:
                 if trace and trace.actions:
                     result.web_research = trace
             if isinstance(validated, ResearchWithLookup) and validated.sec_lookup:
-                self.guard(path)
+                self.guard(path, settling=True)
                 result.sec_financials = asyncio.run(lookup_sec_financials(validated.sec_lookup))
-                self.guard(path)
+                self.guard(path, settling=True)
             if python:
                 activity = WorkspaceActivity(summary=python.purpose, status="requested")
                 result.workspace_activity = activity
@@ -1016,7 +1022,7 @@ class ResearchExecutor:
                     )
                 with self.control.lock:
                     files = load_files(self.conn, inputs)
-                execution = run_python(python, files, lambda: self.guard(path))
+                execution = run_python(python, files, lambda: self.guard(path, settling=True))
                 activity.status = "completed" if execution.exit_code == 0 else "failed"
                 activity.output = execution.output
                 exports = execution.files
@@ -1036,12 +1042,17 @@ class ResearchExecutor:
             )
             return result
         except ExecutionStopped as error:
+            reason = (
+                PEER_STOPPED_BEFORE_DISPATCH
+                if isinstance(error, ResearchPeerStopped) and error.status == "failed"
+                else str(error)
+            )
             self.finish(
                 attempt_id,
                 error.status,
                 partial,
                 completion,
-                reason=str(error),
+                reason=reason,
                 result=interim,
             )
             raise
@@ -1076,6 +1087,10 @@ class ResearchExecutor:
                 output_characters=lead_characters,
                 provider_failure=provider_failure,
             )
+            if provider_failure:
+                # Record the stop before the local analyst harness tears down. Admitted
+                # sibling requests may finish, while subsequent requests stop at the guard.
+                self.stop_team(reason[:1000], "failed")
             raise ExecutionStopped(reason[:1000], "failed") from None
 
     def finish(

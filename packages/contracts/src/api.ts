@@ -3862,6 +3862,11 @@ export interface components {
     RunRecoveryRequest: {
       /** Failed Command Id */
       failed_command_id?: string | null;
+      /**
+       * Confirm Unrecorded
+       * @default false
+       */
+      confirm_unrecorded: boolean;
     };
     /** RunRequest */
     RunRequest: {
@@ -3931,6 +3936,8 @@ export interface components {
       created_at: string;
       /** Recovery Command Id */
       recovery_command_id?: string | null;
+      /** Recovery Requires Confirmation */
+      recovery_requires_confirmation?: boolean | null;
       /** Perspective Answers */
       perspective_answers?: components["schemas"]["PerspectiveAnswer"][];
       /** Owner Directions */

@@ -370,7 +370,11 @@ def create_app(
         operation_id="recover_run",
     )
     def recover_run(run_id: UUID, request: RunRecoveryRequest | None = None) -> CommandReceipt:
-        return queue.recover(run_id, request.failed_command_id if request else None)
+        return queue.recover(
+            run_id,
+            request.failed_command_id if request else None,
+            confirm_unrecorded=request.confirm_unrecorded if request else False,
+        )
 
     @app.post("/api/runs/{run_id}/cancel", response_model=CancelResult, operation_id="cancel_run")
     def cancel_run(run_id: UUID) -> CancelResult:

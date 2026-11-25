@@ -431,6 +431,12 @@
   border-left: 2px solid var(--amber);
   background: var(--amber-soft);
 }
+.resumeConfirmation {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-block: 8px;
+}
 .actionError {
   padding: 9px 12px;
   border-inline-start: 2px solid var(--red);

@@ -60,6 +60,8 @@ class ProviderError(ConnectionError):
 GENERIC_PROVIDER_ERROR = (
     "OpenAI could not complete the request. Credentials and billing choice were preserved."
 )
+PROVIDER_OVERLOAD_CODES = frozenset({"engine_overloaded", "overloaded", "server_is_overloaded"})
+PROVIDER_OVERLOAD_MESSAGE = "OpenAI was overloaded and stopped the request."
 
 
 def safe_identifier(value: Any) -> str | None:
@@ -110,6 +112,8 @@ def error_for_code(code: str | None, **details: Any) -> ProviderError:
         message = "This request uses a capability that ChatGPT plan access does not support."
     elif code in TERMINAL_REFRESH_ERRORS:
         message = "ChatGPT sign-in expired or was revoked. Continue with ChatGPT again."
+    elif code in PROVIDER_OVERLOAD_CODES:
+        message = PROVIDER_OVERLOAD_MESSAGE
     else:
         message = GENERIC_PROVIDER_ERROR
     return ProviderError(message, code=code, **details)

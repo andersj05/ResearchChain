@@ -13,8 +13,13 @@ from test_research_swarm import SwarmProvider, consult, delegate, finish, packet
 from researchchain.dispatch import RunQueue
 from researchchain.main import create_app
 from researchchain.models import ResumeRequest
-from researchchain.providers.chatgpt_auth import GENERIC_PROVIDER_ERROR, error_for_code
+from researchchain.providers.chatgpt_auth import (
+    GENERIC_PROVIDER_ERROR,
+    PROVIDER_OVERLOAD_MESSAGE,
+    error_for_code,
+)
 from researchchain.providers.credentials import ConnectionError
+from researchchain.research import ResearchExecutor
 from researchchain.revisions import ConflictError
 from researchchain.worker import RunWorker
 
@@ -65,7 +70,9 @@ def start_study(database, provider):
 
 def test_repeatable_recovery_reuses_finished_work_and_the_review(database):
     provider = FailingWorker(
-        error_for_code("server_error", status=200, shape="stream_error", request_id="req_first"),
+        error_for_code(
+            "server_is_overloaded", status=200, shape="stream_error", request_id="req_first"
+        ),
         error_for_code("service_unavailable", status=503, request_id="req_second"),
         consultation=True,
     )
@@ -89,9 +96,10 @@ def test_repeatable_recovery_reuses_finished_work_and_the_review(database):
     assert first_failure.provider_failure.model_dump() == {
         "http_status": 200,
         "source": "stream",
-        "code": "server_error",
+        "code": "server_is_overloaded",
         "request_id": "req_first",
     }
+    assert failed.stop_reason == PROVIDER_OVERLOAD_MESSAGE
     assert provider.worker_calls == {1: 1, 2: 1}
     assert not worker.run_once()
 
@@ -173,6 +181,90 @@ def test_legacy_untyped_provider_failure_is_recoverable_via_api(database):
     assert provider.worker_calls == {1: 1, 2: 2}
 
 
+class ParallelOverload(FailingWorker):
+    def __init__(self, stopping: Event):
+        super().__init__()
+        self.second_admitted = Event()
+        self.stopping = stopping
+
+    async def complete(self, manifest, prepared, on_delta):
+        assignment = packets(prepared.input_items).get("swarm_delegation")
+        if not assignment:
+            return await super().complete(manifest, prepared, on_delta)
+        index = assignment["worker_index"]
+        if index == 1 and not self.worker_calls[1]:
+            self.worker_calls[index] += 1
+            async with asyncio.timeout(10):
+                while not self.second_admitted.is_set():
+                    await asyncio.sleep(0.01)
+            raise error_for_code("server_is_overloaded", status=200, shape="stream_error")
+        if index == 2 and not self.worker_calls[2]:
+            self.second_admitted.set()
+            async with asyncio.timeout(10):
+                while not self.stopping.is_set():
+                    await asyncio.sleep(0.01)
+            # The normal control poll gets a chance to observe the first failure.
+            await asyncio.sleep(0.3)
+        return await super().complete(manifest, prepared, on_delta)
+
+
+@pytest.mark.parametrize("legacy_peer", [False, True])
+def test_overload_preserves_admitted_peer_or_replays_it_only_after_confirmation(
+    database, monkeypatch, legacy_peer
+):
+    stopping = Event()
+    stop_team = ResearchExecutor.stop_team
+
+    def signal_stop(executor, reason, status):
+        stop_team(executor, reason, status)
+        if reason == PROVIDER_OVERLOAD_MESSAGE:
+            stopping.set()
+
+    monkeypatch.setattr(ResearchExecutor, "stop_team", signal_stop)
+    provider = ParallelOverload(stopping)
+    queue, worker, run_id, original = start_study(database, provider)
+    assert original.status == "failed" and original.recovery_command_id
+    peer = next(a for a in original.model_attempts if a.path.endswith("/agent-2"))
+    assert peer.status == "completed" and not original.recovery_requires_confirmation
+    if legacy_peer:
+        # Reproduce the old worker's untyped, admitted sibling and the saved generic reason.
+        with database.connection() as conn, conn.transaction():
+            conn.execute(
+                "UPDATE run_controls SET reason = %s WHERE run_id = %s",
+                (GENERIC_PROVIDER_ERROR, run_id),
+            )
+            conn.execute(
+                "UPDATE research_attempts SET reason = %s WHERE run_id = %s AND status = 'failed'",
+                (GENERIC_PROVIDER_ERROR, run_id),
+            )
+            conn.execute(
+                "UPDATE research_attempts SET status = 'failed', reason = %s, "
+                "response_id = NULL, result = NULL, response_artifact_id = NULL WHERE id = %s",
+                (GENERIC_PROVIDER_ERROR, peer.id),
+            )
+    failed = queue.runs.get(run_id)
+    assert failed.stop_reason == PROVIDER_OVERLOAD_MESSAGE
+    assert bool(failed.recovery_requires_confirmation) is legacy_peer
+
+    with owner_client(create_app(database, provider=provider), workers=False) as client:
+        path = f"/api/runs/{run_id}"
+        request = {"failed_command_id": str(failed.recovery_command_id)}
+        if legacy_peer:
+            rejected = client.post(f"{path}/recover", json=request)
+            assert rejected.status_code == 409 and "Confirm" in rejected.json()["detail"]
+            assert not worker.run_once()
+            request["confirm_unrecorded"] = True
+        response = client.post(f"{path}/recover", json=request)
+        assert response.status_code == 202, response.text
+        assert client.post(f"{path}/recover", json=request).json() == response.json()
+    assert worker.run_once()
+    finished = queue.runs.get(run_id)
+    assert finished.status == "completed", finished.stop_reason
+    assert provider.worker_calls == {1: 2, 2: 2 if legacy_peer else 1}
+    saved_peer = next(a for a in finished.model_attempts if a.id == peer.id)
+    assert bool(saved_peer.superseded_at) is legacy_peer
+
+
 @pytest.mark.parametrize(
     ("failure", "mark_unknown"),
     [
@@ -199,6 +291,6 @@ def test_recovery_rejects_permanent_and_uncertain_failures(database, failure, ma
     else:
         assert failed.recovery_command_id is None
     with pytest.raises(ConflictError, match="cannot be resumed"):
-        queue.recover(run_id, failed.recovery_command_id or uuid4())
+        queue.recover(run_id, failed.recovery_command_id or uuid4(), confirm_unrecorded=True)
     assert not worker.run_once()
     assert provider.worker_calls == {1: 1, 2: 1}

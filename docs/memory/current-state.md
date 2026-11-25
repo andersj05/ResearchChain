@@ -2,6 +2,13 @@
 
 Updated 2026-11-25.
 
+## Resuming after provider overload
+
+The OpenAI stream code `server_is_overloaded` is a retryable failure. An active
+peer can finish its admitted request after a provider failure while the swarm
+stops taking on new requests. An older admitted peer attempt with no recorded
+outcome requires explicit confirmation before recovery can send it again.
+
 ## Live Research Swarm studies
 
 New Research Desk studies use a swarm, with web search and expert consultation

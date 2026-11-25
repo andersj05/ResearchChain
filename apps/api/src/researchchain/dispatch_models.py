@@ -18,6 +18,7 @@ class CommandReceipt(StrictModel):
 
 class RunRecoveryRequest(StrictModel):
     failed_command_id: UUID | None = None
+    confirm_unrecorded: bool = False
 
 
 class QueueLimits(StrictModel):
