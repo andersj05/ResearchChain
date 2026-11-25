@@ -25,6 +25,9 @@ The owner tab restores its submitted study archive search and page. Returning
 from a saved pass restores focus to the matching activity or file result.
 Study and desk views refresh on return to the foreground and fence old
 responses. Production Chromium rehearsals covered these paths with synthetic data.
+Desktop runs the `0c0f1d2` continuity merge with healthy web and two connected
+workers. CI passed 652 API tests with three skips and 238 Chromium cases.
+[Continuity PR](https://github.com/andersj05/ResearchChain/pull/150).
 
 ## Study reading and startup
 
