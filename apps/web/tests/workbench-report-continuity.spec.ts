@@ -205,3 +205,87 @@ test("returning to Reports checks the saved head before accepting another save",
     releaseRead.resolve();
   }
 });
+
+test("a late report save receipt keeps Sources active and restores the saved section", async ({
+  page,
+  request,
+  ownerSession,
+}) => {
+  const { record, source } = await seed(request, "late report receipt");
+  const { writes } = reportRequests(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?view=reports&report=${record.id}`);
+  const { editor, heading, text, save } = editorFields(page);
+  const sectionName = "Synthetic late receipt section";
+  const savedText = "Save this editorial context during a visit to Sources.";
+  await editor.getByRole("button", { name: "Add section", exact: true }).click();
+  await heading.fill(sectionName);
+  await text.fill(savedText);
+  await editor
+    .getByRole("textbox", { name: "Revision change note", exact: true })
+    .fill("Preserve the synthetic continuation.");
+
+  const committed = Promise.withResolvers<ReportRevision>();
+  const release = Promise.withResolvers<void>();
+  await page.route(
+    "**/api/reports/revisions",
+    async (route) => {
+      const receipt = await route.fetch();
+      expect(receipt.status()).toBe(201);
+      committed.resolve(await receipt.json());
+      await release.promise;
+      await route.fulfill({ response: receipt });
+    },
+    { times: 1 },
+  );
+  try {
+    await save.click();
+    const successor = await committed.promise;
+    const sourcesTab = page.getByRole("tab", { name: "Sources", exact: true });
+    await sourcesTab.click();
+    const list = page.getByRole("complementary", { name: "Sources", exact: true });
+    await list.getByText(source.title, { exact: true }).click();
+    const inspection = page
+      .getByRole("article", { name: "Source inspection", exact: true })
+      .getByRole("heading", { name: source.title, exact: true });
+    await expect(inspection).toBeFocused();
+    await expect(page).toHaveURL(`/?view=evidence&report=${record.id}&evidence=${source.id}`);
+
+    const successorRead = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === `/api/reports/${successor.id}`,
+    );
+    release.resolve();
+    await successorRead;
+    await expect.poll(() => new URL(page.url()).searchParams.get("report")).toBe(successor.id);
+    await expect(sourcesTab).toHaveAttribute("aria-selected", "true");
+    await expect(page).toHaveURL(`/?view=evidence&report=${successor.id}&evidence=${source.id}`);
+    await expect(inspection).toBeFocused();
+    const oldDraft = `${ownerSession.prefix}.report.draft.${record.id}`;
+    await expect.poll(() => page.evaluate((key) => localStorage.getItem(key), oldDraft)).toBeNull();
+
+    await page.getByRole("tab", { name: "Reports", exact: true }).click();
+    const savedSection = editor.getByRole("button", {
+      name: `${successor.sections.length}. ${sectionName}`,
+      exact: true,
+    });
+    await expect(page).toHaveURL(`/?view=reports&report=${successor.id}&evidence=${source.id}`);
+    await expect(editor.getByText("Saved revision 2", { exact: true })).toBeVisible();
+    await expect(savedSection).toHaveAttribute("aria-current", "true");
+    await expect(text).toHaveValue(savedText);
+    expect(writes()).toBe(1);
+    const history = await request.get(`/api/reports/${record.id}/history`);
+    expect((await history.json()).map((entry: { id: string }) => entry.id)).toEqual([
+      successor.id,
+      record.id,
+    ]);
+
+    await page.reload();
+    await expect(heading).toHaveValue(record.sections[0]!.heading);
+    await expect(editor.getByText("Saved revision 2", { exact: true })).toBeVisible();
+    await savedSection.press("Enter");
+    await expect(text).toHaveValue(savedText);
+    expect(writes()).toBe(1);
+  } finally {
+    release.resolve();
+  }
+});

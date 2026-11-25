@@ -129,12 +129,12 @@ export function ReportDesk({ visit }: { visit: number }) {
     };
   }, [epoch, visit]);
   function remember(id: string | null) {
+    // Workbench owns the active tab, which may change before a report request finishes.
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("report", id);
     else url.searchParams.delete("report");
     url.searchParams.delete("fromStudy");
     url.searchParams.delete("reportAttempt");
-    url.searchParams.set("view", "reports");
     setStudy(null);
     window.history.replaceState(null, "", url);
   }
