@@ -26,6 +26,10 @@ judgment. The browser rehearsal covered 80 assignments across four leads.
 The header keeps its links on one row at 390px and wraps at narrower widths.
 The methodology and prelaunch comparison load only on their routes. Paired
 production builds reduced initial JavaScript by 15.1 kB before compression.
+Desktop runs the `153e661` reading merge. The Studies route returned HTTP 200
+and the API reported healthy with two connected workers. CI passed 652 API tests
+with three skips and 248 Chromium cases.
+[Reading PR](https://github.com/andersj05/ResearchChain/pull/153).
 
 ## Report reading and pinned sources
 
