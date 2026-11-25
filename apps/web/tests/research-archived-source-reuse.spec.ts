@@ -170,6 +170,9 @@ test("append the exact archived source to the open setup once", async ({ page })
   ).toBeVisible();
   await expect(rows).toHaveCount(2);
 
+  await page
+    .getByRole("button", { name: "Remove queued new-observations.txt", exact: true })
+    .click();
   await packet.getByRole("button", { name: `Unpin ${original.title}`, exact: true }).click();
   await expect(rows).toHaveCount(1);
   await page.goBack();
