@@ -237,10 +237,13 @@ test("follow parallel research from a source packet through owner judgment to an
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("illustrated-report-mobile.png"), fullPage: true });
   await page.evaluate(() => scrollTo(0, 0));
-  const revisit = page.getByRole("button", { name: "Revisit material", exact: true });
+  const revisit = page.getByRole("link", { name: "Revisit material", exact: true });
   await expect(revisit).toBeInViewport();
+  await expect(revisit).toHaveAttribute("href", `?fromSession=${sessionId}`);
+  await expect(revisit).not.toHaveAttribute("target", "_blank");
   await expect(page.getByRole("link", { name: "Read report", exact: true })).toBeInViewport();
   await revisit.click();
+  await expect(page).toHaveURL(`/?fromSession=${sessionId}`);
   await expect(page.getByLabel("Context for the lead (optional)", { exact: true })).toHaveValue(
     brief,
   );

@@ -175,7 +175,7 @@ test("follow two research leads from queued work through an expert consultation 
   const packet = await (await request.get(saved!)).json();
   expect(JSON.stringify(packet.input)).toContain(answer);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.getByRole("button", { name: "Revisit material" }).click();
+  await page.getByRole("link", { name: "Revisit material", exact: true }).click();
 
   await expect(page.getByLabel("Team structure")).toHaveValue("swarm");
   await expect(page.getByLabel("Researchers per lead")).toHaveValue("3");

@@ -2,6 +2,13 @@
 
 Updated 2026-11-25.
 
+## Finding a workspace and revisiting material
+
+All seven Workbench destinations fit in one row at 320 and 390 px. **Revisit
+material** returns to the already open setup from the same baseline. When a
+different setup is open, the clearly labeled new-tab action keeps its staged
+files available in the original tab. Twenty-two focused browser cases passed.
+
 ## Returning to sources, outputs, and reports
 
 Compact Workbench Sources brings an explicitly opened source into view and can
@@ -17,6 +24,8 @@ On a phone, **Current workspace** jumps to the selected work in a live study.
 selected. The Activity log shows the receipt count while collapsed and prepares
 its rows on opening. **Validate workflow** brings the existing result into
 view and focuses it so its exact repair links are available from the footer.
+The `5ad9b2b` merge was verified on Desktop with 300 browser tests passing in CI.
+[Mobile workspace and validation PR](https://github.com/andersj05/ResearchChain/pull/163).
 
 ## Keeping context while iterating
 
@@ -26,6 +35,8 @@ the assignment search. **Back to saved files** restores the producing file after
 the list was closed. Saving a report revision keeps its active section selected.
 Build search stays in the current caller when opening a step in the same pinned
 definition version. Thirty focused production browser cases passed.
+The `09d2821` merge was verified on Desktop with 295 browser tests passing in CI.
+[Intake and editing PR](https://github.com/andersj05/ResearchChain/pull/162).
 
 ## Run setup and review continuity
 

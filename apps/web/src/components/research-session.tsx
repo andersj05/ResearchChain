@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEventHandler,
+  type ReactNode,
+} from "react";
 import { Button } from "@ui-sdk/react/button";
 import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
@@ -41,7 +49,8 @@ const sessionControlsId = "session-controls";
 
 type Props = {
   runId: string;
-  onNewStudy: (fromSession?: string) => void;
+  revisitSetup?: { href: string; onClick: MouseEventHandler<HTMLAnchorElement> };
+  openRevisitInNewTab?: boolean;
   titleRef?: (title: HTMLHeadingElement | null) => void;
   openComparisonInNewTab?: boolean;
   onReuseSource?: (source: EvidenceRecord) => void;
@@ -119,7 +128,8 @@ function OwnerQuestion({
 
 function ResearchSessionView({
   runId,
-  onNewStudy,
+  revisitSetup,
+  openRevisitInNewTab,
   titleRef,
   openComparisonInNewTab,
   onReuseSource,
@@ -388,9 +398,15 @@ function ResearchSessionView({
           <h1 ref={titleRef} tabIndex={-1}>
             {title}
           </h1>
-          <Button className="button" onClick={() => onNewStudy(run.id)}>
-            Revisit material
-          </Button>
+          <a
+            className="button"
+            href={revisitSetup?.href ?? `?fromSession=${encodeURIComponent(run.id)}`}
+            onClick={revisitSetup?.onClick}
+            target={openRevisitInNewTab ? "_blank" : undefined}
+            rel={openRevisitInNewTab ? "noopener" : undefined}
+          >
+            {openRevisitInNewTab ? "Revisit material (new tab)" : "Revisit material"}
+          </a>
         </div>
         <div className={styles.summary}>
           {swarm && (

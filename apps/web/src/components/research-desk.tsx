@@ -149,6 +149,8 @@ export function ResearchDesk({
   if (sourceAppend && (!showingDraft || sourceAppend.scope !== fromSession))
     setSourceAppend(undefined);
   const readingWithDraft = deskView === "session" && draftScope !== undefined;
+  const revisitMatchesDraft =
+    readingWithDraft && draftScope?.toLowerCase() === session?.toLowerCase();
   const learningWithDraft = deskView === "methodology" && draftScope !== undefined;
   const showingDecisions = deskView === "decisions";
   const returningToDraft =
@@ -402,11 +404,15 @@ export function ResearchDesk({
             titleRef={focusReaderTitle}
             openComparisonInNewTab={readingWithDraft}
             onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
-            onNewStudy={(source) => {
-              window.location.assign(
-                source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",
-              );
-            }}
+            openRevisitInNewTab={readingWithDraft && !revisitMatchesDraft}
+            revisitSetup={
+              revisitMatchesDraft
+                ? {
+                    href: returnToDraft,
+                    onClick: (event) => navigateWithinDesk(event, "research-title"),
+                  }
+                : undefined
+            }
           />
         </Suspense>
       ) : deskView === "methodology" ? (
