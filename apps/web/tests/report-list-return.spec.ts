@@ -2,6 +2,22 @@ import type { ReportSummary } from "../src/lib/reports";
 import { expect, test } from "./fixtures";
 import { seed } from "./report-fixture";
 
+test("keep primary report actions together on a narrow phone", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/?view=reports");
+  const refresh = page.getByRole("button", { name: "Refresh reports", exact: true });
+  await expect(refresh).toBeEnabled();
+  const actions = [
+    page.getByRole("button", { name: "New report", exact: true }),
+    page.getByRole("button", { name: "Style guides", exact: true }),
+    refresh,
+  ];
+  const bounds = await Promise.all(actions.map((action) => action.boundingBox()));
+  const rows = new Set(bounds.map((box) => Math.round(box!.y)));
+  expect(rows.size, JSON.stringify(bounds)).toBe(1);
+  expect(bounds.every((box) => box!.x >= 0 && box!.x + box!.width <= 320)).toBe(true);
+});
+
 for (const width of [390, 1440]) {
   test(`open an older report and return to its result at ${width}px`, async ({ page, request }) => {
     const tag = crypto.randomUUID().slice(0, 8);

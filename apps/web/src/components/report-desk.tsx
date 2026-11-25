@@ -216,7 +216,6 @@ export function ReportDesk({ visit }: { visit: number }) {
         <div>
           <p className="eyebrow">Research → editorial review</p>
           <h1>Reports</h1>
-          <p className="muted">Develop the argument. Keep the evidence visible.</p>
         </div>
         <div className="actions">
           {view ? (
@@ -247,8 +246,12 @@ export function ReportDesk({ visit }: { visit: number }) {
           >
             {page === "styles" ? "Report list" : "Style guides"}
           </Button>
-          <Button className="button" onClick={() => setEpoch((e) => e + 1)}>
-            Refresh reports
+          <Button
+            className="button"
+            aria-label="Refresh reports"
+            onClick={() => setEpoch((e) => e + 1)}
+          >
+            Refresh
           </Button>
         </div>
       </header>
