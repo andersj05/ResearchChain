@@ -12,8 +12,15 @@ test("start with the edited settings while the first-reading action stays visibl
   await expect(start).toBeDisabled();
   await expect(page.getByRole("link", { name: "Pin a source to begin" })).toBeInViewport();
 
-  const sourceId = await pinDeskNote(page);
   const settings = page.getByRole("navigation", { name: "Study sections" });
+  await settings.getByRole("link", { name: "Saved sources" }).press("Enter");
+  await expect(page.getByRole("region", { name: "Source library" })).toBeFocused();
+  await settings.getByRole("link", { name: "Recent research" }).press("Enter");
+  await expect(page.getByRole("region", { name: "Recent research" })).toBeFocused();
+  await page.getByRole("link", { name: "Pin a source to begin" }).press("Enter");
+  await expect(page.getByRole("heading", { name: "Add material" })).toBeFocused();
+
+  const sourceId = await pinDeskNote(page);
   await settings.getByRole("link", { name: "Research settings" }).click();
   await page.getByRole("checkbox", { name: "Allow live web search" }).check();
   await page.getByRole("spinbutton", { name: "Passes per agent" }).fill("5");

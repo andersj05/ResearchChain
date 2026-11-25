@@ -95,7 +95,9 @@ export function DiscoverySources({
   return (
     <div className={styles.intake}>
       <section className={styles.panel} aria-labelledby="intake-heading">
-        <h2 id="intake-heading">Add material</h2>
+        <h2 id="intake-heading" tabIndex={-1}>
+          Add material
+        </h2>
         <fieldset disabled={locked} className={styles.provenance}>
           <legend>Source details</legend>
           <p id="desk-capture-details" className={styles.provenanceHint}>
@@ -252,7 +254,12 @@ export function DiscoverySources({
           </fieldset>
         </form>
       </section>
-      <section className={styles.panel} aria-label="Source library">
+      <section
+        id="saved-sources"
+        className={styles.panel}
+        aria-label="Source library"
+        tabIndex={-1}
+      >
         <EvidencePicker
           label="Saved sources"
           selected={ids}

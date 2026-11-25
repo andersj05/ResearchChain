@@ -42,7 +42,12 @@ function RecentStudies() {
     };
   }, [active, refresh]);
   return (
-    <section className={styles.history} aria-labelledby="recent-studies">
+    <section
+      className={styles.history}
+      aria-labelledby="recent-studies"
+      id="research-history"
+      tabIndex={-1}
+    >
       <h2 id="recent-studies">Recent research</h2>
       {error && (
         <div className={styles.notice} role="alert">
