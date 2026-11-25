@@ -116,6 +116,7 @@ test("inspect an archived study and its exact pass without losing the staged set
     await page.goBack();
     await expect(archiveHeading).toBeVisible();
     await expect(search).toHaveValue("credit comparison");
+    await expect(result).toBeFocused();
     await page.goBack();
     await expect(title).toHaveValue("New curve note");
     await expect(author).toHaveValue("Synthetic author");
@@ -126,7 +127,7 @@ test("inspect an archived study and its exact pass without losing the staged set
     await expect(pass).toContainText("Earlier archive observation.");
 
     await studies.press("Enter");
-    await expect(archiveHeading).toBeFocused();
+    await expect(result).toBeFocused();
     await expect(search).toHaveValue("credit comparison");
     const opened = context.waitForEvent("page");
     await result.click({ modifiers: ["ControlOrMeta"] });
@@ -154,6 +155,86 @@ test("inspect an archived study and its exact pass without losing the staged set
     expect(await page.evaluate(() => Reflect.get(window, "studyExcursionToken"))).toBe(token);
   } finally {
     release.resolve();
+  }
+});
+
+test("return to the same result and viewport position in a filtered Studies page", async ({
+  page,
+}) => {
+  const study = savedStudy();
+  const firstPage = Array.from({ length: 16 }, (_, index) => ({
+    run: {
+      ...study.run,
+      id: crypto.randomUUID(),
+      study_title: `Credit study ${index + 1}`,
+    },
+    brief_excerpt: "Synthetic observations from the study archive.",
+  }));
+  const secondPage = firstPage.map(({ run, brief_excerpt }, index) => ({
+    run: { ...run, id: crypto.randomUUID(), study_title: `Earlier credit study ${index + 1}` },
+    brief_excerpt,
+  }));
+  secondPage.splice(5, 0, study.archive.items[0]!);
+  const reads: URLSearchParams[] = [];
+  const setupReads: string[] = [];
+  page.on("request", (request) => {
+    const { pathname } = new URL(request.url());
+    if (
+      [
+        "/api/evidence",
+        "/api/providers/chatgpt",
+        "/api/research-sessions",
+        "/api/runs/reviews",
+      ].includes(pathname)
+    )
+      setupReads.push(pathname);
+  });
+  await page.route("**/api/runs/search?*", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    reads.push(params);
+    const paged = params.has("before_id");
+    return route.fulfill({ json: { items: paged ? secondPage : firstPage, has_more: !paged } });
+  });
+  await page.route(`**/api/runs/${study.run.id}`, (route) =>
+    route.fulfill({ json: study.snapshot }),
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/?view=research&studies=1");
+  const studies = page.getByRole("link", { name: "Studies", exact: true });
+  const search = page.getByRole("searchbox", { name: "Search the archive" });
+  const status = page.getByRole("combobox", { name: "Study status" });
+  await search.fill("credit");
+  await status.selectOption("completed");
+  await search.press("Enter");
+  await page.getByRole("button", { name: "Next page" }).click();
+  const target = page.getByRole("link", { name: new RegExp(study.run.study_title) });
+  await expect(target).toBeVisible();
+  await target.evaluate((link) => link.scrollIntoView({ block: "center" }));
+  const top = (await target.boundingBox())!.y;
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+  const reader = page.getByRole("heading", { name: study.run.study_title, exact: true });
+  await target.press("Enter");
+  await expect(reader).toBeFocused();
+
+  await page.goBack();
+  await expect(target).toBeFocused();
+  expect(Math.abs((await target.boundingBox())!.y - top)).toBeLessThan(12);
+  await expect(search).toHaveValue("credit");
+  await expect(status).toHaveValue("completed");
+  await expect(page.getByText("Page 2", { exact: true })).toBeVisible();
+
+  await target.press("Enter");
+  await expect(reader).toBeFocused();
+  await studies.press("Enter");
+  await expect(target).toBeFocused();
+  expect(Math.abs((await target.boundingBox())!.y - top)).toBeLessThan(12);
+  expect(setupReads).toEqual([]);
+  const pagedReads = reads.filter((params) => params.has("before_id"));
+  expect(pagedReads.length).toBeGreaterThan(0);
+  for (const params of pagedReads) {
+    expect(params.get("search")).toBe("credit");
+    expect(params.get("status")).toBe("completed");
+    expect(params.get("before_id")).toBe(firstPage.at(-1)!.run.id);
   }
 });
 

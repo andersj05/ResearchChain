@@ -16,7 +16,7 @@ import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
 import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
-import { RunArchive } from "./run-archive";
+import { RunArchive, type ArchiveReturnPosition } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
 import { api, type RecentRunSummary } from "@/lib/workflow";
 import { sessionUrl } from "@/lib/research-sessions";
@@ -145,11 +145,15 @@ export function ResearchDesk({
   const focusAfterNavigation = useRef<string>(null);
   const previousView = useRef(deskView);
   const previousDecision = useRef(false);
+  const archivePosition = useRef<ArchiveReturnPosition | undefined>(undefined);
+  const previousReader = useRef<string | null>(null);
   const returnToDraft = draftScope
     ? `?fromSession=${encodeURIComponent(draftScope)}`
     : "?view=research";
 
   useLayoutEffect(() => {
+    if (deskView === "session") previousReader.current = session;
+    else if (deskView !== "studies") previousReader.current = null;
     const from = previousView.current;
     const fromDecision = previousDecision.current;
     previousView.current = deskView;
@@ -171,7 +175,7 @@ export function ResearchDesk({
     focusAfterNavigation.current = null;
     document.getElementById(id)?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
-  }, [deskView]);
+  }, [deskView, session]);
 
   const focusReaderTitle = useCallback((title: HTMLHeadingElement | null) => {
     if (!title || focusAfterNavigation.current !== readerTitle) return;
@@ -180,7 +184,18 @@ export function ResearchDesk({
     window.scrollTo(0, 0);
   }, []);
 
-  function navigateWithinDesk(event: MouseEvent<HTMLAnchorElement>, heading?: string) {
+  const getArchiveReturnPosition = useCallback(() => {
+    const focused = document.activeElement;
+    if (focused && focused !== document.body && focused.id !== "studies-title") return;
+    const position = archivePosition.current;
+    return position?.studyId === previousReader.current ? position : undefined;
+  }, []);
+
+  function navigateWithinDesk(
+    event: MouseEvent<HTMLAnchorElement>,
+    heading?: string,
+    archiveStudy?: Omit<ArchiveReturnPosition, "top">,
+  ) {
     if (
       event.defaultPrevented ||
       event.button !== 0 ||
@@ -193,6 +208,11 @@ export function ResearchDesk({
     event.preventDefault();
     const { href } = event.currentTarget;
     if (href === window.location.href) return;
+    if (archiveStudy)
+      archivePosition.current = {
+        ...archiveStudy,
+        top: event.currentTarget.getBoundingClientRect().top,
+      };
     focusAfterNavigation.current = heading ?? null;
     onNavigate(href);
   }
@@ -215,11 +235,14 @@ export function ResearchDesk({
             <a
               href={studiesUrl}
               aria-current={deskView === "studies" ? "page" : undefined}
-              onClick={
-                showingDraft || returningToDraft
-                  ? (event) => navigateWithinDesk(event, "studies-title")
-                  : undefined
-              }
+              onClick={(event) => {
+                if (
+                  showingDraft ||
+                  returningToDraft ||
+                  archivePosition.current?.studyId === session
+                )
+                  navigateWithinDesk(event, "studies-title");
+              }}
             >
               Studies
             </a>
@@ -339,11 +362,8 @@ export function ResearchDesk({
             <RunArchive
               sessionsOnly
               expanded
-              onOpenLink={
-                draftScope !== undefined
-                  ? (event) => navigateWithinDesk(event, readerTitle)
-                  : undefined
-              }
+              onOpenLink={(event, study) => navigateWithinDesk(event, readerTitle, study)}
+              getReturnPosition={getArchiveReturnPosition}
             />
           </section>
         </main>
