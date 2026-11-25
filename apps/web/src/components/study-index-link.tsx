@@ -1,3 +1,5 @@
+import { useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
+
 const indexes = {
   activity: {
     panelId: "research-activity",
@@ -14,12 +16,39 @@ const indexes = {
 };
 
 export type StudyIndexReturn = { index: keyof typeof indexes; targetId: string };
+export type StudyIndexFocus = Ref<(targetId: string) => void>;
 
-export function focusStudyIndex(index: StudyIndexReturn["index"], targetId: string) {
+function focusStudyIndex(index: StudyIndexReturn["index"], targetId: string) {
   const row = document.getElementById(targetId);
   const target = row ?? document.getElementById(indexes[index].headingId);
   target?.focus({ preventScroll: true });
   target?.scrollIntoView({ block: row ? "center" : "start" });
+}
+
+export function useStudyIndex(index: StudyIndexReturn["index"], returnRef: StudyIndexFocus) {
+  const [open, setOpen] = useState(
+    () => typeof window !== "undefined" && window.location.hash === `#${indexes[index].headingId}`,
+  );
+  const pendingReturn = useRef<string | undefined>(undefined);
+  useImperativeHandle(
+    returnRef,
+    () => (targetId) => {
+      if (open) {
+        focusStudyIndex(index, targetId);
+      } else {
+        pendingReturn.current = targetId;
+        setOpen(true);
+      }
+    },
+    [index, open],
+  );
+  useLayoutEffect(() => {
+    if (!open || !pendingReturn.current) return;
+    const targetId = pendingReturn.current;
+    pendingReturn.current = undefined;
+    focusStudyIndex(index, targetId);
+  }, [index, open]);
+  return [open, setOpen] as const;
 }
 
 export function StudyIndexLink({

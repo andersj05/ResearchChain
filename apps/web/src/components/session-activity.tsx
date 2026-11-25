@@ -4,6 +4,7 @@ import { modelAttemptStatus } from "@/lib/run-inspection";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { focusSessionWorkspace } from "./research-session-workspace";
 import { formatTime } from "./run-status";
+import { useStudyIndex, type StudyIndexFocus } from "./study-index-link";
 import styles from "./research-session.module.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
@@ -91,14 +92,18 @@ function excerpt(text: string, terms: string[]) {
 export function SessionActivity({
   lanes,
   select,
+  returnRef,
 }: {
   lanes: SessionWorkspace[];
   select: (key: string, id: string, targetId: string) => void;
+  returnRef: StudyIndexFocus;
 }) {
+  const [open, setOpen] = useStudyIndex("activity", returnRef);
   const searchId = useId();
   const [query, setQuery] = useState("");
   const [shownThrough, setShownThrough] = useState<ActivityCursor>();
-  const entries = useMemo(() => activityEntries(lanes), [lanes]);
+  const count = lanes.reduce((total, lane) => total + lane.attempts.length, 0);
+  const entries = useMemo(() => (open ? activityEntries(lanes) : []), [lanes, open]);
   const normalized = query.trim().toLowerCase();
   const passQuery = /\bpass\s+#?(\d+)\b/u.exec(normalized);
   const pass = passQuery && Number(passQuery[1]);
@@ -158,69 +163,82 @@ export function SessionActivity({
     });
   }
 
-  if (!entries.length) return null;
+  if (!count) return null;
   return (
-    <details id="research-activity" className={styles.activity}>
+    <details
+      id="research-activity"
+      className={styles.activity}
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <summary id="research-activity-heading">
-        Activity log · {entries.length} recorded {entries.length === 1 ? "pass" : "passes"}
+        Activity log · {count} recorded {count === 1 ? "pass" : "passes"}
       </summary>
-      <div className={styles.activitySearch}>
-        <label htmlFor={searchId}>Search study activity</label>
-        <input
-          id={searchId}
-          type="search"
-          placeholder="Workspace, pass, finding, or file"
-          value={query}
-          onChange={(event) => find(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.nativeEvent.isComposing) return;
-            if (event.key === "Escape" && query) {
-              event.preventDefault();
-              find("");
-            }
-            if (event.key === "Enter" && normalized && matching.length === 1) {
-              event.preventDefault();
-              openPass(matching[0]!);
-            }
-          }}
-        />
-      </div>
-      {normalized && (
-        <p className={styles.activityCount} role="status">
-          {!matching.length
-            ? "No passes match this search."
-            : hasMore
-              ? `Showing ${visible.length} of ${matching.length} matching passes`
-              : `${matching.length} matching ${matching.length === 1 ? "pass" : "passes"}`}
-        </p>
-      )}
-      {!!visible.length && (
-        <ol aria-label="Recorded model passes">
-          {visible.map((entry) => {
-            const includesTerm = (value: string) =>
-              terms.some((term) => value.toLowerCase().includes(term));
-            const preview = entry.descriptions.find(includesTerm) ?? entry.descriptions[0];
-            const namedFiles = entry.files.filter(includesTerm).slice(0, 3);
-            return (
-              <li key={entry.id}>
-                <button id={activityRowId(entry.id)} type="button" onClick={() => openPass(entry)}>
-                  <time dateTime={entry.time}>{formatTime(entry.time, true)}</time>
-                  <span>
-                    <strong>{entry.lane.title}</strong> · Pass {entry.pass}
-                    {entry.lead && <small>{entry.lead}</small>}
-                    {preview && <small>{excerpt(preview, terms)}</small>}
-                    {!!namedFiles.length && <small>{namedFiles.join(", ")}</small>}
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      )}
-      {hasMore && (
-        <button className="text-link" type="button" onClick={showEarlier}>
-          Show earlier passes
-        </button>
+      {open && (
+        <>
+          <div className={styles.activitySearch}>
+            <label htmlFor={searchId}>Search study activity</label>
+            <input
+              id={searchId}
+              type="search"
+              placeholder="Workspace, pass, finding, or file"
+              value={query}
+              onChange={(event) => find(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.nativeEvent.isComposing) return;
+                if (event.key === "Escape" && query) {
+                  event.preventDefault();
+                  find("");
+                }
+                if (event.key === "Enter" && normalized && matching.length === 1) {
+                  event.preventDefault();
+                  openPass(matching[0]!);
+                }
+              }}
+            />
+          </div>
+          {normalized && (
+            <p className={styles.activityCount} role="status">
+              {!matching.length
+                ? "No passes match this search."
+                : hasMore
+                  ? `Showing ${visible.length} of ${matching.length} matching passes`
+                  : `${matching.length} matching ${matching.length === 1 ? "pass" : "passes"}`}
+            </p>
+          )}
+          {!!visible.length && (
+            <ol aria-label="Recorded model passes">
+              {visible.map((entry) => {
+                const includesTerm = (value: string) =>
+                  terms.some((term) => value.toLowerCase().includes(term));
+                const preview = entry.descriptions.find(includesTerm) ?? entry.descriptions[0];
+                const namedFiles = entry.files.filter(includesTerm).slice(0, 3);
+                return (
+                  <li key={entry.id}>
+                    <button
+                      id={activityRowId(entry.id)}
+                      type="button"
+                      onClick={() => openPass(entry)}
+                    >
+                      <time dateTime={entry.time}>{formatTime(entry.time, true)}</time>
+                      <span>
+                        <strong>{entry.lane.title}</strong> · Pass {entry.pass}
+                        {entry.lead && <small>{entry.lead}</small>}
+                        {preview && <small>{excerpt(preview, terms)}</small>}
+                        {!!namedFiles.length && <small>{namedFiles.join(", ")}</small>}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+          {hasMore && (
+            <button className="text-link" type="button" onClick={showEarlier}>
+              Show earlier passes
+            </button>
+          )}
+        </>
       )}
     </details>
   );

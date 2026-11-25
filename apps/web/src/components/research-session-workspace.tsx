@@ -418,14 +418,14 @@ export function SessionWorkspaceDetail({
   returnToReview,
   returnToJudgment,
   returnToIndex,
-  onReturnToSavedFile,
+  onReturnToIndex,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
   returnToReview?: { id: string; title: string };
   returnToJudgment?: boolean;
   returnToIndex?: StudyIndexReturn;
-  onReturnToSavedFile: (targetId: string) => void;
+  onReturnToIndex: (index: StudyIndexReturn["index"], targetId: string) => void;
 } & PassSelection) {
   const selected = lane.attempts.find((attempt) => attempt.id === passId);
   return (
@@ -464,7 +464,7 @@ export function SessionWorkspaceDetail({
         <StudyIndexLink
           {...returnToIndex}
           className="text-link"
-          onReturn={returnToIndex.index === "files" ? onReturnToSavedFile : undefined}
+          onReturn={(targetId) => onReturnToIndex(returnToIndex.index, targetId)}
         />
       )}
       {selected ? (

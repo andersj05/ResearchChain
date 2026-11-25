@@ -139,6 +139,7 @@ function ResearchSessionView({
   const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
   const [returnOrigin, setReturnOrigin] = useState<ReturnOrigin>();
   const returnToSavedFile = useRef<((targetId: string) => void) | null>(null);
+  const returnToActivity = useRef<((targetId: string) => void) | null>(null);
   const [chosen, setChosen] = useState(() =>
     typeof window === "undefined"
       ? null
@@ -678,7 +679,10 @@ function ResearchSessionView({
             returnOrigin.reviewId === question.interrupt_id
           }
           returnToIndex={returnIndex}
-          onReturnToSavedFile={(targetId) => returnToSavedFile.current?.(targetId)}
+          onReturnToIndex={(index, targetId) => {
+            const target = index === "files" ? returnToSavedFile : returnToActivity;
+            target.current?.(targetId);
+          }}
         />
       </div>
       {hasFiles && (
@@ -693,6 +697,7 @@ function ResearchSessionView({
       )}
       <SessionActivity
         lanes={lanes}
+        returnRef={returnToActivity}
         select={(key, pass, targetId) =>
           selectWorkspace(key, pass, { kind: "index", index: "activity", targetId })
         }
