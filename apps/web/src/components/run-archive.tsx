@@ -104,10 +104,10 @@ function ArchiveResults({
   return (
     <div className="archive-results" ref={results} tabIndex={pagination ? -1 : undefined}>
       {!current ? (
-        <p role="status">Searching saved runs…</p>
+        <p role="status">{sessionsOnly ? "Searching studies…" : "Searching saved runs…"}</p>
       ) : !page ? (
         <div role="alert" className="actions">
-          Could not search saved runs.
+          {sessionsOnly ? "Could not search studies." : "Could not search saved runs."}
           <button
             className="button small"
             type="button"
@@ -186,7 +186,7 @@ function ArchiveResults({
         </div>
       ) : (
         <p className="muted" role="status">
-          No saved runs match these filters.
+          {sessionsOnly ? "No studies match these filters." : "No saved runs match these filters."}
         </p>
       )}
       {(cursors.length > 0 || page?.has_more) && (
@@ -221,12 +221,14 @@ export function RunArchive({
   agentId,
   excludeRun,
   sessionsOnly = false,
+  expanded = false,
   busy = false,
   onSelect,
 }: {
   agentId?: string | null;
   excludeRun?: string;
   sessionsOnly?: boolean;
+  expanded?: boolean;
   busy?: boolean;
   onSelect?: (run: RunSummary) => void;
 }) {
@@ -267,6 +269,78 @@ export function RunArchive({
   const canReset =
     sessionsOnly && Boolean(search || status || view.search || view.status || view.cursors.length);
 
+  const content = (expanded || view.open) && (
+    <>
+      <form
+        className="archive-search"
+        onSubmit={(event) => {
+          event.preventDefault();
+          submit(search, status);
+        }}
+      >
+        <label>
+          Search the archive
+          <input
+            ref={searchInput}
+            type="search"
+            value={search}
+            maxLength={searchLimit}
+            placeholder={
+              sessionsOnly
+                ? "Study title, source, context, or ID"
+                : "Brief, agent, workflow, or run ID"
+            }
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <div className="archive-controls">
+          <label>
+            Saved run status
+            <select value={status} onChange={(event) => setStatus(event.target.value)}>
+              <option value="">All statuses</option>
+              {Object.entries(runStatusLabels).map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="actions">
+            <button className="button small" type="submit">
+              Search
+            </button>
+            {canReset && (
+              <button
+                className="button small"
+                type="button"
+                onClick={() => {
+                  setSearch("");
+                  setStatus("");
+                  submit("", "");
+                  searchInput.current?.focus();
+                }}
+              >
+                Reset search
+              </button>
+            )}
+          </div>
+        </div>
+      </form>
+      <ArchiveResults
+        key={`${query}:${revision}`}
+        query={query.toString()}
+        busy={busy}
+        onSelect={onSelect ? choose : undefined}
+        pagination={
+          sessionsOnly
+            ? { cursors: view.cursors, onChange: (cursors) => updateView({ ...view, cursors }) }
+            : undefined
+        }
+      />
+    </>
+  );
+  if (expanded) return <div className="run-archive archive-expanded">{content}</div>;
+
   return (
     <details
       className="run-archive"
@@ -283,76 +357,7 @@ export function RunArchive({
             ? "Search comparison runs"
             : "Search saved runs"}
       </summary>
-      {view.open && (
-        <>
-          <form
-            className="archive-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-              submit(search, status);
-            }}
-          >
-            <label>
-              Search the archive
-              <input
-                ref={searchInput}
-                type="search"
-                value={search}
-                maxLength={searchLimit}
-                placeholder={
-                  sessionsOnly
-                    ? "Study title, source, context, or ID"
-                    : "Brief, agent, workflow, or run ID"
-                }
-                onChange={(event) => setSearch(event.target.value)}
-              />
-            </label>
-            <div className="archive-controls">
-              <label>
-                Saved run status
-                <select value={status} onChange={(event) => setStatus(event.target.value)}>
-                  <option value="">All statuses</option>
-                  {Object.entries(runStatusLabels).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="actions">
-                <button className="button small" type="submit">
-                  Search
-                </button>
-                {canReset && (
-                  <button
-                    className="button small"
-                    type="button"
-                    onClick={() => {
-                      setSearch("");
-                      setStatus("");
-                      submit("", "");
-                      searchInput.current?.focus();
-                    }}
-                  >
-                    Reset search
-                  </button>
-                )}
-              </div>
-            </div>
-          </form>
-          <ArchiveResults
-            key={`${query}:${revision}`}
-            query={query.toString()}
-            busy={busy}
-            onSelect={onSelect ? choose : undefined}
-            pagination={
-              sessionsOnly
-                ? { cursors: view.cursors, onChange: (cursors) => updateView({ ...view, cursors }) }
-                : undefined
-            }
-          />
-        </>
-      )}
+      {content}
     </details>
   );
 }

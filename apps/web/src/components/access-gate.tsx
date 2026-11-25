@@ -209,6 +209,7 @@ function OwnerWorkspace() {
         fromSession={query.get("fromSession")}
         methodology={query.get("view") === "methodology"}
         decisions={query.get("inbox") === "1"}
+        studies={query.get("studies") === "1"}
       />
     );
   return (

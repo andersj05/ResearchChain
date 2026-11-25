@@ -48,7 +48,8 @@
   padding: clamp(24px, 4vw, 48px) 24px 64px;
 }
 .launch h1,
-.decisions h1 {
+.decisions h1,
+.studies h1 {
   font-size: clamp(28px, 4vw, 38px);
   font-weight: 560;
   line-height: 1.14;
@@ -468,6 +469,12 @@
 }
 .history :global(.run-row) {
   text-decoration: none;
+}
+.studies {
+  max-width: 820px;
+}
+.studies h1 {
+  margin-bottom: 20px;
 }
 .historyRows {
   list-style: none;
