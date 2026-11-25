@@ -131,6 +131,7 @@ export function Workbench() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [setupUsesPendingRevision, setSetupUsesPendingRevision] = useState(false);
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<RunRequest["artifacts"]>([]);
   const [edited, setEdited] = useState(false);
@@ -146,16 +147,29 @@ export function Workbench() {
   const [reviewFocus, setReviewFocus] = useState<ReviewFocus>();
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
+  const historyHead = revisions[0];
+  const historyIsCurrent =
+    activeAgent !== null && (historyHead?.agent_version ?? 0) >= activeAgent.version;
+  // An intentional revert can give one immutable revision multiple version numbers.
+  const historyIsComplete = historyIsCurrent && revisions.at(-1)?.agent_version === 1;
+  const matchingVersions =
+    historyIsComplete && revision ? revisions.filter((item) => item.id === revision.id) : [];
+  const loadedAgentVersion =
+    matchingVersions.length === 1 ? matchingVersions[0]?.agent_version : undefined;
+  const loadedRevisionLabel = revision
+    ? loadedAgentVersion === undefined
+      ? `Revision ${revision.number}`
+      : `Version ${loadedAgentVersion}`
+    : null;
+  const currentAgentRevision = historyIsCurrent ? historyHead?.id : activeAgent?.revision_id;
+  const savedHistoricalVersion =
+    saved && currentAgentRevision !== undefined && revision.id !== currentAgentRevision;
   const recentRevisionRun = revision
     ? runs.find(
         (item) =>
           item.revision_id === revision.id && (item.agent_id ?? null) === (activeAgent?.id ?? null),
       )
     : undefined;
-  const recentAgentVersion =
-    activeAgent && recentRevisionRun
-      ? revisions.find((item) => item.id === recentRevisionRun.revision_id)?.agent_version
-      : undefined;
 
   useEffect(() => {
     let active = true;
@@ -637,14 +651,16 @@ export function Workbench() {
       : null;
     if (versions && !versions.some((item) => item.revision.id === id))
       throw new Error("This revision does not belong to the selected agent.");
+    const namedRevisions = versions?.map((item) => ({
+      ...item.revision,
+      agent_version: item.version,
+    }));
     if (agentId !== (activeAgent?.id ?? null)) {
       const cached =
         drafts.current.get(agentId ?? "") ??
         (agentId ? readAgentDraft(storagePrefix, agentId) : null);
       const history = await api<RecentRunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
-      const savedRevisions = versions
-        ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
-        : await api<RevisionSummary[]>("revisions");
+      const savedRevisions = namedRevisions ?? (await api<RevisionSummary[]>("revisions"));
       retainDraft();
       initialize(result.workflow, cached?.workflow ?? detail?.revision.workflow);
       setEdited(true);
@@ -660,7 +676,10 @@ export function Workbench() {
       runReadEpoch.current += 1;
       setExecutingId(null);
       rememberAgent(agentId);
-    } else change(result.workflow);
+    } else {
+      change(result.workflow);
+      if (namedRevisions) setRevisions(namedRevisions);
+    }
     setActiveAgent(detail?.agent ?? null);
     resetEditor(destination?.path);
     setRevision(result);
@@ -670,13 +689,16 @@ export function Workbench() {
     setMessage(`Loaded revision ${result.number}. Undo restores your previous draft.`);
   }
 
-  async function startRun() {
-    const pinned =
-      saved &&
-      pendingStart.current?.revision_id === revision?.id &&
+  function pendingMatchesRevision() {
+    return (
+      revision !== null &&
+      pendingStart.current?.revision_id === revision.id &&
       (pendingStart.current.agent_id ?? null) === (activeAgent?.id ?? null)
-        ? revision
-        : await saveRevision();
+    );
+  }
+
+  async function startRun() {
+    const pinned = saved && pendingMatchesRevision() ? revision : await saveRevision();
     if (
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
@@ -856,11 +878,7 @@ export function Workbench() {
                 <>
                   <span className={`save-state ${saved ? "" : "unsaved"}`}>
                     <i aria-hidden="true" />
-                    {saved
-                      ? activeAgent
-                        ? `Version ${activeAgent.version}`
-                        : `Revision ${revision.number}`
-                      : "Unsaved draft"}
+                    {saved ? loadedRevisionLabel : "Unsaved draft"}
                   </span>
                   {edited && revision && (
                     <DraftChangesPreview
@@ -902,9 +920,9 @@ export function Workbench() {
                       }
                     >
                       Recent run · saved{" "}
-                      {recentAgentVersion === undefined
+                      {loadedAgentVersion === undefined
                         ? `revision ${recentRevisionRun.revision_number}`
-                        : `version ${recentAgentVersion}`}
+                        : `version ${loadedAgentVersion}`}
                     </Button>
                   )}
                 </>
@@ -913,7 +931,10 @@ export function Workbench() {
                 workflow={setupOpen ? pruneDefinitions(workflow) : workflow}
                 open={setupOpen}
                 onOpenChange={(open) => {
-                  if (open && workflow.research) catalog.refresh();
+                  if (open) {
+                    setSetupUsesPendingRevision(pendingMatchesRevision());
+                    if (workflow.research) catalog.refresh();
+                  }
                   setSetupOpen(open);
                 }}
                 brief={brief}
@@ -939,7 +960,11 @@ export function Workbench() {
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
                 name={workflow.name}
-                revision={saved ? revision.number : null}
+                revisionLabel={
+                  (saved && loadedRevisionLabel) ||
+                  (activeAgent ? "New version on start" : "New revision on start")
+                }
+                savesHistoricalVersion={savedHistoricalVersion && !setupUsesPendingRevision}
                 busy={busy}
                 loaded={loaded}
                 error={error}
