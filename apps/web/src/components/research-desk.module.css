@@ -323,7 +323,7 @@
   padding-inline: 15px;
 }
 @media (min-height: 451px) {
-  :global(html):has(:global([data-owner-workspace]:not([hidden])) .launch) {
+  :global(html):has(:global([data-owner-workspace]:not([hidden])) .page:not([hidden]) .launchBar) {
     scroll-padding-bottom: var(--first-reading-clearance, 104px);
   }
 }

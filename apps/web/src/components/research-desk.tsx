@@ -1,6 +1,15 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useState } from "react";
+import {
+  Activity,
+  lazy,
+  Suspense,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
@@ -20,7 +29,7 @@ const ResearchMethodology = lazy(() =>
     default: ResearchMethodology,
   })),
 );
-const studiesUrl = "/?view=research&studies=1";
+const studiesUrl = "?view=research&studies=1";
 
 function RecentStudies() {
   const { active } = useOwner();
@@ -91,12 +100,14 @@ export function ResearchDesk({
   methodology,
   decisions,
   studies,
+  onNavigate,
 }: {
   session: string | null;
   fromSession: string | null;
   methodology: boolean;
   decisions: boolean;
   studies: boolean;
+  onNavigate: (href: string) => void;
 }) {
   const { active } = useOwner();
   const deskView = session
@@ -108,19 +119,67 @@ export function ResearchDesk({
         : studies
           ? "studies"
           : "launch";
+  const showingDraft = deskView === "launch";
+  const [draftScope, setDraftScope] = useState<string | null | undefined>(() =>
+    showingDraft ? fromSession : undefined,
+  );
+  if (showingDraft && draftScope !== fromSession) setDraftScope(fromSession);
+  const focusAfterNavigation = useRef<string>(null);
+  const returnToDraft = draftScope
+    ? `?fromSession=${encodeURIComponent(draftScope)}`
+    : "?view=research";
+
+  useLayoutEffect(() => {
+    const id = focusAfterNavigation.current;
+    if (!id) return;
+    focusAfterNavigation.current = null;
+    document.getElementById(id)?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, [deskView]);
+
+  function navigateWithinDesk(event: MouseEvent<HTMLAnchorElement>, heading: string) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return;
+    event.preventDefault();
+    const { href } = event.currentTarget;
+    if (href === window.location.href) return;
+    focusAfterNavigation.current = heading;
+    onNavigate(href);
+  }
+
   return (
     <div className={styles.desk}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <a
             className={styles.homeLink}
-            href="?view=research"
+            href={deskView === "studies" ? returnToDraft : "?view=research"}
             aria-current={deskView === "launch" && !fromSession ? "page" : undefined}
+            onClick={
+              deskView === "studies"
+                ? (event) => navigateWithinDesk(event, "research-title")
+                : undefined
+            }
           >
             Research desk
           </a>
           <nav aria-label="Research navigation">
-            <a href={studiesUrl} aria-current={deskView === "studies" ? "page" : undefined}>
+            <a
+              href={studiesUrl}
+              aria-current={deskView === "studies" ? "page" : undefined}
+              onClick={
+                showingDraft || deskView === "studies"
+                  ? (event) => navigateWithinDesk(event, "studies-title")
+                  : undefined
+              }
+            >
               Studies
             </a>
             <a
@@ -142,6 +201,15 @@ export function ResearchDesk({
           <AccessControls key={active ? "active" : "locked"} />
         </div>
       </header>
+      {draftScope !== undefined && (
+        <main className={styles.page} hidden={!showingDraft}>
+          {showingDraft && !draftScope && <ResearchReviewQueue summary />}
+          <Activity mode={showingDraft ? "visible" : "hidden"}>
+            <ResearchLauncher key={draftScope ?? "new"} fromSession={draftScope} />
+          </Activity>
+          {showingDraft && <RecentStudies />}
+        </main>
+      )}
       {session ? (
         <Suspense
           fallback={
@@ -179,21 +247,21 @@ export function ResearchDesk({
         <main className={styles.page}>
           <section className={styles.studies} aria-labelledby="studies-title">
             <div className={styles.studiesHeading}>
-              <h1 id="studies-title">Studies</h1>
-              <a className="button" href="?view=research">
-                New study
+              <h1 id="studies-title" tabIndex={-1}>
+                Studies
+              </h1>
+              <a
+                className="button"
+                href={returnToDraft}
+                onClick={(event) => navigateWithinDesk(event, "research-title")}
+              >
+                {draftScope ? "Return to study setup" : "New study"}
               </a>
             </div>
             <RunArchive sessionsOnly expanded />
           </section>
         </main>
-      ) : (
-        <main className={styles.page}>
-          {!fromSession && <ResearchReviewQueue summary />}
-          <ResearchLauncher fromSession={fromSession} />
-          <RecentStudies />
-        </main>
-      )}
+      ) : null}
     </div>
   );
 }

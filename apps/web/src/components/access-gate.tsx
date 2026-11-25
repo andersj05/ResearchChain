@@ -196,13 +196,20 @@ export function AccessGate() {
 
 function OwnerWorkspace() {
   // The gate mounts this component only after client-side owner authentication.
-  const [query] = useState(() => new URLSearchParams(window.location.search));
-  if (
+  const [search, setSearch] = useState(() => window.location.search);
+  const query = new URLSearchParams(search);
+  const research =
     query.has("session") ||
     query.has("fromSession") ||
     ["research", "methodology"].includes(query.get("view") ?? "") ||
-    !["view", "agent", "run", "revision"].some((key) => query.has(key))
-  )
+    !["view", "agent", "run", "revision"].some((key) => query.has(key));
+  useEffect(() => {
+    if (!research) return;
+    const restore = () => setSearch(window.location.search);
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, [research]);
+  if (research)
     return (
       <ResearchDesk
         session={query.get("session")}
@@ -210,6 +217,10 @@ function OwnerWorkspace() {
         methodology={query.get("view") === "methodology"}
         decisions={query.get("inbox") === "1"}
         studies={query.get("studies") === "1"}
+        onNavigate={(href) => {
+          window.history.pushState(null, "", href);
+          setSearch(window.location.search);
+        }}
       />
     );
   return (
