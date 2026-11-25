@@ -490,7 +490,7 @@ function ResearchSessionView({ runId, onNewStudy, titleRef }: Props) {
               request.
             </p>
           )}
-          {sourceDetails.settingsRequested && (
+          {active && sourceDetails.settingsRequested && (
             <StudyPinnedSources lookup={sourceDetails} artifacts={run.artifacts} />
           )}
           {run.baseline_run_id && (

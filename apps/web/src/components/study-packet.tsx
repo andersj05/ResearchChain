@@ -2,14 +2,6 @@ import Image from "next/image";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import {
-  Dialog,
-  DialogBackdrop,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@ui-sdk/react/dialog";
-import {
   ChevronDown,
   ChevronUp,
   FileText,
@@ -20,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { contentUrl, evidenceUrl, type EvidenceRecord } from "@/lib/evidence";
+import { SourceChartDialog } from "./source-chart-dialog";
 import styles from "./source-intake.module.css";
 
 const kinds = {
@@ -76,11 +69,20 @@ export function StudyPacket({
   }>();
   const opener = useRef<HTMLButtonElement>(null);
   const packetId = useId();
-  const charts = records.filter(
-    (record): record is EvidenceRecord => !!record?.artifact?.media_type.startsWith("image/"),
+  const charts = records.flatMap((record) =>
+    record?.artifact?.media_type.startsWith("image/")
+      ? [
+          {
+            id: record.id,
+            title: record.title,
+            artifactId: record.artifact.id,
+            attribution: [record.author || record.publisher, record.as_of_date]
+              .filter(Boolean)
+              .join(" · "),
+          },
+        ]
+      : [],
   );
-  const chartIndex = charts.findIndex((item) => item.id === previewId);
-  const chart = charts[chartIndex];
   const appliedEdit = edit?.ids === ids ? edit : undefined;
   const canUndoBulkUnpin = !!appliedEdit?.restoreIds;
   const bulkUnpinId = `${packetId}-unpin-all`;
@@ -283,72 +285,12 @@ export function StudyPacket({
           Pin the charts, notes and conversations you want the lead to read together.
         </p>
       )}
-      <Dialog
-        open={!!chart}
-        onOpenChange={(open) => {
-          if (!open) setPreviewId(undefined);
-        }}
-      >
-        <DialogBackdrop className="dialog-backdrop" />
-        <DialogContent
-          className={styles.chartDialog}
-          initialFocus="content"
-          finalFocus={() => opener.current}
-        >
-          {chart?.artifact && (
-            <>
-              <header>
-                <div>
-                  <DialogTitle>{chart.title}</DialogTitle>
-                  <DialogDescription>
-                    {[
-                      `Chart ${chartIndex + 1} of ${charts.length}`,
-                      chart.author || chart.publisher,
-                      chart.as_of_date,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </DialogDescription>
-                </div>
-                <DialogClose aria-label="Close chart preview" className="button icon-button">
-                  <X size={18} />
-                </DialogClose>
-              </header>
-              <Image
-                className={styles.original}
-                unoptimized
-                src={contentUrl(chart.artifact.id)}
-                alt={chart.title}
-                width={1200}
-                height={720}
-              />
-              <footer>
-                <a href={evidenceUrl(chart.id)} target="_blank" rel="noopener">
-                  Open source record
-                </a>
-                <div>
-                  <button
-                    type="button"
-                    className="button small"
-                    disabled={!chartIndex}
-                    onClick={() => setPreviewId(charts[chartIndex - 1]?.id)}
-                  >
-                    Previous chart
-                  </button>
-                  <button
-                    type="button"
-                    className="button small"
-                    disabled={chartIndex === charts.length - 1}
-                    onClick={() => setPreviewId(charts[chartIndex + 1]?.id)}
-                  >
-                    Next chart
-                  </button>
-                </div>
-              </footer>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <SourceChartDialog
+        charts={charts}
+        selectedId={previewId}
+        onSelect={setPreviewId}
+        opener={opener}
+      />
     </section>
   );
 }

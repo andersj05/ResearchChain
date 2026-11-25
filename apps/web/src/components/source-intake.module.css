@@ -365,6 +365,7 @@ button.thumb:hover:enabled {
   min-width: 0;
   flex: 1 1 210px;
 }
+.chartPreviewError,
 .queuedChartError {
   padding: 16px 18px;
   color: var(--red);

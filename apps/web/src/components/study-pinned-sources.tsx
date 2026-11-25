@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   evidenceAvailabilityLabel,
   evidenceUrl,
@@ -7,7 +7,10 @@ import {
 } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
+import { SourceChartDialog, type ChartPreviewSource } from "./source-chart-dialog";
 import styles from "./study-pinned-sources.module.css";
+
+const chartMediaTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function sourceDestination(value?: string | null) {
   if (!value) return;
@@ -75,8 +78,36 @@ export function StudyPinnedSources({
   lookup: ReturnType<typeof useStudySourceDetails>;
   artifacts: RunSnapshot["artifacts"];
 }) {
+  const [previewId, setPreviewId] = useState<string>();
+  const opener = useRef<HTMLButtonElement>(null);
   const names = new Map(artifacts.map((artifact) => [artifact.id, artifact.name]));
   const unavailable = new Set(lookup.sources.unresolved);
+  const charts = new Map<string, ChartPreviewSource>();
+  for (const id of lookup.pinned) {
+    const snapshot = lookup.snapshots.get(id);
+    const record = lookup.sources.items.get(id);
+    const artifact = record?.artifact;
+    if (
+      snapshot?.representation === "chart_screenshot" &&
+      snapshot.availability === "available" &&
+      record &&
+      artifact?.id === snapshot.original &&
+      /^sha256:[a-f0-9]{64}$/u.test(artifact.id) &&
+      chartMediaTypes.has(artifact.media_type)
+    ) {
+      charts.set(id, {
+        id,
+        title: record.title,
+        artifactId: artifact.id,
+        attribution: [
+          record.author || snapshot.publisher,
+          snapshot.as_of_date && `As of ${snapshot.as_of_date}`,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+      });
+    }
+  }
   if (!lookup.pinned.length) return null;
   return (
     <section className={styles.sources} aria-label="Pinned study sources">
@@ -105,13 +136,29 @@ export function StudyPinnedSources({
           ].filter(Boolean);
           return (
             <li key={id}>
-              {record ? (
-                <a href={evidenceUrl(id)} target="_blank" rel="noopener">
-                  {title}
-                </a>
-              ) : (
-                <strong>{title}</strong>
-              )}
+              <div className={styles.sourceHeading}>
+                {record ? (
+                  <a href={evidenceUrl(id)} target="_blank" rel="noopener">
+                    {title}
+                  </a>
+                ) : (
+                  <strong>{title}</strong>
+                )}
+                {charts.has(id) && (
+                  <button
+                    type="button"
+                    className="text-link"
+                    aria-label={`Preview chart ${title}`}
+                    aria-haspopup="dialog"
+                    onClick={(event) => {
+                      opener.current = event.currentTarget;
+                      setPreviewId(id);
+                    }}
+                  >
+                    Preview chart
+                  </button>
+                )}
+              </div>
               {details && (
                 <span>
                   {!snapshot && "From source record · "}
@@ -146,6 +193,12 @@ export function StudyPinnedSources({
           Retry unavailable sources
         </button>
       )}
+      <SourceChartDialog
+        charts={[...charts.values()]}
+        selectedId={previewId}
+        onSelect={setPreviewId}
+        opener={opener}
+      />
     </section>
   );
 }
