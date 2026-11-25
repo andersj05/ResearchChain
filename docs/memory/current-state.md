@@ -2,6 +2,16 @@
 
 Updated 2026-11-25.
 
+## Baseline reports and section search
+
+**Baseline report** opens the completed editor report from the recorded baseline
+beside the revised study. Each report uses its own saved figures and citations.
+The current report keeps its reading position and section link.
+
+**Find a section** searches longer report drafts by heading or body, with the
+original section order and unsaved edits available. **Sources** in Workbench
+combines type, availability and text search alongside exact source links.
+
 ## Reading saved editor results
 
 **Inspect figure** opens the exact saved PNG inside a completed study report.
@@ -21,6 +31,10 @@ search reuses normalized text while typing. In a paired Node CPU test of twelve
 query prefixes against 960 synthetic passes, median search work fell from 36.4
 to 5.8 ms including preparation. A 480-pass Chromium case verified a live match
 could arrive while inspecting an older exact file and return point.
+Desktop runs the `a2e5722` source and preview merge. Studies and Reports returned
+HTTP 200, and the API reported healthy with two connected workers. CI passed
+654 API tests with three skips and 274 Chromium cases.
+[Source and preview PR](https://github.com/andersj05/ResearchChain/pull/158).
 
 ## Packet editing and report handoff
 
