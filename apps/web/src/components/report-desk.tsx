@@ -14,6 +14,7 @@ type ReportListPosition = {
   panelTop: number;
   windowTop: number;
 };
+type ReportSearchResult = { query: string; items: ReportSummary[] | null };
 
 function StudyReportMatches({ runId, attemptId }: { runId: string; attemptId: string }) {
   const [matches, setMatches] = useState<ReportSummary[] | "failed">();
@@ -80,6 +81,7 @@ function StudyReportMatches({ runId, attemptId }: { runId: string; attemptId: st
 
 export function ReportDesk({ visit }: { visit: number }) {
   const [search, setSearch] = useState("");
+  const [searchResult, setSearchResult] = useState<ReportSearchResult>();
   const [sort, setSort] = useState("recent");
   const [reports, setReports] = useState<ReportSummary[]>([]);
   const [styles, setStyles] = useState<StyleGuide[]>([]);
@@ -106,6 +108,28 @@ export function ReportDesk({ visit }: { visit: number }) {
   const listSearch = useRef<HTMLInputElement>(null);
   const listPosition = useRef<ReportListPosition | null>(null);
   const listTransition = useRef<"open" | "return" | null>(null);
+  const query = search.trim();
+  const showingList = !loading && !view && page === "reports" && !creating;
+  const matching = searchResult?.query === query ? searchResult : undefined;
+
+  useEffect(() => {
+    if (!showingList || !query) return;
+    let active = true;
+    const debounce = window.setTimeout(() => {
+      void api<ReportSummary[]>(`reports?${new URLSearchParams({ search: query })}`).then(
+        (items) => {
+          if (active) setSearchResult({ query, items });
+        },
+        () => {
+          if (active) setSearchResult({ query, items: null });
+        },
+      );
+    }, 200);
+    return () => {
+      active = false;
+      window.clearTimeout(debounce);
+    };
+  }, [epoch, query, showingList, visit]);
 
   useLayoutEffect(() => {
     const position = listPosition.current;
@@ -201,15 +225,16 @@ export function ReportDesk({ visit }: { visit: number }) {
     setCreating(false);
     if (study) leave();
   }
-  const visibleReports = reports
-    .filter((report) =>
-      `${report.title} ${report.change_note}`.toLowerCase().includes(search.trim().toLowerCase()),
+  const visibleReports = (
+    matching?.items ??
+    reports.filter((report) =>
+      `${report.title} ${report.change_note}`.toLowerCase().includes(query.toLowerCase()),
     )
-    .sort((a, b) =>
-      sort === "title"
-        ? a.title.localeCompare(b.title)
-        : Date.parse(b.created_at) - Date.parse(a.created_at),
-    );
+  ).toSorted((a, b) =>
+    sort === "title"
+      ? a.title.localeCompare(b.title)
+      : Date.parse(b.created_at) - Date.parse(a.created_at),
+  );
   return (
     <section ref={desk} className="report-desk" aria-label="Reports">
       <header className="evidence-header">
@@ -344,14 +369,15 @@ export function ReportDesk({ visit }: { visit: number }) {
         <div className="report-list">
           <h2>Recent reports</h2>
           <p className="field-hint">
-            Latest 100 reports. Every save preserves a revision; publication is a separate action.
+            Recent reports appear first. Search saved reports by title or change note.
           </p>
           <div className="collection-toolbar">
             <label>
-              Find a recent report
+              Find a report
               <input
                 ref={listSearch}
                 type="search"
+                maxLength={200}
                 placeholder="Title or change note…"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
@@ -365,13 +391,27 @@ export function ReportDesk({ visit }: { visit: number }) {
               </select>
             </label>
           </div>
-          <p className="collection-count">
-            {visibleReports.length} shown · {reports.length} recent reports
+          <p className="collection-count" role="status">
+            {!query
+              ? `${reports.length} recent ${reports.length === 1 ? "report" : "reports"}`
+              : !matching
+                ? "Searching saved reports…"
+                : `${visibleReports.length} ${visibleReports.length === 1 ? "match" : "matches"} shown`}
           </p>
-          {reports.length > 0 && !visibleReports.length && (
+          {query && matching?.items === null && (
+            <p className="error" role="alert">
+              Could not search all saved reports. Refresh to retry.
+            </p>
+          )}
+          {query && matching?.items?.length === 100 && (
+            <p className="field-hint">
+              Showing up to 100 matches. Narrow the search to refine them.
+            </p>
+          )}
+          {query && matching?.items?.length === 0 && (
             <p className="muted">No reports match this search.</p>
           )}
-          {!reports.length && (
+          {!query && !reports.length && (
             <p className="muted">
               Start from a completed research result, then draft and review its sections here.
             </p>

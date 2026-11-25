@@ -133,7 +133,7 @@ for (const width of [1440, 390]) {
     });
     expect(second.status()).toBe(201);
     await page.goto("/?view=reports");
-    await page.getByLabel("Find a recent report").fill(tag);
+    await page.getByLabel("Find a report").fill(tag);
     await page.getByRole("combobox", { name: "Sort reports", exact: true }).selectOption("title");
     const rows = page.locator(".report-browser-row");
     await expect(rows).toHaveCount(2);
