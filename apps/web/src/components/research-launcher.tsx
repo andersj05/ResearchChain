@@ -72,11 +72,13 @@ export function ResearchLauncher({
   recentStudies,
   sourceAppend,
   onSourceAppendHandled,
+  onQueuedFiles,
 }: {
   fromSession: string | null;
   recentStudies?: RecentRunSummary[];
   sourceAppend?: ArchivedSourceAppend;
   onSourceAppendHandled: (append: ArchivedSourceAppend) => void;
+  onQueuedFiles: (queued: boolean) => void;
 }) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
@@ -485,6 +487,7 @@ export function ResearchLauncher({
           disabled={frozen}
           onChange={(evidence_ids) => update({ evidence_ids })}
           onPendingCapture={setPendingCapture}
+          onQueuedFiles={onQueuedFiles}
           onSaving={(value) => {
             savingSource.current = value;
           }}

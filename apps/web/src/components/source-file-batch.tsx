@@ -350,6 +350,9 @@ export function SourceFileBatch({
       {children}
       {!!rows.length && (
         <div className={styles.queue}>
+          <p className={styles.feedback}>
+            Workflows, Sources, and Reports open in new tabs while files are queued.
+          </p>
           <ul id="desk-queued-files" aria-label="Files to pin" tabIndex={-1}>
             {rows.map((row) => (
               <li key={row.id}>
