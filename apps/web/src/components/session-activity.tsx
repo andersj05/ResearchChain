@@ -101,26 +101,37 @@ export function SessionActivity({
   const entries = useMemo(() => activityEntries(lanes), [lanes]);
   const normalized = query.trim().toLowerCase();
   const passQuery = /\bpass\s+#?(\d+)\b/u.exec(normalized);
+  const pass = passQuery && Number(passQuery[1]);
   const terms = normalized
     .replace(passQuery?.[0] ?? "", "")
     .split(/\s+/u)
     .filter(Boolean);
+  const hasTerms = terms.length > 0;
+  const searchText = useMemo(
+    () =>
+      hasTerms
+        ? entries.map((entry) =>
+            [
+              entry.lane.title,
+              entry.lane.objective,
+              entry.lane.key,
+              entry.lead,
+              entry.path,
+              ...entry.descriptions,
+              ...entry.files,
+            ]
+              .join("\n")
+              .toLowerCase(),
+          )
+        : [],
+    [entries, hasTerms],
+  );
   const matching = normalized
-    ? entries.filter((entry) => {
-        if (passQuery && entry.pass !== Number(passQuery[1])) return false;
-        const text = [
-          entry.lane.title,
-          entry.lane.objective,
-          entry.lane.key,
-          entry.lead,
-          entry.path,
-          ...entry.descriptions,
-          ...entry.files,
-        ]
-          .join("\n")
-          .toLowerCase();
-        return terms.every((term) => text.includes(term));
-      })
+    ? entries.filter(
+        (entry, index) =>
+          (pass === null || entry.pass === pass) &&
+          terms.every((term) => searchText[index]?.includes(term)),
+      )
     : entries;
   // Preserve the oldest revealed receipt when a poll adds newer rows above it.
   const throughIndex = shownThrough
