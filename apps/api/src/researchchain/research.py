@@ -40,7 +40,12 @@ from researchchain.graph import (
 from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
-from researchchain.research_directions import DIRECTIONS_VERSION, pin_directions
+from researchchain.research_directions import (
+    DIRECTIONS_VERSION,
+    ReportHandoffRequested,
+    pin_directions,
+    read_report_request,
+)
 from researchchain.research_discovery import DISCOVERY_VERSION, first_reading, prepare_first_reading
 from researchchain.research_models import (
     EvidenceSnapshot,
@@ -411,6 +416,8 @@ class ResearchExecutor:
             try:
                 self.guard(path, count)
                 yield
+            except ReportHandoffRequested:
+                raise
             except Exception as error:
                 if "team_version" in self.manifest.tool_config:
                     # Stop other assignments at their next guard or before acquiring a
@@ -496,7 +503,7 @@ class ResearchExecutor:
                     )
             attempt_id = uuid4()
             with self.conn.transaction():
-                directions = pin_directions(self.conn, self.run_id) if self.guided else []
+                directions = pin_directions(self.conn, self.run_id, path) if self.guided else []
                 self.conn.execute(
                     "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
                     "VALUES (%s, %s, %s, %s, %s, 'preparing')",
@@ -834,7 +841,11 @@ class ResearchExecutor:
                 if swarm_delegation:
                     prepare_delegation(prepared, swarm_delegation)
                 if session_editor:
-                    prepare_editor(prepared, self.manifest.settings.limits.max_output_characters)
+                    prepare_editor(
+                        prepared,
+                        self.manifest.settings.limits.max_output_characters,
+                        read_report_request(self.conn, self.run_id),
+                    )
                 if directions:
                     prepared.instructions += (
                         "\nThe packet's owner_directions are the owner's guidance added during "

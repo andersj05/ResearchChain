@@ -34,6 +34,7 @@ from researchchain.models import (
     PendingReviewsPage,
     RecentRunSummary,
     ResumeRequest,
+    ReviewPrompt,
     RunArchiveItem,
     RunArchivePage,
     RunArchiveQuery,
@@ -55,8 +56,13 @@ from researchchain.research import (
     read_attempts,
     read_manifest,
 )
-from researchchain.research_directions import DIRECTIONS_VERSION
+from researchchain.research_directions import (
+    DIRECTIONS_VERSION,
+    has_confirmed_swarm_findings,
+    read_report_request,
+)
 from researchchain.research_discovery import DISCOVERY_VERSION, check_first_reading_start
+from researchchain.research_models import OwnerReportRequest
 from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
 from researchchain.research_session_report import REPORT_VERSION
 from researchchain.research_sessions import SESSION_VERSION, SOURCE_LED_BRIEF
@@ -67,6 +73,10 @@ from researchchain.revisions import ConflictError, NotFoundError, read_revision
 
 COMPILER_VERSION = "chain-0.1.0"
 CODE_COMPILER_VERSION = "code-0.1.0"
+
+
+def _review_allows_handoff(review: ReviewPrompt) -> bool:
+    return review.perspective is not None or review.path == "root/judgment"
 
 
 def checkpoint_steps(state: StateSnapshot, status: str) -> list[CheckpointStep]:
@@ -282,6 +292,17 @@ class RunStore:
         reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
         research = read_manifest(conn, manifest["id"])
+        report_request = control["owner_report_request"]
+        can_request_report = bool(
+            research
+            and research.tool_config.get("session") == SESSION_VERSION
+            and research.tool_config.get("owner_directions_version") == DIRECTIONS_VERSION
+            and research.tool_config.get("swarm_version") == SWARM_VERSION
+            and report_request is None
+            and (status in ("running", "queued") or any(map(_review_allows_handoff, reviews)))
+            and not any(attempt.path == "root/report" for attempt in attempts)
+            and has_confirmed_swarm_findings(conn, manifest["id"])
+        )
         evidence_ids = self._evidence_ids(conn, manifest["id"])
         study_title = research.tool_config.get("study_title") if research else None
         if (
@@ -318,6 +339,8 @@ class RunStore:
             review=reviews[0] if reviews else None,
             reviews=reviews,
             owner_directions=control["owner_directions"],
+            owner_report_request=report_request,
+            can_request_report=can_request_report or None,
             perspective_answers=perspective_answers(
                 conn,
                 manifest["id"],
@@ -380,57 +403,105 @@ class RunStore:
             config.update(recursion_limit=4096, max_concurrency=workflow.budgets.max_concurrency)
         state = graph.get_state(config)
         pending = [item for task in state.tasks for item in task.interrupts]
+        report_resume: tuple[str, OwnerReportRequest] | None = None
+        resumed_checkpoint = None
         try:
-            execution.begin()
-            if not state.created_at:
-                if command["kind"] != "start":
-                    raise ConflictError(
-                        "The checkpoint for this review is missing. Restore a database backup."
-                    )
-                initial = {
-                    "brief": manifest["brief"],
-                    "artifact_ids": [item["id"] for item in manifest["artifacts"]],
-                    "rejected": False,
-                }
-                if workflow.schema_version != "0.1":
-                    initial.update(records={}, outputs={})
-                else:
-                    initial["events"] = []
-                graph.invoke(initial, config, durability="sync")
-            elif command["kind"] == "resume" and (
-                selected := next(
-                    (
-                        (destination, review)
-                        for destination, review in checkpoint_reviews(manifest["id"], pending)
-                        if review.interrupt_id == command["interrupt_id"]
-                    ),
-                    None,
+            while True:
+                try:
+                    execution.begin()
+                    if report_resume is not None:
+                        destination, request = report_resume
+                        graph.invoke(
+                            Command(
+                                resume={
+                                    destination: {"decision": "approve", "feedback": request.text}
+                                }
+                            ),
+                            config,
+                            durability="sync",
+                        )
+                    elif not state.created_at:
+                        if command["kind"] != "start":
+                            raise ConflictError(
+                                "The checkpoint for this review is missing. "
+                                "Restore a database backup."
+                            )
+                        initial = {
+                            "brief": manifest["brief"],
+                            "artifact_ids": [item["id"] for item in manifest["artifacts"]],
+                            "rejected": False,
+                        }
+                        if workflow.schema_version != "0.1":
+                            initial.update(records={}, outputs={})
+                        else:
+                            initial["events"] = []
+                        graph.invoke(initial, config, durability="sync")
+                    elif command["kind"] == "resume" and (
+                        selected := next(
+                            (
+                                (destination, review)
+                                for destination, review in checkpoint_reviews(
+                                    manifest["id"], pending
+                                )
+                                if review.interrupt_id == command["interrupt_id"]
+                            ),
+                            None,
+                        )
+                    ):
+                        destination, review = selected
+                        answer: Any = command["decision"]
+                        if workflow.schema_version == "0.3":
+                            answer = {
+                                "decision": command["decision"],
+                                "feedback": command["feedback"],
+                            }
+                        if review.perspective:
+                            answer.update(
+                                action_path=review.perspective.action_path,
+                                interrupt_id=review.interrupt_id,
+                            )
+                        graph.invoke(
+                            Command(resume={destination: answer}), config, durability="sync"
+                        )
+                    elif state.next and not pending:
+                        graph.invoke(None, config, durability="sync")
+                    execution.guard("", False)
+                except ExecutionStopped as error:
+                    set_terminal(conn, manifest["id"], error.status, str(error))
+                finally:
+                    execution.end()
+
+                snapshot = self._snapshot(conn, manifest)
+                if not (
+                    snapshot.status == "paused"
+                    and researcher
+                    and researcher.guided
+                    and workflow.has_research_swarm()
+                    and any(map(_review_allows_handoff, snapshot.reviews))
+                ):
+                    break
+                # A request arriving at a pause either becomes visible here or sees a
+                # finished command and atomically enqueues its own continuation.
+                with conn.transaction():
+                    request = read_report_request(conn, manifest["id"], lock=True)
+                    if request is None:
+                        self._complete_command(conn, command["id"], snapshot)
+                        return snapshot
+                if snapshot.checkpoint_id == resumed_checkpoint:
+                    raise ConflictError("The report handoff did not advance its saved checkpoint.")
+                resumed_checkpoint = snapshot.checkpoint_id
+                state = graph.get_state(config)
+                pending = [item for task in state.tasks for item in task.interrupts]
+                destination = next(
+                    destination
+                    for destination, review in checkpoint_reviews(manifest["id"], pending)
+                    if _review_allows_handoff(review)
                 )
-            ):
-                destination, review = selected
-                answer: Any = command["decision"]
-                if workflow.schema_version == "0.3":
-                    answer = {"decision": command["decision"], "feedback": command["feedback"]}
-                if review.perspective:
-                    answer.update(
-                        action_path=review.perspective.action_path, interrupt_id=review.interrupt_id
-                    )
-                graph.invoke(
-                    Command(resume={destination: answer}),
-                    config,
-                    durability="sync",
-                )
-            elif state.next and not pending:
-                graph.invoke(None, config, durability="sync")
-            execution.guard("", False)
-        except ExecutionStopped as error:
-            set_terminal(conn, manifest["id"], error.status, str(error))
+                report_resume = destination, request
         finally:
             if researcher:
                 researcher.close()
-            execution.end()
 
-        snapshot = self._snapshot(conn, manifest)
         if snapshot.status == "interrupted":
             raise ConflictError(
                 "Execution is still incomplete. Retry recovery from the saved checkpoint."

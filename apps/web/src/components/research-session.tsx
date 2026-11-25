@@ -31,6 +31,7 @@ import { EditorialReviewEvidence } from "./editorial-review-evidence";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
+import { SessionReportHandoff } from "./session-report-handoff";
 import { SessionRoster } from "./session-roster";
 import { hasStudyFiles, StudyFiles } from "./study-files";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
@@ -390,6 +391,14 @@ function ResearchSessionView({
       : undefined;
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
   const hasFiles = hasStudyFiles(lanes);
+  const showSteering =
+    (!discovery || sentenceDecision?.decision === "approve") &&
+    run.research_manifest?.tool_config.owner_directions_version === "owner-directions-1";
+  const steeringLink =
+    showSteering &&
+    ((canStop && !editor?.attempts.length) ||
+      !!run.owner_directions?.length ||
+      !!run.owner_report_request);
   const returnIndex =
     returnOrigin?.kind === "index" && (returnOrigin.index === "activity" ? hasActivity : hasFiles)
       ? returnOrigin
@@ -518,6 +527,7 @@ function ResearchSessionView({
             </StudyWorkbenchLink>
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
+          {steeringLink && <a href="#study-steering">Team guidance</a>}
           <a href="#research-workspaces">Workspaces</a>
           {live && (
             <a className={styles.phoneSectionLink} href="#current-research-workspace">
@@ -645,20 +655,30 @@ function ResearchSessionView({
         ))}
       {unavailableReview?.perspective && actionNotice}
       <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
-      {(!discovery || sentenceDecision?.decision === "approve") && (
-        <SessionDirections
-          run={run}
-          lanes={lanes}
-          onSelect={selectWorkspace}
-          onRecorded={(note) => {
-            setRun((value) => {
-              if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
-                return value;
-              return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
-            });
-            setRefresh((n) => n + 1);
-          }}
-        />
+      {showSteering && (
+        <div className={styles.steering} id="study-steering">
+          <SessionDirections
+            run={run}
+            lanes={lanes}
+            onSelect={selectWorkspace}
+            onRecorded={(note) => {
+              setRun((value) => {
+                if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
+                  return value;
+                return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
+              });
+              setRefresh((n) => n + 1);
+            }}
+          />
+          <SessionReportHandoff
+            run={run}
+            onRequested={(receipt) => {
+              setRun((value) => value && { ...value, owner_report_request: receipt });
+              setRefresh((n) => n + 1);
+            }}
+            onRefresh={() => setRefresh((n) => n + 1)}
+          />
+        </div>
       )}
       {question && !sentenceReview && run.checkpoint_id && (
         <OwnerQuestion

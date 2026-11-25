@@ -482,6 +482,16 @@
   padding: 7px 14px;
   background: var(--surface);
 }
+.steering {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  scroll-margin-block-start: 12px;
+}
+.steering > details {
+  flex: 1 1 20rem;
+  min-inline-size: 0;
+}
 .guidance > summary {
   width: fit-content;
   font-weight: 500;
@@ -519,6 +529,12 @@
   width: 100%;
   padding: 8px;
   border: 1px solid var(--border-strong);
+}
+.guidance select {
+  width: min(100%, 30rem);
+  padding: 7px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
 }
 .guidance form button {
   justify-self: start;

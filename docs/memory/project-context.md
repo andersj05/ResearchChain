@@ -62,6 +62,10 @@ to Sol researchers. A lead can bring a trade idea and alternatives to the
 owner for judgment, then use the answer to revise its investigation before
 the report is written. [Research swarms](../decisions/0024-research-swarms.md).
 
-For new Research desk studies in either team structure, the owner's preferred
-defaults are Astra 6.2 leads, Sol 6.2 researchers, High thinking effort and
-High response detail. The owner wants to adjust the two levels with sliders.
+On 2026-11-25 the owner chose Research Swarm for new Research Desk studies.
+Use GPT-6.2 Astra for leads and the report writer, GPT-6.2 Sol for researchers,
+and High thinking effort and response detail with sliders. Enable web search
+and expert consultation by default. Let assignments finish when their work is
+ready. The owner wants to see the live team and its files, steer the work or
+send findings to the editor, and resume eligible failures on the same study.
+[Live Research Swarm studies](../decisions/0027-live-research-swarm.md)

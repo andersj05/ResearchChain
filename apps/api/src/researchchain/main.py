@@ -53,7 +53,13 @@ from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.report_api import ZIP_RESPONSE, report_router, zip_download
 from researchchain.research import ResearchProvider
 from researchchain.research_directions import record_direction
-from researchchain.research_models import OwnerDirection, OwnerDirectionInput, ProviderStatus
+from researchchain.research_models import (
+    OwnerDirection,
+    OwnerDirectionInput,
+    OwnerReportRequest,
+    OwnerReportRequestInput,
+    ProviderStatus,
+)
 from researchchain.research_session_export import export_session_report
 from researchchain.research_sessions import (
     ResearchSessionSetup,
@@ -303,6 +309,16 @@ def create_app(
         run_id: UUID, request: OwnerDirectionInput
     ) -> OwnerDirection:
         return record_direction(runs.database, run_id, request)
+
+    @app.post(
+        "/api/research-sessions/{run_id}/write-report",
+        response_model=OwnerReportRequest,
+        operation_id="request_research_session_report",
+    )
+    def request_research_session_report(
+        run_id: UUID, request: OwnerReportRequestInput
+    ) -> OwnerReportRequest:
+        return queue.request_report(run_id, request)
 
     @app.get(
         "/api/research-sessions/{run_id}/report.zip",

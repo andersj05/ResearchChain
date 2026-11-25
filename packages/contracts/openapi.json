@@ -2847,6 +2847,56 @@
         }
       }
     },
+    "/api/research-sessions/{run_id}/write-report": {
+      "post": {
+        "summary": "Request Research Session Report",
+        "operationId": "request_research_session_report",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerReportRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerReportRequest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/research-sessions/{run_id}/report.zip": {
       "get": {
         "summary": "Download Session Report",
@@ -6769,6 +6819,18 @@
             "minLength": 1,
             "title": "Text"
           },
+          "target_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^root/team/lead-[1-4](/agent-([1-9]|1[0-9]|20))?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Path"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6792,12 +6854,67 @@
             "maxLength": 3000,
             "minLength": 1,
             "title": "Text"
+          },
+          "target_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^root/team/lead-[1-4](/agent-([1-9]|1[0-9]|20))?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Path"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": ["id", "text"],
         "title": "OwnerDirectionInput"
+      },
+      "OwnerReportRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "title": "Text",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "created_at"],
+        "title": "OwnerReportRequest"
+      },
+      "OwnerReportRequestInput": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id"],
+        "title": "OwnerReportRequestInput"
       },
       "OwnerSession": {
         "properties": {
@@ -9468,6 +9585,27 @@
             },
             "type": "array",
             "title": "Owner Directions"
+          },
+          "owner_report_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnerReportRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_request_report": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Request Report"
           },
           "execution_pending": {
             "type": "boolean",

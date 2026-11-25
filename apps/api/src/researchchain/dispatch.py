@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from contextlib import contextmanager
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from psycopg import Connection
 from psycopg.errors import LockNotAvailable
@@ -11,6 +11,13 @@ from psycopg.rows import DictRow
 from researchchain.database import Database
 from researchchain.dispatch_models import CommandReceipt, DispatchError, QueueLimits
 from researchchain.models import ResumeRequest, RunRequest
+from researchchain.research_directions import (
+    editor_started,
+    has_confirmed_swarm_findings,
+    lock_guided_session,
+    save_report_request,
+)
+from researchchain.research_models import OwnerReportRequest, OwnerReportRequestInput
 from researchchain.research_sessions import ResearchSessionStart, session_workflow
 from researchchain.revisions import ConflictError, save_revision
 from researchchain.runtime import RunStore
@@ -48,6 +55,7 @@ class RunQueue:
     @contextmanager
     def _admission(self) -> Iterator[Connection[DictRow]]:
         with self.database.connection() as conn, conn.transaction():
+            conn.execute("SET TRANSACTION ISOLATION LEVEL READ COMMITTED")
             conn.execute("SET LOCAL lock_timeout = '1000ms'")
             try:
                 conn.execute(
@@ -176,6 +184,42 @@ class RunQueue:
             if not job or job["state"] != "queued":
                 self._enqueue(conn, command)
             return receipt(command)
+
+    def request_report(self, run_id: UUID, request: OwnerReportRequestInput) -> OwnerReportRequest:
+        with self._admission() as conn:
+            controls = lock_guided_session(conn, run_id)
+            if controls["owner_report_request"] is not None:
+                saved = OwnerReportRequest.model_validate(controls["owner_report_request"])
+                if saved.id != request.id or saved.text != request.text:
+                    raise ConflictError("This study has already been sent to the report editor.")
+                return saved
+            if not controls["swarm"] or controls["terminal_status"] or editor_started(conn, run_id):
+                raise ConflictError("This study is no longer accepting a report handoff.")
+            if not has_confirmed_swarm_findings(conn, run_id):
+                raise ConflictError("Wait until the team saves a confirmed finding.")
+            manifest = self.runs._manifest(conn, run_id)
+            active = self.runs._unfinished(conn, run_id)
+            if active is None:
+                if not self._own_run(conn, run_id):
+                    raise DispatchError("The study is finishing its current action. Try again.")
+                snapshot = self.runs._snapshot(conn, manifest)
+                if not snapshot.can_request_report:
+                    raise ConflictError("This study has no current handoff to the editor.")
+                # A handoff is a continuation, but its ID must never be interpreted
+                # as the owner answering an outstanding expert question.
+                command = conn.execute(
+                    "INSERT INTO run_commands (id, run_id, kind, checkpoint_id, interrupt_id, "
+                    "decision) VALUES (%s, %s, 'resume', %s, %s, 'approve') RETURNING *",
+                    (uuid4(), run_id, snapshot.checkpoint_id, f"owner-report-{request.id}"),
+                ).fetchone()
+                assert command
+                self._enqueue(conn, command)
+            elif conn.execute(
+                "SELECT 1 FROM run_jobs WHERE command_id = %s AND state = 'interrupted'",
+                (active["id"],),
+            ).fetchone():
+                raise ConflictError("Resume the interrupted study before requesting a report.")
+            return save_report_request(conn, run_id, request)
 
     def configure(self, limits: QueueLimits) -> None:
         with self._admission() as conn:

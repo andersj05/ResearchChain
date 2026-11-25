@@ -228,6 +228,11 @@ SwarmAction = Annotated[SwarmDelegate | SwarmAskExpert | SwarmFinish, Field(disc
 class OwnerDirectionInput(ResearchModel):
     id: UUID
     text: str = Field(min_length=1, max_length=3000)
+    target_path: str | None = Field(
+        default=None,
+        pattern=r"^root/team/lead-[1-4](/agent-([1-9]|1[0-9]|20))?$",
+        exclude_if=lambda value: value is None,
+    )
 
     @model_validator(mode="after")
     def nonblank_text(self) -> Self:
@@ -237,6 +242,15 @@ class OwnerDirectionInput(ResearchModel):
 
 
 class OwnerDirection(OwnerDirectionInput):
+    created_at: datetime
+
+
+class OwnerReportRequestInput(ResearchModel):
+    id: UUID
+    text: str = Field(default="", max_length=3000)
+
+
+class OwnerReportRequest(OwnerReportRequestInput):
     created_at: datetime
 
 

@@ -1005,6 +1005,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/research-sessions/{run_id}/write-report": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Request Research Session Report */
+    post: operations["request_research_session_report"];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/research-sessions/{run_id}/report.zip": {
     parameters: {
       query?: never;
@@ -2658,6 +2675,8 @@ export interface components {
       id: string;
       /** Text */
       text: string;
+      /** Target Path */
+      target_path?: string | null;
       /**
        * Created At
        * Format: date-time
@@ -2672,6 +2691,39 @@ export interface components {
        */
       id: string;
       /** Text */
+      text: string;
+      /** Target Path */
+      target_path?: string | null;
+    };
+    /** OwnerReportRequest */
+    OwnerReportRequest: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Text
+       * @default
+       */
+      text: string;
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string;
+    };
+    /** OwnerReportRequestInput */
+    OwnerReportRequestInput: {
+      /**
+       * Id
+       * Format: uuid
+       */
+      id: string;
+      /**
+       * Text
+       * @default
+       */
       text: string;
     };
     /** OwnerSession */
@@ -3859,6 +3911,9 @@ export interface components {
       perspective_answers?: components["schemas"]["PerspectiveAnswer"][];
       /** Owner Directions */
       owner_directions?: components["schemas"]["OwnerDirection"][];
+      owner_report_request?: components["schemas"]["OwnerReportRequest"] | null;
+      /** Can Request Report */
+      can_request_report?: boolean | null;
       /**
        * Execution Pending
        * @description An accepted command is still queued or held by a worker.
@@ -6822,6 +6877,41 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["OwnerDirection"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  request_research_session_report: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        run_id: string;
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        "application/json": components["schemas"]["OwnerReportRequestInput"];
+      };
+    };
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["OwnerReportRequest"];
         };
       };
       /** @description Validation Error */

@@ -17,6 +17,7 @@ from researchchain.artifacts import read_content
 from researchchain.compiler import ExecutionStopped
 from researchchain.graph import ResearchConfig, SwarmConfig, WorkflowNode, resolve_model
 from researchchain.models import LeadPerspective
+from researchchain.research_directions import ReportHandoffRequested, read_report_request
 from researchchain.research_models import (
     StoredResearchResult,
     SwarmAction,
@@ -351,6 +352,36 @@ class Worker:
 
 
 def run_swarm(
+    executor: ResearchExecutor,
+    node: WorkflowNode,
+    path: str,
+    context: str,
+    feedback: str,
+    team_source: str | None,
+) -> str:
+    config = node.config
+    assert (
+        isinstance(config, ResearchConfig) and config.team and config.team.swarm and config.analyst
+    )
+    settings = config.team.swarm
+    try:
+        if executor.guided:
+            with executor.control.lock:
+                if read_report_request(executor.conn, executor.run_id):
+                    raise ReportHandoffRequested()
+        return _run_swarm(executor, node, path, context, feedback, team_source)
+    except ReportHandoffRequested:
+        # Every submitted task has settled by the time _bounded_map returns or raises.
+        # Use only confirmed receipts and state explicitly which work was unfinished.
+        executor.guard(path)
+        try:
+            with executor.control.lock:
+                return swarm_handoff(executor.conn, executor.run_id, path, settings, early=True)
+        except ValueError as error:
+            raise ExecutionStopped(str(error), "failed") from None
+
+
+def _run_swarm(
     executor: ResearchExecutor,
     node: WorkflowNode,
     path: str,
