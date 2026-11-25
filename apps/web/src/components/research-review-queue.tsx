@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type MouseEventHandler, type ReactNode } from "react";
 import { useOwner } from "./access-context";
 import { formatTime } from "./run-status";
 import { sessionUrl } from "@/lib/research-sessions";
@@ -8,6 +8,10 @@ import styles from "./research-desk.module.css";
 
 type Study = PendingReviewsPage["items"][number];
 type Review = Study["reviews"][number];
+type QueueLinks = {
+  onOpenDecision?: MouseEventHandler<HTMLAnchorElement>;
+  onViewQueue?: MouseEventHandler<HTMLAnchorElement>;
+};
 
 export const researchDecisionsUrl = "/?view=research&inbox=1";
 const pageSize = 20;
@@ -30,11 +34,13 @@ function ReviewPage({
   summary,
   offset,
   changePage,
+  onOpenDecision,
+  onViewQueue,
 }: {
   summary: boolean;
   offset: number;
   changePage: (offset: number) => void;
-}) {
+} & QueueLinks) {
   const { active } = useOwner();
   const [page, setPage] = useState<PendingReviewsPage>();
   const [error, setError] = useState(false);
@@ -66,10 +72,14 @@ function ReviewPage({
       <aside className={styles.decisionSummary} aria-label="Pending study decisions">
         <div>
           <strong>Waiting for your input</strong>
-          <a href={href}>{study.study_title || study.brief_excerpt || study.workflow_name}</a>
+          <a href={href} onClick={onOpenDecision}>
+            {study.study_title || study.brief_excerpt || study.workflow_name}
+          </a>
           <span>{label}</span>
         </div>
-        <a href={researchDecisionsUrl}>View decision queue</a>
+        <a href={researchDecisionsUrl} onClick={onViewQueue}>
+          View decision queue
+        </a>
       </aside>
     );
   }
@@ -105,7 +115,9 @@ function ReviewPage({
                   return (
                     <li key={review.interrupt_id}>
                       <p>{review.question}</p>
-                      <a href={href}>{label}</a>
+                      <a href={href} onClick={onOpenDecision}>
+                        {label}
+                      </a>
                     </li>
                   );
                 })}
@@ -138,13 +150,24 @@ function ReviewPage({
   );
 }
 
-export function ResearchReviewQueue({ summary = false }: { summary?: boolean }) {
+export function ResearchReviewQueue({
+  summary = false,
+  headingAction,
+  ...links
+}: QueueLinks & { summary?: boolean; headingAction?: ReactNode }) {
   const [offset, setOffset] = useState(0);
-  const page = <ReviewPage key={offset} offset={offset} changePage={setOffset} summary={summary} />;
+  const page = (
+    <ReviewPage key={offset} offset={offset} changePage={setOffset} summary={summary} {...links} />
+  );
   if (summary) return page;
   return (
     <section className={styles.decisions} aria-labelledby="research-decisions">
-      <h1 id="research-decisions">Study decisions</h1>
+      <div className={styles.studiesHeading}>
+        <h1 id="research-decisions" tabIndex={-1}>
+          Study decisions
+        </h1>
+        {headingAction}
+      </div>
       <p className={styles.intro}>
         Working sentences, questions from research leads, and editorial decisions. Oldest studies
         appear first.
