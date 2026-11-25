@@ -57,6 +57,11 @@ class ProviderError(ConnectionError):
         self.shape = shape
 
 
+GENERIC_PROVIDER_ERROR = (
+    "OpenAI could not complete the request. Credentials and billing choice were preserved."
+)
+
+
 def safe_identifier(value: Any) -> str | None:
     if isinstance(value, str) and re.fullmatch(r"[a-zA-Z0-9_.:/\[\]-]{1,200}", value):
         return value
@@ -106,9 +111,7 @@ def error_for_code(code: str | None, **details: Any) -> ProviderError:
     elif code in TERMINAL_REFRESH_ERRORS:
         message = "ChatGPT sign-in expired or was revoked. Continue with ChatGPT again."
     else:
-        message = (
-            "OpenAI could not complete the request. Credentials and billing choice were preserved."
-        )
+        message = GENERIC_PROVIDER_ERROR
     return ProviderError(message, code=code, **details)
 
 

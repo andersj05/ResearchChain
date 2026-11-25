@@ -116,7 +116,9 @@ def retain_observations(result: StoredResearchResult, history: list[StoredResear
 
 
 class Session:
-    def __init__(self, model: str, passes: int, step: AnalystPass, *, workspace: bool = False):
+    def __init__(
+        self, model: str, passes: int | None, step: AnalystPass, *, workspace: bool = False
+    ):
         self.model, self.passes, self.step = model, passes, step
         self.workspace = workspace
         self.token = secrets.token_urlsafe(32)
@@ -131,7 +133,9 @@ class Session:
     def respond(self, body: dict[str, Any]) -> bytes:
         if body.get("model") != self.model or not isinstance(body.get("input"), list):
             raise ValueError("Codex did not request the pinned analyst model.")
-        if len(self.history) >= self.passes or (self.history and not self.received):
+        if (self.passes is not None and len(self.history) >= self.passes) or (
+            self.history and not self.received
+        ):
             raise ValueError("Codex requested an unexpected repeat analyst pass.")
         if self.history and not any(
             isinstance(item, dict)
@@ -344,7 +348,7 @@ def _process_tree(process: subprocess.Popen[bytes]) -> Iterator[None]:
 
 def run_codex_analyst(
     model: str,
-    passes: int,
+    passes: int | None,
     step: AnalystPass,
     guard: Callable[[], None],
     *,

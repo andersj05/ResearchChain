@@ -5,11 +5,12 @@ for (const width of [320, 1440]) {
     await page.setViewportSize({ width, height: 740 });
     await page.goto("/");
     await page.getByRole("link", { name: "Research settings", exact: true }).press("Enter");
+    await page.getByText("Optional execution limits", { exact: true }).click();
     const limit = page.getByRole("spinbutton", { name: "Active time limit (seconds)" });
     const duration = page.locator("#study-active-limit-duration");
 
-    await expect(limit).toHaveValue("1800");
-    await expect(limit).toHaveAccessibleDescription("30 min");
+    await expect(limit).toBeEmpty();
+    await expect(limit).toHaveAccessibleDescription("No limit");
     await expect(duration).toBeInViewport();
     await limit.fill("1850");
     await expect(limit).toHaveAccessibleDescription("30 min 50 sec");

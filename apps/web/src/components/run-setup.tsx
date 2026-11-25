@@ -30,6 +30,7 @@ import { Play, X } from "lucide-react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 
 function RunTools({ workflow }: { workflow: Workflow }) {
+  const activeSeconds = (workflow.budgets ?? executionDefaults).max_active_seconds;
   const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
     graph.nodes.flatMap((node) => {
       const config = node.config;
@@ -67,10 +68,9 @@ function RunTools({ workflow }: { workflow: Workflow }) {
       {steps.some((step) => step.web) && (
         <p className="field-hint">Web queries can include your brief and selected evidence.</p>
       )}
-      {steps.some((step) => step.workspace) && (
+      {activeSeconds !== null && steps.some((step) => step.workspace) && (
         <p className="field-hint">
-          Active time across the run is limited to{" "}
-          {(workflow.budgets ?? executionDefaults).max_active_seconds} seconds. Review pauses are
+          Active time across the run is limited to {activeSeconds ?? 120} seconds. Review pauses are
           excluded.
         </p>
       )}
@@ -363,7 +363,10 @@ export function RunSetup({
               }}
             >
               <summary>
-                Run limits · {activeSeconds}s active
+                Run limits ·{" "}
+                {activeSeconds === null
+                  ? "No active-time limit"
+                  : `${activeSeconds ?? 120}s active`}
                 {research && ` · ${attempts} model ${attempts === 1 ? "attempt" : "attempts"}`}
               </summary>
               <fieldset disabled={busy}>

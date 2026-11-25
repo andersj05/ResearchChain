@@ -8,7 +8,7 @@ import { SessionWorkspaceLink } from "./session-consultations";
 import styles from "./research-session.module.css";
 
 type Direction = NonNullable<RunSnapshot["owner_directions"]>[number];
-type Draft = { id: string; text: string; pending: boolean };
+type Draft = { id: string; text: string; pending: boolean; target_path?: string };
 const blank: Draft = { id: "", text: "", pending: false };
 
 function loadDraft(key: string): Draft {
@@ -19,7 +19,8 @@ function loadDraft(key: string): Draft {
       typeof draft.text === "string" &&
       draft.text.length <= 3000 &&
       typeof draft.pending === "boolean" &&
-      typeof draft.id === "string"
+      typeof draft.id === "string" &&
+      (draft.target_path === undefined || typeof draft.target_path === "string")
     )
       return draft;
   } catch {
@@ -50,10 +51,28 @@ export function SessionDirections({
   const notes = run.owner_directions ?? [];
   const confirmed = storedDraft.pending && notes.some((note) => note.id === storedDraft.id);
   const draft = confirmed ? blank : storedDraft;
-  const feedback = confirmed ? "Saved for upcoming passes." : message;
+  const feedback = confirmed ? "Direction saved." : message;
   const open = ["queued", "running", "paused", "interrupted"].includes(run.status);
   const accepting = open && !lanes.find((lane) => lane.key === "editor")?.attempts.length;
   const unsent = !accepting && !draft.pending && !!draft.text.trim();
+  const targets = run.owner_report_request
+    ? []
+    : lanes.filter(
+        (lane) =>
+          lane.path?.startsWith("root/team/lead-") &&
+          !["Completed", "Stopped", "Cancelled", "Failed", "Limited"].includes(lane.state ?? ""),
+      );
+  const availableTarget =
+    !draft.target_path || targets.some((lane) => lane.path === draft.target_path);
+  const targetLabel = (path: string) => {
+    const lane = lanes.find((item) => item.path === path);
+    const parent = lanes.find((item) => item.key === lane?.parentKey);
+    return lane
+      ? parent
+        ? `${parent.title} / ${lane.title}`
+        : `${lane.title} and researchers`
+      : path;
+  };
   function remember(next: Draft) {
     setDraft(next);
     try {
@@ -83,8 +102,18 @@ export function SessionDirections({
     }
   }
   async function send() {
-    if ((!accepting && !draft.pending) || !active || sending.current || !draft.text.trim()) return;
-    const request = { id: draft.id || crypto.randomUUID(), text: draft.text.trim() };
+    if (
+      (!draft.pending && (!accepting || !availableTarget)) ||
+      !active ||
+      sending.current ||
+      !draft.text.trim()
+    )
+      return;
+    const request = {
+      id: draft.id || crypto.randomUUID(),
+      text: draft.text.trim(),
+      target_path: draft.target_path,
+    };
     sending.current = true;
     setBusy(true);
     setError("");
@@ -92,7 +121,7 @@ export function SessionDirections({
     try {
       const receipt = await api<Direction>(`research-sessions/${run.id}/directions`, request);
       remember(blank);
-      setMessage("Saved for upcoming passes.");
+      setMessage("Direction saved.");
       onRecorded(receipt);
     } catch (cause) {
       if (cause instanceof ApiError && [400, 404, 409, 422].includes(cause.status ?? 0))
@@ -128,6 +157,7 @@ export function SessionDirections({
               return (
                 <li key={note.id}>
                   <time dateTime={note.created_at}>{formatTime(note.created_at)}</time>
+                  {note.target_path && <span> · {targetLabel(note.target_path)}</span>}
                   <p>{note.text}</p>
                   {reached.length ? (
                     <details>
@@ -151,7 +181,8 @@ export function SessionDirections({
                     </details>
                   ) : (
                     <span>
-                      {open
+                      {open &&
+                      (!note.target_path || targets.some((lane) => lane.path === note.target_path))
                         ? "Awaiting a model request"
                         : "No saved request included this direction."}
                     </span>
@@ -168,13 +199,40 @@ export function SessionDirections({
               void send();
             }}
           >
+            {(targets.length > 0 || draft.target_path) && !unsent && (
+              <>
+                <label htmlFor="team-direction-target">Send to</label>
+                <select
+                  id="team-direction-target"
+                  value={draft.target_path ?? ""}
+                  disabled={busy || !active || draft.pending}
+                  onChange={(event) => {
+                    setMessage("");
+                    setError("");
+                    remember({ ...draft, id: "", target_path: event.target.value || undefined });
+                  }}
+                >
+                  <option value="">Whole study</option>
+                  {!availableTarget && draft.target_path && (
+                    <option value={draft.target_path} disabled>
+                      {targetLabel(draft.target_path)} (no longer accepting directions)
+                    </option>
+                  )}
+                  {targets.map((lane) => (
+                    <option key={lane.key} value={lane.path}>
+                      {targetLabel(lane.path!)}
+                    </option>
+                  ))}
+                </select>
+              </>
+            )}
             <label htmlFor="team-direction">
-              {unsent ? "Unsent direction" : "Direction for upcoming passes"}
+              {unsent ? "Unsent direction" : "Research direction"}
             </label>
             <p id="team-direction-hint">
               {unsent
                 ? "This study closed to new directions. You can copy this note for a revised study."
-                : "Researchers and the editor receive your note when preparing their next request."}
+                : "Your direction is included when the selected team members prepare their next request."}
             </p>
             <textarea
               id="team-direction"
@@ -188,7 +246,7 @@ export function SessionDirections({
               onChange={(event) => {
                 setMessage("");
                 setError("");
-                remember({ id: "", text: event.target.value, pending: false });
+                remember({ ...draft, id: "", text: event.target.value, pending: false });
               }}
             />
             {unsent ? (
@@ -199,7 +257,9 @@ export function SessionDirections({
               <button
                 type="submit"
                 className="button"
-                disabled={!active || busy || !draft.text.trim()}
+                disabled={
+                  !active || busy || !draft.text.trim() || (!availableTarget && !draft.pending)
+                }
               >
                 {draft.pending && !busy ? "Retry direction" : "Send direction"}
               </button>

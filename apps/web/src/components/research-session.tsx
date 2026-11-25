@@ -31,6 +31,7 @@ import { EditorialReviewEvidence } from "./editorial-review-evidence";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
+import { SessionReportHandoff } from "./session-report-handoff";
 import { SessionRoster } from "./session-roster";
 import { hasStudyFiles, StudyFiles } from "./study-files";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
@@ -44,6 +45,7 @@ import {
 } from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
 import { StudyWorkbenchLink } from "./study-workbench-link";
+import { StudyTeamGraph } from "./study-team-graph";
 import styles from "./research-session.module.css";
 
 const sessionControlsId = "session-controls";
@@ -63,7 +65,8 @@ type ReturnOrigin =
 type Decision = "approve" | "reject";
 type SessionAction =
   | { name: "resume"; review: Review; decision: Decision; feedback: string }
-  | { name: "cancel" | "recover" };
+  | { name: "recover"; failedCommandId?: string }
+  | { name: "cancel" };
 type ActionFailure = {
   review?: Review;
   checkpoint?: string | null;
@@ -255,7 +258,9 @@ function ResearchSessionView({
             decision: action.decision,
             feedback: action.feedback,
           }
-        : {};
+        : action.name === "recover" && action.failedCommandId
+          ? { failed_command_id: action.failedCommandId }
+          : {};
     sending.current = true;
     setBusy(true);
     setActionFailure(undefined);
@@ -378,6 +383,7 @@ function ResearchSessionView({
     (briefTitle.length > 120 ? `${briefTitle.slice(0, 120)}…` : briefTitle);
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
   const canStop = live || run.status === "paused" || run.status === "interrupted";
+  const failedCommandId = run.recovery_command_id;
   const started = run.model_attempts?.length ?? 0;
   const activeSeconds = run.usage?.active_seconds;
   const report = sessionReport(editor, run.status);
@@ -389,7 +395,15 @@ function ResearchSessionView({
       ? finalEditor
       : undefined;
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
-  const hasFiles = hasStudyFiles(lanes);
+  const hasFiles = hasStudyFiles(lanes, run.artifacts);
+  const showSteering =
+    (!discovery || sentenceDecision?.decision === "approve") &&
+    run.research_manifest?.tool_config.owner_directions_version === "owner-directions-1";
+  const steeringLink =
+    showSteering &&
+    ((canStop && !editor?.attempts.length) ||
+      !!run.owner_directions?.length ||
+      !!run.owner_report_request);
   const returnIndex =
     returnOrigin?.kind === "index" && (returnOrigin.index === "activity" ? hasActivity : hasFiles)
       ? returnOrigin
@@ -518,6 +532,8 @@ function ResearchSessionView({
             </StudyWorkbenchLink>
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
+          {steeringLink && <a href="#study-steering">Team guidance</a>}
+          {swarm && <a href="#study-team-graph">Team graph</a>}
           <a href="#research-workspaces">Workspaces</a>
           {live && (
             <a className={styles.phoneSectionLink} href="#current-research-workspace">
@@ -538,14 +554,19 @@ function ResearchSessionView({
           {swarm && (
             <p>
               Up to {swarm.lead_count} leads · {swarm.researchers_per_lead} researchers per lead ·{" "}
-              {swarm.max_parallel} active slots · {swarm.max_lead_turns} turns per lead · Expert
-              consultations {swarm.allow_consultations ? "on" : "off"}
+              {swarm.max_parallel} active slots ·{" "}
+              {swarm.max_lead_turns === null
+                ? "Leads finish when ready"
+                : `${swarm.max_lead_turns} turns per lead`}{" "}
+              · Expert consultations {swarm.allow_consultations ? "on" : "off"}
             </p>
           )}
           <p>
-            {run.research_manifest?.settings.model} · {run.workflow.budgets?.max_active_seconds}s
-            active-time limit · {run.research_manifest?.settings.limits?.max_model_calls} model
-            requests maximum
+            {run.research_manifest?.settings.model} ·{" "}
+            {run.workflow.budgets?.max_active_seconds === null
+              ? "No active-time limit"
+              : `${run.workflow.budgets?.max_active_seconds ?? 120}s active-time limit`}{" "}
+            · {run.research_manifest?.settings.limits?.max_model_calls} model requests maximum
           </p>
           {profiles ? (
             <div className={styles.profileList}>
@@ -605,7 +626,23 @@ function ResearchSessionView({
         </div>
       )}
       {run.stop_reason && sentenceDecision?.decision !== "reject" && (
-        <p className={styles.notice}>{run.stop_reason}</p>
+        <div className={styles.notice}>
+          <p>{run.stop_reason}</p>
+          {failedCommandId && (
+            <>
+              <p>Resume from the saved checkpoint. Retried requests use your plan allowance.</p>
+              <Button
+                className="button primary"
+                disabled={busy || !active}
+                pendingAnnouncement="Resuming research"
+                onClick={() => act({ name: "recover", failedCommandId })}
+              >
+                Resume research
+              </Button>
+              {!failedReview && actionNotice}
+            </>
+          )}
+        </div>
       )}
       {discovery && (
         <SessionDiscovery
@@ -645,20 +682,30 @@ function ResearchSessionView({
         ))}
       {unavailableReview?.perspective && actionNotice}
       <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
-      {(!discovery || sentenceDecision?.decision === "approve") && (
-        <SessionDirections
-          run={run}
-          lanes={lanes}
-          onSelect={selectWorkspace}
-          onRecorded={(note) => {
-            setRun((value) => {
-              if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
-                return value;
-              return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
-            });
-            setRefresh((n) => n + 1);
-          }}
-        />
+      {showSteering && (
+        <div className={styles.steering} id="study-steering">
+          <SessionDirections
+            run={run}
+            lanes={lanes}
+            onSelect={selectWorkspace}
+            onRecorded={(note) => {
+              setRun((value) => {
+                if (!value || value.owner_directions?.some((saved) => saved.id === note.id))
+                  return value;
+                return { ...value, owner_directions: [...(value.owner_directions ?? []), note] };
+              });
+              setRefresh((n) => n + 1);
+            }}
+          />
+          <SessionReportHandoff
+            run={run}
+            onRequested={(receipt) => {
+              setRun((value) => value && { ...value, owner_report_request: receipt });
+              setRefresh((n) => n + 1);
+            }}
+            onRefresh={() => setRefresh((n) => n + 1)}
+          />
+        </div>
       )}
       {question && !sentenceReview && run.checkpoint_id && (
         <OwnerQuestion
@@ -696,6 +743,16 @@ function ResearchSessionView({
             {recordedJudgment.feedback}
           </p>
         </details>
+      )}
+      {swarm && (
+        <StudyTeamGraph
+          run={run}
+          lanes={lanes}
+          consultations={consultations}
+          editorialReview={question?.path === "root/judgment" && !!run.checkpoint_id}
+          selected={workspace.key}
+          onSelect={selectWorkspace}
+        />
       )}
       <div className={styles.work} id="research-workspaces" tabIndex={-1}>
         <SessionRoster lanes={lanes} selected={workspace.key} onSelect={selectWorkspace} />
@@ -735,6 +792,7 @@ function ResearchSessionView({
         <StudyFiles
           runId={runId}
           lanes={lanes}
+          artifacts={run.artifacts}
           returnRef={returnToSavedFile}
           onSelect={(key, pass, targetId) =>
             selectWorkspace(key, pass, { kind: "index", index: "files", targetId })
@@ -753,7 +811,7 @@ function ResearchSessionView({
         id={canStop ? sessionControlsId : undefined}
         tabIndex={canStop ? -1 : undefined}
       >
-        {!failedReview && actionNotice}
+        {!failedReview && !failedCommandId && actionNotice}
         <StudyWorkbenchLink href={fullRun} newTab={openWorkbenchInNewTab}>
           Open run inspector
         </StudyWorkbenchLink>

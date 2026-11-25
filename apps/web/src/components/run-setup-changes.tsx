@@ -30,7 +30,8 @@ function runSettings(run: RunSnapshot) {
     "Characters per response": limits?.max_output_characters,
     "Seconds per response": limits?.max_response_seconds,
     "Step executions allowed": budgets?.max_node_executions ?? 256,
-    "Active seconds allowed": budgets?.max_active_seconds ?? 120,
+    "Active seconds allowed":
+      budgets?.max_active_seconds === null ? "No limit" : (budgets?.max_active_seconds ?? 120),
     "Parallel steps allowed": budgets?.max_concurrency ?? 4,
     "Model prompt versions": run.research_manifest?.prompt_versions,
     "Model prompt hashes": run.research_manifest?.prompt_hashes,

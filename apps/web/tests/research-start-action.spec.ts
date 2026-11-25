@@ -15,7 +15,7 @@ test("start with the edited settings while the first-reading action stays visibl
   await expect(setup.getByText("First-reading model", { exact: true })).toBeVisible();
   await expect(setup.getByText(/Astra 6\.2/)).toBeVisible();
   await expect(setup.getByText("High effort · High detail", { exact: true })).toBeVisible();
-  await expect(setup.getByText("Off", { exact: true })).toBeVisible();
+  await expect(setup.getByText("On", { exact: true })).toBeVisible();
 
   const settings = page.getByRole("navigation", { name: "Study sections" });
   await settings.getByRole("link", { name: "Saved sources" }).press("Enter");
@@ -42,8 +42,11 @@ test("start with the edited settings while the first-reading action stays visibl
   await expect(
     setup.getByText("Model default effort · Model default detail", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("checkbox", { name: "Allow live web search" }).uncheck();
+  await expect(setup.getByText("Off", { exact: true })).toBeVisible();
   await page.getByRole("checkbox", { name: "Allow live web search" }).check();
   await expect(setup.getByText("On", { exact: true })).toBeVisible();
+  await page.getByText("Optional execution limits", { exact: true }).click();
   await page.getByRole("spinbutton", { name: "Passes per agent" }).fill("5");
   const roleSettings = page.getByRole("heading", {
     name: /^(Research lead|Researchers|Report editor)$/,

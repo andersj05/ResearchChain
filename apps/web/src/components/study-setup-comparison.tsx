@@ -39,8 +39,11 @@ function settingValues(brief: ResearchBrief) {
     "Maximum researchers": swarm
       ? `${swarm.researchers_per_lead} per lead`
       : String(brief.max_agents),
-    "Passes per agent": String(brief.max_passes),
-    "Active time limit": `${brief.max_active_seconds.toLocaleString()} seconds`,
+    "Passes per agent": brief.max_passes === null ? "As needed" : String(brief.max_passes),
+    "Active time limit":
+      brief.max_active_seconds === null
+        ? "No limit"
+        : `${brief.max_active_seconds.toLocaleString()} seconds`,
     "Request size limit": `${(brief.max_input_bytes ?? 8_000_000).toLocaleString()} bytes`,
     "Team web search": brief.web_search ? "On" : "Off",
     "Editorial review": reviewLabels[brief.review_mode],
@@ -49,7 +52,8 @@ function settingValues(brief: ResearchBrief) {
   if (swarm) {
     values["Research leads"] = String(swarm.lead_count);
     values["Parallel agents"] = String(swarm.max_parallel);
-    values["Turns per lead"] = String(swarm.max_lead_turns);
+    values["Turns per lead"] =
+      swarm.max_lead_turns === null ? "As needed" : String(swarm.max_lead_turns);
     values["Expert consultations"] = swarm.allow_consultations ? "On" : "Off";
   }
   for (const { key, label } of researchRoles) {

@@ -8,6 +8,31 @@
   padding: 12px 16px;
   font-weight: 600;
 }
+
+.views {
+  display: flex;
+  gap: 4px;
+  padding: 0 12px 8px;
+}
+
+.views button {
+  padding: 6px 10px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.views button:hover {
+  color: var(--ink);
+}
+
+.views button[aria-pressed="true"] {
+  border-color: var(--line);
+  background: var(--paper);
+  color: var(--ink);
+  font-weight: 600;
+}
 .index {
   display: grid;
   min-width: 0;

@@ -106,12 +106,12 @@ def test_last_direction_and_first_editor_reservation_share_a_database_lock(datab
     original = research.pin_directions
     reservations = []
 
-    def pause_editor(conn, run_id):
+    def pause_editor(conn, run_id, path):
         reservations.append(run_id)
         if len(reservations) == 3:  # one planner and one researcher precede the editor
             arriving.set()
             assert accepted.wait(10)
-        directions = original(conn, run_id)
+        directions = original(conn, run_id, path)
         if len(reservations) == 3:
             locked.set()
             assert proceed.wait(10)

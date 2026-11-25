@@ -189,7 +189,12 @@ def _worker_packet(
 
 
 def swarm_material(
-    conn: Connection[DictRow], run_id: UUID, path: str, config: SwarmConfig | None = None
+    conn: Connection[DictRow],
+    run_id: UUID,
+    path: str,
+    config: SwarmConfig | None = None,
+    *,
+    early: bool = False,
 ) -> tuple[str, dict[str, WorkspaceFile]]:
     prefix = path + "/"
     rows = conn.execute(
@@ -203,7 +208,7 @@ def swarm_material(
         relative = row["path"][len(prefix) :]
         if relative == "plan":
             plan = StoredResearchResult.model_validate(row["result"]).swarm_plan
-        elif match := re.fullmatch(r"lead-([1-4])/turn-([1-9]|1[0-2])", relative):
+        elif match := re.fullmatch(r"lead-([1-4])/turn-([1-9][0-9]*)", relative):
             turns[int(match[1])][int(match[2])] = (
                 row["id"],
                 row["path"],
@@ -212,7 +217,8 @@ def swarm_material(
     if (
         not plan
         or (config and len(plan.leads) != config.lead_count)
-        or set(turns) != set(range(1, len(plan.leads) + 1))
+        or not set(turns) <= set(range(1, len(plan.leads) + 1))
+        or (not early and len(turns) != len(plan.leads))
     ):
         raise ValueError("The swarm roster and its recorded leads do not match.")
     answers = {
@@ -230,17 +236,22 @@ def swarm_material(
     }
     leads = []
     workers: dict[str, tuple[int, int, TeamAssignment]] = {}
+    unfinished = []
     for index, mandate in enumerate(plan.leads, 1):
         actions = turns[index]
         expected = list(range(1, len(actions) + 1))
-        if sorted(actions) != expected or (config and len(actions) > config.max_lead_turns):
+        max_turns = config.max_lead_turns if config else None
+        if sorted(actions) != expected or (max_turns is not None and len(actions) > max_turns):
             raise ValueError("The lead's recorded turn sequence differs from its assignment.")
         decisions = []
         count = 0
         for number in expected:
             attempt_id, action_path, result = actions[number]
             action = result.swarm_action
-            if action is None or (number == len(actions)) != (action.action == "finish"):
+            if action is None or (
+                (action.action == "finish" or not early)
+                and (number == len(actions)) != (action.action == "finish")
+            ):
                 raise ValueError(
                     "The lead needs a single final decision after its preceding turns."
                 )
@@ -261,8 +272,8 @@ def swarm_material(
                 reply = answers.get(action_path)
                 if (
                     (config and not config.allow_consultations)
-                    or not reply
-                    or reply.decision != "approve"
+                    or (reply and reply.decision != "approve")
+                    or (not early and not reply)
                 ):
                     raise ValueError(
                         "The lead has a consultation without its owner's recorded answer."
@@ -270,21 +281,31 @@ def swarm_material(
                 decision.update(
                     question=action.consultation.question,
                     thesis=_excerpt(action.consultation.thesis, 500),
-                    owner_feedback=reply.feedback,
-                    interrupt_id=reply.interrupt_id,
                 )
+                if reply:
+                    decision.update(owner_feedback=reply.feedback, interrupt_id=reply.interrupt_id)
+                else:
+                    decision["status"] = "unanswered"
             else:
                 decision["findings"] = _excerpt(action.findings, 3000)
                 decision["limitations"] = [_excerpt(s, 300) for s in action.limitations]
             decisions.append(decision)
-        leads.append({"lead": index, **mandate.model_dump(), "turns": decisions})
+        lead = {"lead": index, **mandate.model_dump(), "turns": decisions}
+        if early:
+            lead["status"] = (
+                "completed" if decisions and decisions[-1]["action"] == "finish" else "unfinished"
+            )
+        leads.append(lead)
     receipts = _confirmed_workers(conn, run_id, list(workers))
-    if workers.keys() != receipts.keys():
+    if not early and workers.keys() != receipts.keys():
         raise ValueError("The swarm is missing a final receipt for an assigned investigator.")
     agents = []
     files_by_worker = {}
     questions = []
     for base, (index, number, assignment) in workers.items():
+        if base not in receipts:
+            unfinished.append({"lead": index, "agent": number, **assignment.model_dump()})
+            continue
         agent, files = _worker_packet(index, number, assignment, receipts[base])
         agents.append(agent)
         files_by_worker[number, index] = files
@@ -306,7 +327,7 @@ def swarm_material(
                 if entry is not None:
                     alias, file = entry
                     files[alias] = file
-    packet = {
+    packet: dict[str, Any] = {
         "format": "research-swarm-handoff-1",
         "team_path": path,
         "leads": leads,
@@ -315,9 +336,15 @@ def swarm_material(
         "receipt_note": "Findings and lists are excerpts. Each attempt path and ID identifies "
         "its full saved receipt. The workspace tool lists the files available within its limits.",
     }
+    if early:
+        packet.update(
+            handoff_requested=True, unfinished_assignments=unfinished, review_question=None
+        )
     return json_bytes(packet).decode(), files
 
 
-def swarm_handoff(conn: Connection[DictRow], run_id: UUID, path: str, config: SwarmConfig) -> str:
-    packet, _ = swarm_material(conn, run_id, path, config)
+def swarm_handoff(
+    conn: Connection[DictRow], run_id: UUID, path: str, config: SwarmConfig, *, early: bool = False
+) -> str:
+    packet, _ = swarm_material(conn, run_id, path, config, early=early)
     return packet

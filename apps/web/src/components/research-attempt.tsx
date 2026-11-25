@@ -1,6 +1,7 @@
 import type { components } from "@researchchain/contracts";
 import { useState } from "react";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
+import { modelFailureDetails } from "@/lib/run-inspection";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts } from "./research-tool-receipts";
 import { CopyRunLink } from "./copy-run-link";
@@ -105,6 +106,8 @@ export function ResearchAttempt({
         </span>
       </summary>
       {attempt.reason && <p className="error">{attempt.reason}</p>}
+      {attempt.superseded_at && <p className="field-hint">Earlier attempt on this step</p>}
+      {attempt.provider_failure && <p>{modelFailureDetails(attempt)}</p>}
       {typeof attempt.web_actions_completed === "number" && (
         <p className="field-hint">
           {attempt.web_actions_completed.toLocaleString()} web{" "}

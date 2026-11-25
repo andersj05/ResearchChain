@@ -3,7 +3,22 @@
 import json
 from dataclasses import replace
 
+from swarm_browser_fixture import result as swarm_reply
 from test_research_sessions import SessionProvider
+
+
+def discovery_assignment(sentence):
+    if "debt" in sentence:
+        return {
+            "title": "Compare refinancing groups",
+            "objective": "Group firms by debt due within twelve months. Compare weekly returns "
+            "within each sector. A flat spread would weaken the proposed financing explanation.",
+        }
+    return {
+        "title": "Rebuild participation",
+        "objective": "Compare equal-weight and index-weight returns for the same constituents and "
+        "dates. Check whether most industries participated.",
+    }
 
 
 class DiscoveryProvider(SessionProvider):
@@ -45,22 +60,41 @@ class DiscoveryProvider(SessionProvider):
             }
             return replace(reply, text=json.dumps(reading))
         if "assignments" in properties:
-            sentence = packet["human_feedback"]
-            if "debt" in sentence:
-                title = "Compare refinancing groups"
-                objective = (
-                    "Group firms by debt due within twelve months. Compare weekly returns within "
-                    "each sector. A flat spread would weaken the proposed financing explanation."
-                )
-            else:
-                title = "Rebuild participation"
-                objective = (
-                    "Compare equal-weight and index-weight returns for the same constituents and "
-                    "dates. Check whether most industries participated."
-                )
             plan = {
-                "assignments": [{"title": title, "objective": objective}],
+                "assignments": [discovery_assignment(packet["human_feedback"])],
                 "review_question": None,
             }
             return replace(reply, text=json.dumps(plan))
+        if "leads" in properties:
+            return swarm_reply(
+                prepared.model,
+                answer={
+                    "leads": [
+                        {
+                            "title": f"Lead {index}",
+                            "objective": f"Test interpretation {index} of the study material.",
+                        }
+                        for index in range(1, properties["leads"]["minItems"] + 1)
+                    ]
+                },
+            )
+        if prepared.analyst_options and prepared.analyst_options["tool_choice"] == "required":
+            lead_state = json.loads(prepared.input_items[1]["content"][0]["text"])["swarm_lead"]
+            if lead_state["lead_index"] == 1 and lead_state["turn"] == 1:
+                return swarm_reply(
+                    prepared.model,
+                    tool="delegate",
+                    arguments={
+                        "rationale": "Test the owner's working sentence directly.",
+                        "assignments": [discovery_assignment(packet["human_feedback"])],
+                    },
+                )
+            return swarm_reply(
+                prepared.model,
+                tool="finish",
+                arguments={
+                    "findings": "The synthetic evidence only supports this test.",
+                    "limitations": ["Synthetic fixture."],
+                },
+            )
         return reply

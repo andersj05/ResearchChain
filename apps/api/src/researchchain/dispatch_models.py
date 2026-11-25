@@ -12,8 +12,12 @@ from researchchain.graph import StrictModel
 class CommandReceipt(StrictModel):
     command_id: UUID
     run_id: UUID
-    kind: Literal["start", "resume"]
+    kind: Literal["start", "resume", "recover"]
     accepted_at: datetime
+
+
+class RunRecoveryRequest(StrictModel):
+    failed_command_id: UUID | None = None
 
 
 class QueueLimits(StrictModel):

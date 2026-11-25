@@ -124,6 +124,7 @@ test("find a file version across study assignments and open its original pass", 
     .getByRole("navigation", { name: "Study sections" })
     .getByRole("link", { name: "Saved files", exact: true })
     .click();
+  await page.getByRole("button", { name: "Recent versions", exact: true }).click();
   const search = page.getByRole("searchbox", { name: "Find a saved file", exact: true });
   const rows = page.getByRole("list", { name: "Saved file results" }).getByRole("listitem");
   await expect(rows).toHaveCount(3);
@@ -254,6 +255,7 @@ test("keeps an exact Saved files row and preview as new live files arrive", asyn
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/?session=${runId}&workspace=director`);
   await page.getByRole("link", { name: "Saved files", exact: true }).click();
+  await page.getByRole("button", { name: "Recent versions", exact: true }).click();
   const index = page.locator("#study-files");
   const search = index.getByRole("searchbox", { name: "Find a saved file", exact: true });
   await search.fill("observations.csv rates lead");

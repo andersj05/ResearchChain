@@ -153,6 +153,7 @@ test("reuse saved research settings in an independent new study draft", async ({
     await title.fill(newTitle);
     await context.fill(newContext);
     await sample.fill(newSample);
+    await page.getByText("Optional execution limits", { exact: true }).click();
     await passes.fill("8");
     await web.check();
     await editorial.selectOption("always");

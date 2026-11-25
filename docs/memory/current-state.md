@@ -2,6 +2,23 @@
 
 Updated 2026-11-25.
 
+## Live Research Swarm studies
+
+New Research Desk studies use a swarm, with web search and expert consultation
+enabled and GPT-6.2 Astra writing the report. Leads and researchers finish from
+their findings. The setup leaves time and turns open by default, and older
+studies carry their original workflow and settings.
+
+**Team graph** follows the live mandates and handoffs. **Saved files** brings
+each workspace's pinned inputs, model receipts, and generated files into a
+searchable tree with exact-version previews and links to the producing request.
+
+**Guide the team** sends directions to the study or to a particular lead or
+researcher. **Write report now** sends confirmed findings to the editor after
+admitted work settles. **Resume research** reuses completed receipts after an
+eligible provider failure. See the [delivery issue](https://github.com/andersj05/ResearchChain/issues/176)
+and [decision record](../decisions/0027-live-research-swarm.md).
+
 ## Recovering in-progress research work
 
 Unpinned files remain available while the owner reads the study archive. The

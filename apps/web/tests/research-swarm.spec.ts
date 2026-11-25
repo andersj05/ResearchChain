@@ -21,7 +21,8 @@ test("follow two research leads from queued work through an expert consultation 
     .fill(`Swarm browser study ${id}`);
   const settings = page.locator("summary").filter({ hasText: "Research settings" });
 
-  await page.getByLabel("Team structure").selectOption("swarm");
+  await expect(settings).toContainText("Research Swarm");
+  await expect(page.getByLabel("Team structure")).toHaveCount(0);
   await expect(page.getByRole("combobox", { name: "Research leads", exact: true })).toHaveValue(
     "2",
   );
@@ -29,10 +30,11 @@ test("follow two research leads from queued work through an expert consultation 
   await page.getByLabel("Researchers per lead").fill("3");
 
   await page.getByLabel("Active slots", { exact: true }).fill("1");
-  await page.getByLabel("Turns per lead").fill("4");
-  await page.getByLabel("Passes per agent").fill("3");
+  await expect(page.getByLabel("Turns per lead")).toBeHidden();
+  await expect(page.getByLabel("Passes per agent")).toBeHidden();
   await page.getByLabel("Editorial review").selectOption("never");
   await expect(page.getByLabel("Allow leads to ask for expert judgment")).toBeChecked();
+  await expect(page.getByLabel("Allow live web search")).toBeChecked();
   const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
   const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
   await expect(sharedModel).toHaveValue("gpt-6.2-sol");
@@ -50,6 +52,9 @@ test("follow two research leads from queued work through an expert consultation 
   await expect(page.getByRole("combobox", { name: "Researchers model", exact: true })).toHaveValue(
     "gpt-6.2-sol",
   );
+  await expect(
+    page.getByRole("combobox", { name: "Report editor model", exact: true }),
+  ).toHaveValue("gpt-6.2-astra");
   await page.setViewportSize({ width: 390, height: 844 });
   await settings.locator("..").screenshot({ path: info.outputPath("phone-swarm-controls.png") });
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -130,10 +135,17 @@ test("follow two research leads from queued work through an expert consultation 
     model: "gpt-6.2-sol",
     reasoning_effort: "high",
     verbosity: "high",
-    limits: { max_model_calls: 31 },
+    limits: { max_model_calls: 1022 },
   });
+  expect(run.workflow.budgets?.max_active_seconds).toBeNull();
   expect(run.workflow.nodes.find((node) => node.id === "team")?.config).toMatchObject({
-    team: { lead: { model: "gpt-6.2-astra" }, researcher: { model: "gpt-6.2-sol" } },
+    web_search: "auto",
+    analyst: { max_passes: null },
+    team: {
+      lead: { model: "gpt-6.2-astra" },
+      researcher: { model: "gpt-6.2-sol" },
+      swarm: { max_lead_turns: null, allow_consultations: true },
+    },
   });
   const attempts = run.model_attempts!;
   for (const expected of [
@@ -146,10 +158,11 @@ test("follow two research leads from queued work through an expert consultation 
   }
   await Promise.all(
     attempts.map(async (attempt) => {
-      const lead =
+      const astra =
         ["root/discovery", "root/team/plan"].includes(attempt.path) ||
-        /\/turn-\d+$/.test(attempt.path);
-      const model = lead ? "gpt-6.2-astra" : "gpt-6.2-sol";
+        /\/turn-\d+$/.test(attempt.path) ||
+        attempt.path.startsWith("root/report");
+      const model = astra ? "gpt-6.2-astra" : "gpt-6.2-sol";
       expect(attempt.model, attempt.path).toBe(model);
       const input = await request.get(
         `/api/artifacts/${encodeURIComponent(attempt.input_artifact_id!)}/content`,
@@ -177,7 +190,7 @@ test("follow two research leads from queued work through an expert consultation 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("link", { name: "Revisit material", exact: true }).click();
 
-  await expect(page.getByLabel("Team structure")).toHaveValue("swarm");
+  await expect(settings).toContainText("Research Swarm");
   await expect(page.getByLabel("Researchers per lead")).toHaveValue("3");
   await expect(sharedModel).toHaveValue("gpt-6.2-sol");
   await expect(shared.getByRole("slider", { name: "Thinking effort" })).toHaveAttribute(
@@ -224,32 +237,28 @@ test("the swarm preset preserves unavailable requested models and lets the owner
     .getByLabel("Context for the lead (optional)", { exact: true })
     .fill("Test an explicit model replacement.");
 
-  const topology = page.getByLabel("Team structure");
   const start = page.getByRole("button", { name: "Ask the lead for a first reading", exact: true });
   const lead = page.getByRole("combobox", { name: "Research lead model", exact: true });
   const worker = page.getByRole("combobox", { name: "Researchers model", exact: true });
-  await expect(topology).toHaveValue("standard");
+  const editor = page.getByRole("combobox", { name: "Report editor model", exact: true });
+  await expect(page.getByLabel("Team structure")).toHaveCount(0);
 
   await expect(lead.locator("option:checked")).toHaveText("gpt-6.2-astra (unavailable)");
   await expect(worker.locator("option:checked")).toHaveText("gpt-6.2-sol (unavailable)");
-  await expect(start).toBeDisabled();
-  await topology.selectOption("swarm");
-  await expect(lead.locator("option:checked")).toHaveText("gpt-6.2-astra (unavailable)");
-  await expect(worker.locator("option:checked")).toHaveText("gpt-6.2-sol (unavailable)");
+  await expect(editor.locator("option:checked")).toHaveText("gpt-6.2-astra (unavailable)");
   await expect(start).toBeDisabled();
   await lead.selectOption("verified-fixture");
   await expect(start).toBeDisabled();
   await worker.selectOption("verified-fixture");
+  await expect(start).toBeDisabled();
+  await editor.selectOption("verified-fixture");
   await expect(start).toBeEnabled();
-  await topology.selectOption("standard");
-  await expect(page.getByLabel("Maximum research agents")).toHaveValue("3");
-  await topology.selectOption("swarm");
-  await expect(lead).toHaveValue("verified-fixture");
-  await expect(worker).toHaveValue("verified-fixture");
   await page.reload();
 
-  await expect(topology).toHaveValue("swarm");
   await expect(lead).toHaveValue("verified-fixture");
+  await expect(worker).toHaveValue("verified-fixture");
+  await expect(editor).toHaveValue("verified-fixture");
+  await expect(start).toBeEnabled();
 });
 
 test("separate lead consultations retain their own drafts, supporting receipts and answers on a phone", async ({
