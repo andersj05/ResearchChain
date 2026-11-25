@@ -20,6 +20,31 @@ async function expectDestination(page: Page, destination: (typeof destinations)[
 }
 
 for (const width of [390, 1440]) {
+  test(`keeps staged files when using the current Research desk link at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto(width === 390 ? "/" : "/?view=research");
+    const desk = page.getByRole("heading", { name: "New study", exact: true });
+    await page.getByLabel("Source files").setInputFiles({
+      name: fileName,
+      mimeType: "text/plain",
+      buffer: Buffer.from("Synthetic material for the current desk draft."),
+    });
+    const title = page.getByLabel(`Packet title for ${fileName}`);
+    await title.fill(fileTitle);
+    const token = crypto.randomUUID();
+    await page.evaluate((value) => Reflect.set(window, "deskHomeVisit", value), token);
+
+    const home = page.getByRole("link", { name: "Research desk", exact: true });
+    await home.press("Enter");
+    await expect(desk).toBeVisible();
+    expect(await page.evaluate(() => Reflect.get(window, "deskHomeVisit"))).toBe(token);
+    await expect(desk).toBeFocused();
+    await expect(desk).toBeInViewport({ ratio: 1 });
+    await expect(title).toHaveValue(fileTitle);
+  });
+
   test(`opens Workbench destinations in new tabs only with queued Desk files at ${width}px`, async ({
     page,
     context,

@@ -161,7 +161,7 @@ export function ResearchDesk({
     },
     [draftScope],
   );
-  const workbenchLinkProps =
+  const keepQueuedFilesLinkProps =
     active && queuedFiles
       ? {
           target: "_blank",
@@ -169,6 +169,8 @@ export function ResearchDesk({
           "aria-description": "Opens in a new tab to keep queued files.",
         }
       : undefined;
+  const atNewStudy = showingDraft && !fromSession;
+  const homeOpensNewTab = showingDraft && !!fromSession && !!keepQueuedFilesLinkProps;
   const revisitMatchesDraft =
     readingWithDraft && draftScope?.toLowerCase() === session?.toLowerCase();
   const learningWithDraft = deskView === "methodology" && draftScope !== undefined;
@@ -307,13 +309,16 @@ export function ResearchDesk({
         <div className={styles.headerInner}>
           <a
             className={styles.homeLink}
-            href={returningToDraft ? returnToDraft : "?view=research"}
-            aria-current={deskView === "launch" && !fromSession ? "page" : undefined}
+            href={
+              atNewStudy ? "#research-title" : returningToDraft ? returnToDraft : "?view=research"
+            }
+            aria-current={atNewStudy ? "page" : undefined}
+            {...(homeOpensNewTab ? keepQueuedFilesLinkProps : undefined)}
             onClick={
               returningToDraft ? (event) => navigateWithinDesk(event, "research-title") : undefined
             }
           >
-            Research desk
+            {homeOpensNewTab ? "Research desk (new tab)" : "Research desk"}
           </a>
           <nav aria-label="Research navigation">
             <a
@@ -355,13 +360,13 @@ export function ResearchDesk({
             >
               Methodology
             </a>
-            <a href="?view=workflow" {...workbenchLinkProps}>
+            <a href="?view=workflow" {...keepQueuedFilesLinkProps}>
               Workflows
             </a>
-            <a href="?view=evidence" {...workbenchLinkProps}>
+            <a href="?view=evidence" {...keepQueuedFilesLinkProps}>
               Sources
             </a>
-            <a href="?view=reports" {...workbenchLinkProps}>
+            <a href="?view=reports" {...keepQueuedFilesLinkProps}>
               Reports
             </a>
           </nav>

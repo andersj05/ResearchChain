@@ -162,11 +162,27 @@ for (const width of [390, 1440]) {
       }
       await expect(leadContext).toHaveValue(currentDraftContext);
       await expect(queuedTitle).toHaveValue("Edited staged rates note");
-      if (direct)
+      if (direct) {
         await expect(page.locator("details").filter({ has: comparison })).toHaveAttribute(
           "open",
           "",
         );
+        const home = page.getByRole("link", { name: "Research desk (new tab)", exact: true });
+        const opened = context.waitForEvent("page");
+        await home.press("Enter");
+        const fresh = await opened;
+        try {
+          await expect(
+            fresh.getByRole("heading", { name: "New study", exact: true }),
+          ).toBeVisible();
+          await expect(fresh.getByRole("list", { name: "Files to pin" })).toHaveCount(0);
+        } finally {
+          await fresh.close();
+        }
+        await page.bringToFront();
+        await expect(page).toHaveURL(revisitUrl);
+        await expect(queuedTitle).toHaveValue("Edited staged rates note");
+      }
       expect(await page.evaluate(() => Reflect.get(window, "syntheticRevisitToken"))).toBe(
         documentToken,
       );
