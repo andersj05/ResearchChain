@@ -1519,17 +1519,63 @@
       "get": {
         "summary": "List Reports",
         "operationId": "list_reports",
+        "parameters": [
+          {
+            "name": "study_run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Study Run Id"
+            }
+          },
+          {
+            "name": "study_attempt_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Study Attempt Id"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ReportSummary"
                   },
-                  "type": "array",
                   "title": "Response List Reports"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1540,14 +1586,14 @@
         "summary": "Create Report",
         "operationId": "create_report",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ReportCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {

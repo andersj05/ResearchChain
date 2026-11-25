@@ -5814,7 +5814,10 @@ export interface operations {
   };
   list_reports: {
     parameters: {
-      query?: never;
+      query?: {
+        study_run_id?: string | null;
+        study_attempt_id?: string | null;
+      };
       header?: never;
       path?: never;
       cookie?: never;
@@ -5828,6 +5831,15 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ReportSummary"][];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
         };
       };
     };

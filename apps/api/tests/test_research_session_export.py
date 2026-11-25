@@ -6,6 +6,7 @@ from uuid import uuid4
 from zipfile import ZipFile
 
 from access_fixtures import owner_client
+from test_evaluation_datasets import evidence
 from test_reports import style_request
 from test_research_sessions import SessionProvider, request
 from test_web_research import WEB_OUTPUT
@@ -183,3 +184,93 @@ def test_completed_editor_workspace_download_and_report_import(database, monkeyp
         client.cookies.clear()
         assert client.get(outputs[0][1]).status_code == 401
         assert len(provider.calls) == calls_before_export
+
+
+def test_report_lookup_finds_exact_study_heads_outside_the_recent_list(database):
+    provider = SessionProvider()
+    runs = RunStore(database, provider)
+    original = evidence(database, text="Synthetic release used in the study.")
+    additional = evidence(database, text="Synthetic source added during editing.")
+    start = request(brief="Older study report", review_mode="never", evidence_ids=[original.id])
+    path = "/api/reports"
+    with owner_client(create_app(database, provider), workers=False) as client:
+        response = client.post("/api/research-sessions", json=start.model_dump(mode="json"))
+        assert response.status_code == 202, response.text
+        assert RunWorker(runs).run_once()
+        study = runs.get(start.id)
+        assert study.status == "completed", study.stop_reason
+        editor = study.model_attempts[-1]
+        researcher = next(item for item in study.model_attempts if item.path == "root/team/agent-1")
+        calls_after_study = len(provider.calls)
+        guide = style_request()
+        response = client.post("/api/style-guides", json=guide.model_dump(mode="json"))
+        assert response.status_code == 201, response.text
+
+        def create_report(attempt, source_format=None):
+            response = client.post(
+                path,
+                json={
+                    "id": str(uuid4()),
+                    "title": "Original report title",
+                    "run_id": str(study.id),
+                    "attempt_id": str(attempt.id),
+                    "style_guide_id": str(guide.id),
+                    "source_format": source_format,
+                },
+            )
+            assert response.status_code == 201, response.text
+            return response.json()
+
+        first = create_report(editor, "session_markdown")
+        second = create_report(editor, "session_markdown")
+        generic = create_report(editor)
+        create_report(researcher)
+
+        response = client.post(
+            f"{path}/revisions",
+            json={
+                "id": str(uuid4()),
+                "base_revision_id": first["id"],
+                "title": "Renamed by the editor",
+                "style_guide_id": str(guide.id),
+                "sections": first["sections"],
+                "evidence_ids": [str(original.id), str(additional.id)],
+                "change_note": "Add a supplementary source.",
+            },
+        )
+        assert response.status_code == 201, response.text
+        head = response.json()
+        assert head["provenance"] == first["provenance"]
+
+        # Seed enough unrelated heads to move both study drafts out of the recent list.
+        with database.connection() as conn:
+            conn.execute(
+                "INSERT INTO report_revisions "
+                "(id,series_id,version,request_hash,document,created_at) "
+                "SELECT copy.id,copy.id,1,template.request_hash, "
+                "template.document || jsonb_build_object("
+                "'id',copy.id,'series_id',copy.id,'created_at',CURRENT_TIMESTAMP), "
+                "CURRENT_TIMESTAMP "
+                "FROM report_revisions template CROSS JOIN unnest(%s::uuid[]) AS copy(id) "
+                "WHERE template.id = %s",
+                ([uuid4() for _ in range(100)], generic["id"]),
+            )
+
+        recent = client.get(path).json()
+        assert len(recent) == 100
+        assert {head["id"], second["id"]}.isdisjoint(item["id"] for item in recent)
+        origin = {"study_run_id": str(study.id), "study_attempt_id": str(editor.id)}
+        response = client.get(path, params=origin)
+        assert response.status_code == 200, response.text
+        matches = response.json()
+        assert [item["id"] for item in matches] == [head["id"], second["id"]]
+        assert matches[0]["series_id"] == first["id"] and matches[0]["version"] == 2
+        assert matches[0]["title"] == "Renamed by the editor"
+        assert client.get(f"{path}/{first['id']}").json()["current_revision_id"] == head["id"]
+        other_attempt = {**origin, "study_attempt_id": str(researcher.id)}
+        assert client.get(path, params=other_attempt).json() == []
+        assert client.get(path, params={**origin, "study_run_id": str(uuid4())}).json() == []
+        assert client.get(path, params={"study_run_id": str(study.id)}).status_code == 422
+        client.cookies.clear()
+        assert client.get(path, params=origin).status_code == 401
+        assert len(provider.calls) == calls_after_study

@@ -3,7 +3,7 @@
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import Response
 
 from researchchain.database import Database
@@ -57,8 +57,14 @@ def report_router(database: Database) -> APIRouter:
         return styles.get(key)
 
     @router.get("/reports", operation_id="list_reports")
-    def list_reports() -> list[ReportSummary]:
-        return reports.list()
+    def list_reports(
+        study_run_id: UUID | None = None, study_attempt_id: UUID | None = None
+    ) -> list[ReportSummary]:
+        if study_run_id is None and study_attempt_id is None:
+            return reports.list()
+        if study_run_id is None or study_attempt_id is None:
+            raise HTTPException(422, "Supply both the study and its saved editor attempt.")
+        return reports.list(study_origin=(study_run_id, study_attempt_id))
 
     @router.post("/reports", status_code=201, operation_id="create_report")
     def create_report(request: ReportCreate) -> ReportRevision:
