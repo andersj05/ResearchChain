@@ -18,6 +18,7 @@ from researchchain.research_directions import (
     save_report_request,
 )
 from researchchain.research_models import OwnerReportRequest, OwnerReportRequestInput
+from researchchain.research_recovery import recovery_candidate
 from researchchain.research_sessions import ResearchSessionStart, session_workflow
 from researchchain.revisions import ConflictError, save_revision
 from researchchain.runtime import RunStore
@@ -141,7 +142,8 @@ class RunQueue:
     def resume(self, run_id: UUID, request: ResumeRequest) -> CommandReceipt:
         with self._admission() as conn:
             exists = conn.execute(
-                "SELECT 1 FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
+                "SELECT 1 FROM run_commands WHERE run_id = %s AND interrupt_id = %s "
+                "AND kind = 'resume'",
                 (run_id, request.interrupt_id),
             ).fetchone()
             if not exists and not self._own_run(conn, run_id):
@@ -163,9 +165,11 @@ class RunQueue:
                 self._enqueue(conn, command)
             return receipt(command)
 
-    def recover(self, run_id: UUID) -> CommandReceipt:
+    def recover(self, run_id: UUID, failed_command_id: UUID | None = None) -> CommandReceipt:
         with self._admission() as conn:
             self.runs._manifest(conn, run_id)
+            if failed_command_id is not None:
+                return self._recover_failed(conn, run_id, failed_command_id)
             command = self.runs._unfinished(conn, run_id)
             if command is None:
                 command = conn.execute(
@@ -220,6 +224,47 @@ class RunQueue:
             ).fetchone():
                 raise ConflictError("Resume the interrupted study before requesting a report.")
             return save_report_request(conn, run_id, request)
+
+    def _recover_failed(
+        self, conn: Connection[DictRow], run_id: UUID, failed_command_id: UUID
+    ) -> CommandReceipt:
+        previous = conn.execute(
+            "SELECT * FROM run_commands WHERE run_id = %s AND recovery_of = %s",
+            (run_id, failed_command_id),
+        ).fetchone()
+        if previous is not None:
+            return receipt(previous)
+        if not self._own_run(conn, run_id):
+            raise DispatchError("This study is busy. Try resuming again.", 409)
+        failed = recovery_candidate(conn, run_id)
+        if failed is None or failed["id"] != failed_command_id:
+            raise ConflictError("This study failure cannot be resumed. Refresh the study.")
+        command = conn.execute(
+            "INSERT INTO run_commands "
+            "(id, run_id, kind, recovery_of, checkpoint_id, interrupt_id, decision, feedback) "
+            "VALUES (%s, %s, 'recover', %s, %s, %s, %s, %s) RETURNING *",
+            (
+                uuid4(),
+                run_id,
+                failed_command_id,
+                failed["checkpoint_id"],
+                failed["interrupt_id"],
+                failed["decision"],
+                failed["feedback"],
+            ),
+        ).fetchone()
+        assert command
+        conn.execute(
+            "UPDATE research_attempts SET superseded_at = clock_timestamp() "
+            "WHERE run_id = %s AND status = 'failed' AND superseded_at IS NULL",
+            (run_id,),
+        )
+        conn.execute(
+            "UPDATE run_controls SET terminal_status = NULL, reason = NULL WHERE run_id = %s",
+            (run_id,),
+        )
+        self._enqueue(conn, command)
+        return receipt(command)
 
     def configure(self, limits: QueueLimits) -> None:
         with self._admission() as conn:

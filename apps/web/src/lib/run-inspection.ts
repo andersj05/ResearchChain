@@ -4,6 +4,19 @@ import { referenceOf } from "./workflow-editing";
 type RunEvent = RunSnapshot["events"][number];
 type Review = NonNullable<RunSnapshot["reviews"]>[number];
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
+
+export function modelFailureDetails(attempt: Attempt): string {
+  const failure = attempt.provider_failure;
+  if (!failure) return "";
+  return [
+    failure.source === "stream" ? "Provider stream error" : "Provider HTTP error",
+    failure.http_status && `HTTP ${failure.http_status}`,
+    failure.code && `Code ${failure.code}`,
+    failure.request_id && `Request ID ${failure.request_id}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
 export type ComparisonPasses = { baselineAttempt?: string; openAttempt?: string };
 export type PassComparisonLabels = { comparison: string; current: string };
 export const defaultPassComparisonLabels = {

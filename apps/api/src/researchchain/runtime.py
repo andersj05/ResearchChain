@@ -64,6 +64,7 @@ from researchchain.research_directions import (
 from researchchain.research_discovery import DISCOVERY_VERSION, check_first_reading_start
 from researchchain.research_models import OwnerReportRequest
 from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
+from researchchain.research_recovery import recovery_candidate
 from researchchain.research_session_report import REPORT_VERSION
 from researchchain.research_sessions import SESSION_VERSION, SOURCE_LED_BRIEF
 from researchchain.research_swarm import SWARM_VERSION
@@ -289,6 +290,7 @@ class RunStore:
         if control["terminal_status"]:
             status = control["terminal_status"]
             pending = []
+        recovery = recovery_candidate(conn, manifest["id"]) if status == "failed" else None
         reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
         research = read_manifest(conn, manifest["id"])
@@ -334,6 +336,7 @@ class RunStore:
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             checkpoint_steps=checkpoint_steps(state, status),
             status=status,
+            recovery_command_id=recovery["id"] if recovery else None,
             execution_pending=running or queued,
             events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
@@ -421,7 +424,7 @@ class RunStore:
                             durability="sync",
                         )
                     elif not state.created_at:
-                        if command["kind"] != "start":
+                        if command["interrupt_id"] is not None:
                             raise ConflictError(
                                 "The checkpoint for this review is missing. "
                                 "Restore a database backup."
@@ -436,7 +439,7 @@ class RunStore:
                         else:
                             initial["events"] = []
                         graph.invoke(initial, config, durability="sync")
-                    elif command["kind"] == "resume" and (
+                    elif command["interrupt_id"] is not None and (
                         selected := next(
                             (
                                 (destination, review)
@@ -844,7 +847,8 @@ class RunStore:
         """Journal an exact review; the caller serializes admission and owns the run."""
         manifest = self._manifest(conn, run_id)
         existing = conn.execute(
-            "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
+            "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s "
+            "AND kind = 'resume'",
             (run_id, request.interrupt_id),
         ).fetchone()
         if existing is not None:

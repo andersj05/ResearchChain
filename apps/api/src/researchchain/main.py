@@ -26,7 +26,7 @@ from researchchain.agents import AgentStore
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
 from researchchain.dispatch import RunQueue
-from researchchain.dispatch_models import CommandReceipt, DispatchError
+from researchchain.dispatch_models import CommandReceipt, DispatchError, RunRecoveryRequest
 from researchchain.evaluation_api import evaluation_router
 from researchchain.evidence_api import evidence_router
 from researchchain.models import (
@@ -369,8 +369,8 @@ def create_app(
         status_code=202,
         operation_id="recover_run",
     )
-    def recover_run(run_id: UUID) -> CommandReceipt:
-        return queue.recover(run_id)
+    def recover_run(run_id: UUID, request: RunRecoveryRequest | None = None) -> CommandReceipt:
+        return queue.recover(run_id, request.failed_command_id if request else None)
 
     @app.post("/api/runs/{run_id}/cancel", response_model=CancelResult, operation_id="cancel_run")
     def cancel_run(run_id: UUID) -> CancelResult:

@@ -37,7 +37,12 @@ from researchchain.graph import (
     WorkflowNode,
     resolve_model,
 )
-from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
+from researchchain.providers.chatgpt_auth import (
+    PLAN_SCOPE,
+    ChatGPTAuth,
+    ProviderError,
+    safe_identifier,
+)
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
 from researchchain.research_directions import (
@@ -52,6 +57,7 @@ from researchchain.research_models import (
     ModelAttempt,
     OwnerDirection,
     ProviderAccount,
+    ProviderFailure,
     ProviderModel,
     ProviderStatus,
     ResearchManifest,
@@ -457,7 +463,8 @@ class ResearchExecutor:
         limits = self.manifest.settings.limits
         with self.control.lock:
             previous = self.conn.execute(
-                "SELECT * FROM research_attempts WHERE run_id = %s AND path = %s",
+                "SELECT * FROM research_attempts WHERE run_id = %s AND path = %s "
+                "AND superseded_at IS NULL",
                 (self.run_id, path),
             ).fetchone()
             if previous:
@@ -717,7 +724,7 @@ class ResearchExecutor:
                 with self.control.lock:
                     row = self.conn.execute(
                         "SELECT response_artifact_id FROM research_attempts "
-                        "WHERE run_id=%s AND path=%s",
+                        "WHERE run_id=%s AND path=%s AND status='completed'",
                         (self.run_id, pass_path),
                     ).fetchone()
                     assert row
@@ -1036,6 +1043,16 @@ class ResearchExecutor:
                 if isinstance(error, ValidationError)
                 else str(error)
             )
+            provider_failure = None
+            if isinstance(error, ProviderError):
+                provider_failure = ProviderFailure(
+                    http_status=error.status
+                    if error.status and 100 <= error.status <= 599
+                    else None,
+                    source="stream" if error.shape == "stream_error" else "http",
+                    code=safe_identifier(error.code),
+                    request_id=safe_identifier(error.request_id),
+                )
             self.finish(
                 attempt_id,
                 "failed",
@@ -1044,6 +1061,7 @@ class ResearchExecutor:
                 reason=reason[:1000],
                 result=interim,
                 output_characters=lead_characters,
+                provider_failure=provider_failure,
             )
             raise ExecutionStopped(reason[:1000], "failed") from None
 
@@ -1060,6 +1078,7 @@ class ResearchExecutor:
         session_report: bool = False,
         markdown: bytes | None = None,
         output_characters: int | None = None,
+        provider_failure: ProviderFailure | None = None,
     ) -> None:
         def tokens(name: str) -> int | None:
             value = completion.usage.get(name) if completion else None
@@ -1108,7 +1127,7 @@ class ResearchExecutor:
             self.conn.execute(
                 "UPDATE research_attempts SET status = %s, response_artifact_id = %s, result = %s, "
                 "reason = %s, output_characters = %s, response_id = %s, returned_model = %s, "
-                "input_tokens = %s, output_tokens = %s, "
+                "input_tokens = %s, output_tokens = %s, provider_failure = %s, "
                 "finished_at = clock_timestamp() WHERE id = %s",
                 (
                     status,
@@ -1120,6 +1139,7 @@ class ResearchExecutor:
                     completion.returned_model if completion else None,
                     tokens("input_tokens"),
                     tokens("output_tokens"),
+                    Jsonb(provider_failure.model_dump(mode="json")) if provider_failure else None,
                     attempt_id,
                 ),
             )

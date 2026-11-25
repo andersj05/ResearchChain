@@ -63,7 +63,7 @@ function receiptState(run: RunSnapshot, last: Attempt | undefined, waiting: Stat
 }
 
 function workerState(run: RunSnapshot, passes: Attempt[]) {
-  const last = passes.at(-1);
+  const last = passes.findLast((attempt) => !attempt.superseded_at);
   return receiptState(
     run,
     last,
@@ -82,8 +82,16 @@ export function swarmWorkspaces(
 ): SessionWorkspace[] {
   const attempts = run.model_attempts ?? [];
   const groupedPasses = groupAnalystPasses(attempts);
-  const director = attempts.find((attempt) => attempt.path === "root/team/plan");
+  const directorAttempts = attempts.filter(
+    (attempt) => attempt.path === "root/discovery" || attempt.path === "root/team/plan",
+  );
+  const director = directorAttempts.findLast(
+    (attempt) => attempt.path === "root/team/plan" && !attempt.superseded_at,
+  );
   const mandates = director?.result?.swarm_plan?.leads ?? [];
+  const pendingSentence = pendingReviews(run).some(
+    (review) => review.path === "root/working_sentence",
+  );
   const lanes: SessionWorkspace[] = [
     {
       key: "director",
@@ -91,9 +99,13 @@ export function swarmWorkspaces(
       path: "root/team/plan",
       title: "Swarm director",
       objective: "Divide the brief into independent lead mandates.",
-      attempts: attempts.filter((item) => item.path === "root/discovery" || item === director),
+      attempts: directorAttempts,
       profile: profiles?.lead,
-      state: receiptState(run, director, mandates.length ? "Completed" : "Queued"),
+      state: receiptState(
+        run,
+        director ?? directorAttempts.findLast((attempt) => !attempt.superseded_at),
+        mandates.length ? "Completed" : pendingSentence ? "Awaiting judgment" : "Queued",
+      ),
     },
   ];
   for (const [index, mandate] of mandates.entries()) {
@@ -123,7 +135,7 @@ export function swarmWorkspaces(
         state: workerState(run, passes),
       };
     });
-    const last = turns.at(-1);
+    const last = turns.findLast((attempt) => !attempt.superseded_at);
     const action = last?.result?.swarm_action;
     let waiting: State = "Queued";
     if (action?.action === "finish") waiting = "Completed";

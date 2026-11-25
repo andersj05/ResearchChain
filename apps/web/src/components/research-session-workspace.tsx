@@ -2,7 +2,7 @@ import type { components } from "@researchchain/contracts";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { contentDownloadUrl } from "@/lib/evidence";
 import { modelSettingLabel, resolveModelProfile } from "@/lib/model-settings";
-import { modelAttemptStatus } from "@/lib/run-inspection";
+import { modelAttemptStatus, modelFailureDetails } from "@/lib/run-inspection";
 import {
   groupAnalystPasses,
   sessionSwarm,
@@ -406,6 +406,8 @@ function PassReceipt({
         <SavedFindings result={result} sources={urls} files={files} />
       )}
       {selected.reason && <p>{selected.reason}</p>}
+      {selected.superseded_at && <p>Earlier attempt on this step</p>}
+      {selected.provider_failure && <p>{modelFailureDetails(selected)}</p>}
       {!!files.length && (
         <WorkspaceFiles key={selected.id} files={files} sources={urls} label="Files in this pass" />
       )}

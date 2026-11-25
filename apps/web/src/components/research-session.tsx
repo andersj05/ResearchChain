@@ -64,7 +64,8 @@ type ReturnOrigin =
 type Decision = "approve" | "reject";
 type SessionAction =
   | { name: "resume"; review: Review; decision: Decision; feedback: string }
-  | { name: "cancel" | "recover" };
+  | { name: "recover"; failedCommandId?: string }
+  | { name: "cancel" };
 type ActionFailure = {
   review?: Review;
   checkpoint?: string | null;
@@ -256,7 +257,9 @@ function ResearchSessionView({
             decision: action.decision,
             feedback: action.feedback,
           }
-        : {};
+        : action.name === "recover" && action.failedCommandId
+          ? { failed_command_id: action.failedCommandId }
+          : {};
     sending.current = true;
     setBusy(true);
     setActionFailure(undefined);
@@ -379,6 +382,7 @@ function ResearchSessionView({
     (briefTitle.length > 120 ? `${briefTitle.slice(0, 120)}…` : briefTitle);
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
   const canStop = live || run.status === "paused" || run.status === "interrupted";
+  const failedCommandId = run.recovery_command_id;
   const started = run.model_attempts?.length ?? 0;
   const activeSeconds = run.usage?.active_seconds;
   const report = sessionReport(editor, run.status);
@@ -615,7 +619,23 @@ function ResearchSessionView({
         </div>
       )}
       {run.stop_reason && sentenceDecision?.decision !== "reject" && (
-        <p className={styles.notice}>{run.stop_reason}</p>
+        <div className={styles.notice}>
+          <p>{run.stop_reason}</p>
+          {failedCommandId && (
+            <>
+              <p>Resume from the saved checkpoint. Retried requests use your plan allowance.</p>
+              <Button
+                className="button primary"
+                disabled={busy || !active}
+                pendingAnnouncement="Resuming research"
+                onClick={() => act({ name: "recover", failedCommandId })}
+              >
+                Resume research
+              </Button>
+              {!failedReview && actionNotice}
+            </>
+          )}
+        </div>
       )}
       {discovery && (
         <SessionDiscovery
@@ -773,7 +793,7 @@ function ResearchSessionView({
         id={canStop ? sessionControlsId : undefined}
         tabIndex={canStop ? -1 : undefined}
       >
-        {!failedReview && actionNotice}
+        {!failedReview && !failedCommandId && actionNotice}
         <StudyWorkbenchLink href={fullRun} newTab={openWorkbenchInNewTab}>
           Open run inspector
         </StudyWorkbenchLink>

@@ -298,6 +298,16 @@ class ResearchManifest(StrictModel):
     created_at: datetime
 
 
+ProviderIdentifier = Annotated[str, Field(pattern=r"^[a-zA-Z0-9_.:/\[\]-]{1,200}$")]
+
+
+class ProviderFailure(StrictModel):
+    http_status: int | None = Field(default=None, ge=100, le=599)
+    source: Literal["http", "stream"]
+    code: ProviderIdentifier | None = None
+    request_id: ProviderIdentifier | None = None
+
+
 class ModelAttempt(StrictModel):
     owner_direction_ids: list[UUID] = Field(default_factory=list, exclude_if=lambda x: not x)
     web_actions_completed: int | None = Field(default=None, ge=0)
@@ -318,6 +328,8 @@ class ModelAttempt(StrictModel):
     output_tokens: int | None = None
     response_id: str | None = None
     reason: str | None = None
+    provider_failure: ProviderFailure | None = Field(default=None, exclude_if=lambda x: x is None)
+    superseded_at: datetime | None = Field(default=None, exclude_if=lambda x: x is None)
     result: StoredResearchResult | None = None
     created_at: datetime
     finished_at: datetime | None = None
