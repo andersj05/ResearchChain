@@ -167,6 +167,15 @@ export function ResearchDesk({
     },
     [draftScope],
   );
+  useEffect(() => {
+    if (!active || !queuedFiles) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active, queuedFiles]);
   const keepQueuedFilesLinkProps =
     active && queuedFiles
       ? {
