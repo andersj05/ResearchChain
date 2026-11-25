@@ -117,8 +117,8 @@ On Linux CI the install command also uses `--with-deps`.
 Backend tests fail if Postgres is unavailable; they do not silently skip durability
 checks. Backup tests require matching PostgreSQL clients or the local container
 and create/drop only their own randomly named `test_restore_*` databases. CI
-selects its Postgres service container explicitly. Browser tests own their API/web processes and fail if ports 8000/3000 are
-already occupied. Stop `pnpm dev` first. Run browser tests from the repository root
+selects its Postgres service container explicitly. Local browser tests start
+their own API and web processes on free loopback ports. Run browser tests from the repository root
 so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema
 and temporary synthetic owner credentials. API fixtures authenticate normally;
 there is no test bypass. The access project runs after feature tests because

@@ -25,7 +25,12 @@ const nextConfig: NextConfig = {
     ];
   },
   async rewrites() {
-    return [{ source: "/api/:path*", destination: "http://127.0.0.1:8000/api/:path*" }];
+    const testPort = process.env.DATABASE_SCHEMA?.startsWith("e2e_")
+      ? process.env.RESEARCHCHAIN_BROWSER_API_PORT
+      : undefined;
+    return [
+      { source: "/api/:path*", destination: `http://127.0.0.1:${testPort ?? 8000}/api/:path*` },
+    ];
   },
 };
 

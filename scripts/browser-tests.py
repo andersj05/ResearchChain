@@ -2,6 +2,7 @@
 
 import os
 import secrets
+import socket
 import subprocess
 import sys
 from dataclasses import replace
@@ -14,7 +15,19 @@ from researchchain.access_config import AccessConfig
 from researchchain.access_service import AccessService
 from researchchain.database import LOCAL_DATABASE_URL, Database
 
+
+def browser_ports() -> tuple[int, int]:
+    if os.environ.get("CI"):
+        # CI builds the frontend before starting the test runner.
+        return 3000, 8000
+    with socket.socket() as web, socket.socket() as api:
+        web.bind(("127.0.0.1", 0))
+        api.bind(("127.0.0.1", 0))
+        return web.getsockname()[1], api.getsockname()[1]
+
+
 Database.from_env()
+web_port, api_port = browser_ports()
 database = Database(
     url=os.environ.get("TEST_DATABASE_URL", LOCAL_DATABASE_URL),
     schema=f"e2e_{uuid4().hex}",
@@ -27,7 +40,7 @@ try:
             replace(
                 config,
                 directory=Path(directory) / config.workspace_id,
-                origin="http://127.0.0.1:3000",
+                origin=f"http://127.0.0.1:{web_port}",
             )
         )
         password = "synthetic-" + secrets.token_urlsafe(24)
@@ -43,6 +56,8 @@ try:
             "RESEARCHCHAIN_ACCESS_DIRECTORY": directory,
             "RESEARCHCHAIN_PUBLIC_ORIGIN": access.config.origin,
             "RESEARCHCHAIN_TEST_OWNER_PASSWORD": password,
+            "RESEARCHCHAIN_BROWSER_WEB_PORT": str(web_port),
+            "RESEARCHCHAIN_BROWSER_API_PORT": str(api_port),
         }
         worker = subprocess.Popen(
             [sys.executable, "apps/api/tests/research_browser_fixture.py"],
