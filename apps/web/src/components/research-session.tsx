@@ -45,6 +45,7 @@ import {
 } from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
 import { StudyWorkbenchLink } from "./study-workbench-link";
+import { StudyTeamGraph } from "./study-team-graph";
 import styles from "./research-session.module.css";
 
 const sessionControlsId = "session-controls";
@@ -394,7 +395,7 @@ function ResearchSessionView({
       ? finalEditor
       : undefined;
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
-  const hasFiles = hasStudyFiles(lanes);
+  const hasFiles = hasStudyFiles(lanes, run.artifacts);
   const showSteering =
     (!discovery || sentenceDecision?.decision === "approve") &&
     run.research_manifest?.tool_config.owner_directions_version === "owner-directions-1";
@@ -532,6 +533,7 @@ function ResearchSessionView({
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
           {steeringLink && <a href="#study-steering">Team guidance</a>}
+          {swarm && <a href="#study-team-graph">Team graph</a>}
           <a href="#research-workspaces">Workspaces</a>
           {live && (
             <a className={styles.phoneSectionLink} href="#current-research-workspace">
@@ -742,6 +744,16 @@ function ResearchSessionView({
           </p>
         </details>
       )}
+      {swarm && (
+        <StudyTeamGraph
+          run={run}
+          lanes={lanes}
+          consultations={consultations}
+          editorialReview={question?.path === "root/judgment" && !!run.checkpoint_id}
+          selected={workspace.key}
+          onSelect={selectWorkspace}
+        />
+      )}
       <div className={styles.work} id="research-workspaces" tabIndex={-1}>
         <SessionRoster lanes={lanes} selected={workspace.key} onSelect={selectWorkspace} />
         <SessionWorkspaceDetail
@@ -780,6 +792,7 @@ function ResearchSessionView({
         <StudyFiles
           runId={runId}
           lanes={lanes}
+          artifacts={run.artifacts}
           returnRef={returnToSavedFile}
           onSelect={(key, pass, targetId) =>
             selectWorkspace(key, pass, { kind: "index", index: "files", targetId })

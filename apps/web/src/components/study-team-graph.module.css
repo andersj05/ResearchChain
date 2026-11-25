@@ -1,0 +1,267 @@
+.panel {
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.panel > h2 {
+  margin: 0;
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.stages,
+.teams,
+.researchers ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.stages {
+  --connector: var(--border-strong);
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.5fr) minmax(0, 0.9fr);
+  gap: 26px;
+  padding: 16px;
+  background: var(--paper);
+}
+
+.stage {
+  position: relative;
+  min-width: 0;
+}
+
+.stage:not(:last-child)::before,
+.stage:not(:last-child)::after {
+  position: absolute;
+  top: 59px;
+  left: calc(100% + 1px);
+  content: "";
+  pointer-events: none;
+}
+
+.stage:not(:last-child)::before {
+  width: 24px;
+  border-top: 1px solid var(--connector);
+}
+
+.stage:not(:last-child)::after {
+  top: 56px;
+  left: calc(100% + 18px);
+  width: 7px;
+  height: 7px;
+  border-top: 1px solid var(--connector);
+  border-right: 1px solid var(--connector);
+  transform: rotate(45deg);
+}
+
+.stage h3 {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.stage h3 span {
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+}
+
+.node,
+.empty {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+
+.node {
+  font-size: 13px;
+  text-decoration: none;
+}
+
+a.node:hover strong {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.node[aria-current="true"] {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+.node strong {
+  font-weight: 600;
+}
+
+.state,
+.empty {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.state::before {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  vertical-align: 1px;
+  content: "";
+}
+
+.state[data-tone="active"] {
+  color: var(--blue);
+}
+
+.state[data-tone="done"] {
+  color: var(--green);
+}
+
+.state[data-tone="review"] {
+  color: var(--amber);
+}
+
+.state[data-tone="failed"] {
+  color: var(--red);
+}
+
+.teams {
+  display: grid;
+  gap: 9px;
+  padding-inline: 10px;
+  border-inline: 1px solid var(--connector);
+}
+
+.team {
+  position: relative;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.team::before,
+.team::after {
+  position: absolute;
+  top: 33px;
+  width: 10px;
+  border-top: 1px solid var(--connector);
+  content: "";
+}
+
+.team::before {
+  right: 100%;
+}
+
+.team::after {
+  left: 100%;
+}
+
+.team > .node {
+  margin: -1px;
+  border-color: transparent;
+}
+
+.team > .node[aria-current="true"] {
+  border-color: var(--blue);
+}
+
+.researchers {
+  margin: 0 10px 8px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.researchers summary {
+  padding: 7px 2px 0;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+
+.researchers summary span {
+  display: inline;
+  margin-inline-start: 7px;
+}
+
+.researchers ul {
+  display: grid;
+  gap: 5px;
+  margin-block-start: 8px;
+  padding-inline-start: 8px;
+  border-inline-start: 1px solid var(--connector);
+}
+
+.researchers .node {
+  padding: 7px 9px;
+}
+
+.consultation {
+  display: block;
+  margin: 0 10px 8px;
+  color: var(--amber);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.editorial {
+  display: grid;
+  gap: 8px;
+}
+
+.editorial > .node + .node {
+  position: relative;
+}
+
+.editorial > .node + .node::before {
+  position: absolute;
+  top: -9px;
+  left: 21px;
+  height: 8px;
+  border-left: 1px solid var(--connector);
+  content: "";
+}
+
+@media (max-width: 720px) {
+  .stages {
+    grid-template-columns: 1fr;
+    gap: 20px;
+    padding: 12px;
+  }
+
+  .stage:not(:last-child)::before {
+    inset: 100% auto auto 21px;
+    width: auto;
+    height: 18px;
+    border: 0;
+    border-left: 1px solid var(--connector);
+  }
+
+  .stage:not(:last-child)::after {
+    inset: calc(100% + 10px) auto auto 18px;
+    transform: rotate(135deg);
+  }
+
+  .teams {
+    padding-inline: 12px 0;
+    border-inline-end: 0;
+  }
+
+  .team::before {
+    width: 12px;
+  }
+
+  .team::after {
+    display: none;
+  }
+}

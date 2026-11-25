@@ -1,86 +1,42 @@
-import { useMemo, useState } from "react";
-import type { components } from "@researchchain/contracts";
+import { useImperativeHandle, useMemo, useRef, useState } from "react";
 import { contentDownloadUrl } from "@/lib/evidence";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
+import type { RunSnapshot } from "@/lib/workflow";
 import { researchToolUrls } from "./research-tool-receipts";
 import { canPreviewWorkspaceFile, WorkspaceFilePreview } from "./research-workspace";
 import { SessionWorkspaceLink } from "./session-consultations";
+import { StudyFileExplorer } from "./study-file-explorer";
+import {
+  indexStudyFiles,
+  newestStudyFileFirst,
+  studyFilesIn,
+  type IndexedStudyFile,
+  type StudyFileCursor,
+} from "./study-file-records";
 import { useStudyIndex, type StudyIndexFocus } from "./study-index-link";
 import styles from "./study-files.module.css";
 
-type Attempt = SessionWorkspace["attempts"][number];
-type WorkspaceFile = components["schemas"]["WorkspaceFile"];
-type IndexedFile = {
-  key: string;
-  file: WorkspaceFile;
-  lane: SessionWorkspace;
-  lead?: string;
-  attempt: Attempt;
-  pass: number;
-  savedAt: number;
-  search: string;
-};
-type FileCursor = Pick<IndexedFile, "key" | "file" | "savedAt">;
-
 const pageSize = 20;
+const noArtifacts: RunSnapshot["artifacts"] = [];
 
-function newestFileFirst(left: FileCursor, right: FileCursor) {
-  const order = right.savedAt - left.savedAt || left.file.name.localeCompare(right.file.name);
-  if (order || left.key === right.key) return order;
-  return left.key < right.key ? -1 : 1;
-}
-
-function filesIn(attempt: Attempt) {
-  const result = attempt.result;
-  return [
-    ...(result?.workspace_activity?.files ?? []),
-    ...(result?.workspace_files ?? []),
-    ...(result?.report_artifact ? [result.report_artifact] : []),
-  ];
-}
-
-export function hasStudyFiles(lanes: SessionWorkspace[]) {
-  return lanes.some(({ attempts }) =>
-    attempts.some(({ result }) =>
-      Boolean(
-        result?.workspace_activity?.files?.length ||
-        result?.workspace_files?.length ||
-        result?.report_artifact,
+export function hasStudyFiles(lanes: SessionWorkspace[], artifacts?: RunSnapshot["artifacts"]) {
+  return Boolean(
+    artifacts?.length ||
+    lanes.some(({ attempts }) =>
+      attempts.some(({ result, input_artifact_id, response_artifact_id }) =>
+        Boolean(
+          input_artifact_id ||
+          response_artifact_id ||
+          result?.workspace_activity?.files?.length ||
+          result?.workspace_files?.length ||
+          result?.report_artifact,
+        ),
       ),
     ),
   );
 }
 
-function indexFiles(lanes: SessionWorkspace[]) {
-  const byLane = new Map(lanes.map((lane) => [lane.key, lane]));
-  const entries = new Map<string, IndexedFile>();
-  for (const lane of lanes) {
-    const lead = lane.parentKey ? byLane.get(lane.parentKey)?.title : undefined;
-    for (const [index, attempt] of lane.attempts.entries()) {
-      const savedAt = Date.parse(attempt.created_at);
-      for (const file of filesIn(attempt)) {
-        const key = JSON.stringify([lane.key, file.name, file.artifact_id]);
-        // Later receipts carry workspace contents forward. Keep the first receipt
-        // that saved this version and every distinct content hash in the lane.
-        if (!entries.has(key)) {
-          entries.set(key, {
-            key,
-            file,
-            lane,
-            lead,
-            attempt,
-            pass: index + 1,
-            savedAt,
-            search: `${file.name} ${lane.title} ${lead ?? ""} ${attempt.path}`.toLowerCase(),
-          });
-        }
-      }
-    }
-  }
-  return [...entries.values()].sort(newestFileFirst);
-}
-
-function FilePreview({ entry, lanes }: { entry: IndexedFile; lanes: SessionWorkspace[] }) {
+function FilePreview({ entry, lanes }: { entry: IndexedStudyFile; lanes: SessionWorkspace[] }) {
   const cutoff = entry.savedAt;
   const attempts =
     entry.lane.key === "editor"
@@ -92,35 +48,55 @@ function FilePreview({ entry, lanes }: { entry: IndexedFile; lanes: SessionWorks
       ...researchToolUrls(result),
     ]),
   );
-  const files = [...new Map(filesIn(entry.attempt).map((file) => [file.name, file])).values()];
+  const files = [...new Map(studyFilesIn(entry.attempt).map((file) => [file.name, file])).values()];
   return <WorkspaceFilePreview file={entry.file} sources={sources} files={files} />;
 }
 
 export function StudyFiles({
   runId,
   lanes,
+  artifacts = noArtifacts,
   onSelect,
   returnRef,
 }: {
   runId: string;
   lanes: SessionWorkspace[];
+  artifacts?: RunSnapshot["artifacts"];
   onSelect: (workspace: string, pass: string | null, targetId: string) => void;
   returnRef: StudyIndexFocus;
 }) {
-  const [open, setOpen] = useStudyIndex("files", returnRef);
+  const focusIndex = useRef<((targetId: string) => void) | null>(null);
+  const [open, setOpen] = useStudyIndex("files", focusIndex);
+  const [view, setView] = useState<"explorer" | "timeline">("explorer");
   const [query, setQuery] = useState("");
-  const [shownThrough, setShownThrough] = useState<FileCursor>();
+  const [shownThrough, setShownThrough] = useState<StudyFileCursor>();
   const [preview, setPreview] = useState<string>();
-  const entries = useMemo(() => (open ? indexFiles(lanes) : []), [lanes, open]);
+  const entries = useMemo(() => (open ? indexStudyFiles(lanes) : []), [lanes, open]);
   const words = query.toLowerCase().trim().split(/\s+/);
-  const matches = entries.filter(({ search }) => words.every((word) => search.includes(word)));
+  const matches =
+    view === "timeline"
+      ? entries.filter(({ search }) => words.every((word) => search.includes(word)))
+      : [];
   // A new file can arrive above the rows the owner has already reached.
   const throughIndex = shownThrough
-    ? matches.findLastIndex((entry) => newestFileFirst(entry, shownThrough) <= 0)
+    ? matches.findLastIndex((entry) => newestStudyFileFirst(entry, shownThrough) <= 0)
     : -1;
   const visible = matches.slice(0, Math.max(pageSize, throughIndex + 1));
 
-  function keepThrough(entry: IndexedFile | undefined) {
+  useImperativeHandle(
+    returnRef,
+    () => (targetId) => {
+      const targetView = targetId.startsWith("study-explorer-pass-") ? "explorer" : "timeline";
+      if (targetView === view) focusIndex.current?.(targetId);
+      else {
+        setView(targetView);
+        requestAnimationFrame(() => focusIndex.current?.(targetId));
+      }
+    },
+    [view],
+  );
+
+  function keepThrough(entry: IndexedStudyFile | undefined) {
     if (!entry) return;
     const { key, file, savedAt } = entry;
     setShownThrough({ key, file, savedAt });
@@ -135,6 +111,33 @@ export function StudyFiles({
     >
       <summary id="study-files-heading">Saved files</summary>
       {open && (
+        <div className={styles.views} role="group" aria-label="Saved file view">
+          <button
+            type="button"
+            aria-pressed={view === "explorer"}
+            onClick={() => setView("explorer")}
+          >
+            Explorer
+          </button>
+          <button
+            type="button"
+            aria-pressed={view === "timeline"}
+            onClick={() => setView("timeline")}
+          >
+            Recent versions
+          </button>
+        </div>
+      )}
+      <StudyFileExplorer
+        visible={open && view === "explorer"}
+        lanes={lanes}
+        entries={entries}
+        artifacts={artifacts}
+        runId={runId}
+        onSelect={onSelect}
+        renderWorkspaceFile={(entry) => <FilePreview entry={entry} lanes={lanes} />}
+      />
+      {open && view === "timeline" && (
         <div className={styles.index}>
           <label>
             Find a saved file

@@ -22,6 +22,7 @@ export function SessionWorkspaceLink({
   runId,
   lane,
   pass = null,
+  current,
   onSelect,
   children,
 }: {
@@ -30,6 +31,7 @@ export function SessionWorkspaceLink({
   runId: string;
   lane: SessionWorkspace;
   pass?: string | null;
+  current?: boolean;
   onSelect: Selection;
   children: React.ReactNode;
 }) {
@@ -39,6 +41,7 @@ export function SessionWorkspaceLink({
     <a
       id={id}
       className={className}
+      aria-current={current ? "true" : undefined}
       href={`/?${params}#current-research-workspace`}
       onClick={(event) => {
         if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
