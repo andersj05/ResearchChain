@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -113,15 +121,19 @@ function LocalChart({ file, title }: { file: File; title: string }) {
 
 export function SourceFileBatch({
   attribution,
+  children,
   count,
   disabled,
+  onChooseRights,
   onPin,
   onPending,
   onSaving,
 }: {
   attribution: Attribution;
+  children: ReactNode;
   count: number;
   disabled: boolean;
+  onChooseRights: () => void;
   onPin: (source: EvidenceRecord) => void;
   onPending: (pending: boolean) => void;
   onSaving: (saving: boolean) => void;
@@ -285,7 +297,7 @@ export function SourceFileBatch({
     }
   }
   return (
-    <section className={styles.files} aria-label="Upload files">
+    <div className={styles.files}>
       <input
         type="file"
         ref={input}
@@ -305,6 +317,8 @@ export function SourceFileBatch({
         type="button"
         className={styles.drop}
         data-dragging={dragging || undefined}
+        aria-labelledby="source-file-action"
+        aria-describedby="source-file-formats"
         disabled={disabled || count + rows.length >= 100}
         onClick={() => input.current?.click()}
         onDragEnter={(event) => {
@@ -326,11 +340,14 @@ export function SourceFileBatch({
       >
         <Upload size={23} strokeWidth={1.5} aria-hidden />
         <span>
-          <strong>Drop files or browse</strong>
-          <small>Charts, PDFs, text, Markdown, CSV and TSV · up to 20 MB per file</small>
-          <small>You can also paste a screenshot while you’re on the desk.</small>
+          <strong id="source-file-action">Drop files or browse</strong>
+          <span id="source-file-formats">
+            <small>Charts, PDFs, text, Markdown, CSV and TSV · up to 20 MB per file</small>
+            <small>Or paste a screenshot on the desk.</small>
+          </span>
         </span>
       </button>
+      {children}
       {!!rows.length && (
         <div className={styles.queue}>
           <ul aria-label="Files to pin">
@@ -483,7 +500,17 @@ export function SourceFileBatch({
             )}
           </div>
           {eligible.length > 0 && !permitted && (
-            <p className={styles.feedback}>Select usage rights above to pin files.</p>
+            <p className={styles.feedback}>
+              <button
+                type="button"
+                className="text-link"
+                disabled={disabled}
+                onClick={onChooseRights}
+              >
+                Select usage rights
+              </button>{" "}
+              to pin these files.
+            </p>
           )}
         </div>
       )}
@@ -539,6 +566,6 @@ export function SourceFileBatch({
           )}
         </DialogContent>
       </Dialog>
-    </section>
+    </div>
   );
 }

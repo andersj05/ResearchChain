@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { ReportSectionSources, ReportSource } from "@/components/report-sources";
@@ -89,11 +89,20 @@ export function ReportEditor({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [removed, setRemoved] = useState<{ section: ReportSection; index: number } | null>(null);
+  const [awaitingNote, setAwaitingNote] = useState(false);
+  const noteInput = useRef<HTMLTextAreaElement>(null);
+  const noteMessageId = useId();
   const retry = useRef<{ body: string; id: string } | null>(recovery.pending);
   const acting = useRef(false);
   const [pendingBody, setPendingBody] = useState<string | null>(recovery.pending?.body ?? null);
-  const dirty = JSON.stringify(draft) !== JSON.stringify(original);
+  const draftBody = JSON.stringify(draft);
+  const dirty = draftBody !== JSON.stringify(original);
   const stale = view.current_revision_id !== record.id;
+  const retryingSave = stale && pendingBody === draftBody;
+  const saveDisabled = busy || !dirty || !!invalidRecovery || (stale && !retryingSave);
+  const noteMissing = !draft.change_note.trim();
+  const showSaveContinuation = awaitingNote && dirty && !stale && !invalidRecovery;
+  const showNoteMessage = showSaveContinuation && noteMissing;
   const section = draft.sections.find((s) => s.id === selected) ?? draft.sections[0]!;
   const guide = styles.find((s) => s.id === draft.style_guide_id) ?? view.style_guide;
 
@@ -121,8 +130,10 @@ export function ReportEditor({
   }, [dirty]);
   function changeDraft(next: ReportDraft) {
     setDraft(next);
+    const changed = JSON.stringify(next) !== JSON.stringify(original);
+    if (!changed) setAwaitingNote(false);
     try {
-      if (JSON.stringify(next) !== JSON.stringify(original))
+      if (changed)
         localStorage.setItem(storageKey, JSON.stringify({ draft: next, pending: retry.current }));
       else localStorage.removeItem(storageKey);
     } catch {
@@ -164,6 +175,33 @@ export function ReportEditor({
       setBusy(false);
     }
   }
+  function saveRevision() {
+    if (saveDisabled || acting.current) return;
+    if (noteMissing && !retryingSave) {
+      setAwaitingNote(true);
+      noteInput.current?.focus({ preventScroll: true });
+      noteInput.current?.scrollIntoView({ block: "center" });
+      return;
+    }
+    return action(async () => {
+      const id = stableRequestId(retry, draft);
+      setPendingBody(draftBody);
+      try {
+        localStorage.setItem(storageKey, JSON.stringify({ draft, pending: retry.current }));
+      } catch {
+        setRecoveryError(
+          "Download your draft if this request is interrupted; browser recovery is unavailable.",
+        );
+      }
+      const saved = await api<ReportRevision>("reports/revisions", { ...draft, id });
+      await onOpen(saved.id);
+      try {
+        localStorage.removeItem(storageKey);
+      } catch {
+        /* The server has the saved revision. */
+      }
+    });
+  }
   const locked = busy || stale || !!invalidRecovery;
   return (
     <section className="report-editor" aria-label="Report editor">
@@ -176,41 +214,8 @@ export function ReportEditor({
           </p>
         </div>
         <div className="actions">
-          <Button
-            className="button primary"
-            disabled={
-              busy ||
-              !dirty ||
-              !!invalidRecovery ||
-              (stale && pendingBody !== JSON.stringify(draft))
-            }
-            onClick={() =>
-              action(async () => {
-                const id = stableRequestId(retry, draft);
-                setPendingBody(JSON.stringify(draft));
-                try {
-                  localStorage.setItem(
-                    storageKey,
-                    JSON.stringify({ draft, pending: retry.current }),
-                  );
-                } catch {
-                  setRecoveryError(
-                    "Download your draft if this request is interrupted; browser recovery is unavailable.",
-                  );
-                }
-                const saved = await api<ReportRevision>("reports/revisions", { ...draft, id });
-                await onOpen(saved.id);
-                try {
-                  localStorage.removeItem(storageKey);
-                } catch {
-                  /* The server has the saved revision. */
-                }
-              })
-            }
-          >
-            {stale && pendingBody === JSON.stringify(draft)
-              ? "Retry pending save"
-              : "Save report revision"}
+          <Button className="button primary" disabled={saveDisabled} onClick={saveRevision}>
+            {retryingSave ? "Retry pending save" : "Save report revision"}
           </Button>
           <Button
             className="button"
@@ -470,7 +475,11 @@ export function ReportEditor({
           <label>
             Revision change note
             <textarea
+              ref={noteInput}
               disabled={locked}
+              aria-required="true"
+              aria-invalid={showNoteMessage || undefined}
+              aria-describedby={showNoteMessage ? noteMessageId : undefined}
               maxLength={6000}
               rows={2}
               value={draft.change_note}
@@ -478,20 +487,36 @@ export function ReportEditor({
               placeholder="What changed and why?"
             />
           </label>
+          {showNoteMessage && (
+            <p id={noteMessageId} className="error" role="alert">
+              Add a change note before saving this revision.
+            </p>
+          )}
           {dirty && (
-            <Button
-              className="button"
-              disabled={busy}
-              onClick={() => {
-                changeDraft(original);
-                setRecovered(false);
-                setRemoved(null);
-                retry.current = null;
-                setPendingBody(null);
-              }}
-            >
-              Discard unsaved edits
-            </Button>
+            <div className="actions">
+              {showSaveContinuation && (
+                <Button
+                  className="button primary"
+                  disabled={saveDisabled || noteMissing}
+                  onClick={saveRevision}
+                >
+                  Continue saving revision
+                </Button>
+              )}
+              <Button
+                className="button"
+                disabled={busy}
+                onClick={() => {
+                  changeDraft(original);
+                  setRecovered(false);
+                  setRemoved(null);
+                  retry.current = null;
+                  setPendingBody(null);
+                }}
+              >
+                Discard unsaved edits
+              </Button>
+            </div>
           )}
           <details className="report-preview">
             <summary>Preview the saved report</summary>

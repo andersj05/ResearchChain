@@ -44,24 +44,26 @@ test("returns to the submitted study archive page and can reset or recover it", 
   await page.route("**/api/research-sessions", (route) =>
     route.fulfill({ json: [{ ...recent.run, brief_excerpt: recent.brief_excerpt }] }),
   );
-  await page.route(`**/api/runs/${archived.run.id}`, (route) =>
-    route.fulfill({
-      json: {
-        ...archived.run,
-        brief: archived.brief_excerpt,
-        execution_pending: false,
-        events: [],
-        artifacts: [],
-        evidence_ids: [],
-        workflow: { nodes: [] },
-        research_manifest: {
-          settings: { model: "synthetic", limits: { max_model_calls: 30 } },
-          evidence: [],
-          tool_config: { session: "brief-led-1" },
+  for (const saved of [recent, archived]) {
+    await page.route(`**/api/runs/${saved.run.id}`, (route) =>
+      route.fulfill({
+        json: {
+          ...saved.run,
+          brief: saved.brief_excerpt,
+          execution_pending: false,
+          events: [],
+          artifacts: [],
+          evidence_ids: [],
+          workflow: { nodes: [] },
+          research_manifest: {
+            settings: { model: "synthetic", limits: { max_model_calls: 30 } },
+            evidence: [],
+            tool_config: { session: "brief-led-1" },
+          },
         },
-      },
-    }),
-  );
+      }),
+    );
+  }
   let archivePageMissing = false;
   let lastQuery: URLSearchParams | undefined;
   await page.route("**/api/runs/search?*", (route) => {
@@ -83,6 +85,23 @@ test("returns to the submitted study archive page and can reset or recover it", 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/");
   const history = page.getByRole("region", { name: "Recent research" });
+  await page.getByLabel("Source files").setInputFiles({
+    name: "credit-check.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Synthetic credit observations for the new study."),
+  });
+  const queuedTitle = page.getByRole("textbox", { name: "Packet title for credit-check.txt" });
+  await queuedTitle.fill("Credit observations to keep");
+  const recentLink = history.getByRole("link", { name: /Current credit review/ });
+  await expect(recentLink).toHaveAttribute("href", `/?session=${recent.run.id}`);
+  await recentLink.press("Enter");
+  await expect(
+    page.getByRole("heading", { name: recent.run.study_title!, exact: true }),
+  ).toBeFocused();
+  await expect(queuedTitle).toBeHidden();
+  await page.goBack();
+  await expect(queuedTitle).toHaveValue("Credit observations to keep");
+
   const search = history.getByRole("searchbox", { name: "Search the archive" });
   const status = history.getByRole("combobox", { name: "Study status" });
   const submit = history.getByRole("button", { name: "Search", exact: true });
@@ -116,6 +135,7 @@ test("returns to the submitted study archive page and can reset or recover it", 
   await archivedLink.click();
   await expect(page.getByRole("heading", { name: archived.run.study_title! })).toBeVisible();
   await page.getByRole("link", { name: "Research desk", exact: true }).click();
+  await expect(queuedTitle).toHaveValue("Credit observations to keep");
   await expect(search).toHaveValue(searchTerm);
   await expect(status).toHaveValue("completed");
   await expect(history.getByText("Page 2", { exact: true })).toBeVisible();

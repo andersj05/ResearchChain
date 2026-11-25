@@ -4,6 +4,7 @@ import {
   evidenceUrl,
   sourceMetadata,
   type EvidenceRecord,
+  type EvidenceSnapshot,
 } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
@@ -20,6 +21,32 @@ function sourceDestination(value?: string | null) {
   } catch {
     // Older study records may have unusable URLs.
   }
+}
+
+function reusableSource(record?: EvidenceRecord, snapshot?: EvidenceSnapshot) {
+  if (
+    !record ||
+    !snapshot ||
+    snapshot.representation !== (record.representation ?? "original") ||
+    snapshot.availability !== (record.availability ?? "available") ||
+    snapshot.source_url !== (record.source_url ?? null) ||
+    snapshot.as_of_date !== (record.as_of_date ?? null) ||
+    snapshot.publisher !== (record.publisher ?? "")
+  )
+    return;
+
+  if (
+    snapshot.availability === "reference_only" &&
+    !snapshot.original &&
+    sourceDestination(record.source_url)
+  )
+    return record;
+  if (
+    snapshot.availability === "available" &&
+    snapshot.original &&
+    (!record.artifact || record.artifact.id === snapshot.original)
+  )
+    return record;
 }
 
 export function useStudySourceDetails(
@@ -74,9 +101,11 @@ export function useStudySourceDetails(
 export function StudyPinnedSources({
   lookup,
   artifacts,
+  onReuseSource,
 }: {
   lookup: ReturnType<typeof useStudySourceDetails>;
   artifacts: RunSnapshot["artifacts"];
+  onReuseSource?: (source: EvidenceRecord) => void;
 }) {
   const [previewId, setPreviewId] = useState<string>();
   const opener = useRef<HTMLButtonElement>(null);
@@ -120,6 +149,7 @@ export function StudyPinnedSources({
         {lookup.pinned.map((id) => {
           const snapshot = lookup.snapshots.get(id);
           const record = lookup.sources.items.get(id);
+          const reusable = onReuseSource && reusableSource(record, snapshot);
           const details = snapshot ?? record;
           const destination = sourceDestination(details?.source_url);
           const title =
@@ -184,6 +214,18 @@ export function StudyPinnedSources({
               ) : !record ? (
                 <span>Loading source record…</span>
               ) : null}
+              {reusable && onReuseSource && (
+                <span>
+                  <button
+                    type="button"
+                    className="text-link"
+                    aria-label={`Add ${title} to study setup and return`}
+                    onClick={() => onReuseSource(reusable)}
+                  >
+                    Add to study setup and return
+                  </button>
+                </span>
+              )}
             </li>
           );
         })}

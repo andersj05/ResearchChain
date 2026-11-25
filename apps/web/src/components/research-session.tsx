@@ -26,6 +26,7 @@ import { SessionRoster } from "./session-roster";
 import { hasStudyFiles, StudyFiles } from "./study-files";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
 import { StudyPinnedSources, useStudySourceDetails } from "./study-pinned-sources";
+import type { EvidenceRecord } from "@/lib/evidence";
 import {
   LeadConsultation,
   ConsultationHistory,
@@ -39,6 +40,7 @@ type Props = {
   runId: string;
   onNewStudy: (fromSession?: string) => void;
   titleRef?: (title: HTMLHeadingElement | null) => void;
+  onReuseSource?: (source: EvidenceRecord) => void;
 };
 type Review = NonNullable<RunSnapshot["review"]>;
 type ReturnOrigin =
@@ -111,7 +113,7 @@ function OwnerQuestion({
   );
 }
 
-function ResearchSessionView({ runId, onNewStudy, titleRef }: Props) {
+function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
   const [readingSourcesRequested, setReadingSourcesRequested] = useState(false);
@@ -491,7 +493,11 @@ function ResearchSessionView({ runId, onNewStudy, titleRef }: Props) {
             </p>
           )}
           {active && sourceDetails.settingsRequested && (
-            <StudyPinnedSources lookup={sourceDetails} artifacts={run.artifacts} />
+            <StudyPinnedSources
+              lookup={sourceDetails}
+              artifacts={run.artifacts}
+              onReuseSource={onReuseSource}
+            />
           )}
           {run.baseline_run_id && (
             <a href={`/?session=${encodeURIComponent(run.baseline_run_id)}`}>

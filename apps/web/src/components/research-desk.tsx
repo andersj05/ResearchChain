@@ -10,15 +10,17 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type MouseEventHandler,
 } from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
 import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
-import { RunArchive } from "./run-archive";
+import { RunArchive, type ArchiveReturnPosition } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
+import type { EvidenceRecord } from "@/lib/evidence";
 import { api, type RecentRunSummary } from "@/lib/workflow";
-import { sessionUrl } from "@/lib/research-sessions";
+import { sessionUrl, type ArchivedSourceAppend } from "@/lib/research-sessions";
 import { pollVisiblePage } from "@/lib/poll-visible-page";
 import styles from "./research-desk.module.css";
 
@@ -32,6 +34,8 @@ const ResearchMethodology = lazy(() =>
 );
 const studiesUrl = "?view=research&studies=1";
 const readerTitle = "study-reader-title";
+const decisionsTitle = "research-decisions";
+const packetHeading = "packet-heading";
 
 function useRecentStudies(enabled: boolean) {
   const [studies, setStudies] = useState<RecentRunSummary[]>();
@@ -56,7 +60,12 @@ function useRecentStudies(enabled: boolean) {
   return { studies, error, retry: () => setRefresh((n) => n + 1) };
 }
 
-function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStudies>) {
+function RecentStudies({
+  studies,
+  error,
+  retry,
+  onOpenStudy,
+}: ReturnType<typeof useRecentStudies> & { onOpenStudy: MouseEventHandler<HTMLAnchorElement> }) {
   return (
     <section
       className={styles.history}
@@ -77,7 +86,7 @@ function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStu
         <ul className={styles.historyRows}>
           {studies.map((study) => (
             <li key={study.id}>
-              <a href={sessionUrl(study.id)}>
+              <a href={sessionUrl(study.id)} onClick={onOpenStudy}>
                 <span className={styles.studyTitle}>
                   {study.study_title || study.brief_excerpt || study.workflow_name}
                 </span>
@@ -94,7 +103,7 @@ function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStu
           </p>
         )
       )}
-      {!!studies?.length && <RunArchive sessionsOnly />}
+      {!!studies?.length && <RunArchive sessionsOnly onOpenLink={onOpenStudy} />}
     </section>
   );
 }
@@ -129,26 +138,55 @@ export function ResearchDesk({
   const [draftScope, setDraftScope] = useState<string | null | undefined>(() =>
     showingDraft ? fromSession : undefined,
   );
+  const [sourceAppend, setSourceAppend] = useState<ArchivedSourceAppend>();
   if (showingDraft && draftScope !== fromSession) setDraftScope(fromSession);
+  if (sourceAppend && (!showingDraft || sourceAppend.scope !== fromSession))
+    setSourceAppend(undefined);
   const readingWithDraft = deskView === "session" && draftScope !== undefined;
-  const returningToDraft = deskView === "studies" || readingWithDraft;
+  const showingDecisions = deskView === "decisions";
+  const returningToDraft = deskView === "studies" || showingDecisions || readingWithDraft;
+  const [visitedDecisions, setVisitedDecisions] = useState(showingDecisions);
+  if (showingDecisions && !visitedDecisions) setVisitedDecisions(true);
   const focusAfterNavigation = useRef<string>(null);
+  const previousView = useRef(deskView);
+  const previousDecision = useRef(false);
+  const archivePosition = useRef<ArchiveReturnPosition | undefined>(undefined);
+  const previousReader = useRef<string | null>(null);
   const returnToDraft = draftScope
     ? `?fromSession=${encodeURIComponent(draftScope)}`
     : "?view=research";
 
   useLayoutEffect(() => {
-    const id = focusAfterNavigation.current;
+    if (deskView === "session") previousReader.current = session;
+    else if (deskView !== "studies") previousReader.current = null;
+    const from = previousView.current;
+    const fromDecision = previousDecision.current;
+    previousView.current = deskView;
+    previousDecision.current =
+      deskView === "session" &&
+      /^(#source-led-investigation$|#editorial-review$|#consultation-)/u.test(window.location.hash);
+    if (focusAfterNavigation.current === readerTitle && deskView !== "session")
+      focusAfterNavigation.current = null;
+    let id = focusAfterNavigation.current;
+    if (!id && deskView !== from) {
+      if (deskView === "decisions") id = decisionsTitle;
+      if (deskView === "launch" && (from === "decisions" || fromDecision)) id = "research-title";
+    }
     if (!id) return;
-    if (id === readerTitle && deskView === "session") {
+    if (id === readerTitle) {
       window.scrollTo(0, 0);
       return;
     }
     focusAfterNavigation.current = null;
-    if (id === readerTitle) return;
-    document.getElementById(id)?.focus({ preventScroll: true });
+    const target = document.getElementById(id);
+    if (id === packetHeading) {
+      (target ?? document.getElementById("research-title"))?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "start" });
+      return;
+    }
+    target?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
-  }, [deskView]);
+  }, [deskView, session]);
 
   const focusReaderTitle = useCallback((title: HTMLHeadingElement | null) => {
     if (!title || focusAfterNavigation.current !== readerTitle) return;
@@ -157,7 +195,18 @@ export function ResearchDesk({
     window.scrollTo(0, 0);
   }, []);
 
-  function navigateWithinDesk(event: MouseEvent<HTMLAnchorElement>, heading: string) {
+  const getArchiveReturnPosition = useCallback(() => {
+    const focused = document.activeElement;
+    if (focused && focused !== document.body && focused.id !== "studies-title") return;
+    const position = archivePosition.current;
+    return position?.studyId === previousReader.current ? position : undefined;
+  }, []);
+
+  function navigateWithinDesk(
+    event: MouseEvent<HTMLAnchorElement>,
+    heading?: string,
+    archiveStudy?: Omit<ArchiveReturnPosition, "top">,
+  ) {
     if (
       event.defaultPrevented ||
       event.button !== 0 ||
@@ -170,8 +219,20 @@ export function ResearchDesk({
     event.preventDefault();
     const { href } = event.currentTarget;
     if (href === window.location.href) return;
-    focusAfterNavigation.current = heading;
+    if (archiveStudy)
+      archivePosition.current = {
+        ...archiveStudy,
+        top: event.currentTarget.getBoundingClientRect().top,
+      };
+    focusAfterNavigation.current = heading ?? null;
     onNavigate(href);
+  }
+
+  function appendArchivedSource(source: EvidenceRecord) {
+    if (!active || !readingWithDraft || draftScope === undefined) return;
+    setSourceAppend({ scope: draftScope, source });
+    focusAfterNavigation.current = packetHeading;
+    onNavigate(`${returnToDraft}#${packetHeading}`);
   }
 
   return (
@@ -192,17 +253,25 @@ export function ResearchDesk({
             <a
               href={studiesUrl}
               aria-current={deskView === "studies" ? "page" : undefined}
-              onClick={
-                showingDraft || returningToDraft
-                  ? (event) => navigateWithinDesk(event, "studies-title")
-                  : undefined
-              }
+              onClick={(event) => {
+                if (
+                  showingDraft ||
+                  returningToDraft ||
+                  archivePosition.current?.studyId === session
+                )
+                  navigateWithinDesk(event, "studies-title");
+              }}
             >
               Studies
             </a>
             <a
               href={researchDecisionsUrl}
               aria-current={deskView === "decisions" ? "page" : undefined}
+              onClick={
+                showingDraft || returningToDraft
+                  ? (event) => navigateWithinDesk(event, decisionsTitle)
+                  : undefined
+              }
             >
               Decisions
             </a>
@@ -221,15 +290,50 @@ export function ResearchDesk({
       </header>
       {draftScope !== undefined && (
         <main className={styles.page} hidden={!showingDraft}>
-          {showingDraft && !draftScope && <ResearchReviewQueue summary />}
+          {showingDraft && !draftScope && (
+            <ResearchReviewQueue
+              summary
+              onOpenDecision={navigateWithinDesk}
+              onViewQueue={(event) => navigateWithinDesk(event, decisionsTitle)}
+            />
+          )}
           <Activity mode={showingDraft ? "visible" : "hidden"}>
             <ResearchLauncher
               key={draftScope ?? "new"}
               fromSession={draftScope}
               recentStudies={recent.studies}
+              sourceAppend={sourceAppend?.scope === draftScope ? sourceAppend : undefined}
+              onSourceAppendHandled={(handled) =>
+                setSourceAppend((current) => (current === handled ? undefined : current))
+              }
             />
           </Activity>
-          {showingDraft && <RecentStudies {...recent} />}
+          {showingDraft && (
+            <RecentStudies
+              {...recent}
+              onOpenStudy={(event) => navigateWithinDesk(event, readerTitle)}
+            />
+          )}
+        </main>
+      )}
+      {visitedDecisions && (
+        <main className={styles.page} hidden={!showingDecisions}>
+          <Activity mode={showingDecisions ? "visible" : "hidden"}>
+            <ResearchReviewQueue
+              onOpenDecision={navigateWithinDesk}
+              headingAction={
+                draftScope !== undefined && (
+                  <a
+                    className="button"
+                    href={returnToDraft}
+                    onClick={(event) => navigateWithinDesk(event, "research-title")}
+                  >
+                    Return to study setup
+                  </a>
+                )
+              }
+            />
+          </Activity>
         </main>
       )}
       {session ? (
@@ -244,6 +348,7 @@ export function ResearchDesk({
           <ResearchSession
             runId={session}
             titleRef={focusReaderTitle}
+            onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
             onNewStudy={(source) => {
               window.location.assign(
                 source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",
@@ -262,10 +367,6 @@ export function ResearchDesk({
         >
           <ResearchMethodology />
         </Suspense>
-      ) : deskView === "decisions" ? (
-        <main className={styles.page}>
-          <ResearchReviewQueue />
-        </main>
       ) : deskView === "studies" ? (
         <main className={styles.page}>
           <section className={styles.studies} aria-labelledby="studies-title">
@@ -284,11 +385,8 @@ export function ResearchDesk({
             <RunArchive
               sessionsOnly
               expanded
-              onOpenLink={
-                draftScope !== undefined
-                  ? (event) => navigateWithinDesk(event, readerTitle)
-                  : undefined
-              }
+              onOpenLink={(event, study) => navigateWithinDesk(event, readerTitle, study)}
+              getReturnPosition={getArchiveReturnPosition}
             />
           </section>
         </main>

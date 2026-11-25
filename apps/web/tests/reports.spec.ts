@@ -198,6 +198,66 @@ for (const width of [1440, 390]) {
   });
 }
 
+test("complete an attempted report save from its missing change note on a phone", async ({
+  page,
+  request,
+}) => {
+  const { record } = await seed(request, crypto.randomUUID().slice(0, 8));
+  const posted: { sections: { body: string }[]; change_note: string }[] = [];
+  await page.route("**/api/reports/revisions", (route) => {
+    if (route.request().method() === "POST") posted.push(route.request().postDataJSON());
+    return route.continue();
+  });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?view=reports&report=${record.id}`);
+  const editor = page.getByRole("region", { name: "Report editor", exact: true });
+  const section = editor.getByRole("textbox", { name: "Section text", exact: true });
+  const note = editor.getByRole("textbox", { name: "Revision change note", exact: true });
+  const save = editor.getByRole("button", { name: "Save report revision", exact: true });
+  const continueSave = editor.getByRole("button", {
+    name: "Continue saving revision",
+    exact: true,
+  });
+  const body = [
+    "Revised synthetic interpretation of the release dates.",
+    ...Array.from(
+      { length: 120 },
+      (_, index) => `Observation ${index + 1} compares a different period.`,
+    ),
+  ].join("\n\n");
+  const changeNote = "Explain the date comparison and keep the observations separate.";
+  await section.fill(body);
+  await expect(note).toBeEmpty();
+  await expect(continueSave).toHaveCount(0);
+  await save.press("Enter");
+  await expect(note).toBeFocused();
+  await expect(note).toBeInViewport();
+  await expect(note).toHaveAttribute("aria-invalid", "true");
+  await expect(note).toHaveAccessibleDescription("Add a change note before saving this revision.");
+  await expect(continueSave).toBeDisabled();
+  expect(posted).toEqual([]);
+
+  await note.fill("   ");
+  await expect(continueSave).toBeDisabled();
+  expect(posted).toEqual([]);
+  await note.fill(changeNote);
+  await expect(note).not.toHaveAttribute("aria-invalid", "true");
+  await continueSave.press("Enter");
+
+  await expect(editor.getByText("Saved revision 2", { exact: true })).toBeVisible();
+  await expect(continueSave).toHaveCount(0);
+  expect(posted).toHaveLength(1);
+  expect(posted[0]?.change_note).toBe(changeNote);
+  expect(posted[0]?.sections[0]?.body).toBe(body);
+  const savedId = new URL(page.url()).searchParams.get("report");
+  expect(savedId).not.toBe(record.id);
+  const saved: ReportView = await (await request.get(`/api/reports/${savedId}`)).json();
+  expect(saved.revision.change_note).toBe(changeNote);
+  expect(saved.revision.sections[0]?.body).toBe(body);
+  const original: ReportView = await (await request.get(`/api/reports/${record.id}`)).json();
+  expect(original.revision.sections[0]?.body).toBe(record.sections[0]?.body);
+});
+
 test("report save receipt survives a lost response and refresh", async ({
   page,
   request,

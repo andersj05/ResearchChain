@@ -39,6 +39,8 @@ originals in the source panel; save newly added sources before citing them.
 Every save needs a change note and creates an immutable successor. Existing source
 snapshots remain available; additional sources can be pinned. Titles, ordering,
 classifications, citations, charts and style-guide changes are versioned.
+If the note is empty, **Save report revision** takes you to it. After writing the
+note, choose **Continue saving revision** beside the field.
 The editor supports up to 40 sections, 60,000 characters per section, 200,000 body
 characters per report, 100 sources and 64 MB of source originals.
 

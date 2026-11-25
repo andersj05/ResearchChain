@@ -10,14 +10,26 @@ test("a phone gives queued transcript titles room and follows the visible desk o
   const list = packet.getByRole("list", { name: "Pinned material" });
   const library = page.getByRole("region", { name: "Source library" });
 
-  await capture.getByLabel("Usage rights").selectOption("owned");
+  const filePicker = capture.getByRole("button", { name: "Drop files or browse", exact: true });
+  const rights = capture.getByLabel("Usage rights");
+  await expect(filePicker).toHaveAccessibleDescription(/up to 20 MB per file/);
+  expect((await filePicker.boundingBox())!.y).toBeLessThan((await rights.boundingBox())!.y);
+  await filePicker.focus();
+  await page.keyboard.press("Tab");
+  await expect(rights).toBeFocused();
+
   const author = "W".repeat(80);
-  await capture.getByLabel("Author or speaker").fill(author);
   await capture.getByLabel("Source files").setInputFiles({
     name: "friday-call.txt",
     mimeType: "text/plain",
     buffer: Buffer.from("Synthetic participant: we checked the Friday prices."),
   });
+  const pin = capture.getByRole("button", { name: "Pin 1 file", exact: true });
+  await expect(pin).toBeDisabled();
+  await capture.getByRole("button", { name: "Select usage rights", exact: true }).press("Enter");
+  await expect(rights).toBeFocused();
+  await rights.selectOption("owned");
+  await capture.getByLabel("Author or speaker").fill(author);
   const title = capture.getByRole("textbox", { name: "Packet title for friday-call.txt" });
   const type = capture.getByLabel("Type for friday-call.txt");
   await expect(title).toBeVisible();
@@ -27,7 +39,7 @@ test("a phone gives queued transcript titles room and follows the visible desk o
   const customTitle = `Synthetic Friday call transcript ${"W".repeat(80)}`;
   await title.fill(customTitle);
   await type.selectOption("discussion");
-  await capture.getByRole("button", { name: "Pin 1 file", exact: true }).click();
+  await pin.click();
   const pinned = packet.getByRole("link", { name: /Synthetic Friday call transcript/ });
   await expect(pinned).toContainText(customTitle);
   await expect(pinned).toContainText(`Conversation · ${author}`);

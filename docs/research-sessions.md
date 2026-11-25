@@ -13,13 +13,18 @@ mixed drop, **Remove invalid files** clears the files that failed local
 validation. A file with an unconfirmed pin stays queued for its exact retry.
 Original uploads can overlap while the pins keep their queue order.
 
-To look up another study while you assemble a packet, open **Studies** and
-select the saved study. **Research desk** takes you back to the same in-tab
-setup. From the archive, choose **Return to study setup**. Browser history
-also preserves the staged files. If a first reading was accepted during the
-visit, **Open study** opens the confirmed session.
+To look up another study while you assemble a packet, open **Studies** or
+select a saved study under **Recent research**. **Research desk** takes you back
+to the same in-tab setup. From the archive or **Decisions**, choose **Return to
+study setup**. Opening an exact decision and using browser history also keeps
+the staged files. If a first reading was accepted during the visit, **Open
+study** opens the confirmed session.
 
-Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
+Use **Paste a source** for a note, conversation or reference URL. You can add files
+before filling in **Source details**, which applies to both uploads and pasted
+sources. Choose usage rights before pinning a file, note or conversation. Add the
+author or speaker and observation date when known. Pin separately when
+attribution or rights differ.
 
 Open **Preview chart** on a queued image to check it and edit its packet title
 before pinning. Open a queued file's **File attribution** to set its own author or observation
@@ -88,8 +93,9 @@ or ID. **Decisions** opens working sentences, lead questions and editorial
 reviews even after a study drops out of the recent list.
 
 When you open a study from the archive, the same tab remembers your submitted
-search, status filter and results page. **Reset search** clears the filters and
-returns to the first page.
+search, status filter and results page. Returning to **Studies** or going Back
+restores the opened result and its position when that result is still available.
+**Reset search** clears the filters and returns to the first page.
 
 ### Choose the model and thinking effort
 
@@ -116,6 +122,11 @@ dates and availability. **Preview chart** opens the pinned original and lets
 you page through the available charts in reading order. A workspace's **Model
 passes** includes the saved request for each pass. **Revisit material** restores
 your choices for the next experiment.
+
+From an open setup, visit **Studies** and open a saved study's **Sources and
+settings**. **Add to study setup and return** appends the verified saved source
+version to your current packet. Use the browser's Back action to resume reviewing
+the saved study.
 
 To reuse an operating setup in **New study**, open **Use settings from a study**
 under **Research settings**. Choose a recent study and apply its team structure,

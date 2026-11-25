@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/workflow";
 import { rightsLabels, type EvidenceInput, type EvidenceRecord } from "@/lib/evidence";
+import { studySourceLimit } from "@/lib/research-sessions";
 import {
   captureRights,
   readResearchCaptureDraft,
@@ -52,6 +53,7 @@ export function DiscoverySources({
   onChange,
   onPin,
   onEditing,
+  onSaving,
 }: {
   storageKey: string;
   ids: string[];
@@ -61,6 +63,7 @@ export function DiscoverySources({
   onChange: (ids: string[]) => void;
   onPin: (item: EvidenceRecord) => void;
   onEditing: (value: boolean) => void;
+  onSaving: (value: boolean) => void;
 }) {
   const [draft, setDraft] = useState(() => readResearchCaptureDraft(storageKey));
   const { kind, title, body, url, rights, author, date, command } = draft;
@@ -74,13 +77,17 @@ export function DiscoverySources({
   const touched = !!(title || body || url);
   const editing = touched || filePending;
   const locked = disabled || saving;
-  const packetFull = ids.length >= 100;
+  const packetFull = ids.length >= studySourceLimit;
   const viewedChart = preview?.charts.find((chart) => chart.id === preview.id)?.source;
   const chartPinned = !!viewedChart && ids.includes(viewedChart.id);
   const attribution: Attribution = { author: author.trim(), as_of_date: date || null, rights };
   const label = kind === "link" ? "link" : kind === "discussion" ? "conversation" : "note";
   const needsRights = kind !== "link" && rights === "unknown";
   const canPinText = !!(kind === "link" ? url.trim() : body.trim()) && !needsRights;
+
+  function focusRights() {
+    rightsSelect.current?.focus();
+  }
 
   useLayoutEffect(() => {
     onEditing(editing);
@@ -94,10 +101,16 @@ export function DiscoverySources({
     setDraft((current) => ({ ...current, ...patch, command: null }));
     setError("");
   }
+
+  function setPinning(value: boolean) {
+    setSaving(value);
+    onSaving(value);
+  }
+
   async function pinText() {
     if (locked || writing.current || packetFull || !canPinText) return;
     writing.current = true;
-    setSaving(true);
+    setPinning(true);
     setError("");
     try {
       const request: EvidenceInput = command ?? {
@@ -126,7 +139,7 @@ export function DiscoverySources({
       setError(cause instanceof Error ? cause.message : "Could not pin this source.");
     } finally {
       writing.current = false;
-      setSaving(false);
+      setPinning(false);
     }
   }
   return (
@@ -135,54 +148,56 @@ export function DiscoverySources({
         <h2 id="intake-heading" tabIndex={-1}>
           Add material
         </h2>
-        <fieldset disabled={locked} className={styles.provenance}>
-          <legend>Source details</legend>
-          <p id="desk-capture-details" className={styles.provenanceHint}>
-            Applies to files and pasted sources. Files, notes and conversations require usage
-            rights.
-          </p>
-          <label>
-            Usage rights
-            <select
-              ref={rightsSelect}
-              value={rights}
-              aria-describedby="desk-capture-details"
-              onChange={(e) => changeDraft({ rights: e.target.value as typeof rights })}
-            >
-              <option value="unknown">Select rights</option>
-              {captureRights.map((r) => (
-                <option key={r} value={r}>
-                  {rightsLabels[r]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Author or speaker
-            <input
-              maxLength={240}
-              placeholder="Optional"
-              value={author}
-              onChange={(e) => changeDraft({ author: e.target.value })}
-            />
-          </label>
-          <label>
-            As of
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => changeDraft({ date: e.target.value })}
-            />
-          </label>
-        </fieldset>
         <SourceFileBatch
           count={ids.length}
           disabled={locked}
           attribution={attribution}
           onPin={onPin}
-          onSaving={setSaving}
+          onSaving={setPinning}
           onPending={setFilePending}
-        />
+          onChooseRights={focusRights}
+        >
+          <fieldset disabled={locked} className={styles.provenance}>
+            <legend>Source details</legend>
+            <p id="desk-capture-details" className={styles.provenanceHint}>
+              Applies to files and pasted sources. Choose usage rights before pinning files, notes
+              or conversations.
+            </p>
+            <label>
+              Usage rights
+              <select
+                ref={rightsSelect}
+                value={rights}
+                aria-describedby="desk-capture-details"
+                onChange={(e) => changeDraft({ rights: e.target.value as typeof rights })}
+              >
+                <option value="unknown">Select rights</option>
+                {captureRights.map((r) => (
+                  <option key={r} value={r}>
+                    {rightsLabels[r]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Author or speaker
+              <input
+                maxLength={240}
+                placeholder="Optional"
+                value={author}
+                onChange={(e) => changeDraft({ author: e.target.value })}
+              />
+            </label>
+            <label>
+              As of
+              <input
+                type="date"
+                value={date}
+                onChange={(e) => changeDraft({ date: e.target.value })}
+              />
+            </label>
+          </fieldset>
+        </SourceFileBatch>
         <form
           aria-label="Paste a source"
           className={styles.paste}
@@ -277,11 +292,7 @@ export function DiscoverySources({
               {kind === "link" && <small>Stores the URL as a reference.</small>}
               {needsRights && !!body.trim() && (
                 <small>
-                  <button
-                    className="text-link"
-                    type="button"
-                    onClick={() => rightsSelect.current?.focus()}
-                  >
+                  <button className="text-link" type="button" onClick={focusRights}>
                     Select usage rights
                   </button>{" "}
                   to pin this {label}.

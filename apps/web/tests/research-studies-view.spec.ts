@@ -55,7 +55,12 @@ test("open studies directly, without loading new-study data or losing its draft"
     .getByRole("list", { name: "Saved studies" })
     .getByRole("link", { name: /Archived curves and credit vintages/ });
   await expect(result).toHaveAttribute("href", `/?session=${id}`);
-  expect(archiveReads.map((params) => params.get("sessions_only"))).toEqual(["true", "true"]);
+  expect(new Set(archiveReads.map((params) => params.get("sessions_only")))).toEqual(
+    new Set(["true"]),
+  );
+  expect(new Set(archiveReads.map((params) => params.get("search")))).toEqual(
+    new Set(["", "credit vintages"]),
+  );
   expect(draftReads).toEqual([]);
   expect(providerReads).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

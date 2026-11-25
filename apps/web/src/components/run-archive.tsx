@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type MouseEventHandler } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { ownerStoragePrefix } from "@/lib/access";
 import { api, type RunArchivePage, type RunSummary } from "@/lib/workflow";
 import { useOwner } from "./access-context";
@@ -9,6 +9,11 @@ import "./run-archive.css";
 type ArchiveCursor = Pick<RunSummary, "created_at" | "id">;
 type ArchiveView = { open: boolean; search: string; status: string; cursors: ArchiveCursor[] };
 type Pagination = { cursors: ArchiveCursor[]; onChange: (cursors: ArchiveCursor[]) => void };
+export type ArchiveReturnPosition = { studyId: string; path: string; top: number };
+type OpenArchiveLink = (
+  event: MouseEvent<HTMLAnchorElement>,
+  study: Omit<ArchiveReturnPosition, "top">,
+) => void;
 const defaultView: ArchiveView = { open: false, search: "", status: "", cursors: [] };
 const searchLimit = 200;
 
@@ -63,12 +68,14 @@ function ArchiveResults({
   busy,
   onSelect,
   onOpenLink,
+  restorePosition,
   pagination,
 }: {
   query: string;
   busy: boolean;
   onSelect?: (run: RunSummary) => void;
-  onOpenLink?: MouseEventHandler<HTMLAnchorElement>;
+  onOpenLink?: OpenArchiveLink;
+  restorePosition?: () => ArchiveReturnPosition | undefined;
   pagination?: Pagination;
 }) {
   const [localCursors, setLocalCursors] = useState<ArchiveCursor[]>([]);
@@ -103,6 +110,24 @@ function ArchiveResults({
       active = false;
     };
   }, [path, retry]);
+
+  useLayoutEffect(() => {
+    const container = results.current;
+    if (!page || !container) return;
+    const position = restorePosition?.();
+    if (!position || position.path !== path) return;
+    const target = Array.from(
+      container.querySelectorAll<HTMLAnchorElement>("[data-archive-study]"),
+    ).find((link) => link.dataset.archiveStudy === position.studyId);
+    if (!target) {
+      container.focus();
+      return;
+    }
+    target.focus({ preventScroll: true });
+    const bounds = target.getBoundingClientRect();
+    const top = Math.max(0, Math.min(position.top, window.innerHeight - bounds.height));
+    window.scrollBy(0, bounds.top - top);
+  }, [page, path, restorePosition]);
 
   return (
     <div className="archive-results" ref={results} tabIndex={pagination ? -1 : undefined}>
@@ -158,7 +183,12 @@ function ArchiveResults({
                 ) : (
                   <a
                     className="run-row"
-                    onClick={onOpenLink}
+                    data-archive-study={onOpenLink ? run.id : undefined}
+                    onClick={
+                      onOpenLink
+                        ? (event) => onOpenLink(event, { studyId: run.id, path })
+                        : undefined
+                    }
                     href={
                       sessionsOnly
                         ? sessionUrl(run.id)
@@ -233,6 +263,7 @@ export function RunArchive({
   busy = false,
   onSelect,
   onOpenLink,
+  getReturnPosition,
 }: {
   agentId?: string | null;
   excludeRun?: string;
@@ -240,13 +271,20 @@ export function RunArchive({
   expanded?: boolean;
   busy?: boolean;
   onSelect?: (run: RunSummary) => void;
-  onOpenLink?: MouseEventHandler<HTMLAnchorElement>;
+  onOpenLink?: OpenArchiveLink;
+  getReturnPosition?: () => ArchiveReturnPosition | undefined;
 }) {
   const { owner, active } = useOwner();
   const storageKey = sessionsOnly ? `${ownerStoragePrefix(owner)}.research.archive.v1` : undefined;
   const [view, setView] = useState(() => readArchiveView(active ? storageKey : undefined));
   const disclosure = useRef<HTMLElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  const resumed = useRef(false);
+  const restorePosition = useCallback(() => {
+    if (resumed.current) return;
+    resumed.current = true;
+    return getReturnPosition?.();
+  }, [getReturnPosition]);
   const [search, setSearch] = useState(view.search);
   const [status, setStatus] = useState(view.status);
   const [revision, setRevision] = useState(0);
@@ -342,6 +380,7 @@ export function RunArchive({
         busy={busy}
         onSelect={onSelect ? choose : undefined}
         onOpenLink={onOpenLink}
+        restorePosition={getReturnPosition ? restorePosition : undefined}
         pagination={
           sessionsOnly
             ? { cursors: view.cursors, onChange: (cursors) => updateView({ ...view, cursors }) }

@@ -66,6 +66,11 @@
   font-size: 13px;
   font-weight: 500;
 }
+.provenance > label,
+.paste fieldset > label,
+.queue label {
+  margin-top: 0;
+}
 .panel :is(input:not([type="checkbox"], [type="file"]), select, textarea) {
   min-width: 0;
   width: 100%;
