@@ -9,6 +9,7 @@ import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
 import { ownerStoragePrefix } from "@/lib/access";
+import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
 import { sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
@@ -33,6 +34,7 @@ import styles from "./research-desk.module.css";
 export function ResearchLauncher({ fromSession }: { fromSession: string | null }) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
+  const captureKey = `${key}.capture`;
   const [saved] = useState(() => readResearchBrief(key));
   const [form, setForm] = useState(() => initializeResearchBrief(saved, fromSession));
   const { draft, awaitingModelCatalog } = form;
@@ -147,6 +149,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         if (!current) return;
         admitted.current = true;
         storeResearchBrief(key, null);
+        storeResearchCaptureDraft(captureKey, null);
         window.location.assign(sessionUrl(pending.id));
       },
       (cause: unknown) => {
@@ -163,7 +166,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     return () => {
       current = false;
     };
-  }, [active, key, busy, pending, check]);
+  }, [active, key, captureKey, busy, pending, check]);
 
   async function start() {
     if (!canStart || !account || inFlight.current || admitted.current) return;
@@ -191,6 +194,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         throw new Error("The server returned a different session. Check this start request.");
       admitted.current = true;
       storeResearchBrief(key, null);
+      storeResearchCaptureDraft(captureKey, null);
       window.location.assign(sessionUrl(receipt.run_id));
     } catch (cause) {
       if (!mounted.current) return;
@@ -270,6 +274,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       )}
       <div className={styles.bench}>
         <DiscoverySources
+          storageKey={captureKey}
           ids={draft.evidence_ids}
           known={Array.from(captured.values())}
           onPin={pin}
