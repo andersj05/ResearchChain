@@ -25,6 +25,8 @@ async function sampleStartup(page: Page, path: string, ready: () => Promise<void
   return {
     includesBuilder: bodies.some((body) => body.includes("Build your agent")),
     includesStudyReader: bodies.some((body) => body.includes("Recorded editorial judgment")),
+    includesMethodology: bodies.some((body) => body.includes("Research desk workflow")),
+    includesSetupComparison: bodies.some((body) => body.includes("Compare with previous setup")),
     scripts: scripts.size,
     decodedBytes: bodies.reduce((total, body) => total + body.length, 0),
     transferBytes,
@@ -32,7 +34,7 @@ async function sampleStartup(page: Page, path: string, ready: () => Promise<void
   };
 }
 
-test("load the Workbench and saved-study reader only when their views open", async ({
+test("load the Workbench, methodology and saved-study reader only when their views open", async ({
   browser,
   baseURL,
   ownerSession,
@@ -42,6 +44,7 @@ test("load the Workbench and saved-study reader only when their views open", asy
   const desk = await browser.newContext({ baseURL, storageState: ownerSession.state });
   const build = await browser.newContext({ baseURL, storageState: ownerSession.state });
   const study = await browser.newContext({ baseURL, storageState: ownerSession.state });
+  const methodology = await browser.newContext({ baseURL, storageState: ownerSession.state });
   try {
     const lockedPage = await locked.newPage();
     const lockedStartup = await sampleStartup(lockedPage, "/?view=workflow", async () => {
@@ -85,7 +88,18 @@ test("load the Workbench and saved-study reader only when their views open", asy
       await expect(studyPage.getByRole("heading", { name: studyTitle, exact: true })).toBeVisible();
     });
 
-    const metrics = { lockedStartup, deskStartup, buildStartup, studyStartup };
+    const methodologyPage = await methodology.newPage();
+    const methodologyStartup = await sampleStartup(
+      methodologyPage,
+      "/?view=methodology",
+      async () => {
+        await expect(
+          methodologyPage.getByRole("group", { name: "Research desk workflow" }),
+        ).toBeVisible();
+      },
+    );
+
+    const metrics = { lockedStartup, deskStartup, buildStartup, studyStartup, methodologyStartup };
     await info.attach("workspace-startup", {
       body: JSON.stringify(metrics, null, 2),
       contentType: "application/json",
@@ -106,7 +120,17 @@ test("load the Workbench and saved-study reader only when their views open", asy
     expect(lockedStartup.includesStudyReader).toBe(false);
     expect(deskStartup.includesStudyReader).toBe(false);
     expect(studyStartup.includesStudyReader).toBe(true);
+    expect(lockedStartup.includesMethodology).toBe(false);
+    expect(deskStartup.includesMethodology).toBe(false);
+    expect(deskStartup.includesSetupComparison).toBe(false);
+    expect(methodologyStartup.includesMethodology).toBe(true);
   } finally {
-    await Promise.all([locked.close(), desk.close(), build.close(), study.close()]);
+    await Promise.all([
+      locked.close(),
+      desk.close(),
+      build.close(),
+      study.close(),
+      methodology.close(),
+    ]);
   }
 });
