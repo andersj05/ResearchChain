@@ -129,6 +129,50 @@ test("validation links focus the nested input with an unavailable source", async
   );
 });
 
+test("phone Build brings validation results into view from the footer", async ({
+  page,
+  request,
+}) => {
+  const workflow = nestedWorkflow();
+  const { id, version } = workflow.subgraphs![1]!;
+  const later = addTemplate(workflow, { id, version }, "note", "step");
+  const saved = await request.post("/api/revisions", { data: later.workflow });
+  expect(saved.status()).toBe(201);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?revision=${(await saved.json()).id}&view=workflow`);
+  const validate = page.getByRole("button", { name: "Validate workflow", exact: true });
+  await expect(validate).toBeEnabled();
+  await page.getByRole("button", { name: "Plan", exact: true }).click();
+  const search = page.getByRole("searchbox", { name: "Find a step", exact: true });
+  await search.fill("Check an alternate input");
+  await search.press("Enter");
+  const textInput = page.getByRole("combobox", { name: "Text input", exact: true });
+  const unavailable = `${later.selected}:text`;
+  await textInput.selectOption(unavailable);
+
+  await validate.click();
+  const error = page.locator(".workspace-error");
+  await expect(error).toContainText("subgraphs.1.nodes.0.inputs.text");
+  await expect(error).toBeInViewport();
+  await expect(error).toBeFocused();
+  const repair = error.getByRole("button", {
+    name: "Open input text on Check an alternate input",
+  });
+  await expect(repair).toBeInViewport();
+  await page.keyboard.press("Tab");
+  await expect(repair).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(textInput).toBeFocused();
+  await expect(textInput).toHaveValue(unavailable);
+  await textInput.selectOption("brief");
+
+  await validate.click();
+  const status = page.getByRole("status", { name: "Workspace status", exact: true });
+  await expect(status).toHaveText("Workflow valid. Ready to run.");
+  await expect(status).toBeInViewport();
+  await expect(status).toBeFocused();
+});
+
 test("validation locations distinguish editable inputs from step-only fields", () => {
   const workflow = nestedWorkflow();
   expect(
