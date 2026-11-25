@@ -114,6 +114,11 @@ you page through the available charts in reading order. A workspace's **Model
 passes** includes the saved request for each pass. **Revisit material** restores
 your choices for the next experiment.
 
+To reuse an operating setup in **New study**, open **Use settings from a study**
+under **Research settings**. Choose a recent study and apply its team structure,
+consultation settings, model choices, and limits. The current draft keeps its
+title, context, sources, writing sample, live web search, and editorial review choice.
+
 ### Run a swarm
 
 Under **Research settings**, change **Team structure** to **Research swarm**.

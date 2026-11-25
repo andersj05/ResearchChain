@@ -33,13 +33,12 @@ const ResearchMethodology = lazy(() =>
 const studiesUrl = "?view=research&studies=1";
 const readerTitle = "study-reader-title";
 
-function RecentStudies() {
-  const { active } = useOwner();
+function useRecentStudies(enabled: boolean) {
   const [studies, setStudies] = useState<RecentRunSummary[]>();
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
-    if (!active) return;
+    if (!enabled) return;
     return pollVisiblePage(async ({ isCurrent, schedule }) => {
       try {
         const items = await api<RecentRunSummary[]>("research-sessions");
@@ -53,7 +52,11 @@ function RecentStudies() {
           setError(cause instanceof Error ? cause.message : "Could not load recent research.");
       }
     });
-  }, [active, refresh]);
+  }, [enabled, refresh]);
+  return { studies, error, retry: () => setRefresh((n) => n + 1) };
+}
+
+function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStudies>) {
   return (
     <section
       className={styles.history}
@@ -65,7 +68,7 @@ function RecentStudies() {
       {error && (
         <div className={styles.notice} role="alert">
           <span>{error}</span>
-          <button type="button" className="text-link" onClick={() => setRefresh((n) => n + 1)}>
+          <button type="button" className="text-link" onClick={retry}>
             Retry history
           </button>
         </div>
@@ -122,6 +125,7 @@ export function ResearchDesk({
           ? "studies"
           : "launch";
   const showingDraft = deskView === "launch";
+  const recent = useRecentStudies(active && showingDraft);
   const [draftScope, setDraftScope] = useState<string | null | undefined>(() =>
     showingDraft ? fromSession : undefined,
   );
@@ -219,9 +223,13 @@ export function ResearchDesk({
         <main className={styles.page} hidden={!showingDraft}>
           {showingDraft && !draftScope && <ResearchReviewQueue summary />}
           <Activity mode={showingDraft ? "visible" : "hidden"}>
-            <ResearchLauncher key={draftScope ?? "new"} fromSession={draftScope} />
+            <ResearchLauncher
+              key={draftScope ?? "new"}
+              fromSession={draftScope}
+              recentStudies={recent.studies}
+            />
           </Activity>
-          {showingDraft && <RecentStudies />}
+          {showingDraft && <RecentStudies {...recent} />}
         </main>
       )}
       {session ? (

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { ChatGPTSignIn } from "./chatgpt-signin";
 
 import { SwarmControls } from "./swarm-controls";
@@ -138,6 +138,7 @@ export function ResearchBriefOptions({
   disabled,
   awaitingModelCatalog,
   onReadingSample,
+  reuseSettings,
 }: {
   draft: ResearchBrief;
   update: (patch: Partial<ResearchBrief>) => void;
@@ -146,6 +147,7 @@ export function ResearchBriefOptions({
   disabled: boolean;
   awaitingModelCatalog: boolean;
   onReadingSample: (value: boolean) => void;
+  reuseSettings?: ReactNode;
 }) {
   const modelsDisabled = disabled || awaitingModelCatalog;
   const time =
@@ -171,6 +173,7 @@ export function ResearchBriefOptions({
           </span>
         </summary>
         <div className={styles.settingGrid}>
+          {reuseSettings}
           <SwarmControls draft={draft} update={update} />
           {!draft.swarm && (
             <label>
