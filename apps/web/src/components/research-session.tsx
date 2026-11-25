@@ -11,6 +11,7 @@ import { sessionUrl } from "@/lib/research-sessions";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { pollVisiblePage } from "@/lib/poll-visible-page";
 import {
+  finalEditorAttempt,
   sessionModelProfiles,
   sessionReport,
   sessionWorkspaces,
@@ -345,6 +346,13 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
   const started = run.model_attempts?.length ?? 0;
   const activeSeconds = run.usage?.active_seconds;
   const report = sessionReport(editor, run.status);
+  const finalEditor = report ? undefined : finalEditorAttempt(editor, run.status);
+  const editorFindings =
+    finalEditor?.result?.conclusion.trim() &&
+    !finalEditor.result.report_artifact &&
+    !finalEditor.result.workspace_files?.length
+      ? finalEditor
+      : undefined;
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
   const hasFiles = hasStudyFiles(lanes);
   const returnIndex =
@@ -404,7 +412,7 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
           </span>
         </div>
         <nav aria-label="Study sections" className={styles.studyNav}>
-          {report && (
+          {report ? (
             <SessionWorkspaceLink
               className={report.complete ? styles.reportShortcut : undefined}
               runId={runId}
@@ -413,6 +421,18 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
             >
               {report.complete ? "Read report" : "Read report draft"}
             </SessionWorkspaceLink>
+          ) : (
+            editorFindings && (
+              <SessionWorkspaceLink
+                className={styles.reportShortcut}
+                runId={runId}
+                lane={editor}
+                pass={editorFindings.id}
+                onSelect={selectWorkspace}
+              >
+                Read editor findings
+              </SessionWorkspaceLink>
+            )
           )}
           {discovery && (
             <a
