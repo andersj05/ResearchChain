@@ -413,6 +413,7 @@ function PassReceipt({
 export function SessionWorkspaceDetail({
   lane,
   run,
+  showStudySections,
   passId,
   onPass,
   returnToReview,
@@ -422,6 +423,7 @@ export function SessionWorkspaceDetail({
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
+  showStudySections?: boolean;
   returnToReview?: { id: string; title: string };
   returnToJudgment?: boolean;
   returnToIndex?: StudyIndexReturn;
@@ -435,6 +437,11 @@ export function SessionWorkspaceDetail({
       aria-label={`${lane.title} workspace`}
       tabIndex={-1}
     >
+      {showStudySections && (
+        <a className={`text-link ${styles.phoneSectionLink}`} href="#study-sections">
+          Study sections
+        </a>
+      )}
       {returnToReview && (
         <a className="text-link" href={`#consultation-${returnToReview.id}-answer`}>
           Return to {returnToReview.title}’s question

@@ -420,7 +420,12 @@ function ResearchSessionView({
               : `${Math.floor(activeSeconds / 60)}m ${Math.floor(activeSeconds % 60)}s active`}
           </span>
         </div>
-        <nav aria-label="Study sections" className={styles.studyNav}>
+        <nav
+          id="study-sections"
+          aria-label="Study sections"
+          className={styles.studyNav}
+          tabIndex={-1}
+        >
           {report ? (
             <SessionWorkspaceLink
               className={report.complete ? styles.reportShortcut : undefined}
@@ -483,6 +488,11 @@ function ResearchSessionView({
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
           <a href="#research-workspaces">Workspaces</a>
+          {live && (
+            <a className={styles.phoneSectionLink} href="#current-research-workspace">
+              Current workspace
+            </a>
+          )}
           {hasFiles && <StudyIndexLink index="files" />}
           {hasActivity && <StudyIndexLink index="activity" />}
         </nav>
@@ -659,6 +669,7 @@ function ResearchSessionView({
           key={workspace.key}
           lane={workspace}
           run={run}
+          showStudySections={live}
           passId={passId}
           onPass={(id) =>
             selectWorkspace(

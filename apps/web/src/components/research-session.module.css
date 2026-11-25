@@ -80,6 +80,10 @@
   background: var(--ink);
   color: var(--surface);
 }
+.studyNav .phoneSectionLink,
+.detail > .phoneSectionLink {
+  display: none;
+}
 .page :target,
 .detail {
   scroll-margin-top: 16px;
@@ -282,7 +286,7 @@
   border-left: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
-.detail > * + * {
+.detail > :not(.phoneSectionLink) + * {
   margin-top: 18px;
 }
 .detailHeading {
@@ -562,6 +566,18 @@
   display: block;
 }
 @media (max-width: 680px) {
+  .studyNav .phoneSectionLink,
+  .detail > .phoneSectionLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+  }
+  .detail > .phoneSectionLink {
+    font-size: 13px;
+  }
+  .detail > .phoneSectionLink + * {
+    margin-top: 10px;
+  }
   .page {
     gap: 16px;
   }
