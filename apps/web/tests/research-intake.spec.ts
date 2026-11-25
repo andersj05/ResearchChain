@@ -239,3 +239,42 @@ test("the methodology exposes commission, park and editorial paths on desktop an
   await page.getByRole("link", { name: "Open research desk" }).click();
   await expect(page.getByRole("heading", { name: "Add material" })).toBeVisible();
 });
+
+test("visit the methodology and return to staged material without leaving the tab", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.getByLabel("Source files").setInputFiles({
+    name: "method-note.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Synthetic evidence for the working sentence."),
+  });
+  const title = page.getByRole("textbox", { name: "Packet title for method-note.txt" });
+  await title.fill("First reading context to keep");
+  const guideChunk = Promise.withResolvers<void>();
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await guideChunk.promise;
+    await route.continue();
+  });
+  try {
+    await page.getByRole("link", { name: "Methodology", exact: true }).press("Enter");
+    await expect(
+      page.getByText("Opening the research methodology…", { exact: true }),
+    ).toBeVisible();
+    await expect(title).toBeHidden();
+  } finally {
+    guideChunk.resolve();
+  }
+  const methodology = page.getByRole("heading", { name: "Methodology", exact: true });
+  const setup = page.getByRole("heading", { name: "New study", exact: true });
+  await expect(methodology).toBeFocused();
+  await page.goBack();
+  await expect(setup).toBeFocused();
+  await expect(title).toHaveValue("First reading context to keep");
+  await page.goForward();
+  await expect(methodology).toBeFocused();
+  await page.getByRole("link", { name: "Return to study setup", exact: true }).press("Enter");
+  await expect(setup).toBeFocused();
+  await expect(title).toHaveValue("First reading context to keep");
+});

@@ -33,8 +33,10 @@ const ResearchMethodology = lazy(() =>
   })),
 );
 const studiesUrl = "?view=research&studies=1";
+const methodologyUrl = "?view=methodology";
 const readerTitle = "study-reader-title";
 const decisionsTitle = "research-decisions";
+const methodologyTitle = "research-methodology-title";
 const packetHeading = "packet-heading";
 
 function useRecentStudies(enabled: boolean) {
@@ -143,8 +145,10 @@ export function ResearchDesk({
   if (sourceAppend && (!showingDraft || sourceAppend.scope !== fromSession))
     setSourceAppend(undefined);
   const readingWithDraft = deskView === "session" && draftScope !== undefined;
+  const learningWithDraft = deskView === "methodology" && draftScope !== undefined;
   const showingDecisions = deskView === "decisions";
-  const returningToDraft = deskView === "studies" || showingDecisions || readingWithDraft;
+  const returningToDraft =
+    deskView === "studies" || showingDecisions || readingWithDraft || learningWithDraft;
   const [visitedDecisions, setVisitedDecisions] = useState(showingDecisions);
   if (showingDecisions && !visitedDecisions) setVisitedDecisions(true);
   const focusAfterNavigation = useRef<string>(null);
@@ -165,20 +169,27 @@ export function ResearchDesk({
     previousDecision.current =
       deskView === "session" &&
       /^(#source-led-investigation$|#editorial-review$|#consultation-)/u.test(window.location.hash);
-    if (focusAfterNavigation.current === readerTitle && deskView !== "session")
+    const requested = focusAfterNavigation.current;
+    if (
+      (requested === readerTitle && deskView !== "session") ||
+      (requested === methodologyTitle && deskView !== "methodology")
+    )
       focusAfterNavigation.current = null;
     let id = focusAfterNavigation.current;
     if (!id && deskView !== from) {
       if (deskView === "decisions") id = decisionsTitle;
-      if (deskView === "launch" && (from === "decisions" || fromDecision)) id = "research-title";
+      if (deskView === "methodology") id = methodologyTitle;
+      if (deskView === "launch" && (from === "decisions" || from === "methodology" || fromDecision))
+        id = "research-title";
     }
     if (!id) return;
-    if (id === readerTitle) {
+    const target = document.getElementById(id);
+    if (id === readerTitle || (id === methodologyTitle && !target)) {
+      focusAfterNavigation.current = id;
       window.scrollTo(0, 0);
       return;
     }
     focusAfterNavigation.current = null;
-    const target = document.getElementById(id);
     if (id === packetHeading) {
       (target ?? document.getElementById("research-title"))?.focus({ preventScroll: true });
       target?.scrollIntoView({ block: "start" });
@@ -190,6 +201,13 @@ export function ResearchDesk({
 
   const focusReaderTitle = useCallback((title: HTMLHeadingElement | null) => {
     if (!title || focusAfterNavigation.current !== readerTitle) return;
+    focusAfterNavigation.current = null;
+    title.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, []);
+
+  const focusMethodologyTitle = useCallback((title: HTMLHeadingElement | null) => {
+    if (!title || focusAfterNavigation.current !== methodologyTitle) return;
     focusAfterNavigation.current = null;
     title.focus({ preventScroll: true });
     window.scrollTo(0, 0);
@@ -276,8 +294,13 @@ export function ResearchDesk({
               Decisions
             </a>
             <a
-              href="?view=methodology"
+              href={methodologyUrl}
               aria-current={deskView === "methodology" ? "page" : undefined}
+              onClick={
+                draftScope !== undefined
+                  ? (event) => navigateWithinDesk(event, methodologyTitle)
+                  : undefined
+              }
             >
               Methodology
             </a>
@@ -365,7 +388,13 @@ export function ResearchDesk({
             </main>
           }
         >
-          <ResearchMethodology />
+          <ResearchMethodology
+            titleRef={focusMethodologyTitle}
+            setupHref={learningWithDraft ? returnToDraft : undefined}
+            onReturn={
+              learningWithDraft ? (event) => navigateWithinDesk(event, "research-title") : undefined
+            }
+          />
         </Suspense>
       ) : deskView === "studies" ? (
         <main className={styles.page}>

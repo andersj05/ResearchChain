@@ -16,9 +16,9 @@ Original uploads can overlap while the pins keep their queue order.
 To look up another study while you assemble a packet, open **Studies** or
 select a saved study under **Recent research**. **Research desk** takes you back
 to the same in-tab setup. From the archive or **Decisions**, choose **Return to
-study setup**. Opening an exact decision and using browser history also keeps
-the staged files. If a first reading was accepted during the visit, **Open
-study** opens the confirmed session.
+study setup**. Visiting **Methodology**, opening an exact decision and using
+browser history also keeps the staged files. If a first reading was accepted
+during the visit, **Open study** opens the confirmed session.
 
 Use **Paste a source** for a note, conversation or reference URL. You can add files
 before filling in **Source details**, which applies to both uploads and pasted
