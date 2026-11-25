@@ -54,6 +54,7 @@ type Props = {
   openRevisitInNewTab?: boolean;
   titleRef?: (title: HTMLHeadingElement | null) => void;
   openWorkbenchInNewTab?: boolean;
+  onOpenBaseline?: MouseEventHandler<HTMLAnchorElement>;
   onReuseSource?: (source: EvidenceRecord) => void;
 };
 type Review = NonNullable<RunSnapshot["review"]>;
@@ -133,6 +134,7 @@ function ResearchSessionView({
   openRevisitInNewTab,
   titleRef,
   openWorkbenchInNewTab,
+  onOpenBaseline,
   onReuseSource,
 }: Props) {
   const { active, owner } = useOwner();
@@ -574,7 +576,10 @@ function ResearchSessionView({
             />
           )}
           {run.baseline_run_id && (
-            <a href={`/?session=${encodeURIComponent(run.baseline_run_id)}`}>
+            <a
+              href={`/?session=${encodeURIComponent(run.baseline_run_id)}`}
+              onClick={onOpenBaseline}
+            >
               Open baseline session
             </a>
           )}

@@ -219,6 +219,15 @@ for (const width of [390, 1440]) {
     await page.bringToFront();
     await expect(page).toHaveURL(studyUrl);
     await expect(revisedHeading).toBeVisible();
+    await page.getByText("Brief and settings", { exact: true }).click();
+    await page.getByRole("link", { name: "Open baseline session", exact: true }).press("Enter");
+    const baselineHeading = page.getByRole("heading", { name: "Original credit study" });
+    await expect(baselineHeading).toBeVisible();
+    expect(await page.evaluate(() => Reflect.get(window, "comparisonVisitToken"))).toBe(token);
+    await expect(baselineHeading).toBeFocused();
+    await page.goBack();
+    await expect(page).toHaveURL(studyUrl);
+    await expect(revisedHeading).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
