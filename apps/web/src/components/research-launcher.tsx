@@ -81,6 +81,18 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const frozen = !active || !loaded || busy || !!pending;
   const hasMaterial = draft.evidence_ids.length > 0 && !packetError && records.every(Boolean);
   const retryable = !!pending?.start_from_sources && unconfirmed === pending.id;
+  const canStart =
+    active &&
+    loaded &&
+    !busy &&
+    !readingSample &&
+    !editingSource &&
+    (pending
+      ? retryable &&
+        !catalog.loading &&
+        !catalog.error &&
+        account?.id === pending.provider_account_id
+      : ready && hasMaterial);
 
   useEffect(() => {
     mounted.current = true;
@@ -154,28 +166,14 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   }, [active, key, busy, pending, check]);
 
   async function start() {
-    if (
-      !active ||
-      !loaded ||
-      inFlight.current ||
-      admitted.current ||
-      readingSample ||
-      editingSource
-    )
-      return;
-    if (
-      pending
-        ? !retryable || !account || account.id !== pending.provider_account_id
-        : !ready || !account || !hasMaterial
-    )
-      return;
+    if (!canStart || !account || inFlight.current || admitted.current) return;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
       start_from_sources: true,
       max_input_bytes: limit,
       id: crypto.randomUUID(),
       model,
-      provider_account_id: account!.id,
+      provider_account_id: account.id,
       ...(fromSession ? { baseline_run_id: fromSession } : {}),
     };
     inFlight.current = true;
@@ -225,6 +223,25 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     setStartError("");
   }
 
+  const count = draft.evidence_ids.length;
+  let nextStep = (
+    <a href="#packet-heading">
+      {count} {count === 1 ? "source" : "sources"} pinned
+    </a>
+  );
+  if (!loaded) nextStep = <>Restoring saved setup…</>;
+  else if (pending) nextStep = <a href="#first-reading-setup">Check the start request</a>;
+  else if (editingSource) nextStep = <>Pin or clear the material in progress.</>;
+  else if (!count) nextStep = <a href="#intake-heading">Pin a source to begin</a>;
+  else if (!hasMaterial) nextStep = <a href="#packet-heading">Check your study packet</a>;
+  else if (readingSample) nextStep = <>Reading the writing sample…</>;
+  else if (!ready)
+    nextStep = problem ? (
+      <a href="#study-settings">Check research settings</a>
+    ) : (
+      <a href="#first-reading-setup">Check the research connection</a>
+    );
+
   return (
     <section className={styles.launch} aria-labelledby="research-title">
       <h1 id="research-title">{fromSession ? "Revisit material" : "New study"}</h1>
@@ -260,7 +277,12 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           onChange={(evidence_ids) => update({ evidence_ids })}
           onEditing={setEditingSource}
         />
-        <aside className={styles.composer} aria-label="Prepare the first reading">
+        <aside
+          className={styles.composer}
+          id="first-reading-setup"
+          aria-label="Prepare the first reading"
+          tabIndex={-1}
+        >
           <StudyPacket
             ids={draft.evidence_ids}
             records={records}
@@ -349,7 +371,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               )}
             </div>
           )}
-          <div className={styles.launchFooter}>
+          {(account || model) && (
             <div className={styles.account}>
               {account && (
                 <button
@@ -363,44 +385,16 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               )}
               {model && <span>{model}</span>}
             </div>
-            <button
-              type="submit"
-              form="study-settings"
-              className="button primary"
-              disabled={
-                !active ||
-                !loaded ||
-                busy ||
-                readingSample ||
-                editingSource ||
-                (pending
-                  ? !retryable ||
-                    catalog.loading ||
-                    !!catalog.error ||
-                    account?.id !== pending.provider_account_id
-                  : !ready || !hasMaterial)
-              }
-            >
-              {busy
-                ? "Starting research…"
-                : pending
-                  ? "Retry start"
-                  : "Ask the lead for a first reading"}
-            </button>
-          </div>
+          )}
           {account && manageConnection && (
             <ResearchPlanConnection catalog={catalog} connected disabled={busy} />
-          )}
-          {editingSource && (
-            <p className={styles.pendingHint} role="status">
-              Pin or clear the material in progress to start the reading.
-            </p>
           )}
         </aside>
       </div>
       <form
         id="study-settings"
         className={styles.setup}
+        tabIndex={-1}
         onSubmit={(event) => {
           event.preventDefault();
           void start();
@@ -426,6 +420,24 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           </label>
         </fieldset>
       </form>
+      <div className={styles.launchBar}>
+        <p id="first-reading-status" role="status">
+          {nextStep}
+        </p>
+        <button
+          type="submit"
+          form="study-settings"
+          className="button primary"
+          aria-describedby="first-reading-status"
+          disabled={!canStart}
+        >
+          {busy
+            ? "Starting research…"
+            : pending
+              ? "Retry start"
+              : "Ask the lead for a first reading"}
+        </button>
+      </div>
     </section>
   );
 }
