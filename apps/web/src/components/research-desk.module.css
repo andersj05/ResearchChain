@@ -93,7 +93,8 @@
   position: sticky;
   top: 14px;
 }
-.shortBrief {
+.shortBrief,
+.studyName {
   width: 100%;
   min-width: 0;
   resize: vertical;
@@ -101,6 +102,9 @@
   padding: 8px 9px;
   background: var(--surface);
   color: var(--ink);
+}
+.studyName {
+  margin: 0 0 14px;
 }
 .setup {
   margin-top: 24px;

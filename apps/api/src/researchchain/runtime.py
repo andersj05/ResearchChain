@@ -283,9 +283,10 @@ class RunStore:
         attempts = read_attempts(conn, manifest["id"])
         research = read_manifest(conn, manifest["id"])
         evidence_ids = self._evidence_ids(conn, manifest["id"])
-        study_title = None
+        study_title = research.tool_config.get("study_title") if research else None
         if (
-            manifest["brief"] == SOURCE_LED_BRIEF
+            study_title is None
+            and manifest["brief"] == SOURCE_LED_BRIEF
             and evidence_ids
             and research
             and research.tool_config.get("discovery_version")
@@ -450,7 +451,12 @@ class RunStore:
         ]
 
     def start_command(
-        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+        self,
+        conn: Connection[DictRow],
+        request: RunRequest,
+        *,
+        research_session: bool = False,
+        study_title: str | None = None,
     ) -> DictRow:
         """Validate and journal inputs; the caller serializes admission and commits."""
         require_retained_run(conn, request.id)
@@ -473,6 +479,12 @@ class RunStore:
             )
         ):
             raise ConflictError("This ID already belongs to a different run.")
+        if (
+            research_session
+            and existing_research
+            and study_title != existing_research.tool_config.get("study_title")
+        ):
+            raise ConflictError("This run ID already belongs to a different study title.")
         if existing and request.provider_account_id != (
             existing_research.account_id if existing_research else None
         ):
@@ -529,6 +541,8 @@ class RunStore:
                 )
                 if research_session:
                     research_manifest.tool_config["session"] = SESSION_VERSION
+                    if study_title is not None:
+                        research_manifest.tool_config["study_title"] = study_title
                     if workflow.start_node == "discovery":
                         research_manifest.tool_config["discovery_version"] = DISCOVERY_VERSION
                         check_first_reading_start(
@@ -641,7 +655,8 @@ class RunStore:
                 "w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
-                "primary_source.document->>'title' AS study_title, "
+                "COALESCE(rm.manifest->'tool_config'->>'study_title', "
+                "primary_source.document->>'title') AS study_title, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
                 "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
                 "WHEN EXISTS ("
@@ -672,7 +687,8 @@ class RunStore:
                 "AND (%(before_created_at)s::timestamptz IS NULL "
                 "OR (r.created_at, r.id) < (%(before_created_at)s, %(before_id)s)) "
                 "AND (%(search)s = '' OR strpos(lower(concat_ws(' ', "
-                "w.workflow->>'name', a.agent_name, r.id::text, r.brief)), lower(%(search)s)) > 0 "
+                "w.workflow->>'name', a.agent_name, r.id::text, r.brief, "
+                "rm.manifest->'tool_config'->>'study_title')), lower(%(search)s)) > 0 "
                 "OR (rm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM run_evidence source_pin "
                 "JOIN evidence_records source ON source.id = source_pin.evidence_id "
                 "WHERE source_pin.run_id = r.id "
@@ -713,7 +729,8 @@ class RunStore:
             rows = conn.execute(
                 "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
-                "primary_source.document->>'title' AS study_title, "
+                "COALESCE(rm.manifest->'tool_config'->>'study_title', "
+                "primary_source.document->>'title') AS study_title, "
                 "command.response->>'checkpoint_id' AS checkpoint_id, "
                 "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
                 "THEN command.response->'reviews' "

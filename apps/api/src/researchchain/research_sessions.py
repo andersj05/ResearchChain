@@ -1,9 +1,9 @@
 """Pinned setup for a brief-led research session."""
 
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from researchchain.graph import (
     AnalystConfig,
@@ -31,10 +31,14 @@ from researchchain.revisions import NotFoundError
 SESSION_VERSION = "brief-led-1"
 SOURCE_LED_BRIEF = "Source-led study"
 ReviewMode = Literal["when_needed", "always", "never"]
+StudyTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=160, pattern=r"^[^\x00\r\n]*$")
+]
 
 
 class ResearchSessionSetup(StrictModel):
     brief: str = Field(max_length=10000, pattern=r"^[^\x00]*$")
+    title: StudyTitle | None = Field(default=None, exclude_if=lambda value: value is None)
     start_from_sources: bool = Field(default=False, exclude_if=lambda value: not value)
     style_excerpt: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
     model: ModelSlug
@@ -54,6 +58,11 @@ class ResearchSessionSetup(StrictModel):
     web_search: bool = False
     review_mode: ReviewMode = "when_needed"
     baseline_run_id: UUID | None = None
+
+    @field_validator("title")
+    @classmethod
+    def omit_blank_title(cls, value: str | None) -> str | None:
+        return value or None
 
     @field_validator("lead", "researcher", "editor")
     @classmethod
@@ -243,6 +252,7 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
     assert isinstance(editor, ResearchConfig)
     return ResearchSessionSetup(
         brief=run.brief,
+        title=run.research_manifest.tool_config.get("study_title"),
         start_from_sources=run.workflow.start_node == "discovery",
         style_excerpt=editor.style_excerpt or "",
         model=run.research_manifest.settings.model,

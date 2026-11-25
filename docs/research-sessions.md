@@ -10,7 +10,9 @@ Use **Paste a source** for a note, conversation or reference URL. The **Source d
 
 **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. You can leave **Context for the lead** blank.
 
-The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. Select a smaller packet if necessary. The analyst workspace can stage up to 64 files.
+An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
+
+The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. At launch, the server checks the serialized first-reading request before placing it in the queue. The analyst workspace can stage up to 64 files.
 
 **Ask the lead for a first reading** uses one lead request to read the pinned
 packet. Before anyone receives an assignment, the lead brings you an
@@ -46,8 +48,7 @@ editorial review setting controls the separate decision about the report.
   for a guaranteed editorial checkpoint, or **Continue independently** to let the
   editor proceed after research.
 
-Select **Ask the lead for a first reading** to open the session. You can return
-to it from **Recent research** or the run archive.
+The **Ask the lead for a first reading** action stays in view as you edit the packet and settings. **Recent research** lists recently opened studies. **Search past studies** finds older studies by title, any pinned source title, context or ID. **Decisions** opens working sentences, lead questions and editorial reviews even after a study drops out of the recent list.
 
 ### Choose the model and thinking effort
 

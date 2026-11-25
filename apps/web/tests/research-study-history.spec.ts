@@ -1,4 +1,5 @@
 import type { PendingReviewsPage } from "../src/lib/workflow";
+import { pinDeskNote } from "./desk-material";
 import { expect, test } from "./fixtures";
 
 test("reopen a decision beyond recent research and find the study by a secondary source", async ({
@@ -95,4 +96,23 @@ test("reopen a decision beyond recent research and find the study by a secondary
   await expect(page.getByRole("heading", { name: "Study parked" })).toBeVisible();
   await page.getByRole("link", { name: "Decisions", exact: true }).click();
   await expect(page.getByText("No research studies are waiting for a decision.")).toBeVisible();
+});
+
+test("name a source-only study and carry the name into a revision", async ({ page }) => {
+  const studyTitle = `Review of sector flows ${crypto.randomUUID().slice(0, 8)}`;
+  await page.goto("/");
+  await pinDeskNote(page);
+  const title = page.getByLabel("Study title (optional)");
+  await title.fill(studyTitle);
+  await page.reload();
+  await expect(title).toHaveValue(studyTitle);
+  await expect(page.getByLabel("Context for the lead (optional)")).toHaveValue("");
+  await page.getByRole("button", { name: "Ask the lead for a first reading" }).click();
+  await expect(page.getByRole("heading", { name: studyTitle, exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Assign research" })).toBeVisible({
+    timeout: 45000,
+  });
+  await page.getByRole("button", { name: "Revisit material" }).click();
+  await expect(title).toHaveValue(studyTitle);
+  await expect(page.getByLabel("Context for the lead (optional)")).toHaveValue("");
 });

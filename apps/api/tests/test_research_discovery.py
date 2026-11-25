@@ -92,6 +92,33 @@ def test_oversized_serialized_packet_is_rejected_before_queuing(database):
         )
 
 
+def test_a_study_title_is_pinned_metadata_and_part_of_the_start_identity(database):
+    source = EvidenceStore(database).create(
+        EvidenceCreate(
+            id=uuid4(), title="Research notes", kind="text", rights="owned", text="Synthetic"
+        )
+    )
+    title = "Sector Rotation · Week 48"
+    provider = DiscoveryProvider()
+    runs = RunStore(database, provider)
+    start = request(start_from_sources=True, brief="", evidence_ids=[source.id], title=f" {title} ")
+    payload = start.model_dump(mode="json")
+    entry = "/api/research-sessions"
+    with owner_client(create_app(database, provider), workers=False) as client:
+        accepted = client.post(entry, json=payload)
+        assert accepted.status_code == 202
+        assert client.post(entry, json=payload).json() == accepted.json()
+        assert client.post(entry, json={**payload, "title": "Different study"}).status_code == 409
+        assert client.get(f"{entry}/{start.id}/setup").json()["title"] == title
+        search = client.get("/api/runs/search", params={"sessions_only": True, "search": "week 48"})
+        assert search.json()["items"][0]["run"]["study_title"] == title
+        assert RunWorker(runs).run_once()
+        assert runs.get(start.id).study_title == title
+        packet = json.loads(provider.calls[0].input_items[0]["content"][0]["text"])
+        assert packet["brief"] == "Source-led study"
+        assert title not in json.dumps(packet, ensure_ascii=False)
+
+
 @pytest.mark.parametrize(
     ("sentence", "title"),
     [

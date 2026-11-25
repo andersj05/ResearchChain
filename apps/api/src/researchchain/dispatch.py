@@ -108,15 +108,23 @@ class RunQueue:
                     provider_account_id=request.provider_account_id,
                 ),
                 research_session=True,
+                study_title=request.title,
             )
 
     def _start(
-        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+        self,
+        conn: Connection[DictRow],
+        request: RunRequest,
+        *,
+        research_session: bool = False,
+        study_title: str | None = None,
     ) -> CommandReceipt:
         exists = conn.execute("SELECT 1 FROM runs WHERE id = %s", (request.id,)).fetchone()
         if not exists and not self._own_run(conn, request.id):
             raise DispatchError("This run is being admitted. Retry the same request.")
-        command = self.runs.start_command(conn, request, research_session=research_session)
+        command = self.runs.start_command(
+            conn, request, research_session=research_session, study_title=study_title
+        )
         if not exists:
             self._enqueue(conn, command)
         # An old interrupted command is never requeued by an HTTP retry.

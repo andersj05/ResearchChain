@@ -172,6 +172,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     if (!canStart || !account || inFlight.current || admitted.current) return;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
+      title: draft.title?.trim() || undefined,
       start_from_sources: true,
       max_input_bytes: limit,
       id: crypto.randomUUID(),
@@ -299,6 +300,20 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
             retry={details.unresolved.length ? details.retry : undefined}
           />
           <fieldset disabled={frozen}>
+            <label className={styles.briefLabel} htmlFor="research-name">
+              Study title (optional)
+            </label>
+            <input
+              id="research-name"
+              className={styles.studyName}
+              type="text"
+              maxLength={160}
+              value={draft.title ?? ""}
+              placeholder={
+                draft.brief.trim().split("\n", 1)[0] || records[0]?.title || "Name this study"
+              }
+              onChange={(event) => update({ title: event.target.value })}
+            />
             <label className={styles.briefLabel} htmlFor="research-brief">
               Context for the lead (optional)
             </label>

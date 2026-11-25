@@ -8233,6 +8233,19 @@
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "pattern": "^[^\\x00\\r\\n]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "start_from_sources": {
             "type": "boolean",
             "title": "Start From Sources",
@@ -8387,6 +8400,19 @@
             "maxLength": 10000,
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "pattern": "^[^\\x00\\r\\n]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "start_from_sources": {
             "type": "boolean",

@@ -3365,6 +3365,8 @@ export interface components {
     ResearchSessionSetup: {
       /** Brief */
       brief: string;
+      /** Title */
+      title?: string | null;
       /**
        * Start From Sources
        * @default false
@@ -3426,6 +3428,8 @@ export interface components {
     ResearchSessionStart: {
       /** Brief */
       brief: string;
+      /** Title */
+      title?: string | null;
       /**
        * Start From Sources
        * @default false
