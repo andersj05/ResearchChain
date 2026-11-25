@@ -475,11 +475,26 @@ const oldBlank = {
   review_mode: "when_needed",
 } as const;
 
-for (const scenario of ["untouched", "in progress", "explicit defaults", "pending"] as const) {
+for (const scenario of [
+  "untouched",
+  "hydrated defaults",
+  "in progress",
+  "explicit defaults",
+  "pending",
+] as const) {
   test(`restore a pre-slider tab with ${scenario} setup`, async ({ page, ownerSession }) => {
     await connection(page);
     const draft = {
       ...oldBlank,
+      ...(scenario === "hydrated defaults"
+        ? {
+            model: "gpt-6.2-sol",
+            reasoning_effort: "high",
+            verbosity: "high",
+            lead: { model: "gpt-6.2-astra" },
+            researcher: { model: "gpt-6.2-sol" },
+          }
+        : {}),
       ...(scenario === "in progress" ? { brief: "Keep the original defaults." } : {}),
       ...(scenario === "pending"
         ? { model: "test-model", brief: "Retry the original request exactly." }
@@ -528,7 +543,7 @@ for (const scenario of ["untouched", "in progress", "explicit defaults", "pendin
     await expect(brief).toHaveValue(draft.brief);
     await brief.fill("Submit the restored research settings.");
     const setup = await submittedSetup(page);
-    if (scenario === "untouched") {
+    if (scenario === "untouched" || scenario === "hydrated defaults") {
       expect(setup).toMatchObject({
         model: "gpt-6.2-sol",
         reasoning_effort: "high",

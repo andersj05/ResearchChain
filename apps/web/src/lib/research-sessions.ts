@@ -63,6 +63,14 @@ const legacyBlankResearchBrief: ResearchBrief = {
 
 const leadModel = "gpt-6.2-astra";
 const researcherModel = "gpt-6.2-sol";
+const legacyHydratedResearchBrief: ResearchBrief = {
+  ...legacyBlankResearchBrief,
+  model: researcherModel,
+  reasoning_effort: "high",
+  verbosity: "high",
+  lead: { model: leadModel },
+  researcher: { model: researcherModel },
+};
 
 function highSettings(model: ProviderModel): Omit<ModelProfile, "model"> {
   return {
@@ -148,7 +156,7 @@ export function initializeResearchBrief(saved: SavedBrief | null, fromSession: s
     !!saved &&
     !fromSession &&
     !saved.pending &&
-    [blankResearchBrief, legacyBlankResearchBrief].some((blank) => {
+    [blankResearchBrief, legacyBlankResearchBrief, legacyHydratedResearchBrief].some((blank) => {
       const fields = Object.keys(blank) as (keyof ResearchBrief)[];
       return (
         Object.keys(saved.draft).length === fields.length &&
