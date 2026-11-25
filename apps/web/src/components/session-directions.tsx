@@ -43,6 +43,7 @@ export function SessionDirections({
   const key = ownerStoragePrefix(owner) + ".team-direction." + run.id;
   const [storedDraft, setDraft] = useState(() => loadDraft(key));
   const sending = useRef(false);
+  const textarea = useRef<HTMLTextAreaElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -52,6 +53,7 @@ export function SessionDirections({
   const feedback = confirmed ? "Saved for upcoming passes." : message;
   const open = ["queued", "running", "paused", "interrupted"].includes(run.status);
   const accepting = open && !lanes.find((lane) => lane.key === "editor")?.attempts.length;
+  const unsent = !accepting && !draft.pending && !!draft.text.trim();
   function remember(next: Draft) {
     setDraft(next);
     try {
@@ -70,8 +72,18 @@ export function SessionDirections({
       }
     }
   }, [confirmed, key]);
+  async function copyDraft() {
+    try {
+      await navigator.clipboard.writeText(draft.text);
+      setMessage("Unsent direction copied.");
+    } catch {
+      textarea.current?.focus();
+      textarea.current?.select();
+      setMessage("Text selected. Use your device’s copy action.");
+    }
+  }
   async function send() {
-    if (!active || sending.current || !draft.text.trim()) return;
+    if ((!accepting && !draft.pending) || !active || sending.current || !draft.text.trim()) return;
     const request = { id: draft.id || crypto.randomUUID(), text: draft.text.trim() };
     sending.current = true;
     setBusy(true);
@@ -93,7 +105,7 @@ export function SessionDirections({
   }
   if (
     run.research_manifest?.tool_config.owner_directions_version !== "owner-directions-1" ||
-    (!accepting && !notes.length && !draft.pending && !error)
+    (!accepting && !notes.length && !draft.pending && !unsent && !error)
   )
     return null;
   return (
@@ -149,20 +161,29 @@ export function SessionDirections({
             })}
           </ol>
         )}
-        {(accepting || draft.pending) && (
+        {(accepting || draft.pending || unsent) && (
           <form
             onSubmit={(event) => {
               event.preventDefault();
               void send();
             }}
           >
-            <label htmlFor="team-direction">Direction for upcoming passes</label>
-            <p>Researchers and the editor receive your note when preparing their next request.</p>
+            <label htmlFor="team-direction">
+              {unsent ? "Unsent direction" : "Direction for upcoming passes"}
+            </label>
+            <p id="team-direction-hint">
+              {unsent
+                ? "This study closed to new directions. You can copy this note for a revised study."
+                : "Researchers and the editor receive your note when preparing their next request."}
+            </p>
             <textarea
               id="team-direction"
+              ref={textarea}
+              aria-describedby="team-direction-hint"
               value={draft.text}
               rows={3}
               maxLength={3000}
+              readOnly={unsent}
               disabled={busy || !active || draft.pending}
               onChange={(event) => {
                 setMessage("");
@@ -170,13 +191,19 @@ export function SessionDirections({
                 remember({ id: "", text: event.target.value, pending: false });
               }}
             />
-            <button
-              type="submit"
-              className="button"
-              disabled={!active || busy || !draft.text.trim()}
-            >
-              {draft.pending && !busy ? "Retry direction" : "Send direction"}
-            </button>
+            {unsent ? (
+              <button type="button" className="button" onClick={copyDraft}>
+                Copy unsent direction
+              </button>
+            ) : (
+              <button
+                type="submit"
+                className="button"
+                disabled={!active || busy || !draft.text.trim()}
+              >
+                {draft.pending && !busy ? "Retry direction" : "Send direction"}
+              </button>
+            )}
           </form>
         )}
         {feedback && <p role="status">{feedback}</p>}

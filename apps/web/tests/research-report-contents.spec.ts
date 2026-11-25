@@ -3,6 +3,21 @@ import type { components } from "@researchchain/contracts";
 
 const sourceUrl = "https://example.test/recorded";
 
+async function wideFigure(page: Page) {
+  return Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1400;
+      canvas.height = 680;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#27625a";
+      context.fillRect(30, 30, 1300, 600);
+      return canvas.toDataURL().split(",")[1]!;
+    }),
+    "base64",
+  );
+}
+
 async function openSavedReport(
   page: Page,
   markdown: string,
@@ -158,22 +173,96 @@ test("keeps the contents list out of a short report", async ({ page }) => {
   await expect(report.getByRole("navigation", { name: "Report contents" })).toHaveCount(0);
 });
 
+for (const width of [390, 1440]) {
+  test(`keeps the selected report section in place as an earlier figure loads at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 844 });
+    const png = await wideFigure(page);
+    const figure = {
+      name: "spread.png",
+      artifact_id: crypto.randomUUID(),
+      media_type: "image/png",
+      byte_size: png.length,
+    };
+    const release = Promise.withResolvers<void>();
+    let imageReads = 0;
+    await page.route(`**/api/artifacts/${figure.artifact_id}/content*`, async (route) => {
+      imageReads += 1;
+      await release.promise;
+      await route.fulfill({ contentType: "image/png", body: png });
+    });
+
+    try {
+      const paragraph =
+        "Compare the synthetic weekly observations against the saved release. ".repeat(32);
+      const report = await openSavedReport(
+        page,
+        [
+          "# Synthetic credit report",
+          "## Overview",
+          "![Weekly credit spreads](spread.png)",
+          paragraph,
+          "## Cross-check",
+          paragraph,
+          "## Findings",
+          paragraph,
+          "## Limitations",
+          paragraph,
+        ].join("\n\n"),
+        undefined,
+        [figure],
+      );
+      const reader = report.getByRole("region", { name: "Report text" });
+      const image = reader.getByRole("img", { name: "Weekly credit spreads" });
+      await image.evaluate((node) => node.scrollIntoView({ block: "nearest" }));
+      await expect.poll(() => imageReads).toBe(1);
+      const outline = reader.getByRole("navigation", { name: "Report contents" });
+      await outline.locator("summary").press("Enter");
+      await outline.getByRole("link", { name: "Cross-check", exact: true }).press("Enter");
+      const target = reader.getByRole("heading", { name: "Cross-check", exact: true });
+      await expect(target).toBeFocused();
+      await expect(page).toHaveURL(/#study-report-section-cross-check$/);
+      const bookmark = page.url();
+      const offset = () =>
+        target.evaluate((heading) => {
+          const panel = heading.closest("#study-report-text")!;
+          return heading.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+        });
+      const scroll = () => reader.evaluate((panel) => panel.scrollTop);
+      const before = await offset();
+      const beforeScroll = await scroll();
+      expect(before).toBeLessThan(32);
+      expect(await image.evaluate((node) => (node as HTMLImageElement).naturalWidth)).toBe(0);
+
+      release.resolve();
+      await expect
+        .poll(() => image.evaluate((node) => (node as HTMLImageElement).naturalWidth))
+        .toBe(1400);
+      await expect.poll(scroll).toBeGreaterThan(beforeScroll + 100);
+      expect(Math.abs((await offset()) - before)).toBeLessThanOrEqual(2);
+      await expect(target).toBeFocused();
+
+      const focus = report.getByRole("button", { name: "Focus reading", exact: true });
+      await focus.click();
+      await expect(report.getByRole("button", { name: "Exit reading", exact: true })).toBeVisible();
+      expect(Math.abs((await offset()) - before)).toBeLessThan(20);
+      await target.press("Escape");
+      await expect(focus).toBeFocused();
+      expect(Math.abs((await offset()) - before)).toBeLessThanOrEqual(2);
+      await expect(page).toHaveURL(bookmark);
+      expect(imageReads).toBe(1);
+    } finally {
+      release.resolve();
+    }
+  });
+}
+
 test("inspects exact saved figures on a phone and returns to the same figure in Focus reading", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 });
-  const png = Buffer.from(
-    await page.evaluate(() => {
-      const canvas = document.createElement("canvas");
-      canvas.width = 1400;
-      canvas.height = 680;
-      const context = canvas.getContext("2d")!;
-      context.fillStyle = "#27625a";
-      context.fillRect(30, 30, 1300, 600);
-      return canvas.toDataURL().split(",")[1]!;
-    }),
-    "base64",
-  );
+  const png = await wideFigure(page);
   const figures = ["spread.png", "rates.png", "unused.png", "vector.svg"].map((name, index) => ({
     name,
     artifact_id: `sha256:${(index + 1).toString().repeat(64)}`,

@@ -19,17 +19,26 @@ import {
   type EvidenceKind,
   type EvidenceRecord,
 } from "@/lib/evidence";
-import { CollectionLayout } from "@/components/collection-layout";
+import { CollectionLayout, useCompactCollectionLayout } from "@/components/collection-layout";
 import { EvidenceForm } from "@/components/evidence-form";
 import { EvidenceDetail } from "@/components/evidence-detail";
 import { ClaimForm } from "@/components/claim-form";
 
 export function EvidenceDesk() {
   const desk = useRef<HTMLElement>(null);
+  const sourceList = useRef<HTMLElement>(null);
   const searchInput = useRef<HTMLInputElement>(null);
+  const inspection = useRef<HTMLDivElement>(null);
+  const inspectionTitle = useRef<HTMLHeadingElement>(null);
+  const revealInspection = useRef(false);
+  const compact = useCompactCollectionLayout();
   const [sources, setSources] = useState<EvidenceRecord[]>([]);
   const [claims, setClaims] = useState<ClaimRecord[]>([]);
-  const [selected, setSelected] = useState<EvidenceRecord | null>(null);
+  const [selection, setSelection] = useState<{
+    record: EvidenceRecord;
+    fromResults: boolean;
+  } | null>(null);
+  const selected = selection?.record ?? null;
   const [nextSource, setNextSource] = useState<number | null>(null);
   const [nextClaim, setNextClaim] = useState<number | null>(null);
   const [total, setTotal] = useState(0);
@@ -67,7 +76,7 @@ export function EvidenceDesk() {
             : page.items,
         );
         setClaims(claimPage.items);
-        setSelected(initial ?? null);
+        setSelection(initial ? { record: initial, fromResults: false } : null);
         setTotal(page.total);
         setNextSource(page.next_offset ?? null);
         setNextClaim(claimPage.next_offset ?? null);
@@ -85,16 +94,33 @@ export function EvidenceDesk() {
     };
   }, [loadEpoch]);
   useEffect(() => {
+    const reveal = revealInspection.current;
+    revealInspection.current = false;
+    if (reveal && !form) {
+      inspectionTitle.current?.focus({ preventScroll: true });
+      inspection.current?.scrollIntoView({ block: "start" });
+      return;
+    }
     desk.current?.parentElement?.scrollTo({ top: 0 });
-  }, [form, selected]);
+  }, [form, selection]);
 
-  function select(record: EvidenceRecord) {
-    setSelected(record);
+  function select(record: EvidenceRecord, fromList = false) {
+    const fromResults = fromList && compact;
+    revealInspection.current = fromResults;
+    setSelection({ record, fromResults });
     setForm(null);
     setMessage("");
     const url = new URL(window.location.href);
     url.searchParams.set("evidence", record.id);
     window.history.replaceState(null, "", url);
+  }
+  function returnToSourceResults(id: string) {
+    const row = sourceList.current?.querySelector<HTMLButtonElement>(
+      `[data-source-id="${CSS.escape(id)}"]`,
+    );
+    const target = row ?? searchInput.current;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: "nearest" });
   }
   function clearFilters() {
     setSearch("");
@@ -199,7 +225,7 @@ export function EvidenceDesk() {
         <CollectionLayout
           id="sources"
           list={
-            <aside className="source-list" aria-label="Sources">
+            <aside className="source-list" ref={sourceList} aria-label="Sources">
               <label htmlFor="source-search">Find a source</label>
               <input
                 id="source-search"
@@ -278,9 +304,10 @@ export function EvidenceDesk() {
                 {visible.map((source) => (
                   <button
                     key={source.id}
+                    data-source-id={source.id}
                     className={`source-list-item ${selected?.id === source.id && !form ? "selected" : ""}`}
                     aria-pressed={selected?.id === source.id && !form}
-                    onClick={() => select(source)}
+                    onClick={() => select(source, true)}
                   >
                     <strong>{source.title}</strong>
                     <span>{source.publisher || source.author || "Publisher not recorded"}</span>
@@ -319,7 +346,7 @@ export function EvidenceDesk() {
             </aside>
           }
           detail={
-            <div className="evidence-main">
+            <div className="evidence-main" ref={inspection}>
               {form === "source" ? (
                 <EvidenceForm
                   key={correcting?.id ?? "new"}
@@ -348,6 +375,12 @@ export function EvidenceDesk() {
               ) : selected ? (
                 <EvidenceDetail
                   record={selected}
+                  titleRef={inspectionTitle}
+                  onBackToResults={
+                    compact && selection?.fromResults
+                      ? () => returnToSourceResults(selected.id)
+                      : undefined
+                  }
                   onCorrect={() => {
                     setCorrecting(selected);
                     setForm("source");

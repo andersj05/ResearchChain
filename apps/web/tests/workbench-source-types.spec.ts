@@ -184,3 +184,126 @@ for (const width of [320, 390, 1440]) {
     }
   });
 }
+
+for (const { width, height } of [
+  { width: 320, height: 568 },
+  { width: 390, height: 640 },
+  { width: 1440, height: 960 },
+]) {
+  test(`inspect a source and keep its filtered result at ${width}px`, async ({ page }) => {
+    const charts = Array.from({ length: 64 }, (_, index) =>
+      source(`Weekly synthetic rates figure ${index + 1}`, "image"),
+    );
+    const entries = [
+      source("Weekly rate transcript", "text"),
+      source("Monthly rate chart", "image"),
+      source("Weekly linked image", "image", "reference_only"),
+      ...charts,
+    ];
+    const visitedOffsets: number[] = [];
+    await page.route("**/api/evidence?*", (route) => {
+      const params = new URL(route.request().url()).searchParams;
+      const offset = Number(params.get("offset") ?? 0);
+      const limit = Number(params.get("limit") ?? 50);
+      const items = entries.filter(
+        (record) =>
+          (!params.has("kind") || record.kind === params.get("kind")) &&
+          (!params.has("availability") || record.availability === params.get("availability")) &&
+          record.title.toLowerCase().includes(params.get("search") ?? ""),
+      );
+      visitedOffsets.push(offset);
+      return route.fulfill({
+        json: {
+          items: items.slice(offset, offset + limit),
+          total: items.length,
+          next_offset: offset + limit < items.length ? offset + limit : null,
+        },
+      });
+    });
+    await page.route("**/api/evidence/*", (route) => {
+      const id = new URL(route.request().url()).pathname.split("/").at(-1);
+      const record = entries.find((item) => item.id === id);
+      return record ? route.fulfill({ json: record }) : route.fulfill({ status: 404 });
+    });
+
+    await page.setViewportSize({ width, height });
+    await page.goto("/?view=evidence");
+    const list = page.getByRole("complementary", { name: "Sources", exact: true });
+    const detail = page.getByRole("article", { name: "Source inspection", exact: true });
+    const search = list.getByRole("searchbox", { name: "Find a source" });
+    const availability = list.getByRole("combobox", { name: "Availability" });
+    const type = list.getByRole("combobox", { name: "Source type" });
+    const back = detail.getByRole("button", { name: "Back to source results", exact: true });
+    await search.fill("weekly");
+    await availability.selectOption("available");
+    await type.selectOption("image");
+    await expect(list.getByText("50 of 64 matches loaded")).toBeVisible();
+    await list.getByRole("button", { name: "Load more sources", exact: true }).click();
+    await expect(list.getByText("64 of 64 matches loaded")).toBeVisible();
+    expect(visitedOffsets.at(-1)).toBe(50);
+    const requestsBeforeOpen = visitedOffsets.length;
+
+    const sourceToInspect = charts[54]!;
+    const row = list.getByRole("button", { name: new RegExp(`^${sourceToInspect.title}`) });
+    const heading = detail.getByRole("heading", { name: sourceToInspect.title, exact: true });
+    await row.evaluate((element) => {
+      const scroller = element.closest(".source-list")!;
+      scroller.scrollTop +=
+        element.getBoundingClientRect().top - scroller.getBoundingClientRect().top;
+    });
+    await page.evaluate(() => {
+      window.scrollTo(0, 0);
+      document.querySelector(".evidence-view")?.scrollTo(0, 0);
+    });
+    await expect(row).toBeInViewport({ ratio: 1 });
+    const listPosition = await list.evaluate((element) => element.scrollTop);
+    expect(listPosition).toBeGreaterThan(1000);
+    await row.click();
+    const selectedUrl = `/?view=evidence&evidence=${sourceToInspect.id}`;
+    await expect(page).toHaveURL(selectedUrl);
+    await expect(heading).toBeInViewport({ ratio: 1 });
+    await expect(row).toHaveAttribute("aria-pressed", "true");
+
+    if (width < 850) {
+      await expect(heading).toBeFocused();
+      await expect(back).toBeInViewport();
+      await back.click();
+      await expect(row).toBeFocused();
+      await expect(row).toBeInViewport();
+      expect(await list.evaluate((element) => element.scrollTop)).toBe(listPosition);
+      await expect(search).toHaveValue("weekly");
+      await expect(availability).toHaveValue("available");
+      await expect(type).toHaveValue("image");
+      await expect(list.getByText("64 of 64 matches loaded")).toBeVisible();
+      await page.keyboard.press("Enter");
+      await expect(heading).toBeFocused();
+      await expect(heading).toBeInViewport();
+      await expect(back).toBeInViewport();
+    } else {
+      await expect(row).toBeFocused();
+      await expect(back).toHaveCount(0);
+      const listBounds = await list.boundingBox();
+      const detailBounds = await detail.boundingBox();
+      expect(detailBounds!.x).toBeGreaterThanOrEqual(listBounds!.x + listBounds!.width);
+    }
+    expect(visitedOffsets).toHaveLength(requestsBeforeOpen);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+
+    if (width === 390) {
+      await search.fill("monthly");
+      await expect(list.getByText("1 of 1 matches loaded")).toBeVisible();
+      await expect(row).toHaveCount(0);
+      await back.click();
+      await expect(search).toBeFocused();
+      await expect(search).toHaveValue("monthly");
+      await expect(page).toHaveURL(selectedUrl);
+    }
+
+    await page.reload();
+    await expect(page).toHaveURL(selectedUrl);
+    await expect(heading).toBeVisible();
+    await expect(back).toHaveCount(0);
+  });
+}

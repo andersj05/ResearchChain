@@ -2,6 +2,14 @@
 
 Updated 2026-11-25.
 
+## Returning to sources, outputs, and reports
+
+Compact Workbench Sources brings an explicitly opened source into view and can
+return to its exact result. In Runs, **Back to outputs** restores the originating
+comparison row. An earlier chart loading in a study report keeps the selected
+heading anchored. When the editor starts, **Team directions** keeps an unsent
+note available to copy for a later study.
+
 ## Current workspace and validation
 
 On a phone, **Current workspace** jumps to the selected work in a live study.
@@ -37,6 +45,9 @@ In a paired Node benchmark of 489 synthetic receipts, the median grouping step
 went from 12.9 to 0.13 ms. With 975 receipts it went from 27.6 to 0.25 ms.
 Production Chromium exercises the same grouping with 480 passes and a new
 result arriving during inspection.
+The `f40873f` continuity merge was verified on Desktop with HTTP 200 for Studies
+and Reports and two connected workers. CI passed 654 API tests with three skips
+and 291 browser tests. [Continuity PR](https://github.com/andersj05/ResearchChain/pull/161).
 
 ## Baseline reports and section search
 
@@ -47,6 +58,8 @@ The current report keeps its reading position and section link.
 **Find a section** searches longer report drafts by heading or body, with the
 original section order and unsaved edits available. **Sources** in Workbench
 combines type, availability and text search alongside exact source links.
+The `1f4c07c` baseline merge was verified on Desktop with 285 browser tests
+passing in CI. [Baseline report and navigation PR](https://github.com/andersj05/ResearchChain/pull/160).
 
 ## Reading saved editor results
 
