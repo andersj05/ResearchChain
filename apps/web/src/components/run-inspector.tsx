@@ -17,6 +17,7 @@ import { RunOutputs, type OutputFilter } from "./run-outputs";
 import { RunIterationComparison } from "./run-iteration-comparison";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
+import type { ReviewInboxOrigin } from "./review-inbox";
 import {
   attemptPath,
   bookmarkedReview,
@@ -39,7 +40,7 @@ import { Button } from "@ui-sdk/react/button";
 import type { RecentRunSummary, RunSnapshot } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
-export type ReviewFocus = { runId: string; path: string };
+export type ReviewFocus = { runId: string; path: string; inboxOrigin: ReviewInboxOrigin };
 type RunView = "step" | "outputs" | "activity" | "decisions" | "files" | "context" | "comparison";
 type ModelActivityOrigin = {
   attemptId: string;
@@ -78,6 +79,7 @@ type Actions = {
   busy: boolean;
   recentRuns: RecentRunSummary[];
   reviewFocus?: ReviewFocus;
+  onBackToInbox: (origin: ReviewInboxOrigin) => void;
   onResume: ResumeReview;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -109,6 +111,7 @@ export function RunInspector({
 function RunWorkspace({
   run,
   reviewFocus,
+  onBackToInbox,
   recentRuns,
   busy,
   onResume,
@@ -549,6 +552,18 @@ function RunWorkspace({
         </button>
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
+        {reviewFocus && (
+          <div className="actions">
+            <button
+              type="button"
+              className="button small"
+              disabled={busy}
+              onClick={() => onBackToInbox(reviewFocus.inboxOrigin)}
+            >
+              Back to review inbox
+            </button>
+          </div>
+        )}
         {staleReviewLink && <p role="status">This review link is out of date.</p>}
         {view === "outputs" &&
           (iterationComparison ? (
