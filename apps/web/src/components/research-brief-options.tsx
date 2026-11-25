@@ -152,10 +152,13 @@ export function ResearchBriefOptions({
   reuseSettings?: ReactNode;
 }) {
   const modelsDisabled = disabled || awaitingModelCatalog;
+  const activeSeconds = draft.max_active_seconds;
+  const minutes = Math.floor(activeSeconds / 60);
+  const seconds = activeSeconds % 60;
   const time =
-    draft.max_active_seconds % 60 === 0
-      ? `${draft.max_active_seconds / 60} min`
-      : `${draft.max_active_seconds} s`;
+    Number.isInteger(activeSeconds) && activeSeconds >= 60 && activeSeconds <= 3600
+      ? `${minutes} min${seconds ? ` ${seconds} sec` : ""}`
+      : "1 to 60 min";
   return (
     <div className={styles.options}>
       <details
@@ -211,14 +214,19 @@ export function ResearchBriefOptions({
             />
           </label>
           <label>
-            Active time limit (seconds)
+            <span className={styles.timeLimitLabel}>
+              <span id="study-active-limit-label">Active time limit (seconds)</span>
+              <span id="study-active-limit-duration">{time}</span>
+            </span>
             <input
               type="number"
+              aria-labelledby="study-active-limit-label"
+              aria-describedby="study-active-limit-duration"
               required
               min={60}
               max={3600}
               step={1}
-              value={draft.max_active_seconds || ""}
+              value={activeSeconds || ""}
               onChange={(event) => update({ max_active_seconds: event.target.valueAsNumber || 0 })}
             />
           </label>

@@ -245,6 +245,17 @@
   font-weight: 500;
   margin: 0;
 }
+.timeLimitLabel {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  column-gap: 8px;
+}
+.timeLimitLabel > :last-child {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
 .optionBody > textarea,
 .optionBody input[type="search"],
 .settingGrid input:not([type="range"], [type="checkbox"]),
