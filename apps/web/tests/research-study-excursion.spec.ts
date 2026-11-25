@@ -1,5 +1,6 @@
 import { pinDeskNote } from "./desk-material";
 import { expect, test } from "./fixtures";
+import { styleBody } from "./report-fixture";
 
 function savedStudy(title = "Archived credit comparison") {
   const createdAt = "2026-11-24T13:04:00Z";
@@ -67,6 +68,90 @@ function savedStudy(title = "Archived credit comparison") {
   };
 }
 
+test("hand off an archived report without replacing the staged setup", async ({
+  page,
+  context,
+}) => {
+  const study = savedStudy("Synthetic report handoff archive");
+  const artifactId = crypto.randomUUID();
+  const markdown = "# Synthetic editorial report\n\nCompare the release dates.";
+  const editor = {
+    ...study.attempts[0]!,
+    id: crypto.randomUUID(),
+    path: "root/report",
+    result: {
+      ...study.attempts[0]!.result,
+      workspace_files: [
+        {
+          name: "report.md",
+          artifact_id: artifactId,
+          media_type: "text/markdown",
+          byte_size: Buffer.byteLength(markdown),
+        },
+      ],
+    },
+  };
+  await page.route("**/api/runs/search?*", (route) => route.fulfill({ json: study.archive }));
+  await context.route(`**/api/runs/${study.run.id}`, (route) =>
+    route.fulfill({ json: { ...study.snapshot, model_attempts: [...study.attempts, editor] } }),
+  );
+  await context.route(`**/api/artifacts/${artifactId}/content`, (route) =>
+    route.fulfill({ body: markdown, contentType: "text/markdown" }),
+  );
+  await context.route("**/api/style-guides", (route) =>
+    route.fulfill({
+      json: [{ ...styleBody("archived-handoff"), version: 1, created_at: study.run.created_at }],
+    }),
+  );
+  const lookups: string[] = [];
+  await context.route("**/api/reports?*", (route) => {
+    lookups.push(route.request().url());
+    return route.fulfill({ json: [] });
+  });
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const token = crypto.randomUUID();
+  await page.evaluate((value) => Reflect.set(window, "reportHandoffVisit", value), token);
+  await page.getByLabel("Usage rights").selectOption("owned");
+  await page.getByLabel("Source files").setInputFiles({
+    name: "working-release-note.txt",
+    mimeType: "text/plain",
+    buffer: Buffer.from("Synthetic material for a separate study."),
+  });
+  const stagedTitle = page.getByLabel("Packet title for working-release-note.txt");
+  await stagedTitle.fill("Next release notes");
+  const studies = page.getByRole("link", { name: "Studies", exact: true });
+  await studies.press("Enter");
+  const row = page.getByRole("link", { name: /Synthetic report handoff archive/ });
+  await row.press("Enter");
+  await page.getByRole("link", { name: "Read report", exact: true }).press("Enter");
+
+  const href = `/?view=reports&fromStudy=${study.run.id}&reportAttempt=${editor.id}`;
+  const edit = page.getByRole("link", { name: /^Edit in Reports/ });
+  await expect(edit).toHaveAttribute("href", href);
+  await expect(edit).toHaveAttribute("target", "_blank");
+  await expect(edit).toHaveText("Edit in Reports (new tab)");
+  const opened = context.waitForEvent("page");
+  await edit.press("Enter");
+  const reports = await opened;
+  try {
+    await expect(reports).toHaveURL(href);
+    await expect(reports.getByRole("button", { name: "Create report draft" })).toBeEnabled();
+    await expect.poll(() => lookups.length).toBe(1);
+    const query = new URL(lookups[0]!).searchParams;
+    expect(query.get("study_run_id")).toBe(study.run.id);
+    expect(query.get("study_attempt_id")).toBe(editor.id);
+  } finally {
+    await reports.close();
+  }
+  await studies.press("Enter");
+  await expect(row).toBeFocused();
+  await page.getByRole("link", { name: "Return to study setup" }).press("Enter");
+  await expect(stagedTitle).toHaveValue("Next release notes");
+  expect(await page.evaluate(() => Reflect.get(window, "reportHandoffVisit"))).toBe(token);
+});
+
 for (const width of [390, 1440]) {
   test(`keeps the staged setup when comparing a saved revision at ${width}px`, async ({
     page,
@@ -132,6 +217,15 @@ for (const width of [390, 1440]) {
       await comparisonPage.close();
     }
     await page.bringToFront();
+    await expect(page).toHaveURL(studyUrl);
+    await expect(revisedHeading).toBeVisible();
+    await page.getByText("Brief and settings", { exact: true }).click();
+    await page.getByRole("link", { name: "Open baseline session", exact: true }).press("Enter");
+    const baselineHeading = page.getByRole("heading", { name: "Original credit study" });
+    await expect(baselineHeading).toBeVisible();
+    expect(await page.evaluate(() => Reflect.get(window, "comparisonVisitToken"))).toBe(token);
+    await expect(baselineHeading).toBeFocused();
+    await page.goBack();
     await expect(page).toHaveURL(studyUrl);
     await expect(revisedHeading).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -201,6 +295,16 @@ test("inspect an archived study and its exact pass without losing the staged set
     await activity.getByRole("button", { name: /Research lead.*Pass 1/ }).click();
     const pass = page.getByRole("region", { name: "Pass 1", exact: true });
     await expect(pass).toContainText("Earlier archive observation.");
+    const inspect = pass.getByRole("link", { name: "Inspect pass in Runs (new tab)" });
+    await expect(inspect).toHaveAttribute(
+      "href",
+      `/?view=runs&run=${study.run.id}&attempt=${study.attempts[0]!.id}`,
+    );
+    await expect(inspect).toHaveAttribute("target", "_blank");
+    await expect(page.getByRole("link", { name: "Open run inspector (new tab)" })).toHaveAttribute(
+      "href",
+      `/?view=runs&run=${study.run.id}`,
+    );
     const bookmark = page.url();
     expect(new URL(bookmark).searchParams.get("pass")).toBe(study.attempts[0]!.id);
     expect(new URL(bookmark).hash).toBe("#current-research-workspace");
@@ -233,6 +337,9 @@ test("inspect an archived study and its exact pass without losing the staged set
       await expect(separate.getByRole("region", { name: "Pass 1", exact: true })).toContainText(
         "Earlier archive observation.",
       );
+      await expect(
+        separate.getByRole("link", { name: "Inspect pass in Runs", exact: true }),
+      ).not.toHaveAttribute("target", "_blank");
       await expect(separate.getByRole("list", { name: "Files to pin" })).toHaveCount(0);
     } finally {
       await separate.close();

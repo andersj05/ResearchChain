@@ -17,6 +17,7 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [limit, setLimit] = useState(matchPageSize);
+  const [expandedLeads, setExpandedLeads] = useState(() => new Set<string>());
   const byKey = new Map(lanes.map((lane) => [lane.key, lane]));
   const current = byKey.get(selected);
   const currentParent = current?.parentKey;
@@ -173,13 +174,27 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
               >
                 {workspace(lane)}
                 {!!children.length && (
-                  <details ref={lane.key === currentParent ? selectedGroup : undefined}>
+                  <details
+                    ref={lane.key === currentParent ? selectedGroup : undefined}
+                    onToggle={(event) => {
+                      const open = event.currentTarget.open;
+                      setExpandedLeads((previous) => {
+                        if (previous.has(lane.key) === open) return previous;
+                        const next = new Set(previous);
+                        if (open) next.add(lane.key);
+                        else next.delete(lane.key);
+                        return next;
+                      });
+                    }}
+                  >
                     <summary>
                       Researchers ({children.length}) ·{" "}
                       {children.filter((child) => child.state === "Active").length} active ·{" "}
                       {children.filter((child) => child.state === "Queued").length} queued
                     </summary>
-                    {children.map((child) => workspace(child))}
+                    {!filtering &&
+                      expandedLeads.has(lane.key) &&
+                      children.map((child) => workspace(child))}
                   </details>
                 )}
               </section>

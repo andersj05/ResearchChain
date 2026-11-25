@@ -108,12 +108,16 @@ test("finds assignments among 80 researchers by text and live status on a phone"
   const search = roster.getByRole("searchbox", { name: "Find a workspace" });
   const workspace = page.locator("#current-research-workspace");
   const matches = roster.getByRole("list", { name: "Matching workspaces" });
+  await expect(roster.locator("details button")).toHaveCount(20);
+  await expect(leadTwo.locator("details button")).toHaveCount(0);
   await leadTwo.locator("summary").click();
+  await expect(leadTwo.locator("details button")).toHaveCount(20);
   await expect(workspace).toContainText(firstReceipt.result!.conclusion);
 
   await search.fill("weekly release");
   await expect(roster.getByRole("status")).toHaveText("Showing 12 of 80 matching workspaces");
   await expect(matches.getByRole("button")).toHaveCount(12);
+  await expect(roster.locator("details button")).toHaveCount(0);
   await roster.getByRole("button", { name: "Show 12 more workspaces" }).click();
   await expect(matches.getByRole("button")).toHaveCount(24);
   await expect(matches.getByRole("button").nth(12)).toBeFocused();
@@ -150,6 +154,7 @@ test("finds assignments among 80 researchers by text and live status on a phone"
   await search.press("Escape");
   await expect(search).toBeEmpty();
   await expect(leadTwo.locator("details")).toHaveJSProperty("open", true);
+  await expect(leadTwo.locator("details button")).toHaveCount(20);
 
   const status = roster.getByRole("combobox", { name: "Workspace status" });
   await status.selectOption("Active");

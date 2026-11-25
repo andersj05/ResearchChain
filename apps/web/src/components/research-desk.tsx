@@ -402,7 +402,10 @@ export function ResearchDesk({
           <ResearchSession
             runId={session}
             titleRef={focusReaderTitle}
-            openComparisonInNewTab={readingWithDraft}
+            openWorkbenchInNewTab={readingWithDraft}
+            onOpenBaseline={
+              readingWithDraft ? (event) => navigateWithinDesk(event, readerTitle) : undefined
+            }
             onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
             openRevisitInNewTab={readingWithDraft && !revisitMatchesDraft}
             revisitSetup={

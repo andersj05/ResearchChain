@@ -71,7 +71,7 @@ function StudyReportMatches({ runId, attemptId }: { runId: string; attemptId: st
   );
 }
 
-export function ReportDesk() {
+export function ReportDesk({ visit }: { visit: number }) {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
   const [reports, setReports] = useState<ReportSummary[]>([]);
@@ -90,6 +90,7 @@ export function ReportDesk() {
   const [creating, setCreating] = useState(!!study);
   const [styleEdit, setStyleEdit] = useState<StyleGuide | null | undefined>(undefined);
   const [loading, setLoading] = useState(true);
+  const [checkedVisit, setCheckedVisit] = useState(0);
   const [error, setError] = useState("");
   const [epoch, setEpoch] = useState(0);
   const styleWrites = useRef(0);
@@ -111,7 +112,9 @@ export function ReportDesk() {
           setReports(items);
           // A list read started before a save must not remove the saved guide.
           if (styleVersion === styleWrites.current) setStyles(guides);
-          if (saved) setView(saved);
+          if (saved && id === new URLSearchParams(window.location.search).get("report"))
+            setView(saved);
+          setCheckedVisit(visit);
           setError("");
         }
       } catch (cause) {
@@ -124,14 +127,14 @@ export function ReportDesk() {
     return () => {
       active = false;
     };
-  }, [epoch]);
+  }, [epoch, visit]);
   function remember(id: string | null) {
+    // Workbench owns the active tab, which may change before a report request finishes.
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("report", id);
     else url.searchParams.delete("report");
     url.searchParams.delete("fromStudy");
     url.searchParams.delete("reportAttempt");
-    url.searchParams.set("view", "reports");
     setStudy(null);
     window.history.replaceState(null, "", url);
   }
@@ -231,6 +234,7 @@ export function ReportDesk() {
           key={view.revision.id}
           view={view}
           styles={styles}
+          checkingRevision={checkedVisit !== visit}
           initialSectionId={
             savedSection?.revisionId === view.revision.id ? savedSection.sectionId : undefined
           }

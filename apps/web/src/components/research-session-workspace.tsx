@@ -22,6 +22,7 @@ import {
 import { formatTime } from "./run-status";
 import { StudyBaselineReport } from "./study-baseline-report";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
+import { StudyWorkbenchLink } from "./study-workbench-link";
 import styles from "./research-session.module.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
@@ -306,11 +307,13 @@ function PassReceipt({
   selected,
   runId,
   onPass,
+  openWorkbenchInNewTab,
 }: {
   lane: SessionWorkspace;
   selected: Attempt;
   runId: string;
   onPass: PassSelection["onPass"];
+  openWorkbenchInNewTab?: boolean;
 }) {
   const result = selected.result;
   const activity = result?.workspace_activity;
@@ -365,7 +368,9 @@ function PassReceipt({
             Saved response
           </a>
         )}
-        <a href={inspectorHref}>Inspect pass in Runs</a>
+        <StudyWorkbenchLink href={inspectorHref} newTab={openWorkbenchInNewTab}>
+          Inspect pass in Runs
+        </StudyWorkbenchLink>
         <CopyLinkButton
           key={selected.id}
           getUrl={() => new URL(inspectorHref, window.location.origin)}
@@ -413,6 +418,7 @@ function PassReceipt({
 export function SessionWorkspaceDetail({
   lane,
   run,
+  openWorkbenchInNewTab,
   showStudySections,
   passId,
   onPass,
@@ -423,6 +429,7 @@ export function SessionWorkspaceDetail({
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
+  openWorkbenchInNewTab?: boolean;
   showStudySections?: boolean;
   returnToReview?: { id: string; title: string };
   returnToJudgment?: boolean;
@@ -497,7 +504,13 @@ export function SessionWorkspaceDetail({
               Back to latest workspace
             </button>
           </div>
-          <PassReceipt lane={lane} selected={selected} runId={run.id} onPass={onPass} />
+          <PassReceipt
+            lane={lane}
+            selected={selected}
+            runId={run.id}
+            onPass={onPass}
+            openWorkbenchInNewTab={openWorkbenchInNewTab}
+          />
         </>
       ) : (
         <>
@@ -506,7 +519,12 @@ export function SessionWorkspaceDetail({
               This saved pass is unavailable.
             </p>
           )}
-          <WorkspaceOverview lane={lane} run={run} onPass={onPass} />
+          <WorkspaceOverview
+            lane={lane}
+            run={run}
+            onPass={onPass}
+            openWorkbenchInNewTab={openWorkbenchInNewTab}
+          />
         </>
       )}
     </section>
@@ -596,10 +614,12 @@ function WorkspaceOverview({
   lane,
   run,
   onPass,
+  openWorkbenchInNewTab,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
   onPass: PassSelection["onPass"];
+  openWorkbenchInNewTab?: boolean;
 }) {
   const latest = lane.attempts.at(-1);
   const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
@@ -655,12 +675,13 @@ function WorkspaceOverview({
                 )}
               </button>
             )}
-            <a
+            <StudyWorkbenchLink
               className="button small primary"
               href={`/?${new URLSearchParams({ view: "reports", fromStudy: run.id, reportAttempt: latest.id })}`}
+              newTab={openWorkbenchInNewTab}
             >
               Edit in Reports
-            </a>
+            </StudyWorkbenchLink>
             <a
               className="button small"
               href={`/api/research-sessions/${run.id}/report.zip`}

@@ -7,6 +7,7 @@ import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import type { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
 import { SessionWorkspaceLink, rememberAnswer } from "./session-consultations";
+import { DraftReplacement, useDraftSuggestion } from "./session-draft-replacement";
 import styles from "./session-discovery.module.css";
 
 type Reading = components["schemas"]["DiscoveryReading"];
@@ -209,10 +210,15 @@ function ChooseSentence({
     () => readReviewDrafts(draftKey)[review.interrupt_id] ?? "",
   );
   const input = useRef<HTMLTextAreaElement>(null);
-  function edit(value: string) {
-    setSentence(value);
-    rememberAnswer(draftKey, review.interrupt_id, value);
-  }
+  const suggestion = useDraftSuggestion(
+    sentence,
+    reading.proposals.map((proposal) => proposal.sentence),
+    (value) => {
+      setSentence(value);
+      rememberAnswer(draftKey, review.interrupt_id, value);
+    },
+    () => input.current?.focus(),
+  );
   return (
     <>
       <h2>The lead’s first reading</h2>
@@ -220,14 +226,7 @@ function ChooseSentence({
         run={run}
         reading={reading}
         sources={sources}
-        choose={
-          disabled
-            ? undefined
-            : (value) => {
-                edit(value);
-                input.current?.focus();
-              }
-        }
+        choose={disabled ? undefined : suggestion.choose}
       >
         <form
           className={styles.decision}
@@ -246,8 +245,16 @@ function ChooseSentence({
             value={sentence}
             disabled={disabled}
             placeholder="What should the researchers try to establish?"
-            onChange={(e) => edit(e.target.value)}
+            onChange={(e) => suggestion.edit(e.target.value)}
           />
+          {suggestion.pending !== undefined && (
+            <DraftReplacement
+              suggestion={suggestion.pending}
+              disabled={disabled}
+              onKeep={suggestion.keep}
+              onReplace={suggestion.replace}
+            />
+          )}
           <div className={styles.actions}>
             <button
               className="button primary"

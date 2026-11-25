@@ -2,12 +2,28 @@
 
 Updated 2026-11-25.
 
+## Preserving research and report drafts
+
+Reports keeps the section, filter, selection, and text scroll when you visit
+another Workbench tab. It checks the saved revision before enabling Save again.
+**Move to position** reorders a section in a longer draft. A conflicting lead
+suggestion offers **Keep draft** and **Replace draft** before editing the owner's
+working sentence or perspective.
+
+Opening an archived study's baseline, saved pass, or editor report keeps the
+staged setup available. The swarm roster renders worker rows only for expanded
+teams. In an 80-assignment Chromium case, opening one team showed 20 worker rows
+in the DOM. The search still found all 80 assignments.
+Thirty-seven focused production Chromium cases passed.
+
 ## Finding a workspace and revisiting material
 
 All seven Workbench destinations fit in one row at 320 and 390 px. **Revisit
 material** returns to the already open setup from the same baseline. When a
 different setup is open, the clearly labeled new-tab action keeps its staged
 files available in the original tab. Twenty-two focused browser cases passed.
+The `a909676` merge was verified on Desktop with 313 browser tests passing in CI.
+[Phone navigation and staged drafts PR](https://github.com/andersj05/ResearchChain/pull/165).
 
 ## Returning to sources, outputs, and reports
 
@@ -16,6 +32,8 @@ return to its exact result. In Runs, **Back to outputs** restores the originatin
 comparison row. An earlier chart loading in a study report keeps the selected
 heading anchored. When the editor starts, **Team directions** keeps an unsent
 note available to copy for a later study.
+The `ab18232` merge was verified on Desktop with 308 browser tests passing in CI.
+[Source and report reading PR](https://github.com/andersj05/ResearchChain/pull/164).
 
 ## Current workspace and validation
 

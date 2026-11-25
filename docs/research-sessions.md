@@ -227,6 +227,8 @@ Choose **Edit in Reports** to create an editable report from the saved Markdown
 with the figures, the original study and its recorded sources attached. Confirm
 the title and a style guide before creating the draft. Further edits and editorial
 feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
+When a study setup is open behind the reader, links to Reports and Runs open in
+a labeled new tab. The original tab keeps the staged files and reader position.
 
 Choose **Revisit material** beside the study title to start another experiment
 with the previous context, sample, sources and settings. If that study's setup is
@@ -239,4 +241,5 @@ In the revised study, **Compare with baseline** opens the original alongside the
 revision in the run inspector. When a study setup is open, the comparison opens
 in a new tab and the setup keeps its staged files. Use **Open research session**
 in the inspector to open the revision. To read the original by itself, choose
-**Open baseline session** under **Sources and settings**.
+**Open baseline session** under **Sources and settings**. You can read it in the
+same tab while the open setup stays available.
