@@ -2,6 +2,15 @@
 
 Updated 2026-11-25.
 
+## Keeping context while iterating
+
+The first-reading bar links to the queued files or pasted source that must be
+finished before starting. Swarm workspaces can filter by current status alongside
+the assignment search. **Back to saved files** restores the producing file after
+the list was closed. Saving a report revision keeps its active section selected.
+Build search stays in the current caller when opening a step in the same pinned
+definition version. Thirty focused production browser cases passed.
+
 ## Run setup and review continuity
 
 Workbench shows the exact loaded agent version in Build and Run setup. A revision
