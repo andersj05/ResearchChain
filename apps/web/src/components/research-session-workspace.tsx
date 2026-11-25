@@ -4,6 +4,7 @@ import { modelSettingLabel, resolveModelProfile } from "@/lib/model-settings";
 import { modelAttemptStatus } from "@/lib/run-inspection";
 import { sessionSwarm, swarmWorkspaces, type SessionWorkspace } from "@/lib/swarm-workspaces";
 import type { RunSnapshot } from "@/lib/workflow";
+import { CopyLinkButton } from "./copy-link-button";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts, researchToolUrls } from "./research-tool-receipts";
 import { ResearchWorkspace, WorkspaceFilePreview, WorkspaceFiles } from "./research-workspace";
@@ -277,6 +278,7 @@ function PassReceipt({
   const result = selected.result;
   const activity = result?.workspace_activity;
   const assignments = result?.swarm_plan?.leads ?? result?.team_plan?.assignments;
+  const inspectorHref = `/?${new URLSearchParams({ view: "runs", run: runId, attempt: selected.id })}`;
   const urls = sourceUrls([selected]);
   const files = [
     ...new Map(
@@ -326,9 +328,13 @@ function PassReceipt({
             Saved response
           </a>
         )}
-        <a href={`/?${new URLSearchParams({ view: "runs", run: runId, attempt: selected.id })}`}>
-          Inspect pass in Runs
-        </a>
+        <a href={inspectorHref}>Inspect pass in Runs</a>
+        <CopyLinkButton
+          key={selected.id}
+          getUrl={() => new URL(inspectorHref, window.location.origin)}
+          button="Copy pass link"
+          success="Pass link copied."
+        />
       </div>
       {activity && (
         <div>

@@ -1,5 +1,5 @@
-import { useState } from "react";
 import { runInspectionUrl, type ComparisonPasses } from "@/lib/run-inspection";
+import { CopyLinkButton } from "./copy-link-button";
 
 const copyText = {
   compare: {
@@ -47,9 +47,7 @@ export function CopyRunLink({
     }
   | { target: "review"; checkpointId: string; passes?: never }
 )) {
-  const [status, setStatus] = useState("");
-  const text = copyText[target];
-  const copy = async () => {
+  function getUrl() {
     const url = runInspectionUrl(
       window.location.href,
       runId,
@@ -61,23 +59,7 @@ export function CopyRunLink({
     }
     if (checkpointId) url.searchParams.set("checkpoint", checkpointId);
     window.history.replaceState(null, "", url);
-    try {
-      await navigator.clipboard.writeText(url.href);
-      setStatus(text.success);
-    } catch {
-      setStatus(text.fallback);
-    }
-  };
-  return (
-    <>
-      <button className="button small" type="button" onClick={copy}>
-        {text.button}
-      </button>
-      {status && (
-        <span className="field-hint" role="status">
-          {status}
-        </span>
-      )}
-    </>
-  );
+    return url;
+  }
+  return <CopyLinkButton getUrl={getUrl} {...copyText[target]} />;
 }
