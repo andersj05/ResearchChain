@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState, type ComponentPropsWithRef } from "react";
 import type { components } from "@researchchain/contracts";
 import { apiFetch } from "@/lib/access";
 import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
@@ -26,9 +26,13 @@ type PreviewProps = {
   sources: Set<string>;
   files?: WorkspaceFile[];
   contents?: boolean;
+  viewport?: Pick<
+    ComponentPropsWithRef<"div">,
+    "ref" | "id" | "className" | "role" | "aria-label" | "tabIndex"
+  >;
 };
 
-function TextPreview({ file, sources, files, contents }: PreviewProps) {
+const TextPreview = memo(function TextPreview({ file, sources, files, contents }: PreviewProps) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -57,11 +61,14 @@ function TextPreview({ file, sources, files, contents }: PreviewProps) {
   ) : (
     <pre tabIndex={0}>{text}</pre>
   );
-}
+});
 
-export function WorkspaceFilePreview({ file, sources, files, contents }: PreviewProps) {
+export function WorkspaceFilePreview({ file, sources, files, contents, viewport }: PreviewProps) {
   return (
-    <div className="workspace-file-preview">
+    <div
+      {...viewport}
+      className={["workspace-file-preview", viewport?.className].filter(Boolean).join(" ")}
+    >
       {imageTypes.has(file.media_type) ? (
         // The authenticated artifact URL serves the original chart at its own aspect ratio.
         // eslint-disable-next-line @next/next/no-img-element

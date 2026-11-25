@@ -294,6 +294,35 @@
 .detailHeading p {
   margin-top: 4px;
 }
+.work:has(> .detail > .focusedReport) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.work:has(> .detail > .focusedReport) > .roster {
+  display: none;
+}
+.work:has(> .detail > .focusedReport) > .detail {
+  border: 0;
+  padding-inline: clamp(8px, 2vw, 24px);
+}
+.reportViewport {
+  overflow-anchor: none;
+}
+.detail > .focusedReport {
+  max-height: max(65vh, calc(100dvh - 10rem));
+  padding: clamp(14px, 2.6vw, 34px);
+  --research-prose-size: 16px;
+}
+.focusedReport > :first-child {
+  margin-inline: auto;
+}
+.readingKey {
+  margin-inline-start: 4px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
+}
 .live {
   display: grid;
   gap: 3px;

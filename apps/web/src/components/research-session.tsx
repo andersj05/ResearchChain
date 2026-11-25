@@ -18,6 +18,7 @@ import {
 } from "./research-session-workspace";
 import { SessionActivity } from "./session-activity";
 import { CopyLinkButton } from "./copy-link-button";
+import { EditorialReviewEvidence } from "./editorial-review-evidence";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
@@ -37,7 +38,7 @@ import styles from "./research-session.module.css";
 type Props = { runId: string; onNewStudy: (fromSession?: string) => void };
 type Review = NonNullable<RunSnapshot["review"]>;
 type ReturnOrigin =
-  { kind: "consultation"; reviewId: string } | ({ kind: "index" } & StudyIndexReturn);
+  { kind: "consultation" | "judgment"; reviewId: string } | ({ kind: "index" } & StudyIndexReturn);
 type Decision = "approve" | "reject";
 type SessionAction =
   | { name: "resume"; review: Review; decision: Decision; feedback: string }
@@ -55,12 +56,14 @@ function OwnerQuestion({
   busy,
   onAnswer,
   actionNotice,
+  evidence,
 }: {
   question: Review;
   draftKey: string;
   busy: boolean;
   onAnswer: (decision: Decision, feedback: string) => Promise<void>;
   actionNotice?: ReactNode;
+  evidence?: ReactNode;
 }) {
   const [answer, setAnswer] = useState(
     () => readReviewDrafts(draftKey)[question.interrupt_id] ?? "",
@@ -74,6 +77,7 @@ function OwnerQuestion({
     >
       <h2 id="judgment-title">Your judgment</h2>
       <p>{question.question}</p>
+      {evidence}
       <label htmlFor="editor-feedback">Direction for the editor</label>
       <textarea
         id="editor-feedback"
@@ -560,6 +564,18 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           busy={reviewsDisabled}
           actionNotice={noticeFor(question)}
           onAnswer={(decision, feedback) => respond(question, decision, feedback)}
+          evidence={
+            question.path === "root/judgment" && (
+              <EditorialReviewEvidence
+                lanes={lanes}
+                question={question.question}
+                runId={runId}
+                onSelect={(key, pass) =>
+                  selectWorkspace(key, pass, { kind: "judgment", reviewId: question.interrupt_id })
+                }
+              />
+            )
+          }
         />
       )}
       {unavailableReview &&
@@ -595,6 +611,12 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             returnQuestion?.perspective
               ? { id: returnQuestion.interrupt_id, title: returnQuestion.perspective.lead_title }
               : undefined
+          }
+          returnToJudgment={
+            question?.path === "root/judgment" &&
+            !!run.checkpoint_id &&
+            returnOrigin?.kind === "judgment" &&
+            returnOrigin.reviewId === question.interrupt_id
           }
           returnToIndex={returnIndex}
         />

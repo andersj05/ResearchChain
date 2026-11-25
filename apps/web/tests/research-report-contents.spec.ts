@@ -2,13 +2,14 @@ import { expect, test, type Page } from "./fixtures";
 
 const sourceUrl = "https://example.test/recorded";
 
-async function openSavedReport(page: Page, markdown: string) {
+async function openSavedReport(page: Page, markdown: string, onRead?: () => void) {
   const runId = crypto.randomUUID();
   const artifactId = crypto.randomUUID();
   const now = new Date().toISOString();
-  await page.route(`**/api/artifacts/${artifactId}/content`, (route) =>
-    route.fulfill({ contentType: "text/markdown", body: markdown }),
-  );
+  await page.route(`**/api/artifacts/${artifactId}/content`, (route) => {
+    onRead?.();
+    return route.fulfill({ contentType: "text/markdown", body: markdown });
+  });
   await page.route(`**/api/runs/${runId}`, (route) =>
     route.fulfill({
       json: {
@@ -148,4 +149,88 @@ test("keeps the contents list out of a short report", async ({ page }) => {
   );
   await expect(report.getByRole("heading", { name: "Observation" })).toBeVisible();
   await expect(report.getByRole("navigation", { name: "Report contents" })).toHaveCount(0);
+});
+
+test("focuses the existing report, preserves its place, and exits with Escape", async ({
+  page,
+}) => {
+  let reads = 0;
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const paragraph = "Compare the chronological observations with the saved baseline. ".repeat(70);
+  const report = await openSavedReport(
+    page,
+    [
+      "# Synthetic long report",
+      "## Overview",
+      paragraph,
+      "## Cross-check",
+      paragraph,
+      "## Findings",
+      paragraph,
+      "## Limitations",
+      paragraph,
+    ].join("\n\n"),
+    () => reads++,
+  );
+
+  const reader = report.getByRole("region", { name: "Report text" });
+  const workspaces = page.getByRole("navigation", { name: "Agent workspaces" });
+  const focus = report.getByRole("button", { name: "Focus reading", exact: true });
+  const exit = report.getByRole("button", { name: "Exit reading", exact: true });
+  const edit = report.getByRole("link", { name: "Edit in Reports" });
+  const download = report.getByRole("link", { name: "Download report and files" });
+  const passes = report.getByText("Model passes (1)", { exact: true });
+  await passes.click();
+  const contents = report.getByRole("navigation", { name: "Report contents" });
+  await contents.locator("summary").click();
+  await contents.getByRole("link", { name: "Cross-check", exact: true }).click();
+  const target = reader.getByRole("heading", { name: "Cross-check", exact: true });
+  await expect(target).toBeInViewport();
+  await target.evaluate((heading) => heading.setAttribute("data-original-heading", ""));
+  const bookmark = page.url();
+  const initialReads = reads;
+  const width = (await reader.boundingBox())!.width;
+  const editorHref = (await edit.getAttribute("href"))!;
+  const downloadHref = (await download.getAttribute("href"))!;
+  const readingOffset = () =>
+    target.evaluate((heading) => {
+      const panel = heading.closest("#study-report-text")!;
+      return heading.getBoundingClientRect().top - panel.getBoundingClientRect().top;
+    });
+  const offset = await readingOffset();
+
+  await focus.click();
+  await expect(exit).toHaveAttribute("aria-keyshortcuts", "Escape");
+  await expect(exit.getByText("Esc", { exact: true })).toBeVisible();
+  await expect(exit).toHaveAttribute("aria-controls", "study-report-text");
+  await expect(workspaces).toBeHidden();
+  await expect(passes).toBeHidden();
+  expect((await reader.boundingBox())!.width).toBeGreaterThan(width + 100);
+  await expect(target).toBeInViewport();
+  expect(Math.abs((await readingOffset()) - offset)).toBeLessThan(20);
+  await expect(target).toHaveAttribute("data-original-heading", "");
+  await expect(edit).toHaveAttribute("href", editorHref);
+  await expect(download).toHaveAttribute("href", downloadHref);
+  await expect(page.getByRole("button", { name: "Copy study link" })).toBeVisible();
+  await expect(page).toHaveURL(bookmark);
+
+  await target.press("Escape");
+  await expect(focus).toBeFocused();
+  await expect(workspaces.getByRole("button", { name: /^Report editor/ })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(report.getByLabel("Inspect model pass")).toBeVisible();
+  await expect(target).toHaveAttribute("data-original-heading", "");
+  await expect(page).toHaveURL(bookmark);
+  expect(reads).toBe(initialReads);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await focus.click();
+  await expect(exit).toBeVisible();
+  await expect(workspaces).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await exit.click();
+  await expect(workspaces).toBeVisible();
+  expect(reads).toBe(initialReads);
 });
