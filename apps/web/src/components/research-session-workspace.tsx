@@ -15,10 +15,12 @@ import {
   WorkspaceFiles,
 } from "./research-workspace";
 import { formatTime } from "./run-status";
+import { StudyBaselineReport } from "./study-baseline-report";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
 import styles from "./research-session.module.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
+type WorkspaceFile = components["schemas"]["WorkspaceFile"];
 
 export function focusSessionWorkspace() {
   const url = new URL(window.location.href);
@@ -120,20 +122,41 @@ export function finalEditorAttempt(lane: SessionWorkspace, status: RunSnapshot["
     return latest;
 }
 
+function editorMarkdown(files: WorkspaceFile[], complete: boolean) {
+  return (
+    files.find((item) => item.name === "report.md") ??
+    (complete ? files.find((item) => item.name.toLowerCase().endsWith(".md")) : undefined)
+  );
+}
+
 export function sessionReport(lane: SessionWorkspace, status: RunSnapshot["status"]) {
   if (lane.key !== "editor") return;
   const latest = lane.attempts.at(-1);
   const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
   const complete = !!finalEditorAttempt(lane, status);
-  const files = result?.workspace_files ?? [];
-  const file =
-    files.find((item) => item.name === "report.md") ??
-    (complete ? files.find((item) => item.name.toLowerCase().endsWith(".md")) : undefined);
+  const file = editorMarkdown(result?.workspace_files ?? [], complete);
   if (file) return { file, complete };
 }
 
+function baselineReport(run: RunSnapshot) {
+  const editor = sessionWorkspaces(run, undefined).at(-1);
+  const final = editor && finalEditorAttempt(editor, run.status);
+  const files = final?.result?.workspace_files ?? [];
+  const file = editorMarkdown(files, true);
+  if (!file || !file.media_type.startsWith("text/") || file.byte_size <= 0) return;
+  const receipt = final?.result?.report_artifact;
+  if (
+    receipt &&
+    (receipt.name !== file.name ||
+      receipt.artifact_id !== file.artifact_id ||
+      receipt.media_type !== file.media_type ||
+      receipt.byte_size !== file.byte_size)
+  )
+    return;
+  return { file, files, sources: sourceUrls(run.model_attempts ?? []) };
+}
+
 type Result = NonNullable<Attempt["result"]>;
-type WorkspaceFile = components["schemas"]["WorkspaceFile"];
 
 function WorkspaceAssignments({
   assignments,
@@ -684,6 +707,14 @@ function WorkspaceOverview({
       ) : (
         result?.conclusion &&
         !result.workspace_activity && <SavedFindings result={result} sources={urls} files={files} />
+      )}
+      {canFocusReport && run.baseline_run_id && (
+        <StudyBaselineReport
+          key={run.baseline_run_id}
+          id={run.baseline_run_id}
+          agentId={run.agent_id ?? null}
+          selectReport={baselineReport}
+        />
       )}
       {!latest && (
         <p className={styles.empty}>
