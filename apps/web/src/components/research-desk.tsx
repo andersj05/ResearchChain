@@ -57,7 +57,7 @@ function RecentStudies() {
             <li key={study.id}>
               <a href={sessionUrl(study.id)}>
                 <span className={styles.studyTitle}>
-                  {study.brief_excerpt || study.workflow_name}
+                  {study.study_title || study.brief_excerpt || study.workflow_name}
                 </span>
                 <RunStatus status={study.status} />
                 <time dateTime={study.created_at}>{formatTime(study.created_at)}</time>

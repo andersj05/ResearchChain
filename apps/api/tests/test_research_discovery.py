@@ -35,6 +35,36 @@ def test_source_start_requires_a_packet_and_preserves_brief_limits():
     assert graph.research.limits.max_model_calls == 2 + 48 + 81 * 12
 
 
+def test_source_only_studies_use_first_pin_as_title_and_find_any_pinned_source(database):
+    evidence = EvidenceStore(database)
+    sources = [
+        evidence.create(
+            EvidenceCreate(id=uuid4(), title=title, kind="text", rights="owned", text="Synthetic")
+        )
+        for title in ["Credit spreads", "Desk call notes", "Sector fund flows"]
+    ]
+    first = request(start_from_sources=True, brief="", evidence_ids=[s.id for s in sources[:2]])
+    second = request(start_from_sources=True, brief="", evidence_ids=[sources[2].id])
+    with owner_client(create_app(database, DiscoveryProvider()), workers=False) as client:
+        entry = "/api/research-sessions"
+        for study in [first, second]:
+            assert client.post(entry, json=study.model_dump(mode="json")).status_code == 202
+        recent = client.get(entry).json()
+        assert {item["id"]: item["study_title"] for item in recent} == {
+            str(first.id): "Credit spreads",
+            str(second.id): "Sector fund flows",
+        }
+        search = client.get(
+            "/api/runs/search", params={"sessions_only": True, "search": "CALL NOTES"}
+        )
+        [result] = search.json()["items"]
+        assert result["run"]["id"] == str(first.id)
+        assert result["run"]["study_title"] == "Credit spreads"
+        snapshot = client.get(f"/api/runs/{second.id}").json()
+        assert snapshot["study_title"] == "Sector fund flows"
+        assert snapshot["brief"] == "Source-led study"
+
+
 @pytest.mark.parametrize(
     ("sentence", "title"),
     [

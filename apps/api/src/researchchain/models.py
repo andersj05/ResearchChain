@@ -146,6 +146,7 @@ class RunSummary(StrictModel):
     revision_id: UUID
     revision_number: int
     workflow_name: str
+    study_title: str | None = Field(default=None, exclude_if=lambda title: title is None)
     status: RunStatus
     created_at: datetime
 

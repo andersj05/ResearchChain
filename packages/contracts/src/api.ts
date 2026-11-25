@@ -2870,6 +2870,8 @@ export interface components {
       revision_number: number;
       /** Workflow Name */
       workflow_name: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Status
        * @enum {string}
@@ -3796,6 +3798,8 @@ export interface components {
       revision_number: number;
       /** Workflow Name */
       workflow_name: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Status
        * @enum {string}
@@ -3872,6 +3876,8 @@ export interface components {
       revision_number: number;
       /** Workflow Name */
       workflow_name: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Status
        * @enum {string}

@@ -29,6 +29,7 @@ from researchchain.research_discovery import DISCOVERY_PROMPT
 from researchchain.revisions import NotFoundError
 
 SESSION_VERSION = "brief-led-1"
+SOURCE_LED_BRIEF = "Source-led study"
 ReviewMode = Literal["when_needed", "always", "never"]
 
 
@@ -64,7 +65,7 @@ class ResearchSessionSetup(StrictModel):
         if self.start_from_sources and not self.evidence_ids:
             raise ValueError("Pin at least one source to start a discovery study.")
         if self.start_from_sources and not self.brief.strip():
-            self.brief = "Source-led study"
+            self.brief = SOURCE_LED_BRIEF
         elif not self.brief.strip():
             raise ValueError("Write a research brief to start a session.")
         if len(self.evidence_ids) != len(set(self.evidence_ids)):

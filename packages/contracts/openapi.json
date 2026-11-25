@@ -7158,6 +7158,17 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -9202,6 +9213,17 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -9414,6 +9436,17 @@
           "workflow_name": {
             "type": "string",
             "title": "Workflow Name"
+          },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
           },
           "status": {
             "type": "string",
