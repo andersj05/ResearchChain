@@ -255,7 +255,7 @@ export function ResearchDesk({
                 href={returnToDraft}
                 onClick={(event) => navigateWithinDesk(event, "research-title")}
               >
-                {draftScope ? "Return to study setup" : "New study"}
+                {draftScope !== undefined ? "Return to study setup" : "New study"}
               </a>
             </div>
             <RunArchive sessionsOnly expanded />

@@ -67,6 +67,6 @@ test("open studies directly, without loading new-study data or losing its draft"
   await studies.press("Enter");
   await expect(result).toBeVisible();
   await expect(search).toHaveValue("credit vintages");
-  await home.click();
+  await page.getByRole("link", { name: "Return to study setup", exact: true }).click();
   await expect(title).toHaveValue("Unsaved research title");
 });

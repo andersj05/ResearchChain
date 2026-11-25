@@ -69,7 +69,7 @@ test("keep staged files through a Studies visit and native history navigation", 
   await expect(author).toHaveValue("Synthetic desk participant");
   await page.goForward();
   await expect(archiveHeading).toBeVisible();
-  await page.getByRole("link", { name: "New study", exact: true }).press("Enter");
+  await page.getByRole("link", { name: "Return to study setup", exact: true }).press("Enter");
   await expect(draftHeading).toBeFocused();
   await expect(title).toHaveValue("Morning desk notes");
   await expect(author).toHaveValue("Synthetic desk participant");
