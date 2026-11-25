@@ -73,7 +73,15 @@ export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
   );
 }
 
-function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: Set<string> }) {
+export function WorkspaceFiles({
+  files,
+  sources,
+  label = "Workspace files",
+}: {
+  files: WorkspaceFile[];
+  sources: Set<string>;
+  label?: string;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const file =
     files.find((item) => item.name === selected) ??
@@ -81,10 +89,10 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
     files[0];
   if (!file) return null;
   return (
-    <section className="workspace-files" aria-label="Workspace files">
+    <section className="workspace-files" aria-label={label}>
       <div className="workspace-files-heading">
         <label>
-          Workspace files
+          {label}
           <select
             aria-label="Preview workspace file"
             value={file.name}

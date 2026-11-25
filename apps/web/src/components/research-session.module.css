@@ -373,6 +373,22 @@
   gap: 8px;
   padding-block: 12px 0;
 }
+.passHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.passMeta {
+  display: grid;
+  gap: 4px;
+}
+.passOutput {
+  max-block-size: 20rem;
+  overflow: auto;
+  margin-block-start: 8px;
+  white-space: pre-wrap;
+}
 .guidance {
   border-left: 2px solid var(--blue);
   padding: 7px 14px;
@@ -431,7 +447,8 @@
   background: var(--surface);
   padding: 4px 8px;
 }
-.pass > span,
+.passHeading span,
+.passMeta,
 .activity time,
 .activity small {
   color: var(--muted);

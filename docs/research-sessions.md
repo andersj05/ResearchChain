@@ -101,7 +101,10 @@ The lead's saved plan lists each assignment and its objective. Select a research
 under **Workspaces** to see the current request, saved leads, web activity, Python
 results and files as they arrive. Researchers can use the same filename in their
 own workspaces. Open an earlier pass or an activity entry to inspect the request
-and response that produced it. The link remembers that workspace and pass.
+and response that produced it. The reader shows the findings, files and sources
+recorded for that pass, and the link remembers the workspace and pass. Choose
+**Inspect pass in Runs** to see structured request inputs, or **Back to latest
+workspace** to continue following the workspace.
 
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.

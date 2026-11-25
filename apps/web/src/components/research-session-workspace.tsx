@@ -7,7 +7,7 @@ import { sessionSwarm, swarmWorkspaces, type SessionWorkspace } from "@/lib/swar
 import type { RunSnapshot } from "@/lib/workflow";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts, researchToolUrls } from "./research-tool-receipts";
-import { ResearchWorkspace, WorkspaceFilePreview } from "./research-workspace";
+import { ResearchWorkspace, WorkspaceFilePreview, WorkspaceFiles } from "./research-workspace";
 import { formatTime } from "./run-status";
 import styles from "./research-session.module.css";
 
@@ -119,20 +119,32 @@ export function sessionReport(lane: SessionWorkspace, status: RunSnapshot["statu
 }
 
 type Result = NonNullable<Attempt["result"]>;
+type WorkspaceFile = components["schemas"]["WorkspaceFile"];
+
+function WorkspaceAssignments({
+  assignments,
+}: {
+  assignments: components["schemas"]["TeamAssignment"][];
+}) {
+  return (
+    <ol className={styles.assignments}>
+      {assignments.map((item, index) => (
+        <li key={index}>
+          <strong>{item.title}</strong>
+          <p>{item.objective}</p>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
 function SwarmDecision({ action }: { action: NonNullable<Result["swarm_action"]> }) {
   if (action.action === "delegate")
     return (
       <div className={styles.findings}>
         <h3>Delegated research</h3>
         <p>{action.rationale}</p>
-        <ol className={styles.assignments}>
-          {action.assignments.map((item) => (
-            <li key={item.title}>
-              <strong>{item.title}</strong>
-              <p>{item.objective}</p>
-            </li>
-          ))}
-        </ol>
+        <WorkspaceAssignments assignments={action.assignments} />
       </div>
     );
   if (action.action === "ask_expert")
@@ -168,31 +180,120 @@ function SwarmDecision({ action }: { action: NonNullable<Result["swarm_action"]>
   );
 }
 
-type PassSelection = { passId: string | null; onPass: (id: string) => void };
+type PassSelection = { passId: string | null; onPass: (id: string | null) => void };
 
-function PassReceipts({
+function PassPicker({
   attempts,
-  profile,
   passId,
   onPass,
-}: Pick<SessionWorkspace, "attempts" | "profile"> & PassSelection) {
-  const selected = attempts.find((attempt) => attempt.id === passId) ?? attempts.at(-1)!;
+}: Pick<SessionWorkspace, "attempts"> & PassSelection) {
+  return (
+    <label>
+      Inspect model pass
+      <select
+        value={passId ?? ""}
+        onChange={(event) => {
+          onPass(event.target.value);
+          if (passId === null) focusSessionWorkspace();
+        }}
+      >
+        <option value="" disabled>
+          Choose a pass
+        </option>
+        {attempts.map((attempt, index) => (
+          <option key={attempt.id} value={attempt.id}>
+            Pass {index + 1} · {modelAttemptStatus(attempt)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function SavedFindings({
+  result,
+  sources,
+  files,
+}: {
+  result: Result;
+  sources: Set<string>;
+  files: WorkspaceFile[];
+}) {
+  return (
+    <div className={styles.findings}>
+      {result.conclusion && (
+        <ResearchMarkdown text={result.conclusion} sources={sources} files={files} />
+      )}
+      {result.review_question && (
+        <p>
+          <strong>Question for the owner</strong>
+          <br />
+          {result.review_question}
+        </p>
+      )}
+      {!!result.limitations.length && (
+        <details>
+          <summary>Limitations</summary>
+          <ul>
+            {result.limitations.map((item, index) => (
+              <li key={index}>{item}</li>
+            ))}
+          </ul>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function RecordedSources({ urls }: { urls: Set<string> }) {
+  if (!urls.size) return null;
+  return (
+    <details className={styles.receipts}>
+      <summary>Recorded sources ({urls.size})</summary>
+      <ul>
+        {[...urls].map((url) => (
+          <li key={url}>
+            <a href={url} target="_blank" rel="noreferrer">
+              {url}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function PassReceipt({
+  lane,
+  selected,
+  runId,
+  onPass,
+}: {
+  lane: SessionWorkspace;
+  selected: Attempt;
+  runId: string;
+  onPass: PassSelection["onPass"];
+}) {
   const result = selected.result;
   const activity = result?.workspace_activity;
+  const assignments = result?.swarm_plan?.leads ?? result?.team_plan?.assignments;
+  const urls = sourceUrls([selected]);
+  const files = [
+    ...new Map(
+      [...(activity?.files ?? []), ...(result?.workspace_files ?? [])].map((file) => [
+        file.name,
+        file,
+      ]),
+    ).values(),
+  ];
   return (
-    <details className={styles.receipts} open={!!passId || undefined}>
-      <summary>Model passes ({attempts.length})</summary>
-      <div className={styles.pass}>
-        <label>
-          Inspect model pass
-          <select value={selected.id} onChange={(event) => onPass(event.target.value)}>
-            {attempts.map((attempt, index) => (
-              <option key={attempt.id} value={attempt.id}>
-                Pass {index + 1} · {modelAttemptStatus(attempt)}
-              </option>
-            ))}
-          </select>
-        </label>
+    <section className={styles.pass} aria-labelledby="saved-pass-heading">
+      <div className={styles.passHeading}>
+        <h3 id="saved-pass-heading">Pass {lane.attempts.indexOf(selected) + 1}</h3>
+        <span>{modelAttemptStatus(selected)}</span>
+      </div>
+      <PassPicker attempts={lane.attempts} passId={selected.id} onPass={onPass} />
+      <div className={styles.passMeta}>
         <span>
           {selected.model}
           {selected.returned_model &&
@@ -201,10 +302,10 @@ function PassReceipts({
           · Started {formatTime(selected.created_at)}
           {selected.finished_at && ` · Finished ${formatTime(selected.finished_at)}`}
         </span>
-        {profile && (
+        {lane.profile && (
           <span>
-            Thinking effort · {modelSettingLabel(profile.reasoning_effort)} · Response detail ·{" "}
-            {modelSettingLabel(profile.verbosity)}
+            Thinking effort · {modelSettingLabel(lane.profile.reasoning_effort)} · Response detail ·{" "}
+            {modelSettingLabel(lane.profile.verbosity)}
           </span>
         )}
         {(selected.input_tokens != null || selected.output_tokens != null) && (
@@ -213,36 +314,56 @@ function PassReceipts({
             {selected.output_tokens?.toLocaleString() ?? "unreported"}
           </span>
         )}
-        {activity && (
+      </div>
+      <div className={styles.receiptLinks}>
+        {selected.input_artifact_id && (
+          <a href={contentDownloadUrl(selected.input_artifact_id, "request.json")} download>
+            Saved request
+          </a>
+        )}
+        {selected.response_artifact_id && (
+          <a href={contentDownloadUrl(selected.response_artifact_id, "response.txt")} download>
+            Saved response
+          </a>
+        )}
+        <a href={`/?${new URLSearchParams({ view: "runs", run: runId, attempt: selected.id })}`}>
+          Inspect pass in Runs
+        </a>
+      </div>
+      {activity && (
+        <div>
           <p>
             Python {activity.status} · {activity.summary}
           </p>
-        )}
-        {result?.next_lead && !activity && <p>{result.next_lead}</p>}
-        {result?.conclusion && !activity && (
-          <ResearchMarkdown
-            text={result.conclusion}
-            sources={sourceUrls([selected])}
-            files={result.workspace_files ?? []}
-          />
-        )}
-        {selected.reason && <p>{selected.reason}</p>}
-        {result?.swarm_action && <SwarmDecision action={result.swarm_action} />}
-        <div className={styles.receiptLinks}>
-          {selected.input_artifact_id && (
-            <a href={contentDownloadUrl(selected.input_artifact_id, "request.json")} download>
-              Saved request
-            </a>
-          )}
-          {selected.response_artifact_id && (
-            <a href={contentDownloadUrl(selected.response_artifact_id, "response.txt")} download>
-              Saved response
-            </a>
+          {activity.output && (
+            <details className={styles.receipts}>
+              <summary>Execution output</summary>
+              <pre className={styles.passOutput} tabIndex={0}>
+                {activity.output}
+              </pre>
+            </details>
           )}
         </div>
-        {result && <ResearchToolReceipts result={result} />}
-      </div>
-    </details>
+      )}
+      {result?.discovery && (
+        <div className={styles.findings}>
+          <p>{result.discovery.observation}</p>
+          <a href="#source-led-investigation">Read the lead’s first reading</a>
+        </div>
+      )}
+      {result?.swarm_action && <SwarmDecision action={result.swarm_action} />}
+      {assignments && <WorkspaceAssignments assignments={assignments} />}
+      {result?.next_lead && !activity && <p>{result.next_lead}</p>}
+      {result?.conclusion && !activity && (
+        <SavedFindings result={result} sources={urls} files={files} />
+      )}
+      {selected.reason && <p>{selected.reason}</p>}
+      {!!files.length && (
+        <WorkspaceFiles key={selected.id} files={files} sources={urls} label="Files in this pass" />
+      )}
+      <RecordedSources urls={urls} />
+      {result && <ResearchToolReceipts result={result} />}
+    </section>
   );
 }
 
@@ -321,14 +442,7 @@ export function SessionWorkspaceDetail({
   run: RunSnapshot;
   returnToReview?: { id: string; title: string };
 } & PassSelection) {
-  const latest = lane.attempts.at(-1);
-  const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
-  const files = result?.workspace_files ?? [];
-  const report = sessionReport(lane, run.status);
-  const urls = sourceUrls(lane.key === "editor" ? (run.model_attempts ?? []) : lane.attempts);
-  const active =
-    run.status === "running" && (latest?.status === "preparing" || latest?.status === "requesting");
-  const assignments = result?.swarm_plan?.leads ?? result?.team_plan?.assignments;
+  const selected = lane.attempts.find((attempt) => attempt.id === passId);
   return (
     <section
       id="current-research-workspace"
@@ -341,6 +455,64 @@ export function SessionWorkspaceDetail({
           Return to {returnToReview.title}’s question
         </a>
       )}
+      {selected ? (
+        <>
+          <div className={styles.detailHeading}>
+            <div>
+              <h2>{lane.title}</h2>
+              <p>{lane.objective}</p>
+              {lane.path && (
+                <p className={styles.workspacePath}>
+                  <code>{lane.path}</code>
+                </p>
+              )}
+            </div>
+            <button
+              className="button small"
+              type="button"
+              onClick={() => {
+                onPass(null);
+                focusSessionWorkspace();
+              }}
+            >
+              Back to latest workspace
+            </button>
+          </div>
+          <PassReceipt lane={lane} selected={selected} runId={run.id} onPass={onPass} />
+        </>
+      ) : (
+        <>
+          {passId && (
+            <p className={styles.notice} role="status">
+              This saved pass is unavailable.
+            </p>
+          )}
+          <WorkspaceOverview lane={lane} run={run} onPass={onPass} />
+        </>
+      )}
+    </section>
+  );
+}
+
+function WorkspaceOverview({
+  lane,
+  run,
+  onPass,
+}: {
+  lane: SessionWorkspace;
+  run: RunSnapshot;
+  onPass: PassSelection["onPass"];
+}) {
+  const latest = lane.attempts.at(-1);
+  const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
+  const files = result?.workspace_files ?? [];
+  const report = sessionReport(lane, run.status);
+  const urls = sourceUrls(lane.key === "editor" ? (run.model_attempts ?? []) : lane.attempts);
+  const active =
+    run.status === "running" && (latest?.status === "preparing" || latest?.status === "requesting");
+  const assignments = result?.swarm_plan?.leads ?? result?.team_plan?.assignments;
+  return (
+    <>
       <div className={styles.detailHeading}>
         <div>
           <h2>{report ? (report.complete ? "Research report" : "Report draft") : lane.title}</h2>
@@ -403,38 +575,10 @@ export function SessionWorkspaceDetail({
       ) : result?.swarm_action ? (
         <SwarmDecision action={result.swarm_action} />
       ) : assignments ? (
-        <ol className={styles.assignments}>
-          {assignments.map((assignment, i) => (
-            <li key={i}>
-              <strong>{assignment.title}</strong>
-              <p>{assignment.objective}</p>
-            </li>
-          ))}
-        </ol>
+        <WorkspaceAssignments assignments={assignments} />
       ) : (
         result?.conclusion &&
-        !result.workspace_activity && (
-          <div className={styles.findings}>
-            <ResearchMarkdown text={result.conclusion} sources={urls} files={files} />
-            {result.review_question && (
-              <p>
-                <strong>Question for the owner</strong>
-                <br />
-                {result.review_question}
-              </p>
-            )}
-            {!!result.limitations.length && (
-              <details>
-                <summary>Limitations</summary>
-                <ul>
-                  {result.limitations.map((item, index) => (
-                    <li key={index}>{item}</li>
-                  ))}
-                </ul>
-              </details>
-            )}
-          </div>
-        )
+        !result.workspace_activity && <SavedFindings result={result} sources={urls} files={files} />
       )}
       {!latest && (
         <p className={styles.empty}>
@@ -452,28 +596,15 @@ export function SessionWorkspaceDetail({
             <ResearchWorkspace attempts={lane.attempts} running={!!active} />
           </details>
         )}
-      {urls.size > 0 && (
+      <RecordedSources urls={urls} />
+      {latest && (
         <details className={styles.receipts}>
-          <summary>Recorded sources ({urls.size})</summary>
-          <ul>
-            {[...urls].map((url) => (
-              <li key={url}>
-                <a href={url} target="_blank" rel="noreferrer">
-                  {url}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <summary>Model passes ({lane.attempts.length})</summary>
+          <div className={styles.pass}>
+            <PassPicker attempts={lane.attempts} passId={null} onPass={onPass} />
+          </div>
         </details>
       )}
-      {!!lane.attempts.length && (
-        <PassReceipts
-          attempts={lane.attempts}
-          profile={lane.profile}
-          passId={passId}
-          onPass={onPass}
-        />
-      )}
-    </section>
+    </>
   );
 }
