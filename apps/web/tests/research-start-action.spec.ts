@@ -16,6 +16,10 @@ test("start with the edited settings while the first-reading action stays visibl
   await settings.getByRole("link", { name: "Research settings" }).click();
   await page.getByRole("checkbox", { name: "Allow live web search" }).check();
   await page.getByRole("spinbutton", { name: "Passes per agent" }).fill("5");
+  const roleSettings = page.getByRole("heading", {
+    name: /^(Research lead|Researchers|Report editor)$/,
+  });
+  await expect(roleSettings).toHaveCount(3);
   for (const width of [320, 390, 1280]) {
     await page.setViewportSize({ width, height: 844 });
     await page.getByRole("spinbutton", { name: "Passes per agent" }).scrollIntoViewIfNeeded();
@@ -24,6 +28,10 @@ test("start with the edited settings while the first-reading action stays visibl
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true,
     );
+    const tops = await roleSettings.evaluateAll((headings) =>
+      headings.map((heading) => Math.round(heading.getBoundingClientRect().top)),
+    );
+    expect(new Set(tops).size, `Role heading rows at ${width}px`).toBe(width === 1280 ? 1 : 3);
     await page.screenshot({ path: info.outputPath(`first-reading-action-${width}.png`) });
   }
   await page.route("**/api/research-sessions", (route) =>

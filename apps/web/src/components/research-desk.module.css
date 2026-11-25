@@ -551,13 +551,10 @@
     padding-block: 12px;
     border-top: 1px solid var(--line);
   }
-  .settingGrid > :global(.role-model-settings[open]) {
+  .settingGrid :global(.role-model-grid) {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: 24px;
-  }
-  .settingGrid :global(.role-model-settings) > summary {
-    grid-column: 1/-1;
   }
   .settingGrid :global(.role-model-section) {
     min-width: 0;
