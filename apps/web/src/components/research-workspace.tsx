@@ -26,13 +26,20 @@ type PreviewProps = {
   sources: Set<string>;
   files?: WorkspaceFile[];
   contents?: boolean;
+  inspectFigures?: boolean;
   viewport?: Pick<
     ComponentPropsWithRef<"div">,
     "ref" | "id" | "className" | "role" | "aria-label" | "tabIndex"
   >;
 };
 
-const TextPreview = memo(function TextPreview({ file, sources, files, contents }: PreviewProps) {
+const TextPreview = memo(function TextPreview({
+  file,
+  sources,
+  files,
+  contents,
+  inspectFigures,
+}: PreviewProps) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -57,13 +64,26 @@ const TextPreview = memo(function TextPreview({ file, sources, files, contents }
   if (file.media_type === "text/csv" || /\.csv$/i.test(file.name))
     return <CsvPreview text={text} />;
   return file.name.toLowerCase().endsWith(".md") ? (
-    <ResearchMarkdown text={text} sources={sources} files={files} contents={contents} />
+    <ResearchMarkdown
+      text={text}
+      sources={sources}
+      files={files}
+      contents={contents}
+      inspectFigures={inspectFigures}
+    />
   ) : (
     <pre tabIndex={0}>{text}</pre>
   );
 });
 
-export function WorkspaceFilePreview({ file, sources, files, contents, viewport }: PreviewProps) {
+export function WorkspaceFilePreview({
+  file,
+  sources,
+  files,
+  contents,
+  inspectFigures,
+  viewport,
+}: PreviewProps) {
   return (
     <div
       {...viewport}
@@ -84,6 +104,7 @@ export function WorkspaceFilePreview({ file, sources, files, contents, viewport 
           sources={sources}
           files={files}
           contents={contents}
+          inspectFigures={inspectFigures}
         />
       ) : (
         <p className="muted">Download this file to inspect it in full.</p>

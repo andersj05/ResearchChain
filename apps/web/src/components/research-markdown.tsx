@@ -4,6 +4,7 @@ import remarkGfm from "remark-gfm";
 import type { components } from "@researchchain/contracts";
 import { contentUrl } from "@/lib/evidence";
 import { reportContents, reportHeadingPrefix } from "./report-contents";
+import { ReportFigureButton, reportFigureActions } from "./report-figures";
 import styles from "./research-reader.module.css";
 
 type WorkspaceFile = components["schemas"]["WorkspaceFile"];
@@ -30,11 +31,13 @@ export function ResearchMarkdown({
   sources,
   files = [],
   contents = false,
+  inspectFigures = false,
 }: {
   text: string;
   sources: Set<string>;
   files?: WorkspaceFile[];
   contents?: boolean;
+  inspectFigures?: boolean;
 }) {
   const prose = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -54,11 +57,26 @@ export function ResearchMarkdown({
   const charts = new Map(
     files.filter((file) => file.media_type === "image/png").map((file) => [file.name, file]),
   );
+  function figure(src: unknown, alt: unknown) {
+    const name = typeof src === "string" ? src.replace(/^\.\//, "") : "";
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/.test(name)) return;
+    const chart = charts.get(name);
+    if (chart) {
+      return {
+        src: `${contentUrl(chart.artifact_id)}?preview=true`,
+        title: typeof alt === "string" && alt ? alt : name,
+        filename: name,
+      };
+    }
+  }
   return (
     <div className={styles.prose} ref={prose}>
       <Markdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={contents ? [reportContents] : undefined}
+        rehypePlugins={[
+          ...(contents ? [reportContents] : []),
+          ...(inspectFigures && charts.size ? [reportFigureActions] : []),
+        ]}
         skipHtml
         components={{
           h1: heading,
@@ -89,18 +107,21 @@ export function ResearchMarkdown({
             );
           },
           img: ({ alt, src }) => {
-            const name = typeof src === "string" ? src.replace(/^\.\//, "") : "";
-            const chart = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,95}$/.test(name) && charts.get(name);
+            const chart = figure(src, alt);
             return chart ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={`${contentUrl(chart.artifact_id)}?preview=true`}
-                alt={alt || name}
-                loading="lazy"
-              />
+              <img src={chart.src} alt={chart.title} loading="lazy" />
             ) : (
               <>{alt}</>
             );
+          },
+          button: ({ node }) => {
+            if (!inspectFigures) return null;
+            const chart = figure(
+              node?.properties.dataReportFigureSource,
+              node?.properties.dataReportFigureLabel,
+            );
+            return chart ? <ReportFigureButton {...chart} /> : null;
           },
           table: ({ children }) => (
             <div

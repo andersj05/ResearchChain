@@ -661,6 +661,7 @@ function WorkspaceOverview({
           sources={urls}
           files={files}
           contents={report.complete}
+          inspectFigures={report.complete}
           viewport={
             canFocusReport
               ? {
