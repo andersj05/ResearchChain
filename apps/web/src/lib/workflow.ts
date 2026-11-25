@@ -84,7 +84,7 @@ export class ApiError extends Error {
   }
 }
 
-export async function api<T>(path: string, body?: unknown, timeout = 15000): Promise<T> {
+export async function apiResponse(path: string, body?: unknown, timeout = 15000) {
   const response = await apiFetch(`/api/${path}`, {
     method: body === undefined ? "GET" : "POST",
     headers: body === undefined ? undefined : { "Content-Type": "application/json" },
@@ -109,5 +109,9 @@ export async function api<T>(path: string, body?: unknown, timeout = 15000): Pro
       : [];
     throw new ApiError(message, issues, response.status);
   }
-  return response.json() as Promise<T>;
+  return response;
+}
+
+export async function api<T>(path: string, body?: unknown, timeout = 15000): Promise<T> {
+  return (await apiResponse(path, body, timeout)).json() as Promise<T>;
 }

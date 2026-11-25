@@ -12,7 +12,7 @@ import {
 import { Button } from "@ui-sdk/react/button";
 import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
-import { api, ApiError, type RunSnapshot } from "@/lib/workflow";
+import { api, ApiError, apiResponse, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
 import { sessionUrl } from "@/lib/research-sessions";
@@ -139,6 +139,7 @@ function ResearchSessionView({
 }: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
+  const lastObservation = useRef<{ body: string; run: RunSnapshot } | undefined>(undefined);
   const [readingSourcesRequested, setReadingSourcesRequested] = useState(false);
   const sourceDetails = useStudySourceDetails(run, active, readingSourcesRequested);
   const [readError, setReadError] = useState("");
@@ -180,13 +181,25 @@ function ResearchSessionView({
     window.history.replaceState(null, "", url);
   }
   useEffect(() => {
-    if (!active || busy) return;
+    if (!active) {
+      lastObservation.current = undefined;
+      return;
+    }
+    if (busy) return;
     return pollVisiblePage(async ({ isCurrent, schedule }) => {
       try {
-        const next = await api<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
+        const response = await apiResponse(`runs/${encodeURIComponent(runId)}`);
+        const body = await response.text();
         if (!isCurrent()) return;
+        // Results can change without adding a receipt or changing the checkpoint.
+        const previous = lastObservation.current;
+        const next = previous?.body === body ? previous.run : (JSON.parse(body) as RunSnapshot);
         if (next.research_manifest?.tool_config?.session !== "brief-led-1")
           throw new ApiError("This run belongs to Workflows.", [], 404);
+        const keepsPolling =
+          next.execution_pending || ["queued", "running", "paused"].includes(next.status);
+        if (!keepsPolling) lastObservation.current = undefined;
+        else if (next !== previous?.run) lastObservation.current = { body, run: next };
         if (pendingReviews(next).some((review) => review.path === "root/working_sentence"))
           setReadingSourcesRequested(true);
         setRun(next);
@@ -194,9 +207,7 @@ function ResearchSessionView({
         setActionFailure((failure) =>
           failure?.checking ? { ...failure, checking: false } : failure,
         );
-        if (next.execution_pending || ["queued", "running", "paused"].includes(next.status)) {
-          schedule(next.status === "paused" ? 4000 : 1200);
-        }
+        if (keepsPolling) schedule(next.status === "paused" ? 4000 : 1200);
         if (
           !next.execution_pending &&
           ["completed", "rejected", "cancelled", "limited", "failed"].includes(next.status)
