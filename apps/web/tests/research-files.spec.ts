@@ -151,7 +151,12 @@ test("find a file version across study assignments and open its original pass", 
   await expect(workspace).toBeFocused();
   await expect(workspace.getByRole("region", { name: "Pass 1", exact: true })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("pass")).toBe(earlier.id);
-  await workspace.getByRole("link", { name: "Back to saved files" }).click();
+  const backToFiles = workspace.getByRole("link", { name: "Back to saved files" });
+  await backToFiles.click();
+  await expect(producingPass).toBeFocused();
+  await page.locator("#study-files-heading").click();
+  await expect(producingPass).toHaveCount(0);
+  await backToFiles.click();
   await expect(producingPass).toBeFocused();
   await expect(search).toHaveValue("release checks");
   await expect(firstVersion.getByRole("cell", { name: "Original", exact: true })).toBeVisible();

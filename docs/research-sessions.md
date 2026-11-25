@@ -188,7 +188,7 @@ the originating row.
 producing pass and content ID. If an assignment saved another version under
 the same filename, both versions stay available. Preview a file or open the
 saved pass that produced it, then choose **Back to saved files** to resume the
-same search.
+same search at its file, even after closing the file list.
 
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.
