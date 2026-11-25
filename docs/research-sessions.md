@@ -106,6 +106,15 @@ recorded for that pass, and the link remembers the workspace and pass. Choose
 **Inspect pass in Runs** to see structured request inputs, or **Back to latest
 workspace** to continue following the workspace.
 
+Use **Search study activity** in the **Activity log** to find a pass by
+workspace, lead, pass number, result text or filename. The log keeps the search
+in place while you inspect a matching receipt.
+
+**Saved files** searches across assignments and leads. Each file lists its
+producing pass and content ID. If an assignment saved another version under
+the same filename, both versions stay available. Preview a file or open the
+saved pass that produced it.
+
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.
 Expand a saved direction to see exactly which requests included it. Once the

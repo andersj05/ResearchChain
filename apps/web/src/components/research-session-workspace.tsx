@@ -1,5 +1,4 @@
 import type { components } from "@researchchain/contracts";
-import { useState } from "react";
 import { contentDownloadUrl } from "@/lib/evidence";
 import { modelSettingLabel, resolveModelProfile } from "@/lib/model-settings";
 import { modelAttemptStatus } from "@/lib/run-inspection";
@@ -364,70 +363,6 @@ function PassReceipt({
       <RecordedSources urls={urls} />
       {result && <ResearchToolReceipts result={result} />}
     </section>
-  );
-}
-
-export function SessionActivity({
-  lanes,
-  select,
-}: {
-  lanes: SessionWorkspace[];
-  select: (key: string, id: string) => void;
-}) {
-  const [limit, setLimit] = useState(12);
-  const entries = lanes
-    .flatMap((lane) =>
-      lane.attempts.map((attempt, index) => ({
-        lane,
-        attempt,
-        number: index + 1,
-        time: attempt.finished_at ?? attempt.created_at,
-      })),
-    )
-    .sort((left, right) => Date.parse(right.time) - Date.parse(left.time));
-  if (!entries.length) return null;
-  return (
-    <details id="research-activity" className={styles.activity}>
-      <summary id="research-activity-heading">
-        Activity log · {entries.length} recorded {entries.length === 1 ? "pass" : "passes"}
-      </summary>
-      <ol>
-        {entries.slice(0, limit).map(({ lane, attempt, number, time }) => {
-          const result = attempt.result;
-          const summary =
-            result?.workspace_activity?.summary ||
-            (result?.swarm_action?.action === "ask_expert" &&
-              result.swarm_action.consultation.question) ||
-            (result?.swarm_action?.action === "delegate" && result.swarm_action.rationale) ||
-            (result?.swarm_action?.action === "finish" && result.swarm_action.findings) ||
-            result?.next_lead ||
-            result?.revision_summary ||
-            attempt.reason ||
-            modelAttemptStatus(attempt);
-          return (
-            <li key={attempt.id}>
-              <button
-                onClick={() => {
-                  select(lane.key, attempt.id);
-                  focusSessionWorkspace();
-                }}
-              >
-                <time dateTime={time}>{new Date(time).toLocaleTimeString()}</time>
-                <span>
-                  <strong>{lane.title}</strong> · Pass {number}
-                  <small>{summary}</small>
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-      {entries.length > limit && (
-        <button className="text-link" onClick={() => setLimit((value) => value + 12)}>
-          Show earlier passes
-        </button>
-      )}
-    </details>
   );
 }
 

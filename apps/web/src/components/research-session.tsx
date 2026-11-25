@@ -10,16 +10,17 @@ import { evidenceUrl } from "@/lib/evidence";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import {
-  SessionActivity,
   sessionModelProfiles,
   sessionReport,
   sessionWorkspaces,
   SessionWorkspaceDetail,
 } from "./research-session-workspace";
+import { SessionActivity } from "./session-activity";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
 import { SessionRoster } from "./session-roster";
+import { hasStudyFiles, StudyFiles, StudyFilesLink } from "./study-files";
 import {
   LeadConsultation,
   ConsultationHistory,
@@ -310,6 +311,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const started = run.model_attempts?.length ?? 0;
   const report = sessionReport(editor, run.status);
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
+  const hasFiles = hasStudyFiles(lanes);
   return (
     <main className={styles.page}>
       <div className={styles.intro}>
@@ -393,6 +395,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             </a>
           )}
           <a href="#research-workspaces">Workspaces</a>
+          {hasFiles && <StudyFilesLink />}
           {hasActivity && (
             <a
               href="#research-activity-heading"
@@ -576,6 +579,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           }
         />
       </div>
+      {hasFiles && <StudyFiles runId={runId} lanes={lanes} onSelect={selectWorkspace} />}
       <SessionActivity lanes={lanes} select={selectWorkspace} />
       <footer className={styles.footer}>
         {!failedReview && actionNotice}
