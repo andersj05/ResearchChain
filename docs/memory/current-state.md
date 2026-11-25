@@ -24,6 +24,9 @@ unconfirmed pin for an exact retry.
 
 Sixteen focused production Chromium cases passed, including end-to-end team
 research, report reading, source order, and file retry with synthetic data.
+Desktop runs the `e5f9659` readout merge. The Studies route returned HTTP 200
+with two connected workers. CI passed 652 API tests with three skips and 246
+Chromium cases. [Readout PR](https://github.com/andersj05/ResearchChain/pull/152).
 
 ## Study archive and revision setup
 
