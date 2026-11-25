@@ -11,7 +11,7 @@ import {
   useState,
 } from "react";
 import { useOwner } from "./access-context";
-import { DiscoverySources } from "./discovery-sources";
+import { DiscoverySources, type PendingCapture } from "./discovery-sources";
 import { StudyPacket, packetSize } from "./study-packet";
 import type { EvidenceRecord } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
@@ -95,7 +95,8 @@ export function ResearchLauncher({
   const [startError, setStartError] = useState("");
   const [busy, setBusy] = useState(false);
   const [readingSample, setReadingSample] = useState(false);
-  const [editingSource, setEditingSource] = useState(false);
+  const [pendingCapture, setPendingCapture] = useState<PendingCapture>(null);
+  const editingSource = pendingCapture !== null;
   const [sourceAppendNotice, setSourceAppendNotice] = useState("");
   const sourceSession = useMemo(
     () => (active && owner.csrf_token ? Symbol() : null),
@@ -417,7 +418,14 @@ export function ResearchLauncher({
   );
   if (!loaded) nextStep = <>Restoring saved setup…</>;
   else if (pending) nextStep = <a href="#first-reading-setup">Check the start request</a>;
-  else if (editingSource) nextStep = <>Pin or clear the material in progress.</>;
+  else if (pendingCapture)
+    nextStep = (
+      <>
+        {pendingCapture !== "paste" && <a href="#desk-queued-files">Review queued files</a>}
+        {pendingCapture === "both" && " · "}
+        {pendingCapture !== "files" && <a href="#desk-pasted-source">Finish pasted source</a>}
+      </>
+    );
   else if (!count) nextStep = <a href="#intake-heading">Pin a source to begin</a>;
   else if (!hasMaterial) nextStep = <a href="#packet-heading">Check your study packet</a>;
   else if (readingSample) nextStep = <>Reading the writing sample…</>;
@@ -476,7 +484,7 @@ export function ResearchLauncher({
           onPin={pin}
           disabled={frozen}
           onChange={(evidence_ids) => update({ evidence_ids })}
-          onEditing={setEditingSource}
+          onPendingCapture={setPendingCapture}
           onSaving={(value) => {
             savingSource.current = value;
           }}

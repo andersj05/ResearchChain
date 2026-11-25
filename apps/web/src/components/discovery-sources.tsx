@@ -16,6 +16,7 @@ import { SourceFileBatch, type Attribution } from "./source-file-batch";
 import styles from "./source-intake.module.css";
 
 type SavedChart = ChartPreviewSource & { source: EvidenceRecord };
+export type PendingCapture = "files" | "paste" | "both" | null;
 const chartMediaTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
 
 function savedChart(source: EvidenceRecord): SavedChart | null {
@@ -52,7 +53,7 @@ export function DiscoverySources({
   children,
   onChange,
   onPin,
-  onEditing,
+  onPendingCapture,
   onSaving,
 }: {
   storageKey: string;
@@ -62,7 +63,7 @@ export function DiscoverySources({
   children: ReactNode;
   onChange: (ids: string[]) => void;
   onPin: (item: EvidenceRecord) => void;
-  onEditing: (value: boolean) => void;
+  onPendingCapture: (value: PendingCapture) => void;
   onSaving: (value: boolean) => void;
 }) {
   const [draft, setDraft] = useState(() => readResearchCaptureDraft(storageKey));
@@ -75,7 +76,7 @@ export function DiscoverySources({
   const rightsSelect = useRef<HTMLSelectElement>(null);
   const writing = useRef(false);
   const touched = !!(title || body || url);
-  const editing = touched || filePending;
+  const pendingCapture = filePending ? (touched ? "both" : "files") : touched ? "paste" : null;
   const locked = disabled || saving;
   const packetFull = ids.length >= studySourceLimit;
   const viewedChart = preview?.charts.find((chart) => chart.id === preview.id)?.source;
@@ -90,8 +91,8 @@ export function DiscoverySources({
   }
 
   useLayoutEffect(() => {
-    onEditing(editing);
-  }, [editing, onEditing]);
+    onPendingCapture(pendingCapture);
+  }, [pendingCapture, onPendingCapture]);
 
   useEffect(() => {
     storeResearchCaptureDraft(storageKey, draft);
@@ -199,8 +200,10 @@ export function DiscoverySources({
           </fieldset>
         </SourceFileBatch>
         <form
+          id="desk-pasted-source"
           aria-label="Paste a source"
           className={styles.paste}
+          tabIndex={-1}
           onSubmit={(event) => {
             event.preventDefault();
             void pinText();

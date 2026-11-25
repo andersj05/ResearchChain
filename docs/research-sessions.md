@@ -26,6 +26,9 @@ sources. Choose usage rights before pinning a file, note or conversation. Add th
 author or speaker and observation date when known. Pin separately when
 attribution or rights differ.
 
+While you review the study settings, the first-reading bar links back to any
+queued files or unfinished pasted source.
+
 Open **Preview chart** on a queued image to check it and edit its packet title
 before pinning. Open a queued file's **File attribution** to set its own author or observation
 date. Fields use batch attribution until edited. **Use batch attribution**

@@ -350,7 +350,7 @@ export function SourceFileBatch({
       {children}
       {!!rows.length && (
         <div className={styles.queue}>
-          <ul aria-label="Files to pin">
+          <ul id="desk-queued-files" aria-label="Files to pin" tabIndex={-1}>
             {rows.map((row) => (
               <li key={row.id}>
                 <Files size={15} aria-hidden />
