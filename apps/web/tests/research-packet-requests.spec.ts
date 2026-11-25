@@ -1,7 +1,7 @@
 import { blankResearchBrief } from "../src/lib/research-sessions";
 import { expect, test } from "./fixtures";
 
-test("reorder a restored study packet and pin library material without reloading its details", async ({
+test("show restored study sources as they arrive and keep their requests stable while editing", async ({
   page,
   ownerSession,
 }) => {
@@ -15,6 +15,10 @@ test("reorder a restored study packet and pin library material without reloading
   }));
   const pinned = sources.slice(0, 40);
   const missing = pinned.at(-1)!;
+  const slow = pinned
+    .toSorted((a, b) => a.id.localeCompare(b.id))
+    .find((item) => item !== missing)!;
+  const slowIndex = pinned.indexOf(slow);
   const fresh = sources.at(-1)!;
   await page.addInitScript(({ key, saved }) => sessionStorage.setItem(key, JSON.stringify(saved)), {
     key: `${ownerSession.prefix}.research-brief.new`,
@@ -28,6 +32,7 @@ test("reorder a restored study packet and pin library material without reloading
     route.fulfill({ json: { items: sources, total: sources.length } }),
   );
   const detailReads: string[] = [];
+  const releaseSlow = Promise.withResolvers<void>();
   const releaseRetry = Promise.withResolvers<void>();
   let mayRetryMissing = false;
   await page.route("**/api/evidence/*", async (route) => {
@@ -36,6 +41,7 @@ test("reorder a restored study packet and pin library material without reloading
     const record = pinned.find((item) => item.id === id);
     if (!record || (record === missing && !mayRetryMissing))
       return route.fulfill({ status: 503, json: { detail: "Source details are unavailable." } });
+    if (record === slow) await releaseSlow.promise;
     if (record === missing) await releaseRetry.promise;
     return route.fulfill({ json: record });
   });
@@ -44,9 +50,18 @@ test("reorder a restored study packet and pin library material without reloading
   const packet = page.getByRole("list", { name: "Pinned material" });
   const rows = packet.getByRole("listitem");
   const retry = page.getByRole("button", { name: "Retry source details" });
-  await expect(retry).toBeVisible();
+  try {
+    await expect(packet.getByRole("link", { name: /^Saved reference \d+ Link only$/ })).toHaveCount(
+      pinned.length - 2,
+    );
+    await expect(rows.nth(slowIndex)).toContainText("Loading source details…");
+    await expect(retry).toBeVisible();
+  } finally {
+    releaseSlow.resolve();
+  }
+  await expect(rows.nth(slowIndex)).toContainText(slow.title);
   expect(new Set(detailReads)).toEqual(new Set(pinned.map(({ id }) => id)));
-  // Next.js Strict Mode repeats the mount effect in development.
+  expect(detailReads).toHaveLength(pinned.length);
   const initialReads = detailReads.length;
 
   await packet.getByRole("button", { name: "Move Saved reference 2 up", exact: true }).click();
