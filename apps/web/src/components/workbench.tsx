@@ -131,11 +131,13 @@ export function Workbench() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [setupOpen, setSetupOpen] = useState(false);
+  const [setupUsesPendingRevision, setSetupUsesPendingRevision] = useState(false);
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
   const [artifacts, setArtifacts] = useState<RunRequest["artifacts"]>([]);
   const [edited, setEdited] = useState(false);
   const [providerAccount, setProviderAccount] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
+  const [unconfirmedStartId, setUnconfirmedStartId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const catalog = useModelCatalog(
     loaded && accessActive && tab === "workflow" && !!workflow.research,
@@ -146,16 +148,29 @@ export function Workbench() {
   const [reviewFocus, setReviewFocus] = useState<ReviewFocus>();
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
+  const historyHead = revisions[0];
+  const historyIsCurrent =
+    activeAgent !== null && (historyHead?.agent_version ?? 0) >= activeAgent.version;
+  // An intentional revert can give one immutable revision multiple version numbers.
+  const historyIsComplete = historyIsCurrent && revisions.at(-1)?.agent_version === 1;
+  const matchingVersions =
+    historyIsComplete && revision ? revisions.filter((item) => item.id === revision.id) : [];
+  const loadedAgentVersion =
+    matchingVersions.length === 1 ? matchingVersions[0]?.agent_version : undefined;
+  const loadedRevisionLabel = revision
+    ? loadedAgentVersion === undefined
+      ? `Revision ${revision.number}`
+      : `Version ${loadedAgentVersion}`
+    : null;
+  const currentAgentRevision = historyIsCurrent ? historyHead?.id : activeAgent?.revision_id;
+  const savedHistoricalVersion =
+    saved && currentAgentRevision !== undefined && revision.id !== currentAgentRevision;
   const recentRevisionRun = revision
     ? runs.find(
         (item) =>
           item.revision_id === revision.id && (item.agent_id ?? null) === (activeAgent?.id ?? null),
       )
     : undefined;
-  const recentAgentVersion =
-    activeAgent && recentRevisionRun
-      ? revisions.find((item) => item.id === recentRevisionRun.revision_id)?.agent_version
-      : undefined;
 
   useEffect(() => {
     let active = true;
@@ -266,7 +281,9 @@ export function Workbench() {
           setProviderAccount(draft.providerAccount);
           setEdited(true);
         }
-        if (!restored && unconfirmed) {
+        if (!restored && unconfirmed && linkedReadEpoch === runReadEpoch.current) {
+          selectedRunId.current = unconfirmed.id;
+          setUnconfirmedStartId(unconfirmed.id);
           setBaselineRunId(unconfirmed.baseline_run_id ?? null);
           setMessage(
             "Unconfirmed run restored. Start again with the same inputs to retry this request.",
@@ -331,6 +348,7 @@ export function Workbench() {
     });
   }
   function rememberAgent(id: string | null) {
+    setUnconfirmedStartId(null);
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("agent", id);
     else url.searchParams.delete("agent");
@@ -521,6 +539,7 @@ export function Workbench() {
 
   function rememberRun(id: string, fromInbox = false) {
     selectedRunId.current = id;
+    setUnconfirmedStartId(null);
     const url = new URL(window.location.href);
     const changedRun = url.searchParams.get("run") !== id;
     if (changedRun) {
@@ -552,6 +571,27 @@ export function Workbench() {
     window.history.replaceState(null, "", url);
   }
 
+  function changeRunSetup(open: boolean) {
+    if (open) {
+      setSetupUsesPendingRevision(pendingMatchesRevision());
+      if (workflow.research) catalog.refresh();
+    }
+    setSetupOpen(open);
+  }
+
+  function returnToRunSetup() {
+    if (
+      !accessActive ||
+      busyRef.current ||
+      !unconfirmedStartId ||
+      selectedRunId.current !== unconfirmedStartId ||
+      pendingStart.current?.id !== unconfirmedStartId
+    )
+      return;
+    switchTab("workflow");
+    changeRunSetup(true);
+  }
+
   function rememberRevision(id: string) {
     const url = new URL(window.location.href);
     url.searchParams.set("revision", id);
@@ -559,7 +599,10 @@ export function Workbench() {
   }
 
   async function openRun(id: string, target?: ReviewTarget) {
-    if (!target) selectedRunId.current = id;
+    if (!target) {
+      if (selectedRunId.current !== id) setUnconfirmedStartId(null);
+      selectedRunId.current = id;
+    }
     const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
     if (epoch === runReadEpoch.current && (target || selectedRunId.current === id)) {
@@ -637,14 +680,16 @@ export function Workbench() {
       : null;
     if (versions && !versions.some((item) => item.revision.id === id))
       throw new Error("This revision does not belong to the selected agent.");
+    const namedRevisions = versions?.map((item) => ({
+      ...item.revision,
+      agent_version: item.version,
+    }));
     if (agentId !== (activeAgent?.id ?? null)) {
       const cached =
         drafts.current.get(agentId ?? "") ??
         (agentId ? readAgentDraft(storagePrefix, agentId) : null);
       const history = await api<RecentRunSummary[]>(agentId ? `runs?agent_id=${agentId}` : "runs");
-      const savedRevisions = versions
-        ? versions.map((item) => ({ ...item.revision, agent_version: item.version }))
-        : await api<RevisionSummary[]>("revisions");
+      const savedRevisions = namedRevisions ?? (await api<RevisionSummary[]>("revisions"));
       retainDraft();
       initialize(result.workflow, cached?.workflow ?? detail?.revision.workflow);
       setEdited(true);
@@ -660,7 +705,10 @@ export function Workbench() {
       runReadEpoch.current += 1;
       setExecutingId(null);
       rememberAgent(agentId);
-    } else change(result.workflow);
+    } else {
+      change(result.workflow);
+      if (namedRevisions) setRevisions(namedRevisions);
+    }
     setActiveAgent(detail?.agent ?? null);
     resetEditor(destination?.path);
     setRevision(result);
@@ -670,13 +718,16 @@ export function Workbench() {
     setMessage(`Loaded revision ${result.number}. Undo restores your previous draft.`);
   }
 
-  async function startRun() {
-    const pinned =
-      saved &&
-      pendingStart.current?.revision_id === revision?.id &&
+  function pendingMatchesRevision() {
+    return (
+      revision !== null &&
+      pendingStart.current?.revision_id === revision.id &&
       (pendingStart.current.agent_id ?? null) === (activeAgent?.id ?? null)
-        ? revision
-        : await saveRevision();
+    );
+  }
+
+  async function startRun() {
+    const pinned = saved && pendingMatchesRevision() ? revision : await saveRevision();
     if (
       !pendingStart.current ||
       pendingStart.current.revision_id !== pinned.id ||
@@ -706,8 +757,10 @@ export function Workbench() {
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
+    let acknowledged = false;
     try {
       await api<CommandReceipt>("runs", request, admissionTimeout);
+      acknowledged = true;
       forgetPendingRun(pendingKey, request.id);
       await openRun(request.id);
       pendingStart.current = null;
@@ -716,7 +769,17 @@ export function Workbench() {
     } catch (cause) {
       // A lost reply does not mean execution failed. Locate the accepted run;
       // retries retain the same ID if the request never reached the server.
-      await openRun(request.id).catch(() => undefined);
+      await openRun(request.id).catch((readError: unknown) => {
+        if (
+          !acknowledged &&
+          readError instanceof ApiError &&
+          readError.status === 404 &&
+          pendingStart.current?.id === request.id &&
+          selectedRunId.current === request.id
+        ) {
+          setUnconfirmedStartId(request.id);
+        }
+      });
       await refreshHistory().catch(() => undefined);
       throw cause;
     } finally {
@@ -793,6 +856,7 @@ export function Workbench() {
   }
 
   const showFeedback = !!message && !error && !setupOpen && !busy;
+  const canReturnToSetup = tab === "runs" && !run && !!unconfirmedStartId && accessActive && !busy;
   return (
     <main
       className="studio"
@@ -856,11 +920,7 @@ export function Workbench() {
                 <>
                   <span className={`save-state ${saved ? "" : "unsaved"}`}>
                     <i aria-hidden="true" />
-                    {saved
-                      ? activeAgent
-                        ? `Version ${activeAgent.version}`
-                        : `Revision ${revision.number}`
-                      : "Unsaved draft"}
+                    {saved ? loadedRevisionLabel : "Unsaved draft"}
                   </span>
                   {edited && revision && (
                     <DraftChangesPreview
@@ -902,9 +962,9 @@ export function Workbench() {
                       }
                     >
                       Recent run · saved{" "}
-                      {recentAgentVersion === undefined
+                      {loadedAgentVersion === undefined
                         ? `revision ${recentRevisionRun.revision_number}`
-                        : `version ${recentAgentVersion}`}
+                        : `version ${loadedAgentVersion}`}
                     </Button>
                   )}
                 </>
@@ -912,10 +972,7 @@ export function Workbench() {
               <RunSetup
                 workflow={setupOpen ? pruneDefinitions(workflow) : workflow}
                 open={setupOpen}
-                onOpenChange={(open) => {
-                  if (open && workflow.research) catalog.refresh();
-                  setSetupOpen(open);
-                }}
+                onOpenChange={changeRunSetup}
                 brief={brief}
                 onBriefChange={setBrief}
                 baselineRunId={baselineRunId}
@@ -939,7 +996,11 @@ export function Workbench() {
                 accountId={providerAccount}
                 onAccount={setProviderAccount}
                 name={workflow.name}
-                revision={saved ? revision.number : null}
+                revisionLabel={
+                  (saved && loadedRevisionLabel) ||
+                  (activeAgent ? "New version on start" : "New revision on start")
+                }
+                savesHistoricalVersion={savedHistoricalVersion && !setupUsesPendingRevision}
                 busy={busy}
                 loaded={loaded}
                 error={error}
@@ -948,11 +1009,21 @@ export function Workbench() {
             </div>
           )}
         </div>
-        <div className={showFeedback ? "workspace-feedback" : "sr-only"}>
+        <div className={showFeedback || canReturnToSetup ? "workspace-feedback" : "sr-only"}>
           <p role="status" aria-label="Workspace status">
-            {busy ? "Working…" : error ? "" : message}
+            {canReturnToSetup
+              ? "Run start is unconfirmed. Your setup is ready to review."
+              : busy
+                ? "Working…"
+                : error
+                  ? ""
+                  : message}
           </p>
-          {showFeedback && (
+          {canReturnToSetup ? (
+            <button type="button" className="button small" onClick={returnToRunSetup}>
+              Return to run setup
+            </button>
+          ) : showFeedback ? (
             <button
               className="button icon-button ghost"
               aria-label="Dismiss status"
@@ -960,7 +1031,7 @@ export function Workbench() {
             >
               <X size={14} aria-hidden="true" />
             </button>
-          )}
+          ) : null}
         </div>
         {error && !setupOpen && (
           <div className="error workspace-error" role="alert">

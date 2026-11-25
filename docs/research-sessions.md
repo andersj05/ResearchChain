@@ -94,6 +94,10 @@ packet and settings. **Recent research** lists the latest studies. Open
 or ID. **Decisions** opens working sentences, lead questions and editorial
 reviews even after a study drops out of the recent list.
 
+After opening a decision, use **Decisions** or browser Back to return to the
+review link and its place in the queue. The queue refreshes on return. If that
+decision has cleared, focus moves to a nearby open decision when available.
+
 When you open a study from the archive, the same tab remembers your submitted
 search, status filter and results page. Returning to **Studies** or going Back
 restores the opened result and its position when that result is still available.
@@ -221,6 +225,7 @@ Choose **Revisit material** beside the study title to start another experiment
 with the previous context, sample, sources and settings. Before starting, open **Compare with previous
 setup** to see packet changes, reading order, model roles, limits and context.
 In the revised study, **Compare with baseline** opens the original alongside the
-revision in the run inspector. Use **Open research session** to return to the
-revision. To read the original by itself, choose **Open baseline session** under
-**Sources and settings**.
+revision in the run inspector. When a study setup is open, the comparison opens
+in a new tab and the setup keeps its staged files. Use **Open research session**
+in the inspector to open the revision. To read the original by itself, choose
+**Open baseline session** under **Sources and settings**.

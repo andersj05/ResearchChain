@@ -15,7 +15,11 @@ import {
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
-import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
+import {
+  ResearchReviewQueue,
+  researchDecisionsUrl,
+  type DecisionReturnPosition,
+} from "./research-review-queue";
 import { RunArchive, type ArchiveReturnPosition } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
 import type { EvidenceRecord } from "@/lib/evidence";
@@ -155,6 +159,7 @@ export function ResearchDesk({
   const previousView = useRef(deskView);
   const previousDecision = useRef(false);
   const archivePosition = useRef<ArchiveReturnPosition | undefined>(undefined);
+  const decisionPosition = useRef<DecisionReturnPosition | undefined>(undefined);
   const previousReader = useRef<string | null>(null);
   const returnToDraft = draftScope
     ? `?fromSession=${encodeURIComponent(draftScope)}`
@@ -169,6 +174,11 @@ export function ResearchDesk({
     previousDecision.current =
       deskView === "session" &&
       /^(#source-led-investigation$|#editorial-review$|#consultation-)/u.test(window.location.hash);
+    if (
+      deskView !== "decisions" &&
+      (deskView !== "session" || decisionPosition.current?.studyId !== session)
+    )
+      decisionPosition.current = undefined;
     const requested = focusAfterNavigation.current;
     if (
       (requested === readerTitle && deskView !== "session") ||
@@ -220,6 +230,13 @@ export function ResearchDesk({
     return position?.studyId === previousReader.current ? position : undefined;
   }, []);
 
+  const takeDecisionReturnPosition = useCallback(() => {
+    const position = decisionPosition.current;
+    decisionPosition.current = undefined;
+    const focused = document.activeElement;
+    if (focused === document.body || focused?.id === decisionsTitle) return position;
+  }, []);
+
   function navigateWithinDesk(
     event: MouseEvent<HTMLAnchorElement>,
     heading?: string,
@@ -233,10 +250,10 @@ export function ResearchDesk({
       event.shiftKey ||
       event.altKey
     )
-      return;
+      return false;
     event.preventDefault();
     const { href } = event.currentTarget;
-    if (href === window.location.href) return;
+    if (href === window.location.href) return false;
     if (archiveStudy)
       archivePosition.current = {
         ...archiveStudy,
@@ -244,6 +261,15 @@ export function ResearchDesk({
       };
     focusAfterNavigation.current = heading ?? null;
     onNavigate(href);
+    return true;
+  }
+
+  function openQueuedDecision(
+    event: MouseEvent<HTMLAnchorElement>,
+    row?: Omit<DecisionReturnPosition, "top">,
+  ) {
+    const top = event.currentTarget.getBoundingClientRect().top;
+    if (navigateWithinDesk(event) && row) decisionPosition.current = { ...row, top };
   }
 
   function appendArchivedSource(source: EvidenceRecord) {
@@ -285,11 +311,14 @@ export function ResearchDesk({
             <a
               href={researchDecisionsUrl}
               aria-current={deskView === "decisions" ? "page" : undefined}
-              onClick={
-                showingDraft || returningToDraft
-                  ? (event) => navigateWithinDesk(event, decisionsTitle)
-                  : undefined
-              }
+              onClick={(event) => {
+                if (
+                  showingDraft ||
+                  returningToDraft ||
+                  decisionPosition.current?.studyId === session
+                )
+                  navigateWithinDesk(event, decisionsTitle);
+              }}
             >
               Decisions
             </a>
@@ -316,7 +345,7 @@ export function ResearchDesk({
           {showingDraft && !draftScope && (
             <ResearchReviewQueue
               summary
-              onOpenDecision={navigateWithinDesk}
+              onOpenDecision={(event) => navigateWithinDesk(event)}
               onViewQueue={(event) => navigateWithinDesk(event, decisionsTitle)}
             />
           )}
@@ -341,22 +370,22 @@ export function ResearchDesk({
       )}
       {visitedDecisions && (
         <main className={styles.page} hidden={!showingDecisions}>
-          <Activity mode={showingDecisions ? "visible" : "hidden"}>
-            <ResearchReviewQueue
-              onOpenDecision={navigateWithinDesk}
-              headingAction={
-                draftScope !== undefined && (
-                  <a
-                    className="button"
-                    href={returnToDraft}
-                    onClick={(event) => navigateWithinDesk(event, "research-title")}
-                  >
-                    Return to study setup
-                  </a>
-                )
-              }
-            />
-          </Activity>
+          <ResearchReviewQueue
+            visible={showingDecisions}
+            onOpenDecision={openQueuedDecision}
+            takeReturnPosition={takeDecisionReturnPosition}
+            headingAction={
+              draftScope !== undefined && (
+                <a
+                  className="button"
+                  href={returnToDraft}
+                  onClick={(event) => navigateWithinDesk(event, "research-title")}
+                >
+                  Return to study setup
+                </a>
+              )
+            }
+          />
         </main>
       )}
       {session ? (
@@ -371,6 +400,7 @@ export function ResearchDesk({
           <ResearchSession
             runId={session}
             titleRef={focusReaderTitle}
+            openComparisonInNewTab={readingWithDraft}
             onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
             onNewStudy={(source) => {
               window.location.assign(

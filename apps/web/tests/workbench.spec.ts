@@ -127,6 +127,8 @@ test("a lost start response reopens the accepted run", async ({ page }) => {
   await page.getByRole("button", { name: "Run workflow" }).click();
   await page.getByRole("button", { name: "Start run", exact: true }).click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
+  await expect(page.getByRole("tab", { name: "Runs", exact: true })).toBeEnabled();
+  await expect(page.getByRole("button", { name: "Return to run setup" })).toHaveCount(0);
   expect(new URL(page.url()).searchParams.get("run")).toBe(runId);
   await page.reload();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");

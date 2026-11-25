@@ -1,5 +1,6 @@
 import { expect, test, type Page, type APIRequestContext } from "./fixtures";
 import { holdWorkers } from "./worker-fixture";
+import type { RunRequest } from "../src/lib/workflow";
 import workflow from "../../../examples/research-workflow.json";
 
 test.describe.configure({ mode: "default" });
@@ -60,38 +61,79 @@ test("cancel queued work before a worker can execute it", async ({ page, request
   }
 });
 
-test("refresh after an unconfirmed start retains the same request identity", async ({
+test("an unconfirmed start reopens the exact setup before and after refresh at 390px", async ({
   page,
   request,
   ownerSession,
 }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await openSetup(page, request);
-  let firstId: string | undefined;
-  let retryId: string | undefined;
+  const dialog = page.getByRole("dialog", { name: "Start a research run" });
+  const briefInput = dialog.getByRole("textbox", { name: "Research brief" });
+  const start = dialog.getByRole("button", { name: "Start run", exact: true });
+  const returnToSetup = page.getByRole("button", { name: "Return to run setup" });
+  const submittedBrief = "Compare the synthetic peers in the November dataset.";
+  await briefInput.fill(submittedBrief);
+  const attempts: RunRequest[] = [];
   await page.route("**/api/runs", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
-    const body = route.request().postDataJSON();
-    if (!firstId) {
-      firstId = body.id;
-      return route.abort("failed");
-    }
-    retryId = body.id;
+    attempts.push(route.request().postDataJSON());
+    if (attempts.length === 1) return route.abort("failed");
     return route.continue();
   });
-  await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect.poll(() => firstId).toBeTruthy();
-  await page.getByRole("tab", { name: "Build", exact: true }).click();
-  await expect(page.getByRole("button", { name: "Run workflow", exact: true })).toBeEnabled();
+  const missingRun = page.waitForResponse(
+    (response) =>
+      response.request().method() === "GET" &&
+      response.status() === 404 &&
+      new URL(response.url()).pathname === `/api/runs/${attempts[0]?.id}`,
+  );
+  await start.click();
+  await missingRun;
+  await expect(returnToSetup).toBeInViewport();
+  await expect(page.getByRole("status", { name: "Workspace status" })).toContainText(
+    "Run start is unconfirmed",
+  );
+  const pending = attempts[0]!;
+  const runs = page.getByRole("tab", { name: "Runs", exact: true });
+  await returnToSetup.click();
+  await expect(briefInput).toBeFocused();
+  await expect(briefInput).toHaveValue(submittedBrief);
+  const newerBrief = "Compare the synthetic peers using the latest release.";
+  await briefInput.fill(newerBrief);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await runs.click();
+  await returnToSetup.click();
+  await expect(briefInput).toBeFocused();
+  await expect(briefInput).toHaveValue(newerBrief);
+  expect(attempts).toEqual([pending]);
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await runs.click();
   const key = ownerSession.prefix + ".run.pending";
-  expect(await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key)!).id, key)).toBe(
-    firstId,
+  expect(await page.evaluate((key) => JSON.parse(sessionStorage.getItem(key)!), key)).toEqual(
+    pending,
   );
   await page.reload();
-  await page.getByRole("tab", { name: "Build", exact: true }).click();
-  await page.getByRole("button", { name: "Run workflow", exact: true }).click();
-  await page.getByRole("button", { name: "Start run", exact: true }).click();
+  await expect(returnToSetup).toBeInViewport();
+  const pendingUrl = page.url();
+  expect(new URL(pendingUrl).searchParams.get("run")).toBe(pending.id);
+  const unrelatedRun = new URL(pendingUrl);
+  unrelatedRun.searchParams.set("run", crypto.randomUUID());
+  await page.goto(unrelatedRun.toString());
+  await expect(page.getByRole("alert").filter({ hasText: "The draft is editable." })).toBeVisible();
+  await expect(returnToSetup).toHaveCount(0);
+
+  await page.goto(pendingUrl);
+  await returnToSetup.click();
+  await expect(briefInput).toBeFocused();
+  await expect(briefInput).toHaveValue(submittedBrief);
+  expect(attempts).toEqual([pending]);
+  await start.click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
-  expect(retryId).toBe(firstId);
-  expect(new URL(page.url()).searchParams.get("run")).toBe(firstId);
+  expect(attempts).toEqual([pending, pending]);
+  expect(new URL(page.url()).searchParams.get("run")).toBe(pending.id);
+  await expect(returnToSetup).toHaveCount(0);
   expect(await page.evaluate((key) => sessionStorage.getItem(key), key)).toBeNull();
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
@@ -43,6 +43,7 @@ type Props = {
   runId: string;
   onNewStudy: (fromSession?: string) => void;
   titleRef?: (title: HTMLHeadingElement | null) => void;
+  openComparisonInNewTab?: boolean;
   onReuseSource?: (source: EvidenceRecord) => void;
 };
 type Review = NonNullable<RunSnapshot["review"]>;
@@ -116,7 +117,13 @@ function OwnerQuestion({
   );
 }
 
-function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Props) {
+function ResearchSessionView({
+  runId,
+  onNewStudy,
+  titleRef,
+  openComparisonInNewTab,
+  onReuseSource,
+}: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
   const [readingSourcesRequested, setReadingSourcesRequested] = useState(false);
@@ -191,6 +198,8 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
   }, [runId, refresh, busy, active, draftKey]);
 
   const loaded = !!run;
+  const profiles = useMemo(() => (run ? sessionModelProfiles(run) : undefined), [run]);
+  const lanes = useMemo(() => (run ? sessionWorkspaces(run, profiles) : []), [run, profiles]);
   useEffect(() => {
     if (!loaded) return;
     const anchor = window.location.hash.slice(1);
@@ -265,8 +274,6 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
         )}
       </main>
     );
-  const profiles = sessionModelProfiles(run);
-  const lanes = sessionWorkspaces(run, profiles);
   const swarm = sessionSwarm(run);
   const editor = lanes.at(-1)!;
   const team = swarm ? lanes.filter((lane) => lane.role === "researcher") : lanes.slice(1, -1);
@@ -464,8 +471,12 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
             </a>
           )}
           {run.baseline_run_id && (
-            <a href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}>
-              Compare with baseline
+            <a
+              href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}
+              target={openComparisonInNewTab ? "_blank" : undefined}
+              rel={openComparisonInNewTab ? "noopener" : undefined}
+            >
+              {openComparisonInNewTab ? "Compare with baseline (new tab)" : "Compare with baseline"}
             </a>
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}

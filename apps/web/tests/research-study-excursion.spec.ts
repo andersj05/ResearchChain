@@ -1,14 +1,14 @@
 import { pinDeskNote } from "./desk-material";
 import { expect, test } from "./fixtures";
 
-function savedStudy() {
+function savedStudy(title = "Archived credit comparison") {
   const createdAt = "2026-11-24T13:04:00Z";
   const run = {
     id: crypto.randomUUID(),
     revision_id: crypto.randomUUID(),
     revision_number: 1,
     workflow_name: "Research session",
-    study_title: "Archived credit comparison",
+    study_title: title,
     status: "completed",
     created_at: createdAt,
   };
@@ -41,18 +41,110 @@ function savedStudy() {
       ...run,
       brief: "Archive fixture for comparing two saved passes.",
       execution_pending: false,
-      workflow: { nodes: [] },
+      workflow: {
+        nodes: [
+          {
+            id: "discovery",
+            kind: "research",
+            label: "Lead first reading",
+            position: { x: 20, y: 20 },
+          },
+        ],
+        edges: [],
+      },
       events: [],
       artifacts: [],
       evidence_ids: [],
       model_attempts: attempts,
       research_manifest: {
+        account_id: "synthetic-account",
+        account_label: "Synthetic connection",
         tool_config: { session: "brief-led-1" },
         evidence: [],
         settings: { model: "test-model", limits: { max_model_calls: 25 } },
       },
     },
   };
+}
+
+for (const width of [390, 1440]) {
+  test(`keeps the staged setup when comparing a saved revision at ${width}px`, async ({
+    page,
+    context,
+  }) => {
+    const revised = savedStudy("Revised credit study");
+    const baseline = savedStudy("Original credit study");
+    const comparisonHref = `/?view=runs&run=${revised.run.id}&compare=${baseline.run.id}`;
+    await page.route("**/api/runs/search?*", (route) => route.fulfill({ json: revised.archive }));
+    await context.route(`**/api/runs/${revised.run.id}`, (route) =>
+      route.fulfill({ json: { ...revised.snapshot, baseline_run_id: baseline.run.id } }),
+    );
+    await context.route(`**/api/runs/${baseline.run.id}`, (route) =>
+      route.fulfill({ json: baseline.snapshot }),
+    );
+    await page.setViewportSize({ width, height: 844 });
+    await page.goto("/");
+    const token = crypto.randomUUID();
+    await page.evaluate((token) => Reflect.set(window, "comparisonVisitToken", token), token);
+    await page.getByLabel("Usage rights").selectOption("owned");
+    await page.getByLabel("Source files").setInputFiles({
+      name: "follow-up-curve.txt",
+      mimeType: "text/plain",
+      buffer: Buffer.from("A preliminary synthetic curve observation."),
+    });
+    const queue = page.getByRole("list", { name: "Files to pin" });
+    const title = queue.getByLabel("Packet title for follow-up-curve.txt");
+    await title.fill("Follow-up curve notes");
+
+    const studies = page.getByRole("link", { name: "Studies", exact: true });
+    await studies.press("Enter");
+    const search = page.getByRole("searchbox", { name: "Search the archive" });
+    await search.fill("credit study");
+    await search.press("Enter");
+    const result = page
+      .getByRole("list", { name: "Saved studies" })
+      .getByRole("link", { name: /Revised credit study/ });
+    await result.press("Enter");
+    const revisedHeading = page.getByRole("heading", { name: "Revised credit study" });
+    await expect(revisedHeading).toBeFocused();
+    await expect(queue).toBeHidden();
+    const studyUrl = page.url();
+    const compare = page.getByRole("link", {
+      name: "Compare with baseline (new tab)",
+      exact: true,
+    });
+    await expect(compare).toHaveAttribute("href", comparisonHref);
+
+    const opened = context.waitForEvent("page");
+    await compare.press("Enter");
+    const comparisonPage = await opened;
+    try {
+      await comparisonPage.setViewportSize({ width, height: 844 });
+      await expect(comparisonPage).toHaveURL(comparisonHref);
+      const comparison = comparisonPage.getByRole("region", { name: "Compare saved runs" });
+      await expect(comparison.getByLabel("Comparison run")).toHaveValue(baseline.run.id);
+      const comparisonTable = comparison.getByRole("region", { name: "Run comparison table" });
+      await expect(comparisonTable).toContainText(`Open run · ${revised.run.id.slice(0, 8)}`);
+      await expect(comparisonTable).toContainText(
+        `Comparison run · ${baseline.run.id.slice(0, 8)}`,
+      );
+    } finally {
+      await comparisonPage.close();
+    }
+    await page.bringToFront();
+    await expect(page).toHaveURL(studyUrl);
+    await expect(revisedHeading).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true,
+    );
+    await studies.press("Enter");
+    await expect(result).toBeFocused();
+    await expect(search).toHaveValue("credit study");
+    await page.getByRole("link", { name: "Return to study setup" }).press("Enter");
+    await expect(page.getByRole("heading", { name: "New study", exact: true })).toBeVisible();
+    await expect(title).toHaveValue("Follow-up curve notes");
+    expect(await page.evaluate(() => Reflect.get(window, "comparisonVisitToken"))).toBe(token);
+  });
 }
 
 test("inspect an archived study and its exact pass without losing the staged setup", async ({

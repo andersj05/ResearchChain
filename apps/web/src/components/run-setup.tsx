@@ -27,7 +27,7 @@ import {
   DialogTrigger,
 } from "@ui-sdk/react/dialog";
 import { Play, X } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 
 function RunTools({ workflow }: { workflow: Workflow }) {
   const steps = [workflow, ...(workflow.subgraphs ?? [])].flatMap((graph) =>
@@ -94,7 +94,8 @@ export function RunSetup({
   evidenceIds,
   onEvidenceChange,
   name,
-  revision,
+  revisionLabel,
+  savesHistoricalVersion,
   busy,
   loaded,
   error,
@@ -125,7 +126,8 @@ export function RunSetup({
   evidenceIds: string[];
   onEvidenceChange: (ids: string[]) => void;
   name: string;
-  revision: number | null;
+  revisionLabel: string;
+  savesHistoricalVersion: boolean;
   busy: boolean;
   loaded: boolean;
   error: string;
@@ -135,6 +137,7 @@ export function RunSetup({
   const [chartSources, setChartSources] = useState<EvidenceRecord[] | null>(null);
   const [savingChart, setSavingChart] = useState(false);
   const [attachedCharts, setAttachedCharts] = useState<EvidenceRecord[]>([]);
+  const versionNoticeId = useId();
   const uploadTrigger = useRef<HTMLElement | null>(null);
   const chartEditor = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
@@ -246,8 +249,13 @@ export function RunSetup({
         >
           <div className="run-context">
             <strong>{name || "Untitled workflow"}</strong>
-            <span>{revision ? `Revision ${revision}` : "New revision on start"}</span>
+            <span>{revisionLabel}</span>
           </div>
+          {savesHistoricalVersion && (
+            <p className="field-hint" id={versionNoticeId}>
+              Starting saves this workflow as the latest version of this agent.
+            </p>
+          )}
           {baselineRunId && (
             <div className="actions">
               <a href={`?view=runs&run=${baselineRunId}`} target="_blank" rel="noopener">
@@ -403,6 +411,7 @@ export function RunSetup({
             <Button
               className="button primary"
               type="submit"
+              aria-describedby={savesHistoricalVersion ? versionNoticeId : undefined}
               disabled={busy || !brief.trim() || !ready}
             >
               {busy ? "Starting…" : "Start run"}

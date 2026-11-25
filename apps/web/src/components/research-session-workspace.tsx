@@ -3,7 +3,12 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { contentDownloadUrl } from "@/lib/evidence";
 import { modelSettingLabel, resolveModelProfile } from "@/lib/model-settings";
 import { modelAttemptStatus } from "@/lib/run-inspection";
-import { sessionSwarm, swarmWorkspaces, type SessionWorkspace } from "@/lib/swarm-workspaces";
+import {
+  groupAnalystPasses,
+  sessionSwarm,
+  swarmWorkspaces,
+  type SessionWorkspace,
+} from "@/lib/swarm-workspaces";
 import type { RunSnapshot } from "@/lib/workflow";
 import { CopyLinkButton } from "./copy-link-button";
 import { ResearchMarkdown } from "./research-markdown";
@@ -56,11 +61,7 @@ export function sessionWorkspaces(
   const attempts = run.model_attempts ?? [];
   const director = attempts.find((item) => item.path === "root/team/plan");
   const plan = director?.result?.team_plan;
-  function passes(path: string) {
-    return attempts.filter(
-      (item) => item.path === path || item.path.startsWith(path + "/analyst-pass-"),
-    );
-  }
+  const groupedPasses = groupAnalystPasses(attempts);
   return [
     {
       key: "lead",
@@ -73,14 +74,14 @@ export function sessionWorkspaces(
       key: `agent-${index + 1}`,
       title: assignment.title,
       objective: assignment.objective,
-      attempts: passes(`root/team/agent-${index + 1}`),
+      attempts: groupedPasses.get(`root/team/agent-${index + 1}`) ?? [],
       profile: profiles?.researcher,
     })),
     {
       key: "editor",
       title: "Report editor",
       objective: "Write the report from the team's findings and files.",
-      attempts: passes("root/report"),
+      attempts: groupedPasses.get("root/report") ?? [],
       profile: profiles?.editor,
     },
   ];

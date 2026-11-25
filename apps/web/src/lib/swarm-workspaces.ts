@@ -31,6 +31,18 @@ export type SessionWorkspace = {
 type Profiles = { lead: ModelProfile; researcher: ModelProfile; editor: ModelProfile };
 type State = NonNullable<SessionWorkspace["state"]>;
 
+export function groupAnalystPasses(attempts: Attempt[]) {
+  const groups = new Map<string, Attempt[]>();
+  for (const attempt of attempts) {
+    const pass = attempt.path.indexOf("/analyst-pass-");
+    const path = pass < 0 ? attempt.path : attempt.path.slice(0, pass);
+    const current = groups.get(path);
+    if (current) current.push(attempt);
+    else groups.set(path, [attempt]);
+  }
+  return groups;
+}
+
 export function sessionSwarm(run: RunSnapshot) {
   const team = run.workflow.nodes?.find((node) => node.id === "team")?.config;
   const swarm = team?.type === "research" && team.team?.swarm;
@@ -69,6 +81,7 @@ export function swarmWorkspaces(
   profiles: Profiles | undefined,
 ): SessionWorkspace[] {
   const attempts = run.model_attempts ?? [];
+  const groupedPasses = groupAnalystPasses(attempts);
   const director = attempts.find((attempt) => attempt.path === "root/team/plan");
   const mandates = director?.result?.swarm_plan?.leads ?? [];
   const lanes: SessionWorkspace[] = [
@@ -98,9 +111,7 @@ export function swarmWorkspaces(
     const workers: SessionWorkspace[] = assignments.map((assignment, i) => {
       const workerKey = `${key}/agent-${i + 1}`;
       const workerPath = `root/team/${workerKey}`;
-      const passes = attempts.filter(
-        (a) => a.path === workerPath || a.path.startsWith(workerPath + "/analyst-pass-"),
-      );
+      const passes = groupedPasses.get(workerPath) ?? [];
       return {
         key: workerKey,
         role: "researcher",
@@ -139,10 +150,7 @@ export function swarmWorkspaces(
       ...workers,
     );
   }
-  const editor = attempts.filter(
-    (attempt) =>
-      attempt.path === "root/report" || attempt.path.startsWith("root/report/analyst-pass-"),
-  );
+  const editor = groupedPasses.get("root/report") ?? [];
   lanes.push({
     key: "editor",
     path: "root/report",
