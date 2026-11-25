@@ -1,6 +1,6 @@
 # Current state
 
-Updated 2026-11-24.
+Updated 2026-11-25.
 
 ## Report reading and pinned sources
 
@@ -24,6 +24,9 @@ and pass links can be copied from the reader.
 
 Sixteen focused production Chromium cases passed in the browser rehearsal,
 including the shared run archive, clipboard denial and resumed study setup.
+Desktop runs the `083b116` merge. The Studies route returned HTTP 200 with two
+connected workers. CI passed 652 API tests with three skips and 242 Chromium cases.
+[Studies PR](https://github.com/andersj05/ResearchChain/pull/151).
 [Desk guide](../research-sessions.md).
 
 ## Capture and return visits
