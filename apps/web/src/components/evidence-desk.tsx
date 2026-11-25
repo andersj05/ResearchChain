@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { api } from "@/lib/workflow";
 import {
   listSources,
   mergeSources,
+  refreshSourcePages,
   useEvidenceLibrary,
   type EvidenceAvailability,
 } from "@/lib/use-evidence-library";
@@ -30,7 +31,11 @@ export function EvidenceDesk() {
   const searchInput = useRef<HTMLInputElement>(null);
   const inspection = useRef<HTMLDivElement>(null);
   const inspectionTitle = useRef<HTMLHeadingElement>(null);
-  const revealInspection = useRef(false);
+  const revealInspection = useRef<boolean | null>(null);
+  const lastSurface = useRef<{ form: string | null; sourceId?: string }>(null);
+  const hasLoaded = useRef(false);
+  const sourcesVersion = useRef(0);
+  const claimsVersion = useRef(0);
   const compact = useCompactCollectionLayout();
   const [sources, setSources] = useState<EvidenceRecord[]>([]);
   const [claims, setClaims] = useState<ClaimRecord[]>([]);
@@ -55,31 +60,46 @@ export function EvidenceDesk() {
   const [loadEpoch, setLoadEpoch] = useState(0);
   const query = search.trim();
   const filtered = Boolean(query || availability || sourceType);
-  const library = useEvidenceLibrary(query, availability, filtered, sourceType);
+  const library = useEvidenceLibrary(query, availability, filtered, sourceType, true);
+  const loadContext = useEffectEvent(() => ({
+    sourceDepth: nextSource ?? total,
+    selection,
+  }));
   useEffect(() => {
     let active = true;
     async function load() {
+      const { sourceDepth, selection: prior } = loadContext();
+      const sourceVersion = sourcesVersion.current;
+      const claimVersion = claimsVersion.current;
+      const currentSources = () => active && sourceVersion === sourcesVersion.current;
       try {
         const [page, claimPage] = await Promise.all([
-          listSources(),
+          refreshSourcePages(sourceDepth, currentSources),
           api<ClaimPage>("claims?limit=50"),
         ]);
-        const id = new URL(window.location.href).searchParams.get("evidence");
-        const initial = id
-          ? (page.items.find((item) => item.id === id) ??
-            (await api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)))
-          : page.items[0];
         if (!active) return;
-        setSources(
-          initial && !page.items.some((item) => item.id === initial.id)
-            ? [initial, ...page.items]
-            : page.items,
-        );
-        setClaims(claimPage.items);
-        setSelection(initial ? { record: initial, fromResults: false } : null);
-        setTotal(page.total);
-        setNextSource(page.next_offset ?? null);
-        setNextClaim(claimPage.next_offset ?? null);
+        if (currentSources()) {
+          const id = new URL(window.location.href).searchParams.get("evidence") ?? prior?.record.id;
+          const found = id ? page.items.find((item) => item.id === id) : page.items[0];
+          const record =
+            found ?? (id ? await api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`) : null);
+          if (currentSources()) {
+            setSources(record && !found ? [record, ...page.items] : page.items);
+            setSelection((latest) =>
+              latest === prior
+                ? record && { record, fromResults: prior?.fromResults ?? false }
+                : latest,
+            );
+            setTotal(page.total);
+            setNextSource(page.next_offset ?? null);
+          }
+        }
+        if (!active) return;
+        if (claimVersion === claimsVersion.current) {
+          setClaims(claimPage.items);
+          setNextClaim(claimPage.next_offset ?? null);
+        }
+        hasLoaded.current = true;
         setError("");
       } catch (cause) {
         if (active)
@@ -95,7 +115,11 @@ export function EvidenceDesk() {
   }, [loadEpoch]);
   useEffect(() => {
     const reveal = revealInspection.current;
-    revealInspection.current = false;
+    const last = lastSurface.current;
+    const sourceId = selection?.record.id;
+    revealInspection.current = null;
+    lastSurface.current = { form, sourceId };
+    if (reveal === null && last?.form === form && last.sourceId === sourceId) return;
     if (reveal && !form) {
       inspectionTitle.current?.focus({ preventScroll: true });
       inspection.current?.scrollIntoView({ block: "start" });
@@ -130,6 +154,7 @@ export function EvidenceDesk() {
     searchInput.current?.focus();
   }
   function sourceSaved(record: EvidenceRecord) {
+    sourcesVersion.current += 1;
     setSources((previous) => [record, ...previous.filter((item) => item.id !== record.id)]);
     setTotal((previous) => previous + (sources.some((item) => item.id === record.id) ? 0 : 1));
     if (nextSource !== null) setNextSource(nextSource + 1);
@@ -141,11 +166,13 @@ export function EvidenceDesk() {
     setError("");
     try {
       if (kind === "evidence") {
+        sourcesVersion.current += 1;
         const page = await listSources("", undefined, nextSource ?? 0);
         setSources((previous) => mergeSources(previous, page.items));
         setNextSource(page.next_offset ?? null);
         setTotal(page.total);
       } else {
+        claimsVersion.current += 1;
         const page = await api<ClaimPage>(`claims?limit=50&offset=${nextClaim}`);
         setClaims((previous) => [
           ...new Map([...previous, ...page.items].map((item) => [item.id, item])).values(),
@@ -209,7 +236,7 @@ export function EvidenceDesk() {
           <Button
             className="button small"
             onClick={() => {
-              setLoading(true);
+              if (!hasLoaded.current) setLoading(true);
               setLoadEpoch((value) => value + 1);
             }}
           >
@@ -362,6 +389,7 @@ export function EvidenceDesk() {
                   original={revising}
                   selected={selected?.id}
                   onSaved={(claim) => {
+                    claimsVersion.current += 1;
                     setClaims((previous) => [
                       claim,
                       ...previous.filter((item) => item.id !== claim.id),

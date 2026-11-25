@@ -122,13 +122,21 @@ export function Workbench() {
   const runId = parameters.get("run");
   const [tab, setView] = useState(requestedView ?? (runId ? "runs" : "workflow"));
   const [buildOpened, setBuildOpened] = useState(tab === "workflow");
+  const [sourcesOpened, setSourcesOpened] = useState(tab === "evidence");
+  const sourcesDocumentTop = useRef<number>(undefined);
   const [reportVisit, setReportVisit] = useState(tab === "reports" ? 1 : 0);
   const switchedTab = useRef(false);
   const setTab = useCallback((value: WorkspaceView) => {
     if (value === "workflow") setBuildOpened(true);
+    if (value === "evidence") setSourcesOpened(true);
     if (value === "reports") setReportVisit((visit) => visit + 1);
     setView(value);
   }, []);
+  useLayoutEffect(() => {
+    if (tab === "evidence" && sourcesDocumentTop.current !== undefined) {
+      window.scrollTo(0, sourcesDocumentTop.current);
+    }
+  }, [tab]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -585,6 +593,8 @@ export function Workbench() {
 
   function switchTab(value: string | null) {
     const next = workspaceViews.find((candidate) => candidate === value) ?? "workflow";
+    // The Sources list has its own scroller, but on compact layouts the reader uses the page.
+    if (tab === "evidence" && next !== tab) sourcesDocumentTop.current = window.scrollY;
     switchedTab.current = true;
     setTab(next);
     setMessage("");
@@ -1337,8 +1347,15 @@ export function Workbench() {
             </div>
           </section>
         </TabsPanel>
-        <TabsPanel className="evidence-view" value="evidence">
-          <EvidenceDesk />
+        <TabsPanel
+          className="evidence-view"
+          value="evidence"
+          keepMounted={sourcesOpened}
+          hidden={tab !== "evidence"}
+        >
+          <Activity mode={tab === "evidence" ? "visible" : "hidden"}>
+            <EvidenceDesk />
+          </Activity>
         </TabsPanel>
         <TabsPanel
           className="reports-view"
