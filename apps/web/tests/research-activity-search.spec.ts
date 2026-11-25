@@ -3,6 +3,7 @@ import { expect, test } from "./fixtures";
 
 type Attempt = NonNullable<RunSnapshot["model_attempts"]>[number];
 type Result = NonNullable<Attempt["result"]>;
+type ActivityProbe = Window & { activityNormalizations?: number };
 
 const start = Date.UTC(2026, 10, 20, 12);
 
@@ -186,6 +187,16 @@ test("finds an older pass in a large swarm and returns to it after a live result
   page,
 }) => {
   const runId = crypto.randomUUID();
+  await page.addInitScript(() => {
+    const probe = window as ActivityProbe;
+    probe.activityNormalizations = 0;
+    const lower = String.prototype.toLowerCase;
+    String.prototype.toLowerCase = function () {
+      if (this.includes("Crédit archival-gap") && this.includes("\nroot/team/"))
+        probe.activityNormalizations = (probe.activityNormalizations ?? 0) + 1;
+      return lower.call(this);
+    };
+  });
   const researchersPerLead = 20;
   const passesPerResearcher = 6;
   const leads = Array.from({ length: 4 }, (_, index) => ({
@@ -239,6 +250,17 @@ test("finds an older pass in a large swarm and returns to it after a live result
     }).flat(),
   );
   const old = history.find(({ path }) => path === oldPath)!;
+  const revisedHistory = history.map((attempt) =>
+    attempt === old
+      ? {
+          ...attempt,
+          result: {
+            ...old.result!,
+            conclusion: old.result!.conclusion.replace("retained", "restored"),
+          },
+        }
+      : attempt,
+  );
   const newerCsv = "Vintage,Value\nUpdated,9\n";
   const newerFile = { ...file, artifact_id: crypto.randomUUID(), byte_size: newerCsv.length };
   await page.route(`**/api/artifacts/${newerFile.artifact_id}/content`, (route) =>
@@ -248,9 +270,20 @@ test("finds an older pass in a large swarm and returns to it after a live result
     conclusion: `${note} Crédit archival-gap finding in the new receipt.`,
     workspace_files: [newerFile],
   });
+  const acceptRepeat = Promise.withResolvers<void>();
+  const repeated = Promise.withResolvers<void>();
+  const acceptCorrection = Promise.withResolvers<void>();
+  let reads = 0;
+  let corrected = false;
   let publish = false;
-  await page.route(`**/api/runs/${runId}`, (route) =>
-    route.fulfill({
+  await page.route(`**/api/runs/${runId}`, async (route) => {
+    reads += 1;
+    if (reads === 2) await acceptRepeat.promise;
+    if (reads === 3) {
+      repeated.resolve();
+      await acceptCorrection.promise;
+    }
+    await route.fulfill({
       json: {
         id: runId,
         brief: "Inspect a large synthetic swarm.",
@@ -273,10 +306,15 @@ test("finds an older pass in a large swarm and returns to it after a live result
           evidence: [],
           tool_config: { session: "brief-led-1" },
         },
-        model_attempts: [plan, ...turns, ...history, ...(publish ? [incoming] : [])],
+        model_attempts: [
+          plan,
+          ...turns,
+          ...(corrected ? revisedHistory : history),
+          ...(publish ? [incoming] : []),
+        ],
       },
-    }),
-  );
+    });
+  });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/?session=${runId}`);
@@ -309,6 +347,22 @@ test("finds an older pass in a large swarm and returns to it after a live result
   );
   await expect(workspace.getByRole("cell", { name: "Original", exact: true })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("pass")).toBe(old.id);
+
+  const activityNormalizations = () =>
+    page.evaluate(() => (window as ActivityProbe).activityNormalizations);
+  const initialNormalizations = await activityNormalizations();
+  expect(initialNormalizations).toBeGreaterThan(0);
+  acceptRepeat.resolve();
+  await repeated.promise;
+  expect(await activityNormalizations()).toBe(initialNormalizations);
+
+  corrected = true;
+  acceptCorrection.resolve();
+  await expect(results.first()).toContainText("Crédit archival-gap finding restored");
+  await expect(workspace.getByRole("region", { name: "Pass 2", exact: true })).toContainText(
+    "Crédit archival-gap finding restored",
+  );
+  await expect(workspace).toBeFocused();
 
   publish = true;
   await expect(status).toHaveText("2 matching passes");

@@ -31,6 +31,14 @@ const cases = [
     draftLabel: "Direction for the editor",
     submitLabel: "Continue to report",
   },
+  {
+    kind: "editorial review after an unchanged snapshot",
+    path: "root/judgment",
+    region: "Your judgment",
+    draftLabel: "Direction for the editor",
+    submitLabel: "Continue to report",
+    sameCheckpoint: true,
+  },
 ];
 
 function consultation(title: string, path: string): Review {
@@ -57,7 +65,7 @@ for (const scenario of cases) {
   }) => {
     const runId = crypto.randomUUID();
     const initialCheckpoint = crypto.randomUUID();
-    const currentCheckpoint = crypto.randomUUID();
+    const currentCheckpoint = scenario.sameCheckpoint ? initialCheckpoint : crypto.randomUUID();
     const discovery = scenario.kind === "first reading";
     const expert = scenario.kind === "expert consultation";
     const primary: Review = expert
@@ -73,9 +81,19 @@ for (const scenario of cases) {
     const refresh = Promise.withResolvers<void>();
     const submitted: Submission[] = [];
     const draft = "Compare revisions in the two archived releases before drawing a conclusion.";
+    let refreshFailed = false;
 
     await page.route(`**/api/runs/${runId}`, async (route) => {
-      if (submitted.length === 1) await refresh.promise;
+      if (submitted.length === 1) {
+        await refresh.promise;
+        if (scenario.sameCheckpoint && !refreshFailed) {
+          refreshFailed = true;
+          return route.fulfill({
+            status: 503,
+            json: { detail: "The synthetic run could not be checked." },
+          });
+        }
+      }
       const reviews = submitted.length < 2 ? [primary, ...other] : other;
       return route.fulfill({
         json: {
@@ -168,10 +186,20 @@ for (const scenario of cases) {
     } finally {
       refresh.resolve();
     }
+    if (scenario.sameCheckpoint) {
+      await expect(error).toContainText("Could not check the current question.");
+      await expect(submit).toBeDisabled();
+      await region.getByRole("button", { name: "Refresh session" }).click();
+    }
     await expect(submit).toBeEnabled();
     await expect(field).toHaveValue(draft);
     await expect(error).not.toContainText("Checking the current question");
-    await expect(error).toContainText("The study has refreshed. You can try again.");
+    if (scenario.sameCheckpoint) {
+      await expect(error).not.toContainText("Could not check the current question.");
+      await expect(page.getByText("The synthetic run could not be checked.")).toHaveCount(0);
+    } else {
+      await expect(error).toContainText("The study has refreshed. You can try again.");
+    }
     expect(submitted).toHaveLength(1);
     await submit.click();
     await expect(submit).toHaveCount(0);

@@ -24,6 +24,7 @@ from researchchain.report_models import (
     ReportFeedbackCreate,
     ReportSave,
     ReportSection,
+    ReportSummary,
     StyleGuideCreate,
 )
 from researchchain.reports import Reports, StyleGuides
@@ -144,8 +145,15 @@ def test_concurrent_saves_retries_and_old_revision_integrity(database: Database)
         store.save(request.model_copy(update={"id": uuid4()}))
     with pytest.raises(ConflictError, match="different inputs"):
         store.save(request.model_copy(update={"change_note": "Changed receipt"}))
-    assert [s.id for s in store.list(record.id)] == [saved.id, record.id]
-    assert store.list()[0].id == saved.id
+    history = store.list(record.id)
+    fields = set(ReportSummary.model_fields)
+    assert [item.model_dump() for item in history] == [
+        revision.model_dump(include=fields) for revision in (saved, record)
+    ]
+    assert store.list() == [history[0]]
+    assert store.list(search="clarified the interpretation") == [history[0]]
+    with pytest.raises(NotFoundError, match="Editorial record not found"):
+        store.list(uuid4())
 
 
 def test_distinct_concurrent_edits_have_one_winner(database: Database) -> None:

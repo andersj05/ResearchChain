@@ -2,6 +2,23 @@
 
 Updated 2026-11-25.
 
+## Faster report lists and live study reading
+
+Reports lists and revision history read summary fields while preserving the
+saved revision dates, ordering, and current report. In a paired local
+PostgreSQL benchmark of 100 synthetic reports, the median report-list read went
+from 281.20 ms to 125.88 ms with equal results.
+
+Live study polls reuse an identical response already in the browser. Six
+synthetic polls of an open 480-row Activity search previously parsed six
+copies and normalized 2,880 rows. Both operations were skipped after this
+change. The network responses and polling intervals were held constant in the
+comparison. A same-length edited receipt still appeared on the next poll.
+
+After a successful keyboard file pin, focus returns to **Drop files or browse**
+so the next file can be added directly. It respects a focus or route change
+while the upload was in progress.
+
 ## Finding older reports and captured sources
 
 Reports searches the title and latest change note across saved report series.
@@ -13,6 +30,7 @@ browsing brings the opened revision heading into view and focuses it.
 Saved sources can filter by availability in Research Desk. In the synthetic
 108-record metadata case, **Captured** found all three captured reports on the
 first page. Existing pins stayed in their prior order.
+[Report history and captured-source PR](https://github.com/andersj05/ResearchChain/pull/170).
 
 ## Resuming work in study settings, the archive, and report references
 

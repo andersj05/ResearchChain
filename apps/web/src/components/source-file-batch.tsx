@@ -147,6 +147,7 @@ export function SourceFileBatch({
   const dropButton = useRef<HTMLButtonElement>(null);
   const pinButton = useRef<HTMLButtonElement>(null);
   const focusAfterCleanup = useRef(false);
+  const browseAfterPin = useRef<{ href: string; ready: boolean } | undefined>(undefined);
   const previewOpener = useRef<HTMLButtonElement>(null);
   const saving = useRef(false);
   const depth = useRef(0);
@@ -157,11 +158,36 @@ export function SourceFileBatch({
   const invalidCount = rows.length - eligible.length;
 
   useLayoutEffect(() => {
-    if (!focusAfterCleanup.current) return;
-    focusAfterCleanup.current = false;
-    const pin = pinButton.current;
-    (pin && !pin.disabled ? pin : dropButton.current)?.focus();
-  }, [rows]);
+    const cancel = () => {
+      browseAfterPin.current = undefined;
+    };
+    function keepNewFocus(event: FocusEvent) {
+      if (event.target !== document.body && event.target !== pinButton.current) cancel();
+    }
+    document.addEventListener("focusin", keepNewFocus);
+    window.addEventListener("popstate", cancel);
+    window.addEventListener("hashchange", cancel);
+    return () => {
+      // Leaving the setup can hide this component while its receipt is still pending.
+      cancel();
+      document.removeEventListener("focusin", keepNewFocus);
+      window.removeEventListener("popstate", cancel);
+      window.removeEventListener("hashchange", cancel);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (focusAfterCleanup.current) {
+      focusAfterCleanup.current = false;
+      const pin = pinButton.current;
+      (pin && !pin.disabled ? pin : dropButton.current)?.focus();
+    }
+    const origin = browseAfterPin.current;
+    if (disabled || !origin?.ready) return;
+    browseAfterPin.current = undefined;
+    if (origin.href === window.location.href && document.activeElement === document.body)
+      dropButton.current?.focus();
+  }, [disabled, rows]);
 
   function choose(files: FileList | File[] | null, pasted = false) {
     if (disabled || saving.current || !files?.length) return;
@@ -236,8 +262,12 @@ export function SourceFileBatch({
       list.map((row) => (row.id === id && !row.command ? { ...row, ...patch } : row)),
     );
   }
-  async function pin() {
+  async function pin(returnFocus: boolean) {
     if (saving.current || disabled || !permitted || !eligible.length) return;
+    browseAfterPin.current =
+      returnFocus && document.activeElement === pinButton.current
+        ? { href: window.location.href, ready: false }
+        : undefined;
     saving.current = true;
     onSaving(true);
     const prepared: Promise<PreparedPin>[] = [];
@@ -286,6 +316,8 @@ export function SourceFileBatch({
         }
       }
       const remaining = rows.length - completed;
+      if (remaining) browseAfterPin.current = undefined;
+      else if (browseAfterPin.current) browseAfterPin.current.ready = true;
       setNotice(
         `${completed} ${completed === 1 ? "file" : "files"} pinned.${remaining ? ` ${remaining} still queued.` : ""}`,
       );
@@ -484,7 +516,7 @@ export function SourceFileBatch({
                 className="button"
                 type="button"
                 disabled={disabled || !permitted || count + rows.length > 100}
-                onClick={() => void pin()}
+                onClick={(event) => void pin(event.detail === 0)}
               >
                 {progress
                   ? "Pinning files…"
