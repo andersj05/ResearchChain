@@ -98,7 +98,8 @@ test("reopen a decision beyond recent research and find the study by a secondary
   await expect(page.getByText("No research studies are waiting for a decision.")).toBeVisible();
 });
 
-test("name a source-only study and carry the name into a revision", async ({ page }) => {
+test("name a source-only study and compare its revision with the original", async ({ page }) => {
+  test.setTimeout(90_000);
   const studyTitle = `Review of sector flows ${crypto.randomUUID().slice(0, 8)}`;
   await page.goto("/");
   await pinDeskNote(page);
@@ -112,7 +113,29 @@ test("name a source-only study and carry the name into a revision", async ({ pag
   await expect(page.getByRole("button", { name: "Assign research" })).toBeVisible({
     timeout: 45000,
   });
+  const baselineId = new URL(page.url()).searchParams.get("session")!;
+  const compare = page.getByRole("link", { name: "Compare with baseline" });
+  await expect(compare).toHaveCount(0);
   await page.getByRole("button", { name: "Revisit material" }).click();
   await expect(title).toHaveValue(studyTitle);
-  await expect(page.getByLabel("Context for the lead (optional)")).toHaveValue("");
+  const context = page.getByLabel("Context for the lead (optional)");
+  await expect(context).toHaveValue("");
+  await context.fill("Compare the sector flows against the earlier study.");
+  await page.getByRole("button", { name: "Ask the lead for a first reading" }).click();
+  await expect(compare).toBeVisible({ timeout: 15_000 });
+  const revisedId = new URL(page.url()).searchParams.get("session")!;
+  expect(revisedId).not.toBe(baselineId);
+
+  await compare.click();
+  await expect(page).toHaveURL(`/?view=runs&run=${revisedId}&compare=${baselineId}`);
+  const comparison = page.getByRole("region", { name: "Compare saved runs" });
+  await expect(comparison.getByLabel("Comparison run")).toHaveValue(baselineId, {
+    timeout: 15_000,
+  });
+  await expect(comparison.getByRole("region", { name: "Run comparison table" })).toContainText(
+    `Comparison run · ${baselineId.slice(0, 8)}`,
+  );
+  await page.getByRole("link", { name: "Open research session" }).click();
+  await expect(page).toHaveURL(`/?session=${revisedId}`);
+  await expect(page.getByRole("heading", { name: studyTitle, exact: true })).toBeVisible();
 });

@@ -387,6 +387,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               Read report
             </SessionWorkspaceLink>
           )}
+          {run.baseline_run_id && (
+            <a href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}>
+              Compare with baseline
+            </a>
+          )}
           <a href="#research-workspaces">Workspaces</a>
           {hasActivity && (
             <a

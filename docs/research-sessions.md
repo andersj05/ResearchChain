@@ -122,5 +122,7 @@ the title and a style guide before creating the draft. Further edits and editori
 feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
 
 Choose **Revisit material** to start another experiment with the previous context,
-sample, sources and settings. The new session links to its baseline so you can
-reopen the original run and see what it actually produced.
+sample, sources and settings. In the revised study, **Compare with baseline** opens
+the original alongside the revision in the run inspector. Use **Open research
+session** to return to the revision. To read the original by itself, choose
+**Open baseline session** under **Sources and settings**.
