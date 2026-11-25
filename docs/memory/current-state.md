@@ -22,6 +22,10 @@ to the opened row and viewport position when the result is still present.
 The saved-study reader can add a verified source version to an open setup and
 return to the packet. Reports focuses a missing revision note before save and
 places the continuation beside the note.
+Desktop runs the `31a38e9` capture and decision merge. The Studies route returned
+HTTP 200 and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 264 Chromium cases.
+[Capture and decision PR](https://github.com/andersj05/ResearchChain/pull/156).
 
 ## Reusing research settings
 
