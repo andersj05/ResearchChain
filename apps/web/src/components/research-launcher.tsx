@@ -10,7 +10,7 @@ import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
 import { ownerStoragePrefix } from "@/lib/access";
 import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
-import { sessionModelProblem } from "@/lib/model-settings";
+import { resolveModelProfile, sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
   admissionTimeout,
@@ -63,6 +63,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const inFlight = useRef(false);
   const admitted = useRef(false);
   const mounted = useRef(false);
+  const launchBar = useRef<HTMLDivElement>(null);
   const catalog = useModelCatalog(active);
   const account = catalog.status?.accounts.find(
     (item) => item.active && item.signed_in && item.plan_enabled,
@@ -77,6 +78,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     (models.find((item) => item.slug === researchDefaults.model) ?? models[0])?.slug ||
     "";
   const shared = { ...draft, model };
+  const firstReadingModel = resolveModelProfile(shared, draft.lead).model;
+  const firstReadingLabel =
+    models.find((item) => item.slug === firstReadingModel)?.display_name || firstReadingModel;
   const problem = sessionModelProblem(models, shared, draft);
   const ready =
     !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
@@ -102,6 +106,22 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const bar = launchBar.current;
+    if (!active || !bar || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement.style;
+    const clearance = "--first-reading-clearance";
+    const measure = () =>
+      root.setProperty(clearance, `${Math.ceil(bar.getBoundingClientRect().height) + 12}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      root.removeProperty(clearance);
+    };
+  }, [active]);
 
   useEffect(() => {
     if (!active || !fromSession || loaded) return;
@@ -402,7 +422,19 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
                     ChatGPT plan · {account.label}
                   </button>
                 )}
-                {model && <span>{model}</span>}
+                <dl className={styles.launchSettings}>
+                  {firstReadingLabel && (
+                    <div>
+                      <dt>First-reading model</dt>
+                      <dd>{firstReadingLabel}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Team web search</dt>
+                    <dd>{draft.web_search ? "On" : "Off"}</dd>
+                  </div>
+                </dl>
+                <a href="#study-settings">Change research settings</a>
               </div>
             )}
             {account && manageConnection && (
@@ -430,17 +462,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
             awaitingModelCatalog={awaitingModelCatalog}
             onReadingSample={setReadingSample}
           />
-          <label className={styles.web}>
-            <input
-              type="checkbox"
-              checked={draft.web_search}
-              onChange={(event) => update({ web_search: event.target.checked })}
-            />{" "}
-            Allow live web search
-          </label>
         </fieldset>
       </form>
-      <div className={styles.launchBar}>
+      <div ref={launchBar} className={styles.launchBar}>
         {startError && (
           <p id="first-reading-error" className={styles.launchError} role="alert">
             {startError}

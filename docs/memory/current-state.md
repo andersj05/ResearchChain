@@ -2,6 +2,18 @@
 
 Updated 2026-11-24.
 
+## Capture and return visits
+
+Queued charts can be opened and named before pinning. Files can inherit batch
+attribution or use their own author and as-of date. A lost pin receipt retains
+the exact file and attribution. The launcher shows the model for the first
+reading and the web-search choice for the team.
+
+The owner tab restores its submitted study archive search and page. Returning
+from a saved pass restores focus to the matching activity or file result.
+Study and desk views refresh on return to the foreground and fence old
+responses. Production Chromium rehearsals covered these paths with synthetic data.
+
 ## Study reading and startup
 
 The desk loads Workbench and the saved-study reader on demand. In paired

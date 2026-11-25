@@ -174,7 +174,7 @@
 }
 .option > summary > span,
 .planNote,
-.account > span,
+.launchSettings dt,
 .empty,
 .historyRows time {
   color: var(--muted);
@@ -270,15 +270,20 @@
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px 18px;
 }
-.web {
-  display: inline-flex;
+.webSetting {
+  grid-column: 1 / -1;
+}
+.settingGrid .webSetting label {
+  display: flex;
   gap: 8px;
   align-items: center;
-  margin-top: 16px;
   font-size: 13px;
   cursor: pointer;
 }
-.web input {
+.webSetting p {
+  margin: 4px 0 0 24px;
+}
+.webSetting input {
   margin: 0;
   width: 16px;
   height: 16px;
@@ -317,8 +322,8 @@
   padding-inline: 15px;
 }
 @media (min-height: 451px) {
-  :global(html):has(.launch) {
-    scroll-padding-bottom: 104px;
+  :global(html):has(:global([data-owner-workspace]:not([hidden])) .launch) {
+    scroll-padding-bottom: var(--first-reading-clearance, 104px);
   }
 }
 .account {
@@ -329,6 +334,28 @@
   padding: 12px clamp(16px, 3vw, 28px);
   border-top: 1px solid var(--line);
   background: var(--paper);
+}
+.launchSettings {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  margin: 9px 0 7px;
+}
+.launchSettings > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 4px 10px;
+  flex-wrap: wrap;
+}
+.launchSettings dd {
+  margin: 0;
+  font-size: 12px;
+  text-align: end;
+}
+.account > a {
+  font-size: 12px;
+  text-underline-offset: 3px;
 }
 .accountButton {
   padding: 0;

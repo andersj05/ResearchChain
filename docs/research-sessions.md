@@ -8,6 +8,11 @@ Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**
 
 Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
 
+Open **Preview chart** on a queued image to check it and edit its packet title
+before pinning. Open a queued file's **File attribution** to set its own author or observation
+date. Fields use batch attribution until edited. **Use batch attribution**
+restores those defaults for the file.
+
 **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. **Unpin all** clears the packet for a new batch and leaves the source library available. Use **Undo** to restore the previous reading order. You can leave **Context for the lead** blank.
 
 An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
@@ -39,7 +44,9 @@ editorial review setting controls the separate decision about the report.
 - **Writing sample** accepts pasted text or a UTF-8 `.txt` or Markdown excerpt
   of up to 32,000 characters. Only the report editor receives it, as a reference
   for structure and voice.
-- Turn on **Allow live web search** if the team should look beyond the packet.
+- Turn on **Allow live web search** if the team and editor should look beyond the
+  packet after you choose a working sentence. The packet sidebar shows the
+  first-reading model and the current web-search setting.
 - **Research settings** starts with up to three researchers, six passes per
   researcher and editor, and a 30-minute active-time limit. You can choose up to
   four researchers, twelve passes and one hour. The lead can use fewer researchers
@@ -49,6 +56,10 @@ editorial review setting controls the separate decision about the report.
   editor proceed after research.
 
 The **Ask the lead for a first reading** action stays in view as you edit the packet and settings. **Recent research** lists recently opened studies. **Search past studies** finds older studies by title, any pinned source title, context or ID. **Decisions** opens working sentences, lead questions and editorial reviews even after a study drops out of the recent list.
+
+When you open a study from the archive, the same tab remembers your submitted
+search, status filter and results page. **Reset search** clears the filters and
+returns to the first page.
 
 ### Choose the model and thinking effort
 
@@ -108,12 +119,14 @@ workspace** to continue following the workspace.
 
 Use **Search study activity** in the **Activity log** to find a pass by
 workspace, lead, pass number, result text or filename. The log keeps the search
-in place while you inspect a matching receipt.
+in place while you inspect a matching receipt. **Back to activity** returns to
+the originating row.
 
 **Saved files** searches across assignments and leads. Each file lists its
 producing pass and content ID. If an assignment saved another version under
 the same filename, both versions stay available. Preview a file or open the
-saved pass that produced it.
+saved pass that produced it, then choose **Back to saved files** to resume the
+same search.
 
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.

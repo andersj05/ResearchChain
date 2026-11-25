@@ -1,6 +1,14 @@
 "use client";
 
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@ui-sdk/react/dialog";
 import { Files, Upload, X } from "lucide-react";
 import { api } from "@/lib/workflow";
 import {
@@ -22,6 +30,8 @@ type Row = {
   file: File;
   kind: EvidenceCreate["kind"];
   title: string;
+  authorOverride?: string;
+  dateOverride?: string;
   invalid?: string;
   error?: string;
   command?: EvidenceInput;
@@ -33,6 +43,41 @@ function kindFor(name: string): Row["kind"] {
   if (/\.pdf$/i.test(name)) return "report";
   if (/\.(csv|tsv)$/i.test(name)) return "dataset";
   return "text";
+}
+
+function canPreviewChart(row: Row) {
+  return (
+    row.kind === "image" &&
+    !row.invalid &&
+    (!row.file.type || clipboardImageExtensions.has(row.file.type))
+  );
+}
+
+function LocalChart({ file, title }: { file: File; title: string }) {
+  const [failed, setFailed] = useState(false);
+  const attach = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (!image) return;
+      const url = URL.createObjectURL(file);
+      image.src = url;
+      return () => {
+        image.removeAttribute("src");
+        URL.revokeObjectURL(url);
+      };
+    },
+    [file],
+  );
+  if (failed)
+    return (
+      <p role="alert" className={styles.queuedChartError}>
+        This image could not be previewed.
+      </p>
+    );
+  // A local File is displayed directly by the browser and never sent to an image optimizer.
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img ref={attach} className={styles.original} alt={title} onError={() => setFailed(true)} />
+  );
 }
 
 export function SourceFileBatch({
@@ -54,11 +99,14 @@ export function SourceFileBatch({
   const [dragging, setDragging] = useState(false);
   const [progress, setProgress] = useState("");
   const [notice, setNotice] = useState("");
+  const [previewId, setPreviewId] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
+  const previewOpener = useRef<HTMLButtonElement>(null);
   const saving = useRef(false);
   const depth = useRef(0);
   const pastedCharts = useRef(0);
   const permitted = attribution.rights && attribution.rights !== "unknown";
+  const preview = disabled ? undefined : rows.find((row) => row.id === previewId);
 
   function choose(files: FileList | File[] | null, pasted = false) {
     if (disabled || saving.current || !files?.length) return;
@@ -117,6 +165,15 @@ export function SourceFileBatch({
     onPending(next.length > 0);
     setNotice("");
   }
+  function edit(
+    id: string,
+    patch: Partial<Pick<Row, "kind" | "title" | "authorOverride" | "dateOverride">>,
+  ) {
+    if (disabled || saving.current) return;
+    setRows((list) =>
+      list.map((row) => (row.id === id && !row.command ? { ...row, ...patch } : row)),
+    );
+  }
   async function pin() {
     if (saving.current || disabled || !permitted || !rows.length) return;
     saving.current = true;
@@ -146,6 +203,8 @@ export function SourceFileBatch({
               title: row.title.trim() || row.file.name.slice(0, 240),
               kind: row.kind,
               ...attribution,
+              author: (row.authorOverride ?? attribution.author ?? "").trim(),
+              as_of_date: (row.dateOverride ?? attribution.as_of_date) || null,
               representation: row.kind === "image" ? "chart_screenshot" : "original",
               artifact_id: artifact.id,
             };
@@ -155,6 +214,8 @@ export function SourceFileBatch({
             );
           }
           const source = await api<EvidenceRecord>("evidence", command);
+          if (source.id !== command.id)
+            throw new Error("The server returned a different source record.");
           onPin(source);
           completed++;
           setRows((list) => list.filter((item) => item.id !== row.id));
@@ -234,23 +295,91 @@ export function SourceFileBatch({
                       value={row.title}
                       disabled={disabled || !!row.command}
                       maxLength={240}
-                      onChange={(event) => {
-                        const title = event.target.value;
-                        setRows((list) =>
-                          list.map((item) => (item.id === row.id ? { ...item, title } : item)),
-                        );
-                      }}
+                      onChange={(event) => edit(row.id, { title: event.target.value })}
                     />
                   </label>
-                  <small>
-                    {row.title !== row.file.name && `${row.file.name} · `}
-                    {(row.file.size / 1024).toLocaleString(undefined, {
-                      maximumFractionDigits: 1,
-                    })}{" "}
-                    KB
-                  </small>
+                  <div className={styles.fileInfo}>
+                    <small>
+                      {row.title !== row.file.name && `${row.file.name} · `}
+                      {(row.file.size / 1024).toLocaleString(undefined, {
+                        maximumFractionDigits: 1,
+                      })}{" "}
+                      KB
+                    </small>
+                    {canPreviewChart(row) && (
+                      <button
+                        className="text-link"
+                        type="button"
+                        aria-haspopup="dialog"
+                        aria-label={`Preview queued chart ${row.title.trim() || row.file.name}`}
+                        disabled={disabled}
+                        onClick={(event) => {
+                          previewOpener.current = event.currentTarget;
+                          setPreviewId(row.id);
+                        }}
+                      >
+                        Preview chart
+                      </button>
+                    )}
+                  </div>
                   {(row.invalid || row.error) && (
                     <p className="error">{row.invalid || row.error}</p>
+                  )}
+                  {!row.invalid && (
+                    <details className={styles.fileAttribution}>
+                      <summary>
+                        File attribution<span className="sr-only"> for {row.file.name}</span>
+                        {(row.authorOverride !== undefined || row.dateOverride !== undefined) &&
+                          " · Edited"}
+                      </summary>
+                      <fieldset disabled={disabled || !!row.command}>
+                        <legend className="sr-only">Attribution for {row.file.name}</legend>
+                        <p>
+                          {row.command
+                            ? "Retry keeps the author and date from this file’s first request."
+                            : "Starts with the batch author and date. Clear a field if it’s unknown for this file."}
+                        </p>
+                        <label>
+                          Author / speaker
+                          <input
+                            type="text"
+                            maxLength={240}
+                            value={
+                              (row.command
+                                ? row.command.author
+                                : (row.authorOverride ?? attribution.author)) ?? ""
+                            }
+                            onChange={(event) =>
+                              edit(row.id, { authorOverride: event.target.value })
+                            }
+                          />
+                        </label>
+                        <label>
+                          As-of date
+                          <input
+                            type="date"
+                            value={
+                              (row.command
+                                ? row.command.as_of_date
+                                : (row.dateOverride ?? attribution.as_of_date)) ?? ""
+                            }
+                            onChange={(event) => edit(row.id, { dateOverride: event.target.value })}
+                          />
+                        </label>
+                        {!row.command &&
+                          (row.authorOverride !== undefined || row.dateOverride !== undefined) && (
+                            <button
+                              className="text-link"
+                              type="button"
+                              onClick={() =>
+                                edit(row.id, { authorOverride: undefined, dateOverride: undefined })
+                              }
+                            >
+                              Use batch author and date
+                            </button>
+                          )}
+                      </fieldset>
+                    </details>
                   )}
                 </div>
                 {(row.kind === "text" || row.kind === "discussion") && (
@@ -259,13 +388,7 @@ export function SourceFileBatch({
                     disabled={disabled || !!row.command}
                     value={row.kind}
                     onChange={(event) =>
-                      setRows(
-                        rows.map((item) =>
-                          item === row
-                            ? { ...item, kind: event.target.value as "text" | "discussion" }
-                            : item,
-                        ),
-                      )
+                      edit(row.id, { kind: event.target.value as "text" | "discussion" })
                     }
                   >
                     <option value="text">Note</option>
@@ -307,6 +430,53 @@ export function SourceFileBatch({
           {progress || notice}
         </p>
       )}
+      <Dialog
+        open={!!preview}
+        onOpenChange={(open) => {
+          if (!open) setPreviewId(undefined);
+        }}
+      >
+        <DialogBackdrop className="dialog-backdrop" />
+        <DialogContent
+          className={styles.chartDialog}
+          initialFocus="content"
+          finalFocus={() => previewOpener.current}
+        >
+          {preview && (
+            <>
+              <header>
+                <div>
+                  <DialogTitle>{preview.title.trim() || preview.file.name}</DialogTitle>
+                  <DialogDescription>
+                    Preview from this device. Edit the packet title before pinning.
+                  </DialogDescription>
+                </div>
+                <DialogClose aria-label="Close queued chart preview" className="button icon-button">
+                  <X size={18} aria-hidden />
+                </DialogClose>
+              </header>
+              <LocalChart
+                key={preview.id}
+                file={preview.file}
+                title={preview.title.trim() || preview.file.name}
+              />
+              <footer>
+                <label className={styles.queuedChartTitle}>
+                  Packet title
+                  <input
+                    type="text"
+                    maxLength={240}
+                    value={preview.title}
+                    disabled={!!preview.command}
+                    onChange={(event) => edit(preview.id, { title: event.target.value })}
+                  />
+                </label>
+                <DialogClose className="button">Done</DialogClose>
+              </footer>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

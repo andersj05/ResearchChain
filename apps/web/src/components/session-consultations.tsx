@@ -16,12 +16,14 @@ export function rememberAnswer(key: string, id: string, value: string) {
 }
 
 export function SessionWorkspaceLink({
+  id,
   runId,
   lane,
   pass = null,
   onSelect,
   children,
 }: {
+  id?: string;
   runId: string;
   lane: SessionWorkspace;
   pass?: string | null;
@@ -32,6 +34,7 @@ export function SessionWorkspaceLink({
   if (pass) params.set("pass", pass);
   return (
     <a
+      id={id}
       href={`/?${params}#current-research-workspace`}
       onClick={(event) => {
         if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)

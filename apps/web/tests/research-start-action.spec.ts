@@ -11,6 +11,10 @@ test("start with the edited settings while the first-reading action stays visibl
   await expect(start).toBeInViewport();
   await expect(start).toBeDisabled();
   await expect(page.getByRole("link", { name: "Pin a source to begin" })).toBeInViewport();
+  const setup = page.getByRole("complementary", { name: "Prepare the first reading" });
+  await expect(setup.getByText("First-reading model", { exact: true })).toBeVisible();
+  await expect(setup.getByText(/Astra 6\.2/)).toBeVisible();
+  await expect(setup.getByText("Off", { exact: true })).toBeVisible();
 
   const settings = page.getByRole("navigation", { name: "Study sections" });
   await settings.getByRole("link", { name: "Saved sources" }).press("Enter");
@@ -23,6 +27,7 @@ test("start with the edited settings while the first-reading action stays visibl
   const sourceId = await pinDeskNote(page);
   await settings.getByRole("link", { name: "Research settings" }).click();
   await page.getByRole("checkbox", { name: "Allow live web search" }).check();
+  await expect(setup.getByText("On", { exact: true })).toBeVisible();
   await page.getByRole("spinbutton", { name: "Passes per agent" }).fill("5");
   const roleSettings = page.getByRole("heading", {
     name: /^(Research lead|Researchers|Report editor)$/,
@@ -103,6 +108,15 @@ test("explain a rejected first reading beside the action and keep the editable p
   await expect(error).toBeInViewport();
   await expect(error).toContainText("Unpin a source");
   await expect(start).toBeEnabled();
+  const sample = page.getByLabel("Import a text or Markdown sample");
+  await sample.evaluate((input) => input.scrollIntoView({ block: "end" }));
+  await expect
+    .poll(async () => {
+      const input = await sample.boundingBox();
+      const alert = await error.boundingBox();
+      return Boolean(input && alert && input.y + input.height <= alert.y);
+    })
+    .toBe(true);
   await expect(page.getByRole("list", { name: "Pinned material" })).toContainText(title);
   const id = (await submitted).request().postDataJSON().id;
   expect((await request.get(`/api/research-sessions/${id}/setup`)).status()).toBe(404);

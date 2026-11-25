@@ -10,6 +10,10 @@ type Attempt = components["schemas"]["ModelAttempt"];
 type ActivityCursor = { id: string; timestamp: number };
 const pageSize = 12;
 
+function activityRowId(id: string) {
+  return `study-activity-${id}`;
+}
+
 function newestFirst(left: ActivityCursor, right: ActivityCursor) {
   return right.timestamp - left.timestamp || left.id.localeCompare(right.id);
 }
@@ -89,7 +93,7 @@ export function SessionActivity({
   select,
 }: {
   lanes: SessionWorkspace[];
-  select: (key: string, id: string) => void;
+  select: (key: string, id: string, targetId: string) => void;
 }) {
   const searchId = useId();
   const [query, setQuery] = useState("");
@@ -130,7 +134,7 @@ export function SessionActivity({
     setShownThrough(undefined);
   }
   function openPass(entry: (typeof entries)[number]) {
-    select(entry.lane.key, entry.id);
+    select(entry.lane.key, entry.id, activityRowId(entry.id));
     focusSessionWorkspace();
   }
   function showEarlier() {
@@ -139,7 +143,7 @@ export function SessionActivity({
     const lastNew = matching[Math.min(visible.length + pageSize, matching.length) - 1]!;
     setShownThrough({ id: lastNew.id, timestamp: lastNew.timestamp });
     requestAnimationFrame(() => {
-      document.getElementById(`study-activity-${firstNew.id}`)?.focus();
+      document.getElementById(activityRowId(firstNew.id))?.focus();
     });
   }
 
@@ -188,11 +192,7 @@ export function SessionActivity({
             const namedFiles = entry.files.filter(includesTerm).slice(0, 3);
             return (
               <li key={entry.id}>
-                <button
-                  id={`study-activity-${entry.id}`}
-                  type="button"
-                  onClick={() => openPass(entry)}
-                >
+                <button id={activityRowId(entry.id)} type="button" onClick={() => openPass(entry)}>
                   <time dateTime={entry.time}>{formatTime(entry.time, true)}</time>
                   <span>
                     <strong>{entry.lane.title}</strong> · Pass {entry.pass}

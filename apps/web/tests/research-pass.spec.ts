@@ -129,6 +129,7 @@ test("reopens an exact historical pass with its own findings, files, and sources
   expect(new URL(bookmark).searchParams.get("pass")).toBe(earlier!.id);
   await page.reload();
   await expect(page).toHaveURL(bookmark);
+  await expect(workspace.getByRole("link", { name: "Back to activity" })).toHaveCount(0);
   await expect(savedPass).toContainText("Original conclusion.");
   await expect(files.getByRole("cell", { name: "Original" })).toBeVisible();
   await expect(workspace).not.toContainText("Revised conclusion.");

@@ -10,6 +10,7 @@ import { RunArchive } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
 import { api, type RecentRunSummary } from "@/lib/workflow";
 import { sessionUrl } from "@/lib/research-sessions";
+import { pollVisiblePage } from "@/lib/poll-visible-page";
 import styles from "./research-desk.module.css";
 
 const ResearchSession = lazy(() =>
@@ -23,26 +24,19 @@ function RecentStudies() {
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
     if (!active) return;
-    let current = true;
-    let timer: ReturnType<typeof setTimeout>;
-    async function read() {
+    return pollVisiblePage(async ({ isCurrent, schedule }) => {
       try {
         const items = await api<RecentRunSummary[]>("research-sessions");
-        if (!current) return;
+        if (!isCurrent()) return;
         setStudies(items);
         setError("");
         if (items.some((item) => ["queued", "running", "paused"].includes(item.status)))
-          timer = setTimeout(read, 5000);
+          schedule(5000);
       } catch (cause) {
-        if (current)
+        if (isCurrent())
           setError(cause instanceof Error ? cause.message : "Could not load recent research.");
       }
-    }
-    void read();
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
+    });
   }, [active, refresh]);
   return (
     <section

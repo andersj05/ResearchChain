@@ -163,11 +163,16 @@ test("searches beyond the visible activity and keeps its place when new passes a
     "The archival-vintage gap widened.",
   );
   expect(new URL(page.url()).searchParams.get("pass")).toBe(original!.id);
-  await activityShortcut.click();
+  const backToActivity = workspace.getByRole("link", { name: "Back to activity" });
+  await backToActivity.click();
+  await expect(results.first()).toBeFocused();
   await expect(search).toHaveValue(query);
   await expect(results).toHaveCount(1);
   await search.fill("no matching receipt");
   await expect(log.getByRole("status")).toHaveText("No passes match this search.");
+  await backToActivity.click();
+  await expect(log.locator("summary")).toBeFocused();
+  await expect(search).toHaveValue("no matching receipt");
   await search.press("Escape");
   await expect(search).toBeEmpty();
   await expect(results).toHaveCount(12);
