@@ -7,6 +7,18 @@ type Result = NonNullable<Attempt["result"]>;
 test("reopens an exact historical pass with its own findings, files, and sources", async ({
   page,
 }) => {
+  await page.addInitScript(() => {
+    let copied = "";
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: {
+        readText: async () => copied,
+        writeText: async (text: string) => {
+          copied = text;
+        },
+      },
+    });
+  });
   const runId = crypto.randomUUID();
   function receipt(path: string, day: number, result: Partial<Result>): Attempt {
     const time = new Date(Date.UTC(2026, 10, day)).toISOString();
@@ -127,6 +139,33 @@ test("reopens an exact historical pass with its own findings, files, and sources
 
   const bookmark = page.url();
   expect(new URL(bookmark).searchParams.get("pass")).toBe(earlier!.id);
+  const readClipboard = () => page.evaluate(() => navigator.clipboard.readText());
+  expect(await readClipboard()).toBe("");
+  await page.getByRole("button", { name: "Copy study link", exact: true }).click();
+  await expect(page.getByText("Study link copied.", { exact: true })).toBeVisible();
+  expect(await readClipboard()).toBe(new URL(`/?session=${runId}`, bookmark).href);
+  await expect(page).toHaveURL(bookmark);
+  await expect(workspace.getByRole("link", { name: "Back to activity" })).toBeVisible();
+
+  const copyPass = savedPass.getByRole("button", { name: "Copy pass link", exact: true });
+  const inspectorUrl = new URL(`/?view=runs&run=${runId}&attempt=${earlier!.id}`, bookmark).href;
+  await copyPass.click();
+  await expect(savedPass.getByText("Pass link copied.", { exact: true })).toBeVisible();
+  expect(await readClipboard()).toBe(inspectorUrl);
+  await expect(page).toHaveURL(bookmark);
+
+  await page.evaluate(() => {
+    navigator.clipboard.writeText = async () => {
+      throw new DOMException("Clipboard unavailable", "NotAllowedError");
+    };
+  });
+  await copyPass.click();
+  await expect(savedPass.getByText("Could not copy the link. Copy it below.")).toBeVisible();
+  const manual = savedPass.getByRole("textbox", { name: "Copy pass link manually" });
+  await expect(manual).toHaveValue(inspectorUrl);
+  await expect(manual).toHaveAttribute("readonly", "");
+  await expect(page).toHaveURL(bookmark);
+
   await page.reload();
   await expect(page).toHaveURL(bookmark);
   await expect(workspace.getByRole("link", { name: "Back to activity" })).toHaveCount(0);

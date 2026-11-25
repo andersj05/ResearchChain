@@ -2,6 +2,18 @@
 
 Updated 2026-11-24.
 
+## Study archive and revision setup
+
+**Studies** opens the searchable archive without requesting source intake or
+model settings. Saved-source searches can append loaded matches in order and
+preserve exact source versions. **Compare with previous setup** previews packet,
+model, team, limits and context changes before a revised first reading. Study
+and pass links can be copied from the reader.
+
+Sixteen focused production Chromium cases passed in the browser rehearsal,
+including the shared run archive, clipboard denial and resumed study setup.
+[Desk guide](../research-sessions.md).
+
 ## Capture and return visits
 
 Queued charts can be opened and named before pinning. Files can inherit batch
@@ -13,6 +25,9 @@ The owner tab restores its submitted study archive search and page. Returning
 from a saved pass restores focus to the matching activity or file result.
 Study and desk views refresh on return to the foreground and fence old
 responses. Production Chromium rehearsals covered these paths with synthetic data.
+Desktop runs the `0c0f1d2` continuity merge with healthy web and two connected
+workers. CI passed 652 API tests with three skips and 238 Chromium cases.
+[Continuity PR](https://github.com/andersj05/ResearchChain/pull/150).
 
 ## Study reading and startup
 
@@ -26,6 +41,10 @@ Historical passes show their own output, request, sources and files. The
 Phone intake keeps queued titles editable and follows the same keyboard order
 as the visible layout. Long code and CSV previews scroll within their panels.
 Fifteen focused production Chromium cases passed with synthetic data.
+The `b92d0c2` reader merge was installed on Desktop. The Research Desk returned
+HTTP 200, the API reported healthy with two connected workers, and CI passed
+652 API tests with three skips and 233 Chromium cases.
+[Reader PR](https://github.com/andersj05/ResearchChain/pull/149).
 
 ## Research desk iteration
 

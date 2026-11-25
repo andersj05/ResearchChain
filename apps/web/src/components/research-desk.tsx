@@ -16,6 +16,7 @@ import styles from "./research-desk.module.css";
 const ResearchSession = lazy(() =>
   import("./research-session").then(({ ResearchSession }) => ({ default: ResearchSession })),
 );
+const studiesUrl = "/?view=research&studies=1";
 
 function RecentStudies() {
   const { active } = useOwner();
@@ -85,13 +86,24 @@ export function ResearchDesk({
   fromSession,
   methodology,
   decisions,
+  studies,
 }: {
   session: string | null;
   fromSession: string | null;
   methodology: boolean;
   decisions: boolean;
+  studies: boolean;
 }) {
   const { active } = useOwner();
+  const deskView = session
+    ? "session"
+    : methodology
+      ? "methodology"
+      : decisions
+        ? "decisions"
+        : studies
+          ? "studies"
+          : "launch";
   return (
     <div className={styles.desk}>
       <header className={styles.header}>
@@ -99,20 +111,24 @@ export function ResearchDesk({
           <a
             className={styles.homeLink}
             href="?view=research"
-            aria-current={
-              !session && !fromSession && !methodology && !decisions ? "page" : undefined
-            }
+            aria-current={deskView === "launch" && !fromSession ? "page" : undefined}
           >
             Research desk
           </a>
           <nav aria-label="Research navigation">
+            <a href={studiesUrl} aria-current={deskView === "studies" ? "page" : undefined}>
+              Studies
+            </a>
             <a
               href={researchDecisionsUrl}
-              aria-current={decisions && !session && !methodology ? "page" : undefined}
+              aria-current={deskView === "decisions" ? "page" : undefined}
             >
               Decisions
             </a>
-            <a href="?view=methodology" aria-current={methodology && !session ? "page" : undefined}>
+            <a
+              href="?view=methodology"
+              aria-current={deskView === "methodology" ? "page" : undefined}
+            >
               Methodology
             </a>
             <a href="?view=workflow">Workflows</a>
@@ -140,11 +156,23 @@ export function ResearchDesk({
             }}
           />
         </Suspense>
-      ) : methodology ? (
+      ) : deskView === "methodology" ? (
         <ResearchMethodology />
-      ) : decisions ? (
+      ) : deskView === "decisions" ? (
         <main className={styles.page}>
           <ResearchReviewQueue />
+        </main>
+      ) : deskView === "studies" ? (
+        <main className={styles.page}>
+          <section className={styles.studies} aria-labelledby="studies-title">
+            <div className={styles.studiesHeading}>
+              <h1 id="studies-title">Studies</h1>
+              <a className="button" href="?view=research">
+                New study
+              </a>
+            </div>
+            <RunArchive sessionsOnly expanded />
+          </section>
         </main>
       ) : (
         <main className={styles.page}>

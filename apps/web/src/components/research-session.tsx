@@ -8,6 +8,7 @@ import { api, ApiError, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
 import { evidenceUrl } from "@/lib/evidence";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
+import { sessionUrl } from "@/lib/research-sessions";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { pollVisiblePage } from "@/lib/poll-visible-page";
 import {
@@ -17,6 +18,7 @@ import {
   SessionWorkspaceDetail,
 } from "./research-session-workspace";
 import { SessionActivity } from "./session-activity";
+import { CopyLinkButton } from "./copy-link-button";
 import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
@@ -326,6 +328,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             announce
           />
           <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
+          <CopyLinkButton
+            getUrl={() => new URL(sessionUrl(run.id), window.location.origin)}
+            button="Copy study link"
+            success="Study link copied."
+          />
         </div>
         <h1>
           {title.slice(0, 120)}
