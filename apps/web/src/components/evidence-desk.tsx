@@ -211,8 +211,8 @@ export function EvidenceDesk() {
                 onChange={(event) => setSearch(event.target.value)}
               />
               <div className="source-list-filters">
-                <label>
-                  Availability
+                <div>
+                  <label htmlFor="source-availability-filter">Availability</label>
                   <select
                     id="source-availability-filter"
                     value={availability ?? "all"}
@@ -231,10 +231,11 @@ export function EvidenceDesk() {
                       </option>
                     ))}
                   </select>
-                </label>
-                <label>
-                  Source type
+                </div>
+                <div>
+                  <label htmlFor="source-type-filter">Source type</label>
                   <select
+                    id="source-type-filter"
                     value={sourceType ?? ""}
                     onChange={(event) => {
                       const value = event.currentTarget.value as EvidenceKind | "";
@@ -249,7 +250,7 @@ export function EvidenceDesk() {
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
               </div>
               {filtered && (
                 <button
