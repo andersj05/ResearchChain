@@ -41,6 +41,12 @@ from researchchain.research_session_export import read_report_file, session_repo
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
 from researchchain.web_research import safe_web_url
 
+REPORT_SUMMARY_COLUMNS = (
+    "r.id, r.series_id, r.version, r.document->>'title' AS title, "
+    "r.document->>'created_at' AS created_at, r.document->>'author' AS author, "
+    "r.document->>'change_note' AS change_note"
+)
+
 
 def digest(value: Any) -> str:
     return hashlib.sha256(json_bytes(value)).hexdigest()
@@ -392,11 +398,15 @@ class Reports:
     ) -> list[ReportSummary]:
         with self.database.connection() as conn:
             if revision_id:
-                record = read_record(conn, "report_revisions", revision_id, ReportRevision)
+                anchor = conn.execute(
+                    "SELECT series_id FROM report_revisions WHERE id = %s", (revision_id,)
+                ).fetchone()
+                if anchor is None:
+                    raise NotFoundError("Editorial record not found.")
                 rows = conn.execute(
-                    "SELECT document FROM report_revisions WHERE series_id = %s "
-                    "ORDER BY version DESC LIMIT 100",
-                    (record.series_id,),
+                    f"SELECT {REPORT_SUMMARY_COLUMNS} FROM report_revisions r "
+                    "WHERE r.series_id = %s ORDER BY r.version DESC LIMIT 100",
+                    (anchor["series_id"],),
                 )
             else:
                 origin_filter = ""
@@ -416,26 +426,14 @@ class Reports:
                     )
                     params = (*params, search)
                 rows = conn.execute(
-                    "SELECT document FROM report_revisions r WHERE NOT EXISTS "
+                    f"SELECT {REPORT_SUMMARY_COLUMNS} FROM report_revisions r WHERE NOT EXISTS "
                     "(SELECT 1 FROM report_revisions n WHERE n.replaces_id = r.id) "
                     + origin_filter
                     + search_filter
-                    + "ORDER BY created_at DESC,id DESC LIMIT 100",
+                    + "ORDER BY r.created_at DESC, r.id DESC LIMIT 100",
                     params,
                 )
-            return [
-                ReportSummary(
-                    id=item.id,
-                    series_id=item.series_id,
-                    version=item.version,
-                    title=item.title,
-                    author=item.author,
-                    created_at=item.created_at,
-                    change_note=item.change_note,
-                )
-                for row in rows
-                if (item := ReportRevision.model_validate(row["document"]))
-            ]
+            return [ReportSummary.model_validate(row) for row in rows]
 
     def feedback(self, key: UUID, request: ReportFeedbackCreate) -> ReportFeedback:
         with self.database.connection() as conn, conn.transaction():
