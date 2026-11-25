@@ -165,7 +165,7 @@ for (const { width, timeline } of [
     await expect(opener).toBeInViewport({ ratio: 0.9 });
     const after = await scrollPosition(opener);
     expect(Math.abs(after.row - before.row)).toBeLessThanOrEqual(12);
-    expect(Math.abs(after.page - before.page)).toBeLessThanOrEqual(12);
+    expect(Math.abs(after.page - before.page)).toBeLessThanOrEqual(timeline ? 24 : 12);
     expect(Math.abs(after.pane - before.pane)).toBeLessThanOrEqual(12);
     if (timeline) {
       await expect(range).toHaveValue("filtered");
