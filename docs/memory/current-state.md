@@ -2,6 +2,14 @@
 
 Updated 2026-11-25.
 
+## Inspecting a loaded workflow on a phone
+
+Loading **Demo template** or **Research example** brings the workspace and
+its canvas into view on compact screens. Focus moves to the workspace
+message, with **Undo load** one Tab away. Undo restores the exact staged
+draft. A subsequent draft edit dismisses the template-specific undo action.
+Existing desktop focus and saved workflows are preserved.
+
 ## Moving from the report outline into editing
 
 Selecting a section in a narrow editor brings its fields into view. Keyboard
@@ -11,6 +19,7 @@ originating result or focuses search if it no longer matches.
 Report drafts can use a newly selected captured source in a reference or chart
 before the revision is saved. The editor uses the server's citation basis and
 identifies the applicable section if an attached draft source is still in use.
+[Report outline and staged sources PR](https://github.com/andersj05/ResearchChain/pull/173).
 
 ## Reading the active time limit
 

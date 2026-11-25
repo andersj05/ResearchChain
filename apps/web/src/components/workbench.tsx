@@ -73,6 +73,7 @@ const workspaceViews = [
   "operations",
 ] as const;
 type WorkspaceView = (typeof workspaceViews)[number];
+type TemplateFeedback = { text: string; workflow: Workflow; compact: boolean };
 
 export function Workbench() {
   const { owner, active: accessActive } = useOwner();
@@ -137,7 +138,7 @@ export function Workbench() {
       window.scrollTo(0, sourcesDocumentTop.current);
     }
   }, [tab]);
-  const [message, setMessage] = useState("");
+  const [feedback, setMessage] = useState<string | TemplateFeedback>("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pendingWorkspaceFeedbackFocus = useRef(false);
@@ -518,8 +519,8 @@ export function Workbench() {
     pendingWorkspaceFeedbackFocus.current = false;
     if (!accessActive || tab !== "workflow") return;
     if (error) validationAlert.current?.focus();
-    else if (message) validationStatus.current?.focus();
-  }, [accessActive, busy, error, message, tab]);
+    else if (feedback) validationStatus.current?.focus();
+  }, [accessActive, busy, error, feedback, tab]);
 
   function change(next: Workflow, group?: string) {
     setEdited(true);
@@ -527,6 +528,16 @@ export function Workbench() {
     setDiagnostics(undefined);
     setError("");
     setMessage("");
+  }
+
+  function loadTemplate(template: Workflow, text: string) {
+    const next = structuredClone(template);
+    const compact = window.matchMedia("(max-width: 850px)").matches;
+    change(next);
+    resetEditor();
+    setSelected(next.start_node);
+    if (compact) pendingWorkspaceFeedbackFocus.current = true;
+    setMessage({ text, workflow: next, compact });
   }
 
   async function action(work: () => Promise<void>, validationDraft?: Workflow) {
@@ -846,12 +857,13 @@ export function Workbench() {
     }
   }
 
-  function undoRedo(direction: "undo" | "redo") {
+  function undoRedo(direction: "undo" | "redo", notice?: string) {
     if (travel(direction)) {
       setEdited(true);
       setError("");
       setDiagnostics(undefined);
-      setMessage("");
+      if (notice) pendingWorkspaceFeedbackFocus.current = true;
+      setMessage(notice ?? "");
     }
   }
 
@@ -891,6 +903,14 @@ export function Workbench() {
     setMessage("Workflow exported as JSON.");
   }
 
+  const templateFeedback = typeof feedback === "string" ? undefined : feedback;
+  // The history keeps this object only when loading the template produced a new edit.
+  const templateIsCurrent = templateFeedback?.workflow === workflow && canUndo;
+  const message =
+    typeof feedback === "string"
+      ? feedback
+      : feedback.text +
+        (templateIsCurrent && !feedback.compact ? " Undo restores your previous workflow." : "");
   const showFeedback = !!message && !error && !setupOpen && !busy;
   const canReturnToSetup = tab === "runs" && !run && !!unconfirmedStartId && accessActive && !busy;
   return (
@@ -1060,13 +1080,24 @@ export function Workbench() {
               Return to run setup
             </button>
           ) : showFeedback ? (
-            <button
-              className="button icon-button ghost"
-              aria-label="Dismiss status"
-              onClick={() => setMessage("")}
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
+            <div className="actions">
+              {templateIsCurrent && templateFeedback?.compact && (
+                <button
+                  type="button"
+                  className="button small"
+                  onClick={() => undoRedo("undo", "Previous workflow restored.")}
+                >
+                  Undo template load
+                </button>
+              )}
+              <button
+                className="button icon-button ghost"
+                aria-label="Dismiss status"
+                onClick={() => setMessage("")}
+              >
+                <X size={14} aria-hidden="true" />
+              </button>
+            </div>
           ) : null}
         </div>
         {error && !setupOpen && (
@@ -1213,38 +1244,23 @@ export function Workbench() {
                 <Button
                   className="button small"
                   disabled={!loaded || busy}
-                  onClick={() => {
-                    change(structuredClone(exampleWorkflow));
-                    resetEditor();
-                    setSelected(exampleWorkflow.start_node);
-                    setMessage(
-                      "Demo loaded. Notes do not call a model. Undo restores your previous draft.",
-                    );
-                  }}
+                  onClick={() =>
+                    loadTemplate(exampleWorkflow, "Demo loaded. Notes do not call a model.")
+                  }
                 >
                   Use no-model demo
                 </Button>
                 <Button
                   className="button small"
                   disabled={!loaded || busy}
-                  onClick={() => {
-                    change(structuredClone(researchWorkflow));
-                    resetEditor();
-                    setSelected(researchWorkflow.start_node);
-                    setMessage("Research template loaded. Undo restores your previous draft.");
-                  }}
+                  onClick={() => loadTemplate(researchWorkflow, "Research template loaded.")}
                 >
                   Use research template
                 </Button>
                 <Button
                   className="button small"
                   disabled={!loaded || busy}
-                  onClick={() => {
-                    change(structuredClone(ideaWorkflow));
-                    resetEditor();
-                    setSelected(ideaWorkflow.start_node);
-                    setMessage("Idea research example loaded. Undo to restore your draft.");
-                  }}
+                  onClick={() => loadTemplate(ideaWorkflow, "Idea research example loaded.")}
                 >
                   Use idea research example
                 </Button>
