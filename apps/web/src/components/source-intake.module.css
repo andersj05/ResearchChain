@@ -42,7 +42,6 @@
 .drop small,
 .pins strong,
 .pins small,
-.queue strong,
 .queue small {
   display: block;
 }
@@ -228,8 +227,7 @@
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.pins strong,
-.queue strong {
+.pins strong {
   font-size: 13px;
   font-weight: 550;
   overflow-wrap: anywhere;
@@ -326,6 +324,20 @@ button.thumb:hover:enabled {
 .queue li > div {
   flex: 1;
   min-width: 0;
+}
+.queue .titleField {
+  gap: 3px;
+  font-size: 12px;
+}
+.queue .titleField input {
+  min-height: 30px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-weight: 400;
+}
+.queue li small {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
 }
 .queue li select {
   width: auto;
