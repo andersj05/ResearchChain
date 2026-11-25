@@ -322,8 +322,8 @@
   padding-inline: 15px;
 }
 @media (min-height: 451px) {
-  :global(html):has(.launch) {
-    scroll-padding-bottom: 104px;
+  :global(html):has(:global([data-owner-workspace]:not([hidden])) .launch) {
+    scroll-padding-bottom: var(--first-reading-clearance, 104px);
   }
 }
 .account {

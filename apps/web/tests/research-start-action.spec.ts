@@ -108,6 +108,15 @@ test("explain a rejected first reading beside the action and keep the editable p
   await expect(error).toBeInViewport();
   await expect(error).toContainText("Unpin a source");
   await expect(start).toBeEnabled();
+  const sample = page.getByLabel("Import a text or Markdown sample");
+  await sample.evaluate((input) => input.scrollIntoView({ block: "end" }));
+  await expect
+    .poll(async () => {
+      const input = await sample.boundingBox();
+      const alert = await error.boundingBox();
+      return Boolean(input && alert && input.y + input.height <= alert.y);
+    })
+    .toBe(true);
   await expect(page.getByRole("list", { name: "Pinned material" })).toContainText(title);
   const id = (await submitted).request().postDataJSON().id;
   expect((await request.get(`/api/research-sessions/${id}/setup`)).status()).toBe(404);

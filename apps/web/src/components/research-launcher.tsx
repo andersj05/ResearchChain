@@ -63,6 +63,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const inFlight = useRef(false);
   const admitted = useRef(false);
   const mounted = useRef(false);
+  const launchBar = useRef<HTMLDivElement>(null);
   const catalog = useModelCatalog(active);
   const account = catalog.status?.accounts.find(
     (item) => item.active && item.signed_in && item.plan_enabled,
@@ -105,6 +106,22 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       mounted.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    const bar = launchBar.current;
+    if (!active || !bar || typeof ResizeObserver === "undefined") return;
+    const root = document.documentElement.style;
+    const clearance = "--first-reading-clearance";
+    const measure = () =>
+      root.setProperty(clearance, `${Math.ceil(bar.getBoundingClientRect().height) + 12}px`);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(bar);
+    return () => {
+      observer.disconnect();
+      root.removeProperty(clearance);
+    };
+  }, [active]);
 
   useEffect(() => {
     if (!active || !fromSession || loaded) return;
@@ -447,7 +464,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           />
         </fieldset>
       </form>
-      <div className={styles.launchBar}>
+      <div ref={launchBar} className={styles.launchBar}>
         {startError && (
           <p id="first-reading-error" className={styles.launchError} role="alert">
             {startError}
