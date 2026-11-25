@@ -516,7 +516,12 @@ function WorkspaceOverview({
         </p>
       )}
       {report ? (
-        <WorkspaceFilePreview file={report.file} sources={urls} files={files} />
+        <WorkspaceFilePreview
+          file={report.file}
+          sources={urls}
+          files={files}
+          contents={report.complete}
+        />
       ) : result?.swarm_action ? (
         <SwarmDecision action={result.swarm_action} />
       ) : assignments ? (

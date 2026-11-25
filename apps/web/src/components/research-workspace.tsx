@@ -21,9 +21,14 @@ export function canPreviewWorkspaceFile(file: WorkspaceFile) {
   );
 }
 
-type PreviewProps = { file: WorkspaceFile; sources: Set<string>; files?: WorkspaceFile[] };
+type PreviewProps = {
+  file: WorkspaceFile;
+  sources: Set<string>;
+  files?: WorkspaceFile[];
+  contents?: boolean;
+};
 
-function TextPreview({ file, sources, files }: PreviewProps) {
+function TextPreview({ file, sources, files, contents }: PreviewProps) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -48,13 +53,13 @@ function TextPreview({ file, sources, files }: PreviewProps) {
   if (file.media_type === "text/csv" || /\.csv$/i.test(file.name))
     return <CsvPreview text={text} />;
   return file.name.toLowerCase().endsWith(".md") ? (
-    <ResearchMarkdown text={text} sources={sources} files={files} />
+    <ResearchMarkdown text={text} sources={sources} files={files} contents={contents} />
   ) : (
     <pre tabIndex={0}>{text}</pre>
   );
 }
 
-export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
+export function WorkspaceFilePreview({ file, sources, files, contents }: PreviewProps) {
   return (
     <div className="workspace-file-preview">
       {imageTypes.has(file.media_type) ? (
@@ -66,7 +71,13 @@ export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
           loading="lazy"
         />
       ) : canPreviewWorkspaceFile(file) ? (
-        <TextPreview key={file.artifact_id} file={file} sources={sources} files={files} />
+        <TextPreview
+          key={file.artifact_id}
+          file={file}
+          sources={sources}
+          files={files}
+          contents={contents}
+        />
       ) : (
         <p className="muted">Download this file to inspect it in full.</p>
       )}
