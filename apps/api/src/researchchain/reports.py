@@ -12,8 +12,10 @@ from pydantic import ValidationError
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
 from researchchain.evidence import read_evidence, request_hash
+from researchchain.evidence_models import EvidenceRecord
 from researchchain.report_models import (
     ReportCreate,
+    ReportDraftSources,
     ReportEdit,
     ReportFeedback,
     ReportFeedbackCreate,
@@ -355,6 +357,18 @@ class Reports:
                 )
             insert_version(conn, "report_revisions", record, request)
             return record
+
+    def draft_sources(self, evidence_ids: list[UUID]) -> ReportDraftSources:
+        with self.database.connection() as conn:
+            rows = conn.execute(
+                "SELECT id, document FROM evidence_records WHERE id = ANY(%s)", (evidence_ids,)
+            )
+            by_id = {row["id"]: EvidenceRecord.model_validate(row["document"]) for row in rows}
+            sources = [by_id[key] for key in dict.fromkeys(evidence_ids) if key in by_id]
+            return ReportDraftSources(
+                sources=sources,
+                source_bases={source.id: source_basis(conn, source) for source in sources},
+            )
 
     def get(self, key: UUID) -> ReportView:
         with self.database.connection() as conn:

@@ -10,6 +10,7 @@ from researchchain.database import Database
 from researchchain.report_export import export_report
 from researchchain.report_models import (
     ReportCreate,
+    ReportDraftSources,
     ReportFeedback,
     ReportFeedbackCreate,
     ReportRevision,
@@ -75,6 +76,12 @@ def report_router(database: Database) -> APIRouter:
     @router.post("/reports/revisions", status_code=201, operation_id="save_report_revision")
     def save_report(request: ReportSave) -> ReportRevision:
         return reports.save(request)
+
+    @router.get("/reports/draft-sources", operation_id="read_report_draft_sources")
+    def read_draft_sources(
+        evidence_id: Annotated[list[UUID], Query(min_length=1, max_length=100)],
+    ) -> ReportDraftSources:
+        return reports.draft_sources(evidence_id)
 
     @router.get("/reports/{key}", operation_id="get_report")
     def get_report(key: UUID) -> ReportView:

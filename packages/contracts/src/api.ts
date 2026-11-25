@@ -575,6 +575,23 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  "/api/reports/draft-sources": {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Read Draft Sources */
+    get: operations["read_report_draft_sources"];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   "/api/reports/{key}": {
     parameters: {
       query?: never;
@@ -2949,6 +2966,15 @@ export interface components {
       style_guide_id: string;
       /** Source Format */
       source_format?: "session_markdown" | null;
+    };
+    /** ReportDraftSources */
+    ReportDraftSources: {
+      /** Sources */
+      sources: components["schemas"]["EvidenceRecord"][];
+      /** Source Bases */
+      source_bases: {
+        [key: string]: string;
+      };
     };
     /** ReportEdit */
     ReportEdit: {
@@ -5899,6 +5925,37 @@ export interface operations {
         };
         content: {
           "application/json": components["schemas"]["ReportRevision"];
+        };
+      };
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["HTTPValidationError"];
+        };
+      };
+    };
+  };
+  read_report_draft_sources: {
+    parameters: {
+      query: {
+        evidence_id: string[];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          "application/json": components["schemas"]["ReportDraftSources"];
         };
       };
       /** @description Validation Error */

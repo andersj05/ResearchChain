@@ -2,11 +2,22 @@
 
 Updated 2026-11-25.
 
+## Moving from the report outline into editing
+
+Selecting a section in a narrow editor brings its fields into view. Keyboard
+activation focuses **Section heading**. **Back to sections** restores the
+originating result or focuses search if it no longer matches.
+
+Report drafts can use a newly selected captured source in a reference or chart
+before the revision is saved. The editor uses the server's citation basis and
+identifies the applicable section if an attached draft source is still in use.
+
 ## Reading the active time limit
 
 Research settings shows the current active limit in minutes and seconds beside
 the exact seconds field. The numeric value and saved run limit still use seconds.
 The inline readout was verified at 320 and 1440 px.
+[Study time limit PR](https://github.com/andersj05/ResearchChain/pull/172).
 
 ## Faster report lists and live study reading
 
@@ -51,6 +62,7 @@ Workbench reuses the exact immutable agent head returned during startup. A
 production Chromium fixture with 72 versions and 20 runs removed one request on
 direct Reports and Sources. The removed response carried 45,055 decoded bytes
 and 2,690 browser-reported transfer bytes. Older revisions still load by exact ID.
+The `8e494a9` merge was verified on Desktop with 356 browser cases passing in CI.
 [Settings, archive, and reference PR](https://github.com/andersj05/ResearchChain/pull/169).
 
 ## Returning to reviews, model receipts, and versions
@@ -64,6 +76,7 @@ An explicitly selected team file stays open as a newer file with the same name
 arrives. **Open latest version** loads the newer file. The current Research Desk
 link and a follow-up’s **previous study** link keep queued files available.
 A follow-up with queued files opens the fresh Desk in a separate tab.
+The `9b5bedb` merge was verified on Desktop with 346 browser cases passing in CI.
 [Review and live file continuity PR](https://github.com/andersj05/ResearchChain/pull/168).
 
 ## Keeping your place in Reports and Sources

@@ -22,6 +22,7 @@ import { contentDownloadUrl } from "@/lib/evidence";
 import { sessionUrl } from "@/lib/research-sessions";
 import { api, ApiError } from "@/lib/workflow";
 import { stableRequestId } from "@/lib/evaluations";
+import { useReportDraftSources } from "@/lib/use-report-draft-sources";
 import {
   downloadDraft,
   downloadReportFile,
@@ -37,6 +38,13 @@ import {
   type StyleGuide,
 } from "@/lib/reports";
 import positionStyles from "./report-section-position.module.css";
+
+function usesReportSource(section: ReportSection, id: string) {
+  return (
+    section.citations?.some((citation) => citation.evidence_id === id) ||
+    section.chart_ids?.includes(id)
+  );
+}
 
 export function ReportEditor({
   view,
@@ -102,6 +110,13 @@ export function ReportEditor({
   const [referenceDrafts, setReferenceDrafts] = useState(
     () => new Map<string, SectionReferenceDraft>(),
   );
+  const [sourceRemovalNotice, setSourceRemovalNotice] = useState("");
+  const savedSourceIds = useMemo(() => record.sources.map(({ id }) => id), [record.sources]);
+  const addedSourceIds = useMemo(
+    () => draft.evidence_ids.filter((id) => !savedSourceIds.includes(id)),
+    [draft.evidence_ids, savedSourceIds],
+  );
+  const addedSources = useReportDraftSources(addedSourceIds);
   const [selected, setSelected] = useState(
     () =>
       recovery.draft.sections.find((item) => item.id === initialSectionId)?.id ??
@@ -112,6 +127,9 @@ export function ReportEditor({
   const [moveNotice, setMoveNotice] = useState("");
   const sectionFilterInput = useRef<HTMLInputElement>(null);
   const outlineId = useId();
+  const sectionHeadingInput = useRef<HTMLInputElement>(null);
+  const [outlineOrigin, setOutlineOrigin] = useState<{ id: string; keyboard: boolean }>();
+  const outlineJumpPending = useRef(false);
   const [showDraftPreview, setShowDraftPreview] = useState(false);
   const sectionTextId = useId();
   const previewId = `${sectionTextId}-preview`;
@@ -181,6 +199,15 @@ export function ReportEditor({
     sectionText.current?.focus({ preventScroll: true });
   }, [showDraftPreview]);
 
+  useLayoutEffect(() => {
+    if (!outlineOrigin || !outlineJumpPending.current) return;
+    outlineJumpPending.current = false;
+    const input = sectionHeadingInput.current;
+    if (!input || input.matches(":disabled")) return;
+    if (outlineOrigin.keyboard) input.focus({ preventScroll: true });
+    input.scrollIntoView({ block: "center" });
+  }, [outlineOrigin]);
+
   useEffect(() => {
     let active = true;
     api<ReportSummary[]>(`reports/${record.id}/history`)
@@ -204,6 +231,7 @@ export function ReportEditor({
     return () => window.removeEventListener("beforeunload", warn);
   }, [dirty]);
   function changeDraft(next: ReportDraft) {
+    setSourceRemovalNotice("");
     setDraft(next);
     const changed = JSON.stringify(next) !== JSON.stringify(original);
     if (!changed) setAwaitingNote(false);
@@ -220,7 +248,37 @@ export function ReportEditor({
   function editSection(next: ReportSection) {
     changeDraft({ ...draft, sections: draft.sections.map((s) => (s.id === next.id ? next : s)) });
   }
+  function changeReportSources(ids: string[]) {
+    const evidenceIds = [...new Set([...savedSourceIds, ...ids])];
+    for (const id of addedSourceIds) {
+      if (evidenceIds.includes(id)) continue;
+      const usedIn = draft.sections.find((section) => usesReportSource(section, id));
+      if (usedIn) {
+        setSourceRemovalNotice(
+          `Remove references or chart placements using this source in “${usedIn.heading || "Untitled section"}” first.`,
+        );
+        return;
+      }
+      if (removed && usesReportSource(removed.section, id)) {
+        setSourceRemovalNotice(
+          "Restore the removed section and remove its references or chart placements before removing this source.",
+        );
+        return;
+      }
+      const openIn = draft.sections.find(
+        (section) => referenceDrafts.get(section.id)?.citation.evidence_id === id,
+      );
+      if (openIn) {
+        setSourceRemovalNotice(
+          `Cancel the open reference in “${openIn.heading || "Untitled section"}” before removing this source.`,
+        );
+        return;
+      }
+    }
+    changeDraft({ ...draft, evidence_ids: evidenceIds });
+  }
   function changeReferenceDraft(sectionId: string, draft: SectionReferenceDraft | null) {
+    if (!draft) setSourceRemovalNotice("");
     setReferenceDrafts((current) => {
       if (!draft && !current.has(sectionId)) return current;
       const next = new Map(current);
@@ -233,6 +291,21 @@ export function ReportEditor({
     setSelected(id);
     setMoveTarget(undefined);
     setMoveNotice("");
+  }
+  function selectFromOutline(id: string, keyboard: boolean) {
+    selectSection(id);
+    const compact = !locked && window.matchMedia("(max-width: 760px)").matches;
+    outlineJumpPending.current = compact;
+    setOutlineOrigin(compact ? { id, keyboard } : undefined);
+  }
+  function backToSections(id: string) {
+    const target =
+      document.getElementById(`${outlineId}-${id}`) ??
+      sectionFilterInput.current ??
+      document.getElementById(outlineId);
+    setOutlineOrigin(undefined);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: "center" });
   }
   function moveSectionTo(destination: number) {
     if (locked || destination === sectionIndex || !draft.sections[destination]) return;
@@ -352,6 +425,7 @@ export function ReportEditor({
                 retry.current = saved.pending;
                 setPendingBody(saved.pending?.body ?? null);
                 setDraft(saved.draft);
+                setSourceRemovalNotice("");
                 setReferenceDrafts(new Map());
                 setRecovered(true);
                 setLegacyAvailable(false);
@@ -468,15 +542,21 @@ export function ReportEditor({
                 )}
               </div>
             )}
-            <nav id={outlineId} className="report-outline" aria-label="Report sections">
+            <nav
+              id={outlineId}
+              className="report-outline"
+              aria-label="Report sections"
+              tabIndex={-1}
+            >
               {visibleSections.map(({ item, index }) => (
                 <Button
                   key={item.id}
+                  id={`${outlineId}-${item.id}`}
                   className={
                     item.id === section.id ? "report-outline-item selected" : "report-outline-item"
                   }
                   aria-current={item.id === section.id ? "true" : undefined}
-                  onClick={() => selectSection(item.id)}
+                  onClick={(event) => selectFromOutline(item.id, event.detail === 0)}
                 >
                   {index + 1}. {item.heading}
                 </Button>
@@ -590,9 +670,20 @@ export function ReportEditor({
             <p className="sr-only" role="status">
               {moveNotice}
             </p>
+            {outlineOrigin && !locked && (
+              <button
+                type="button"
+                className="button small report-back-to-sections"
+                aria-controls={outlineId}
+                onClick={() => backToSections(outlineOrigin.id)}
+              >
+                Back to sections
+              </button>
+            )}
             <label>
               Section heading
               <input
+                ref={sectionHeadingInput}
                 maxLength={240}
                 value={section.heading}
                 onChange={(e) => editSection({ ...section, heading: e.target.value })}
@@ -668,7 +759,8 @@ export function ReportEditor({
           <ReportSectionSources
             key={section.id}
             section={section}
-            view={view}
+            sources={[...record.sources, ...addedSources.sources]}
+            sourceBases={{ ...view.source_bases, ...addedSources.sourceBases }}
             disabled={locked}
             onChange={editSection}
             referenceDraft={referenceDrafts.get(section.id)}
@@ -758,8 +850,8 @@ export function ReportEditor({
           <details open>
             <summary>Source snapshots ({record.sources.length})</summary>
             <p className="field-hint">
-              Sources are pinned. Save additional sources before attaching their references or
-              charts.
+              Use selected sources in references and charts. Saving pins new sources to this
+              revision.
             </p>
             {record.sources.map((s) => (
               <ReportSource key={s.id} source={s} />
@@ -768,13 +860,22 @@ export function ReportEditor({
               label="Report source snapshots"
               selected={draft.evidence_ids}
               disabled={locked}
-              onChange={(ids) =>
-                changeDraft({
-                  ...draft,
-                  evidence_ids: [...new Set([...record.sources.map((s) => s.id), ...ids])],
-                })
-              }
+              onChange={changeReportSources}
             />
+            {addedSources.loading && <p role="status">Loading draft sources…</p>}
+            {addedSources.unavailable && (
+              <div className="source-notice" role="alert">
+                <p>Some draft sources could not be loaded for references or charts.</p>
+                <Button className="button small" onClick={addedSources.retry}>
+                  Retry draft sources
+                </Button>
+              </div>
+            )}
+            {sourceRemovalNotice && (
+              <p className="error" role="alert">
+                {sourceRemovalNotice}
+              </p>
+            )}
           </details>
           <details>
             <summary>Revision history</summary>
