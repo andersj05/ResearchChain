@@ -168,7 +168,10 @@ checkpoint independently.
 The lead's saved plan lists each assignment and its objective. Select a researcher
 under **Workspaces** to see the current request, saved leads, web activity, Python
 results and files as they arrive. Researchers can use the same filename in their
-own workspaces. Open an earlier pass or an activity entry to inspect the request
+own workspaces. In a swarm, combine **Find a workspace** with **Workspace status**
+to find active, queued or blocked assignments without expanding each lead. Status
+matches update as the study runs and keep the current workspace open.
+Open an earlier pass or an activity entry to inspect the request
 and response that produced it. The reader shows the findings, files and sources
 recorded for that pass, and the link remembers the workspace and pass. Choose
 **Inspect pass in Runs** to see structured request inputs, or **Back to latest
