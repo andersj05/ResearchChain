@@ -2,6 +2,13 @@
 
 Updated 2026-11-25.
 
+## Reading saved editor results
+
+**Inspect figure** opens the exact saved PNG inside a completed study report.
+Original-size panning and Escape keep the report's reading and focus position.
+Completed studies with standalone structured editor results link directly to
+their final saved findings. Twenty focused production Chromium cases passed.
+
 ## Finding sources and reading reports
 
 **Saved sources** can filter an exact source type before pagination. Batch
@@ -24,6 +31,10 @@ setup. **Session controls** reaches stop and recovery actions from the overview.
 
 **Edit in Reports** offers existing report heads from the exact editor pass and
 allows a separate report. The saved provenance continues through revisions.
+Desktop runs the `0c598ab` packet and report handoff merge. Studies and Reports
+returned HTTP 200, and the API reported healthy with two connected workers.
+CI passed 653 API tests with three skips and 269 Chromium cases.
+[Packet and reports PR](https://github.com/andersj05/ResearchChain/pull/157).
 
 ## Capture and decision continuity
 

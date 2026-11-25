@@ -1,8 +1,14 @@
 import { expect, test, type Page } from "./fixtures";
+import type { components } from "@researchchain/contracts";
 
 const sourceUrl = "https://example.test/recorded";
 
-async function openSavedReport(page: Page, markdown: string, onRead?: () => void) {
+async function openSavedReport(
+  page: Page,
+  markdown: string,
+  onRead?: () => void,
+  figures: components["schemas"]["WorkspaceFile"][] = [],
+) {
   const runId = crypto.randomUUID();
   const artifactId = crypto.randomUUID();
   const now = new Date().toISOString();
@@ -44,6 +50,7 @@ async function openSavedReport(page: Page, markdown: string, onRead?: () => void
                   media_type: "text/markdown",
                   byte_size: Buffer.byteLength(markdown),
                 },
+                ...figures,
               ],
               web_research: { sources: [{ title: "Primary source", url: sourceUrl, cited: true }] },
             },
@@ -149,6 +156,122 @@ test("keeps the contents list out of a short report", async ({ page }) => {
   );
   await expect(report.getByRole("heading", { name: "Observation" })).toBeVisible();
   await expect(report.getByRole("navigation", { name: "Report contents" })).toHaveCount(0);
+});
+
+test("inspects exact saved figures on a phone and returns to the same figure in Focus reading", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const png = Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1400;
+      canvas.height = 680;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#27625a";
+      context.fillRect(30, 30, 1300, 600);
+      return canvas.toDataURL().split(",")[1]!;
+    }),
+    "base64",
+  );
+  const figures = ["spread.png", "rates.png", "unused.png", "vector.svg"].map((name, index) => ({
+    name,
+    artifact_id: `sha256:${(index + 1).toString().repeat(64)}`,
+    media_type: name.endsWith(".png") ? "image/png" : "image/svg+xml",
+    byte_size: png.length,
+  }));
+  const [first, linked] = figures;
+  const figureReads: string[] = [];
+  for (const { artifact_id } of figures) {
+    const encoded = encodeURIComponent(artifact_id);
+    await page.route(`**/api/artifacts/${encoded}/content*`, (route) => {
+      const url = new URL(route.request().url());
+      figureReads.push(url.pathname + url.search);
+      return route.fulfill({
+        contentType: "image/png",
+        headers: { "cache-control": "no-store" },
+        body: png,
+      });
+    });
+  }
+  let remoteReads = 0;
+  await page.route("https://example.test/**", (route) => {
+    remoteReads += 1;
+    return route.abort();
+  });
+  const figurePath = (id: string) =>
+    `/api/artifacts/${encodeURIComponent(id)}/content?preview=true`;
+  const firstPath = figurePath(first!.artifact_id);
+  const linkedPath = figurePath(linked!.artifact_id);
+  const report = await openSavedReport(
+    page,
+    [
+      "# Synthetic credit charts",
+      "![Credit spreads](./spread.png)",
+      `[![Policy rates](rates.png)](${sourceUrl})`,
+      "[Unrecorded source](https://example.test/no-record)",
+      "![Unsaved chart](missing.png)",
+      "![Remote chart](https://example.test/external.png)",
+      "![Unsupported chart](vector.svg)",
+      "Methodology. ".repeat(110),
+    ].join("\n\n"),
+    undefined,
+    figures,
+  );
+  await report.getByRole("button", { name: "Focus reading", exact: true }).click();
+  const reader = report.getByRole("region", { name: "Report text" });
+  const figuresInReport = reader.getByRole("button", { name: /^Inspect figure:/ });
+  const linkedButton = reader.getByRole("button", { name: "Inspect figure: Policy rates" });
+  const sourceLink = reader.getByRole("link", { name: "Policy rates" });
+  await expect(figuresInReport).toHaveCount(2);
+  await expect(
+    reader.getByRole("button", { name: "Inspect figure: Credit spreads" }),
+  ).toBeVisible();
+  await expect(sourceLink).toHaveAttribute("href", sourceUrl);
+  await expect(sourceLink.getByRole("img")).toHaveAccessibleName("Policy rates");
+  await expect(reader.locator("a button, a a")).toHaveCount(0);
+  await expect(reader.getByRole("link", { name: /Unrecorded source/ })).toHaveCount(0);
+  await expect(reader.getByRole("img")).toHaveCount(2);
+  for (const label of ["Unsaved chart", "Remote chart", "Unsupported chart"]) {
+    await expect(reader.getByText(label, { exact: true })).toBeVisible();
+  }
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect.poll(() => [...figureReads].sort()).toEqual([firstPath, linkedPath]);
+
+  await linkedButton.scrollIntoViewIfNeeded();
+  const before = await reader.evaluate((element) => element.scrollTop);
+  const savedUrl = page.url();
+  await linkedButton.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Policy rates" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAccessibleDescription("rates.png");
+  await expect(dialog.getByRole("link")).toHaveCount(0);
+  const image = dialog.getByRole("img", { name: "Policy rates" });
+  await expect(image).toHaveAttribute("src", new URL(linkedPath, savedUrl).href);
+  const original = dialog.getByRole("button", { name: "Original size", exact: true });
+  const pan = dialog.getByRole("region", { name: "Chart image" });
+  await expect(original).toBeEnabled();
+  await expect(original).toHaveAttribute("aria-pressed", "false");
+  expect(await pan.evaluate((el) => el.scrollWidth === el.clientWidth)).toBe(true);
+  const afterOpen = figureReads.slice();
+  // Chromium can reuse the already decoded inline image.
+  expect(afterOpen.length).toBeLessThanOrEqual(3);
+  if (afterOpen.length === 3) expect(afterOpen[2]).toBe(linkedPath);
+  await original.press("Enter");
+  await expect(original).toHaveAttribute("aria-pressed", "true");
+  expect((await image.boundingBox())!.width).toBe(1400);
+  await pan.press("ArrowRight");
+  await expect.poll(() => pan.evaluate((el) => el.scrollLeft)).toBeGreaterThan(0);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(linkedButton).toBeFocused();
+  await expect(report.getByRole("button", { name: "Exit reading", exact: true })).toBeVisible();
+  expect(Math.abs((await reader.evaluate((element) => element.scrollTop)) - before)).toBeLessThan(
+    2,
+  );
+  await expect(page).toHaveURL(savedUrl);
+  expect(figureReads).toEqual(afterOpen);
+  expect(remoteReads).toBe(0);
 });
 
 test("focuses the existing report, preserves its place, and exits with Escape", async ({

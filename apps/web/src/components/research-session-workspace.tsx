@@ -108,16 +108,23 @@ function sourceUrls(attempts: Attempt[]) {
   );
 }
 
+export function finalEditorAttempt(lane: SessionWorkspace, status: RunSnapshot["status"]) {
+  if (lane.key !== "editor" || status !== "completed") return;
+  const latest = lane.attempts.at(-1);
+  if (
+    latest?.status === "completed" &&
+    latest.result &&
+    !latest.result.workspace_activity &&
+    !latest.result.next_lead
+  )
+    return latest;
+}
+
 export function sessionReport(lane: SessionWorkspace, status: RunSnapshot["status"]) {
   if (lane.key !== "editor") return;
   const latest = lane.attempts.at(-1);
   const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
-  const complete =
-    status === "completed" &&
-    latest?.status === "completed" &&
-    !!latest.result &&
-    !latest.result.workspace_activity &&
-    !latest.result.next_lead;
+  const complete = !!finalEditorAttempt(lane, status);
   const files = result?.workspace_files ?? [];
   const file =
     files.find((item) => item.name === "report.md") ??
@@ -654,6 +661,7 @@ function WorkspaceOverview({
           sources={urls}
           files={files}
           contents={report.complete}
+          inspectFigures={report.complete}
           viewport={
             canFocusReport
               ? {

@@ -19,7 +19,7 @@ export type ChartPreviewSource = {
   attribution?: string;
 };
 
-function ChartImage({ artifactId, title }: Pick<ChartPreviewSource, "artifactId" | "title">) {
+export function ChartImage({ src, title }: { src: string; title: string }) {
   const [loaded, setLoaded] = useState(false);
   const [unavailable, setUnavailable] = useState(false);
   const [originalSize, setOriginalSize] = useState(false);
@@ -50,7 +50,7 @@ function ChartImage({ artifactId, title }: Pick<ChartPreviewSource, "artifactId"
         <Image
           className={styles.original}
           unoptimized
-          src={contentUrl(artifactId)}
+          src={src}
           alt={title}
           width={1200}
           height={720}
@@ -105,7 +105,11 @@ export function SourceChartDialog({
                 <X size={18} aria-hidden />
               </DialogClose>
             </header>
-            <ChartImage key={chart.artifactId} artifactId={chart.artifactId} title={chart.title} />
+            <ChartImage
+              key={chart.artifactId}
+              src={contentUrl(chart.artifactId)}
+              title={chart.title}
+            />
             <footer>
               <a href={evidenceUrl(chart.id)} target="_blank" rel="noopener">
                 Open source record
