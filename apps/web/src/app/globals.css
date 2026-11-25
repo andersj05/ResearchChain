@@ -2693,6 +2693,9 @@ td time {
   color: var(--blue);
   box-shadow: inset 2px 0 var(--blue);
 }
+.report-back-to-sections {
+  display: none;
+}
 .report-body {
   min-height: 400px;
   font-size: 15px;
@@ -2873,6 +2876,9 @@ td time {
   }
   .report-fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .report-back-to-sections {
+    display: inline-flex;
   }
   .report-banner,
   .report-save-state {

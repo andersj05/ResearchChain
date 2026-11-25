@@ -112,6 +112,9 @@ export function ReportEditor({
   const [moveNotice, setMoveNotice] = useState("");
   const sectionFilterInput = useRef<HTMLInputElement>(null);
   const outlineId = useId();
+  const sectionHeadingInput = useRef<HTMLInputElement>(null);
+  const [outlineOrigin, setOutlineOrigin] = useState<{ id: string; keyboard: boolean }>();
+  const outlineJumpPending = useRef(false);
   const [showDraftPreview, setShowDraftPreview] = useState(false);
   const sectionTextId = useId();
   const previewId = `${sectionTextId}-preview`;
@@ -181,6 +184,14 @@ export function ReportEditor({
     sectionText.current?.focus({ preventScroll: true });
   }, [showDraftPreview]);
 
+  useLayoutEffect(() => {
+    if (!outlineOrigin || !outlineJumpPending.current) return;
+    outlineJumpPending.current = false;
+    const input = sectionHeadingInput.current;
+    if (outlineOrigin.keyboard) input?.focus({ preventScroll: true });
+    input?.scrollIntoView({ block: "center" });
+  }, [outlineOrigin]);
+
   useEffect(() => {
     let active = true;
     api<ReportSummary[]>(`reports/${record.id}/history`)
@@ -233,6 +244,21 @@ export function ReportEditor({
     setSelected(id);
     setMoveTarget(undefined);
     setMoveNotice("");
+  }
+  function selectFromOutline(id: string, keyboard: boolean) {
+    selectSection(id);
+    const compact = window.matchMedia("(max-width: 760px)").matches;
+    outlineJumpPending.current = compact;
+    setOutlineOrigin(compact ? { id, keyboard } : undefined);
+  }
+  function backToSections(id: string) {
+    const target =
+      document.getElementById(`${outlineId}-${id}`) ??
+      sectionFilterInput.current ??
+      document.getElementById(outlineId);
+    setOutlineOrigin(undefined);
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: "center" });
   }
   function moveSectionTo(destination: number) {
     if (locked || destination === sectionIndex || !draft.sections[destination]) return;
@@ -468,15 +494,21 @@ export function ReportEditor({
                 )}
               </div>
             )}
-            <nav id={outlineId} className="report-outline" aria-label="Report sections">
+            <nav
+              id={outlineId}
+              className="report-outline"
+              aria-label="Report sections"
+              tabIndex={-1}
+            >
               {visibleSections.map(({ item, index }) => (
                 <Button
                   key={item.id}
+                  id={`${outlineId}-${item.id}`}
                   className={
                     item.id === section.id ? "report-outline-item selected" : "report-outline-item"
                   }
                   aria-current={item.id === section.id ? "true" : undefined}
-                  onClick={() => selectSection(item.id)}
+                  onClick={(event) => selectFromOutline(item.id, event.detail === 0)}
                 >
                   {index + 1}. {item.heading}
                 </Button>
@@ -590,9 +622,20 @@ export function ReportEditor({
             <p className="sr-only" role="status">
               {moveNotice}
             </p>
+            {outlineOrigin && (
+              <button
+                type="button"
+                className="button small report-back-to-sections"
+                aria-controls={outlineId}
+                onClick={() => backToSections(outlineOrigin.id)}
+              >
+                Back to sections
+              </button>
+            )}
             <label>
               Section heading
               <input
+                ref={sectionHeadingInput}
                 maxLength={240}
                 value={section.heading}
                 onChange={(e) => editSection({ ...section, heading: e.target.value })}
