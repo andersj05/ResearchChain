@@ -166,6 +166,16 @@ export function ReportSectionSources({
             </select>
           </label>
           <p className="field-hint">Basis: {citation.basis.replaceAll("_", " ")}</p>
+          {currentSource && (
+            <a
+              className="button small"
+              href={evidenceUrl(currentSource.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Inspect selected source (new tab)
+            </a>
+          )}
           <label>
             Evidence relationship
             <select
