@@ -323,6 +323,9 @@ button.thumb:hover:enabled {
   background: transparent;
   color: var(--muted);
 }
+.pinTools .icon:focus-visible {
+  outline-offset: -2px;
+}
 .queue {
   margin-block: 10px;
 }
@@ -381,5 +384,9 @@ button.thumb:hover:enabled {
   .icon {
     min-width: 28px;
     min-height: 34px;
+  }
+  .pinTools .icon {
+    min-width: 32px;
+    min-height: 40px;
   }
 }
