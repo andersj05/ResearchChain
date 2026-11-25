@@ -167,7 +167,7 @@ export function ResearchDesk({
           <section className={styles.studies} aria-labelledby="studies-title">
             <div className={styles.studiesHeading}>
               <h1 id="studies-title">Studies</h1>
-              <a className="button" href="/?view=research">
+              <a className="button" href="?view=research">
                 New study
               </a>
             </div>
