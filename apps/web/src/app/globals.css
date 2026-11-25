@@ -2639,6 +2639,28 @@ td time {
 .report-fields label {
   margin-top: 0;
 }
+.report-outline-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  margin-top: 20px;
+}
+.report-outline-search label {
+  margin: 0;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.report-outline-search button {
+  min-height: 36px;
+}
+.report-outline-search + .report-outline {
+  margin-top: 8px;
+}
+.report-outline-empty {
+  padding: 10px 0;
+  color: var(--muted);
+}
 .report-outline {
   max-height: 260px;
   overflow-y: auto;
