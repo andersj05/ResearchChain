@@ -119,12 +119,14 @@ workspace** to continue following the workspace.
 
 Use **Search study activity** in the **Activity log** to find a pass by
 workspace, lead, pass number, result text or filename. The log keeps the search
-in place while you inspect a matching receipt.
+in place while you inspect a matching receipt. **Back to activity** returns to
+the originating row.
 
 **Saved files** searches across assignments and leads. Each file lists its
 producing pass and content ID. If an assignment saved another version under
 the same filename, both versions stay available. Preview a file or open the
-saved pass that produced it.
+saved pass that produced it, then choose **Back to saved files** to resume the
+same search.
 
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.

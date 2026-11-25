@@ -145,10 +145,15 @@ test("find a file version across study assignments and open its original pass", 
     "href",
     `/api/artifacts/${encodeURIComponent(original.artifact_id)}/content?filename=observations.csv`,
   );
-  await firstVersion.getByRole("link", { name: "Open saved pass" }).click();
+  const producingPass = firstVersion.getByRole("link", { name: "Open saved pass" });
+  await producingPass.click();
   const workspace = page.getByRole("region", { name: "Release checks workspace" });
   await expect(workspace).toBeFocused();
   await expect(workspace.getByRole("region", { name: "Pass 1", exact: true })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("pass")).toBe(earlier.id);
+  await workspace.getByRole("link", { name: "Back to saved files" }).click();
+  await expect(producingPass).toBeFocused();
+  await expect(search).toHaveValue("release checks");
+  await expect(firstVersion.getByRole("cell", { name: "Original", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

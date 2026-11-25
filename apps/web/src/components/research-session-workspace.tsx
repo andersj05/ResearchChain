@@ -8,6 +8,7 @@ import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts, researchToolUrls } from "./research-tool-receipts";
 import { ResearchWorkspace, WorkspaceFilePreview, WorkspaceFiles } from "./research-workspace";
 import { formatTime } from "./run-status";
+import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
 import styles from "./research-session.module.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
@@ -372,10 +373,12 @@ export function SessionWorkspaceDetail({
   passId,
   onPass,
   returnToReview,
+  returnToIndex,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
   returnToReview?: { id: string; title: string };
+  returnToIndex?: StudyIndexReturn;
 } & PassSelection) {
   const selected = lane.attempts.find((attempt) => attempt.id === passId);
   return (
@@ -390,6 +393,7 @@ export function SessionWorkspaceDetail({
           Return to {returnToReview.title}’s question
         </a>
       )}
+      {selected && returnToIndex && <StudyIndexLink {...returnToIndex} className="text-link" />}
       {selected ? (
         <>
           <div className={styles.detailHeading}>

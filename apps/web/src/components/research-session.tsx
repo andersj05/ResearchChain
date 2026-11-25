@@ -21,7 +21,8 @@ import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
 import { SessionRoster } from "./session-roster";
-import { hasStudyFiles, StudyFiles, StudyFilesLink } from "./study-files";
+import { hasStudyFiles, StudyFiles } from "./study-files";
+import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
 import {
   LeadConsultation,
   ConsultationHistory,
@@ -33,6 +34,8 @@ import styles from "./research-session.module.css";
 
 type Props = { runId: string; onNewStudy: (fromSession?: string) => void };
 type Review = NonNullable<RunSnapshot["review"]>;
+type ReturnOrigin =
+  { kind: "consultation"; reviewId: string } | ({ kind: "index" } & StudyIndexReturn);
 type Decision = "approve" | "reject";
 type SessionAction =
   | { name: "resume"; review: Review; decision: Decision; feedback: string }
@@ -108,7 +111,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
-  const [returnToReview, setReturnToReview] = useState<string>();
+  const [returnOrigin, setReturnOrigin] = useState<ReturnOrigin>();
   const [chosen, setChosen] = useState(() =>
     typeof window === "undefined"
       ? null
@@ -118,9 +121,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pass"),
   );
   const draftKey = ownerStoragePrefix(owner) + ".research.review." + runId;
-  function selectWorkspace(key: string, pass: string | null = null) {
+  function selectWorkspace(key: string, pass: string | null = null, origin?: ReturnOrigin) {
     setChosen(key);
     setPassId(pass);
+    setReturnOrigin(origin);
     const url = new URL(window.location.href);
     url.searchParams.set("workspace", key);
     if (pass) url.searchParams.set("pass", pass);
@@ -289,7 +293,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   }
   const reviewsDisabled = busy || !active || run.execution_pending || !!actionFailure?.checking;
   const consultations = questions.filter((review) => review.perspective);
-  const returnQuestion = consultations.find((review) => review.interrupt_id === returnToReview);
+  const returnQuestion =
+    returnOrigin?.kind === "consultation"
+      ? consultations.find((review) => review.interrupt_id === returnOrigin.reviewId)
+      : undefined;
   const question = questions.find((review) => !review.perspective);
   const discovery = !!run.research_manifest?.tool_config.discovery_version;
   const sentenceReview = question?.path === "root/working_sentence" ? question : undefined;
@@ -305,6 +312,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const report = sessionReport(editor, run.status);
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
   const hasFiles = hasStudyFiles(lanes);
+  const returnIndex =
+    returnOrigin?.kind === "index" && (returnOrigin.index === "activity" ? hasActivity : hasFiles)
+      ? returnOrigin
+      : undefined;
   return (
     <main className={styles.page}>
       <div className={styles.intro}>
@@ -388,19 +399,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             </a>
           )}
           <a href="#research-workspaces">Workspaces</a>
-          {hasFiles && <StudyFilesLink />}
-          {hasActivity && (
-            <a
-              href="#research-activity-heading"
-              onClick={(event) => {
-                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-                const log = document.getElementById("research-activity");
-                if (log instanceof HTMLDetailsElement) log.open = true;
-              }}
-            >
-              Activity log
-            </a>
-          )}
+          {hasFiles && <StudyIndexLink index="files" />}
+          {hasActivity && <StudyIndexLink index="activity" />}
         </nav>
         <details className={styles.settings}>
           <summary>{discovery ? "Sources and settings" : "Brief and settings"}</summary>
@@ -507,10 +507,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             lanes={lanes}
             draftKey={draftKey}
             actionNotice={noticeFor(review)}
-            onSelect={(key, pass) => {
-              selectWorkspace(key, pass);
-              setReturnToReview(review.interrupt_id);
-            }}
+            onSelect={(key, pass) =>
+              selectWorkspace(key, pass, { kind: "consultation", reviewId: review.interrupt_id })
+            }
             disabled={reviewsDisabled}
             onAnswer={(feedback) => respond(review, "approve", feedback)}
           />
@@ -564,16 +563,36 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           lane={workspace}
           run={run}
           passId={passId}
-          onPass={(id) => selectWorkspace(workspace.key, id)}
+          onPass={(id) =>
+            selectWorkspace(
+              workspace.key,
+              id,
+              id === null && returnOrigin?.kind === "index" ? undefined : returnOrigin,
+            )
+          }
           returnToReview={
             returnQuestion?.perspective
               ? { id: returnQuestion.interrupt_id, title: returnQuestion.perspective.lead_title }
               : undefined
           }
+          returnToIndex={returnIndex}
         />
       </div>
-      {hasFiles && <StudyFiles runId={runId} lanes={lanes} onSelect={selectWorkspace} />}
-      <SessionActivity lanes={lanes} select={selectWorkspace} />
+      {hasFiles && (
+        <StudyFiles
+          runId={runId}
+          lanes={lanes}
+          onSelect={(key, pass, targetId) =>
+            selectWorkspace(key, pass, { kind: "index", index: "files", targetId })
+          }
+        />
+      )}
+      <SessionActivity
+        lanes={lanes}
+        select={(key, pass, targetId) =>
+          selectWorkspace(key, pass, { kind: "index", index: "activity", targetId })
+        }
+      />
       <footer className={styles.footer}>
         {!failedReview && actionNotice}
         <a href={fullRun}>Open run inspector</a>

@@ -89,21 +89,6 @@ function FilePreview({ entry, lanes }: { entry: IndexedFile; lanes: SessionWorks
   return <WorkspaceFilePreview file={entry.file} sources={sources} files={files} />;
 }
 
-export function StudyFilesLink() {
-  return (
-    <a
-      href="#study-files-heading"
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        const panel = document.getElementById("study-files");
-        if (panel instanceof HTMLDetailsElement) panel.open = true;
-      }}
-    >
-      Saved files
-    </a>
-  );
-}
-
 export function StudyFiles({
   runId,
   lanes,
@@ -111,7 +96,7 @@ export function StudyFiles({
 }: {
   runId: string;
   lanes: SessionWorkspace[];
-  onSelect: (workspace: string, pass: string | null) => void;
+  onSelect: (workspace: string, pass: string | null, targetId: string) => void;
 }) {
   const [open, setOpen] = useState(
     () => typeof window !== "undefined" && window.location.hash === "#study-files-heading",
@@ -156,6 +141,7 @@ export function StudyFiles({
               {matches.slice(0, shown).map((entry) => {
                 const { key, file, lane, lead, attempt, pass } = entry;
                 const isPreview = preview === key;
+                const passLinkId = `study-file-pass-${encodeURIComponent(key)}`;
                 const location = `${lead ? `${lead} · ` : ""}${lane.title} · Pass ${pass}`;
                 return (
                   <li key={key} aria-label={`${file.name} · ${location}`}>
@@ -181,10 +167,11 @@ export function StudyFiles({
                           </button>
                         )}
                         <SessionWorkspaceLink
+                          id={passLinkId}
                           runId={runId}
                           lane={lane}
                           pass={attempt.id}
-                          onSelect={onSelect}
+                          onSelect={(workspace, pass) => onSelect(workspace, pass, passLinkId)}
                         >
                           Open saved pass
                         </SessionWorkspaceLink>
