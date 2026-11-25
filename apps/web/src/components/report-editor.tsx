@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { ReportSectionSources, ReportSource } from "@/components/report-sources";
@@ -38,6 +38,7 @@ export function ReportEditor({
   view,
   styles,
   checkingRevision,
+  headingRef,
   initialSectionId,
   onOpen,
   onRefresh,
@@ -45,6 +46,7 @@ export function ReportEditor({
   view: ReportView;
   styles: StyleGuide[];
   checkingRevision: boolean;
+  headingRef: Ref<HTMLHeadingElement>;
   initialSectionId?: string;
   onOpen: (id: string, sectionId?: string) => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -277,7 +279,9 @@ export function ReportEditor({
     <section className="report-editor" aria-label="Report editor">
       <header className="report-toolbar">
         <div>
-          <h2>{record.title}</h2>
+          <h2 ref={headingRef} tabIndex={-1}>
+            {record.title}
+          </h2>
           <p>
             Revision {record.version} ·{" "}
             {record.author === "human" ? "Human revision" : "Research seed"} · {view.review_status}

@@ -1,12 +1,19 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ReportCreateForm } from "@/components/report-create";
 import { ReportEditor } from "@/components/report-editor";
 import { StyleGuideContent, StyleGuideEditor } from "@/components/style-guide-editor";
 import { api } from "@/lib/workflow";
 import type { ReportSummary, ReportView, StyleGuide } from "@/lib/reports";
+
+type ReportListPosition = {
+  revisionId: string;
+  seriesId: string;
+  panelTop: number;
+  windowTop: number;
+};
 
 function StudyReportMatches({ runId, attemptId }: { runId: string; attemptId: string }) {
   const [matches, setMatches] = useState<ReportSummary[] | "failed">();
@@ -94,6 +101,41 @@ export function ReportDesk({ visit }: { visit: number }) {
   const [error, setError] = useState("");
   const [epoch, setEpoch] = useState(0);
   const styleWrites = useRef(0);
+  const desk = useRef<HTMLElement>(null);
+  const reportHeading = useRef<HTMLHeadingElement>(null);
+  const listSearch = useRef<HTMLInputElement>(null);
+  const listPosition = useRef<ReportListPosition | null>(null);
+  const listTransition = useRef<"open" | "return" | null>(null);
+
+  useLayoutEffect(() => {
+    const position = listPosition.current;
+    const root = desk.current;
+    if (!position || !root) return;
+    const panel = root.closest<HTMLElement>(".reports-view");
+    if (listTransition.current === "open" && view?.revision.id === position.revisionId) {
+      listTransition.current = null;
+      if (document.activeElement === document.body) {
+        window.scrollTo(0, 0);
+        if (panel) panel.scrollTop = 0;
+        reportHeading.current?.focus({ preventScroll: true });
+      }
+    }
+    if (listTransition.current !== "return" || view) return;
+    listTransition.current = null;
+    listPosition.current = null;
+    const row = [...root.querySelectorAll<HTMLButtonElement>("[data-report-series]")].find(
+      (button) => button.dataset.reportSeries === position.seriesId,
+    );
+    if (!row) {
+      listSearch.current?.focus();
+      return;
+    }
+    row.focus({ preventScroll: true });
+    window.scrollTo(0, position.windowTop);
+    if (panel) panel.scrollTop = position.panelTop;
+    row.scrollIntoView({ block: "nearest" });
+  }, [view]);
+
   useEffect(() => {
     let active = true;
     const styleVersion = styleWrites.current;
@@ -147,7 +189,9 @@ export function ReportDesk({ visit }: { visit: number }) {
     setStyleEdit(undefined);
     remember(id);
   }
-  function leave() {
+  function leave(restorePosition = false) {
+    listTransition.current = restorePosition && listPosition.current ? "return" : null;
+    if (!listTransition.current) listPosition.current = null;
     setSavedSection(undefined);
     setView(null);
     remember(null);
@@ -167,7 +211,7 @@ export function ReportDesk({ visit }: { visit: number }) {
         : Date.parse(b.created_at) - Date.parse(a.created_at),
     );
   return (
-    <section className="report-desk" aria-label="Reports">
+    <section ref={desk} className="report-desk" aria-label="Reports">
       <header className="evidence-header">
         <div>
           <p className="eyebrow">Research → editorial review</p>
@@ -176,7 +220,7 @@ export function ReportDesk({ visit }: { visit: number }) {
         </div>
         <div className="actions">
           {view ? (
-            <Button className="button" onClick={leave}>
+            <Button className="button" onClick={() => leave(true)}>
               All reports
             </Button>
           ) : (
@@ -235,6 +279,7 @@ export function ReportDesk({ visit }: { visit: number }) {
           view={view}
           styles={styles}
           checkingRevision={checkedVisit !== visit}
+          headingRef={reportHeading}
           initialSectionId={
             savedSection?.revisionId === view.revision.id ? savedSection.sectionId : undefined
           }
@@ -302,6 +347,7 @@ export function ReportDesk({ visit }: { visit: number }) {
             <label>
               Find a recent report
               <input
+                ref={listSearch}
                 type="search"
                 placeholder="Title or change note…"
                 value={search}
@@ -330,11 +376,24 @@ export function ReportDesk({ visit }: { visit: number }) {
           {visibleReports.map((r) => (
             <Button
               className="report-list-row report-browser-row"
-              key={r.id}
+              key={r.series_id}
+              data-report-series={r.series_id}
               onClick={async () => {
+                const position = {
+                  revisionId: r.id,
+                  seriesId: r.series_id,
+                  panelTop: desk.current?.closest<HTMLElement>(".reports-view")?.scrollTop ?? 0,
+                  windowTop: window.scrollY,
+                };
+                listPosition.current = position;
+                listTransition.current = "open";
                 try {
                   await open(r.id);
                 } catch (cause) {
+                  if (listPosition.current === position) {
+                    listPosition.current = null;
+                    listTransition.current = null;
+                  }
                   setError(cause instanceof Error ? cause.message : "Unable to open report.");
                 }
               }}
