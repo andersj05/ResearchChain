@@ -1,8 +1,10 @@
 import { commissionDeskStudy, pinDeskNote } from "./desk-material";
 import { writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import type { ReportCreate, ReportView, StyleGuide } from "../src/lib/reports";
 import type { RunSnapshot } from "../src/lib/workflow";
 import { expect, test } from "./fixtures";
+import { styleBody } from "./report-fixture";
 
 test("follow parallel research from a source packet through owner judgment to an illustrated report", async ({
   page,
@@ -259,4 +261,62 @@ test("follow parallel research from a source packet through owner judgment to an
   );
   await page.getByRole("link", { name: "previous study" }).click();
   await expect(page.getByRole("heading", { name: "Research report", exact: true })).toBeVisible();
+
+  const style = await request.post("/api/style-guides", { data: styleBody(study) });
+  expect(style.status()).toBe(201);
+  const guide: StyleGuide = await style.json();
+  await page.getByRole("link", { name: "Edit in Reports", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Draft this study report" })).toBeVisible();
+  const create = page.getByRole("form", { name: "Create report" });
+  const title = "Synthetic study editorial draft";
+  await expect(create.getByRole("textbox", { name: "Report title" })).toHaveValue(
+    brief.split("\n")[0]!,
+  );
+  await create.getByRole("textbox", { name: "Report title" }).fill(title);
+  await create.getByRole("combobox", { name: "Pinned style guide" }).selectOption(guide.id);
+  const submissions: ReportCreate[] = [];
+  await page.route("**/api/reports", async (route) => {
+    if (route.request().method() !== "POST") return route.continue();
+    submissions.push(route.request().postDataJSON());
+    if (submissions.length === 1) {
+      expect((await route.fetch()).status()).toBe(201);
+      return route.abort();
+    }
+    return route.continue();
+  });
+  const createButton = create.getByRole("button", { name: "Create report draft" });
+  await createButton.click();
+  await expect(create.getByRole("alert")).toBeVisible();
+  await page.reload();
+  await expect(create.getByRole("textbox", { name: "Report title" })).toHaveValue(title);
+  await expect(create.getByRole("combobox", { name: "Pinned style guide" })).toHaveValue(guide.id);
+  await createButton.click();
+  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  expect(submissions).toHaveLength(2);
+  expect(submissions[0]).toEqual(submissions[1]);
+  expect(submissions[0]).toMatchObject({
+    run_id: sessionId,
+    attempt_id: final.model_attempts!.at(-1)!.id,
+    source_format: "session_markdown",
+  });
+  await page.getByText("Preview the saved report", { exact: true }).click();
+  const importedChart = page.getByRole("img", { name: "Comparison of synthetic measures" });
+  await importedChart.scrollIntoViewIfNeeded();
+  await expect
+    .poll(() => importedChart.evaluate((element) => (element as HTMLImageElement).naturalWidth))
+    .toBeGreaterThan(1);
+  const section = page.getByRole("textbox", { name: "Section text", exact: true });
+  const originalMarkdown = await section.inputValue();
+  expect(originalMarkdown).toContain(`Owner direction: ${feedback}`);
+  const editorialNote = "Retain the sample periods in the revised report.";
+  await section.fill(`${originalMarkdown}\n\n${editorialNote}`);
+  await page.getByRole("textbox", { name: "Revision change note" }).fill("Clarify study context.");
+  await page.getByRole("button", { name: "Save report revision", exact: true }).click();
+  await expect(page.getByText("Saved revision 2", { exact: true })).toBeVisible();
+  const revisedId = new URL(page.url()).searchParams.get("report");
+  const revised: ReportView = await (await request.get(`/api/reports/${revisedId}`)).json();
+  expect(revised.revision.sections[0]!.body).toContain(editorialNote);
+  expect(revised.revision.provenance.attempt.id).toBe(submissions[0]!.attempt_id);
+  const unchanged: RunSnapshot = await (await request.get(runUrl)).json();
+  expect(unchanged.model_attempts).toEqual(final.model_attempts);
 });

@@ -1,9 +1,9 @@
 """Pinned setup for a brief-led research session."""
 
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from researchchain.graph import (
     AnalystConfig,
@@ -29,11 +29,16 @@ from researchchain.research_discovery import DISCOVERY_PROMPT
 from researchchain.revisions import NotFoundError
 
 SESSION_VERSION = "brief-led-1"
+SOURCE_LED_BRIEF = "Source-led study"
 ReviewMode = Literal["when_needed", "always", "never"]
+StudyTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=160, pattern=r"^[^\x00\r\n]*$")
+]
 
 
 class ResearchSessionSetup(StrictModel):
     brief: str = Field(max_length=10000, pattern=r"^[^\x00]*$")
+    title: StudyTitle | None = Field(default=None, exclude_if=lambda value: value is None)
     start_from_sources: bool = Field(default=False, exclude_if=lambda value: not value)
     style_excerpt: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
     model: ModelSlug
@@ -54,6 +59,11 @@ class ResearchSessionSetup(StrictModel):
     review_mode: ReviewMode = "when_needed"
     baseline_run_id: UUID | None = None
 
+    @field_validator("title")
+    @classmethod
+    def omit_blank_title(cls, value: str | None) -> str | None:
+        return value or None
+
     @field_validator("lead", "researcher", "editor")
     @classmethod
     def omit_empty_override(cls, value: ModelOverride | None) -> ModelOverride | None:
@@ -64,7 +74,7 @@ class ResearchSessionSetup(StrictModel):
         if self.start_from_sources and not self.evidence_ids:
             raise ValueError("Pin at least one source to start a discovery study.")
         if self.start_from_sources and not self.brief.strip():
-            self.brief = "Source-led study"
+            self.brief = SOURCE_LED_BRIEF
         elif not self.brief.strip():
             raise ValueError("Write a research brief to start a session.")
         if len(self.evidence_ids) != len(set(self.evidence_ids)):
@@ -242,6 +252,7 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
     assert isinstance(editor, ResearchConfig)
     return ResearchSessionSetup(
         brief=run.brief,
+        title=run.research_manifest.tool_config.get("study_title"),
         start_from_sources=run.workflow.start_node == "discovery",
         style_excerpt=editor.style_excerpt or "",
         model=run.research_manifest.settings.model,

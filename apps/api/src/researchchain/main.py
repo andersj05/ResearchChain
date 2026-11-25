@@ -330,8 +330,9 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
         offset: Annotated[int, Query(ge=0, le=2_147_483_647)] = 0,
         agent_id: UUID | None = None,
+        sessions_only: bool = False,
     ) -> PendingReviewsPage:
-        return runs.pending_reviews(limit, offset, agent_id)
+        return runs.pending_reviews(limit, offset, agent_id, sessions_only=sessions_only)
 
     @app.get("/api/runs/{run_id}", response_model=RunSnapshot, operation_id="get_run")
     def get_run(run_id: UUID) -> RunSnapshot:

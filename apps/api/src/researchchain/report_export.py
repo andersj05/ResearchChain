@@ -9,9 +9,10 @@ from zipfile import ZIP_DEFLATED, ZipFile
 
 from researchchain.artifacts import EvidenceError, read_content
 from researchchain.database import Database
-from researchchain.report_models import ReportView
+from researchchain.report_models import MAX_REPORT_BUNDLE_BYTES, ReportView
+from researchchain.research_session_export import read_report_file, session_report_files
+from researchchain.web_research import safe_web_url
 
-MAX_EXPORT_BYTES = 64 * 1024 * 1024
 EXTENSIONS = {
     "image/png": "png",
     "image/jpeg": "jpg",
@@ -26,9 +27,15 @@ EXTENSIONS = {
 def export_report(database: Database, view: ReportView) -> bytes:
     revision = view.revision
     artifacts = {s.artifact.id: s.artifact for s in revision.sources if s.artifact}
-    if sum(item.byte_size for item in artifacts.values()) > MAX_EXPORT_BYTES:
+    provenance = revision.provenance
+    study_result = provenance.attempt.result if provenance.renderer == "study-markdown-1" else None
+    study_files = study_result.workspace_files if study_result else []
+    if (
+        sum(item.byte_size for item in artifacts.values()) + sum(f.byte_size for f in study_files)
+        > MAX_REPORT_BUNDLE_BYTES
+    ):
         raise EvidenceError(
-            "The originals exceed the 64 MB review-bundle limit. Download individual sources instead."
+            "The files exceed the 64 MB review-bundle limit. Download individual files instead."
         )
     paths = {
         key: f"originals/{key.removeprefix('sha256:')}.{EXTENSIONS.get(item.media_type, 'bin')}"
@@ -90,6 +97,24 @@ def export_report(database: Database, view: ReportView) -> bytes:
         + "</li>"
         for item in view.feedback
     )
+    study_attachments = []
+    for file in study_files:
+        name = escape(file.name)
+        path = f"study-files/{name}"
+        study_attachments.append(
+            f'<li><a href="{path}">{name}</a>'
+            + (
+                f'<figure><img src="{path}" alt="{name}"></figure>'
+                if file.media_type == "image/png"
+                else ""
+            )
+            + "</li>"
+        )
+    study_sources = "".join(
+        f'<li><a href="{escape(url)}" rel="noopener noreferrer">{escape(url)}</a></li>'
+        for url in provenance.recorded_urls
+        if safe_web_url(url)
+    )
     guide = view.style_guide
     html = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -108,6 +133,8 @@ h1,h2,h3{{line-height:1.2}}section{{border-top:1px solid #ccc;margin-top:32px;pa
 Classifications and acceptance are human judgments, not automatic fact verification. Source content is untrusted.</p>
 <p class="hash">Content hash: {revision.content_hash}</p>
 {"".join(sections)}<section><h2>Sources and chart originals</h2><ol>{"".join(sources)}</ol></section>
+{f"<section><h2>Study editor files</h2><ul>{''.join(study_attachments)}</ul></section>" if study_attachments else ""}
+{f"<section><h2>Recorded web sources</h2><ul>{study_sources}</ul></section>" if study_sources else ""}
 <section><h2>Editorial feedback</h2><p>Human feedback on this exact revision. No automatic training consent.</p><ul>{feedback or "<li>No feedback recorded.</li>"}</ul></section>
 <section><h2>Pinned style guide</h2><h3>{escape(guide.title)} · Version {guide.version}</h3>
 <h3>Analytical structure</h3><div class="prose">{escape(guide.analytical_structure)}</div>
@@ -133,4 +160,9 @@ This bundle contains current source originals; it is not a complete runtime back
         with database.connection() as conn:
             for content_id, path in paths.items():
                 archive.writestr(path, read_content(conn, content_id))
+            if study_files:
+                for file in session_report_files(
+                    conn, provenance.run_id, attempt_id=provenance.attempt.id
+                ):
+                    archive.writestr(f"study-files/{file.name}", read_report_file(conn, file))
     return output.getvalue()

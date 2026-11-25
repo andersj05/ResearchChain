@@ -47,7 +47,8 @@
   margin: 0 auto;
   padding: clamp(24px, 4vw, 48px) 24px 64px;
 }
-.launch h1 {
+.launch h1,
+.decisions h1 {
   font-size: clamp(28px, 4vw, 38px);
   font-weight: 560;
   line-height: 1.14;
@@ -71,16 +72,12 @@
   align-items: start;
 }
 .jumps {
-  display: none;
-}
-@media (max-width: 780px) {
-  .jumps {
-    display: flex;
-    gap: 16px;
-    margin-top: 10px;
-    font-size: 13px;
-    text-underline-offset: 3px;
-  }
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin-top: 12px;
+  font-size: 13px;
+  text-underline-offset: 3px;
 }
 .composer,
 .setup {
@@ -92,7 +89,8 @@
   position: sticky;
   top: 14px;
 }
-.shortBrief {
+.shortBrief,
+.studyName {
   width: 100%;
   min-width: 0;
   resize: vertical;
@@ -101,10 +99,8 @@
   background: var(--surface);
   color: var(--ink);
 }
-.pendingHint {
-  font-size: 12px;
-  color: var(--muted);
-  padding: 0 20px 14px;
+.studyName {
+  margin: 0 0 14px;
 }
 .setup {
   margin-top: 24px;
@@ -287,21 +283,49 @@
   flex: none;
   accent-color: var(--ink);
 }
-.launchFooter {
+.launchBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
-  flex-direction: column-reverse;
-  align-items: stretch;
+  justify-content: space-between;
+  flex-wrap: wrap;
   gap: 10px;
-  padding: 14px clamp(16px, 3vw, 28px);
-  border-top: 1px solid var(--line);
-  background: var(--paper);
+  margin-top: 18px;
+  padding: 10px clamp(12px, 2vw, 24px) max(10px, env(safe-area-inset-bottom));
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.launchBar p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.launchBar .launchError {
+  flex-basis: 100%;
+  color: var(--red);
+  overflow-wrap: anywhere;
+}
+.launchBar a {
+  text-underline-offset: 3px;
+}
+.launchBar :global(.button) {
+  min-height: 40px;
+  padding-inline: 15px;
+}
+@media (min-height: 451px) {
+  :global(html):has(.launch) {
+    scroll-padding-bottom: 104px;
+  }
 }
 .account {
   min-width: 0;
   display: grid;
   justify-items: start;
   overflow-wrap: anywhere;
+  padding: 12px clamp(16px, 3vw, 28px);
+  border-top: 1px solid var(--line);
+  background: var(--paper);
 }
 .accountButton {
   padding: 0;
@@ -314,11 +338,6 @@
 }
 .accountButton:hover {
   text-decoration: underline;
-}
-.launchFooter :global(.button) {
-  flex: none;
-  min-height: 38px;
-  padding-inline: 15px;
 }
 .connectPrompt,
 .composer > .connection,
@@ -346,6 +365,69 @@
 }
 .recovery button + button {
   margin-left: 14px;
+}
+.decisionSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 24px;
+  padding: 12px 14px;
+  background: var(--amber-soft);
+  border-left: 3px solid var(--amber);
+  font-size: 13px;
+}
+.decisionSummary > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 3px 12px;
+}
+.decisionSummary a,
+.decisionRows a {
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+}
+.decisionSummary span,
+.decisionRows time {
+  color: var(--muted);
+}
+.decisionRows,
+.decisionRows ul {
+  list-style: none;
+  padding: 0;
+}
+.decisionRows {
+  margin: 24px 0 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.decisionRows > li {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.decisionRows h2 {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.decisionRows time {
+  font-size: 12px;
+}
+.decisionRows ul {
+  margin-top: 8px;
+}
+.decisionRows li li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 195px);
+  align-items: baseline;
+  gap: 8px 16px;
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+.decisionRows li li + li {
+  border-top: 1px solid var(--line);
 }
 .history {
   margin-top: clamp(28px, 4vw, 46px);
@@ -440,8 +522,19 @@
   .settingGrid {
     grid-template-columns: 1fr;
   }
+  .launchBar :global(.button) {
+    width: 100%;
+  }
+  .decisionRows li li {
+    grid-template-columns: 1fr;
+  }
   .option summary > span {
     max-width: 50%;
+  }
+}
+@media (max-height: 450px) {
+  .launchBar {
+    position: static;
   }
 }
 @media (max-width: 780px) {
@@ -463,13 +556,10 @@
     padding-block: 12px;
     border-top: 1px solid var(--line);
   }
-  .settingGrid > :global(.role-model-settings[open]) {
+  .settingGrid :global(.role-model-grid) {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
     column-gap: 24px;
-  }
-  .settingGrid :global(.role-model-settings) > summary {
-    grid-column: 1/-1;
   }
   .settingGrid :global(.role-model-section) {
     min-width: 0;

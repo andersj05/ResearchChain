@@ -3,6 +3,7 @@ import type { ModelOverride, ModelProfile, ProviderModel } from "./model-setting
 
 export type ResearchSessionSetup = components["schemas"]["ResearchSessionSetup"];
 export type ResearchSessionStart = components["schemas"]["ResearchSessionStart"];
+export const sourceLedBrief = "Source-led study";
 export type SwarmSettings = NonNullable<ResearchSessionSetup["swarm"]>;
 export const initialSwarm: Required<SwarmSettings> = {
   lead_count: 2,
@@ -29,7 +30,7 @@ export type ResearchBrief = Required<
     ResearchSessionSetup,
     "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor" | "swarm"
   > &
-  Partial<Pick<ResearchSessionSetup, "start_from_sources" | "max_input_bytes">>;
+  Partial<Pick<ResearchSessionSetup, "title" | "start_from_sources" | "max_input_bytes">>;
 
 export const blankResearchBrief: ResearchBrief = {
   brief: "",
@@ -86,7 +87,8 @@ export function newStudyModelProfiles(models: readonly ProviderModel[], fallback
 
 export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
   return {
-    brief: source.start_from_sources && source.brief === "Source-led study" ? "" : source.brief,
+    brief: source.start_from_sources && source.brief === sourceLedBrief ? "" : source.brief,
+    ...(source.title && { title: source.title }),
     ...(source.start_from_sources && { start_from_sources: true }),
     max_input_bytes: source.max_input_bytes ?? 4_000_000,
     style_excerpt: source.style_excerpt ?? "",
@@ -141,6 +143,7 @@ function validDraft(value: ResearchBrief) {
   return (
     value &&
     typeof value.brief === "string" &&
+    (value.title == null || (typeof value.title === "string" && value.title.length <= 160)) &&
     (value.start_from_sources === undefined || typeof value.start_from_sources === "boolean") &&
     value.brief.length <= 10000 &&
     typeof value.style_excerpt === "string" &&

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/workflow";
 import type { EvidencePage, EvidenceRecord } from "@/lib/evidence";
 
@@ -19,37 +19,81 @@ export function mergeSources(first: EvidenceRecord[], second: EvidenceRecord[]) 
   return [...new Map([...first, ...second].map((item) => [item.id, item])).values()];
 }
 
-export async function readSources(ids: string[]) {
-  const results = await Promise.allSettled(
-    ids.map((id) => api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)),
-  );
-  return results.flatMap((result) => (result.status === "fulfilled" ? [result.value] : []));
+function readSource(id: string) {
+  return api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`).catch(() => null);
 }
 
+export async function readSources(ids: string[]) {
+  return (await Promise.all(ids.map(readSource))).filter((item) => item !== null);
+}
+
+const sourceReadLimit = 6;
+
 export function useSourceDetails(ids: string[]) {
-  const key = ids.join(",");
-  const [result, setResult] = useState<{ key: string; items: EvidenceRecord[] }>();
+  // A packet's order belongs to its renderer. Fetch details for its source set.
+  const key = Array.from(new Set(ids)).sort().join(",");
+  const [result, setResult] = useState<{
+    key: string;
+    records: Map<string, EvidenceRecord | null>;
+  }>();
+  const pending = useRef(new Map<string, ReturnType<typeof readSource>>());
+  const reader = useRef<{ key: string; read: (ids: string[]) => Promise<void> }>(null);
   useEffect(() => {
     if (!key) return;
     let active = true;
-    void readSources(key.split(",")).then((items) => {
-      if (active) setResult({ key, items });
-    });
+    // A changing packet may leave requests in flight. Count those against this
+    // hook's limit, and share a request when its evidence ID is still needed.
+    const requests = pending.current;
+    async function read(requested: string[]) {
+      let next = 0;
+      async function worker() {
+        while (active && next < requested.length) {
+          const id = requested[next++]!;
+          let request = requests.get(id);
+          while (active && !request && requests.size >= sourceReadLimit) {
+            await Promise.race(requests.values());
+            request = requests.get(id);
+          }
+          if (!active) return;
+          if (!request) {
+            request = readSource(id).finally(() => requests.delete(id));
+            requests.set(id, request);
+          }
+          const record = await request;
+          if (active)
+            setResult((previous) => ({
+              key,
+              records: new Map(previous?.key === key ? previous.records : undefined).set(
+                id,
+                record,
+              ),
+            }));
+        }
+      }
+      await Promise.all(
+        Array.from({ length: Math.min(sourceReadLimit, requested.length) }, worker),
+      );
+    }
+    reader.current = { key, read };
+    void read(key.split(","));
     return () => {
       active = false;
+      reader.current = null;
     };
   }, [key]);
   const current = result?.key === key ? result : undefined;
-  const items = new Map(current?.items.map((source) => [source.id, source]));
-  const unresolved = current ? ids.filter((id) => !items.has(id)) : [];
+  const items = new Map<string, EvidenceRecord>();
+  const unresolved: string[] = [];
+  for (const id of ids) {
+    const record = current?.records.get(id);
+    if (record) items.set(id, record);
+    if (record === null) unresolved.push(id);
+  }
   return {
     items,
     unresolved,
     retry: async () => {
-      const recovered = await readSources(unresolved);
-      setResult((previous) =>
-        previous?.key === key ? { key, items: mergeSources(previous.items, recovered) } : previous,
-      );
+      if (reader.current?.key === key) await reader.current.read(unresolved);
     },
   };
 }

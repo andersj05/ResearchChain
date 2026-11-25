@@ -4,11 +4,15 @@ Open the **Research desk** to assemble a source packet. **Methodology** opens an
 
 ## Start from a week of material
 
-Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**, or select several files at once. Choose the usage rights for captured originals. With a text file, choose **Conversation** to identify a transcript. Set the author or speaker and the observation date when known. Pin separate batches when attribution or rights differ. Each file has its own receipt, so a failed file can be retried while the others stay pinned.
+Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**, or select several files at once. You can also paste a screenshot directly onto the desk. Edit file titles in the queue before pinning. With a text file, choose **Conversation** to identify a transcript. Each file has its own receipt, so a failed file can be retried while the others stay pinned.
 
-Use **Paste a source** for a note, conversation or reference URL. **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. You can leave **Context for the lead** blank.
+Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
 
-The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. Select a smaller packet if necessary. The analyst workspace can stage up to 64 files.
+**Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. **Unpin all** clears the packet for a new batch and leaves the source library available. Use **Undo** to restore the previous reading order. You can leave **Context for the lead** blank.
+
+An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
+
+The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. At launch, the server checks the serialized first-reading request before placing it in the queue. The analyst workspace can stage up to 64 files.
 
 **Ask the lead for a first reading** uses one lead request to read the pinned
 packet. Before anyone receives an assignment, the lead brings you an
@@ -44,8 +48,7 @@ editorial review setting controls the separate decision about the report.
   for a guaranteed editorial checkpoint, or **Continue independently** to let the
   editor proceed after research.
 
-Select **Ask the lead for a first reading** to open the session. You can return
-to it from **Recent research** or the run archive.
+The **Ask the lead for a first reading** action stays in view as you edit the packet and settings. **Recent research** lists recently opened studies. **Search past studies** finds older studies by title, any pinned source title, context or ID. **Decisions** opens working sentences, lead questions and editorial reviews even after a study drops out of the recent list.
 
 ### Choose the model and thinking effort
 
@@ -113,7 +116,13 @@ behind it. You can give the editor your judgment or end the study at that point.
 Open the report editor's workspace to read the saved Markdown with its figures.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
+Choose **Edit in Reports** to create an editable report from the saved Markdown
+with the figures, the original study and its recorded sources attached. Confirm
+the title and a style guide before creating the draft. Further edits and editorial
+feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
 
 Choose **Revisit material** to start another experiment with the previous context,
-sample, sources and settings. The new session links to its baseline so you can
-reopen the original run and see what it actually produced.
+sample, sources and settings. In the revised study, **Compare with baseline** opens
+the original alongside the revision in the run inspector. Use **Open research
+session** to return to the revision. To read the original by itself, choose
+**Open baseline session** under **Sources and settings**.

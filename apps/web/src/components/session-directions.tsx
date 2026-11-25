@@ -4,6 +4,7 @@ import { ownerStoragePrefix } from "@/lib/access";
 import { useOwner } from "./access-context";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { formatTime } from "./run-status";
+import { SessionWorkspaceLink } from "./session-consultations";
 import styles from "./research-session.module.css";
 
 type Direction = NonNullable<RunSnapshot["owner_directions"]>[number];
@@ -36,7 +37,7 @@ export function SessionDirections({
   run: RunSnapshot;
   lanes: SessionWorkspace[];
   onRecorded: (note: Direction) => void;
-  onSelect: (workspace: string, pass: string) => void;
+  onSelect: (workspace: string, pass: string | null) => void;
 }) {
   const { owner, active } = useOwner();
   const key = ownerStoragePrefix(owner) + ".team-direction." + run.id;
@@ -108,7 +109,7 @@ export function SessionDirections({
               const reached = lanes.flatMap((lane) =>
                 lane.attempts.flatMap((attempt, index) =>
                   attempt.owner_direction_ids?.includes(note.id)
-                    ? [{ key: lane.key, title: lane.title, id: attempt.id, number: index + 1 }]
+                    ? [{ lane, id: attempt.id, number: index + 1 }]
                     : [],
                 ),
               );
@@ -124,13 +125,15 @@ export function SessionDirections({
                       </summary>
                       <div className={styles.receiptLinks}>
                         {reached.map((item) => (
-                          <button
-                            className="text-link"
+                          <SessionWorkspaceLink
                             key={item.id}
-                            onClick={() => onSelect(item.key, item.id)}
+                            runId={run.id}
+                            lane={item.lane}
+                            pass={item.id}
+                            onSelect={onSelect}
                           >
-                            {item.title} · Pass {item.number}
-                          </button>
+                            {item.lane.title} · Pass {item.number}
+                          </SessionWorkspaceLink>
                         ))}
                       </div>
                     </details>

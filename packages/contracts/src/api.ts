@@ -2716,6 +2716,8 @@ export interface components {
       workflow_name: string;
       /** Brief Excerpt */
       brief_excerpt: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Created At
        * Format: date-time
@@ -2870,6 +2872,8 @@ export interface components {
       revision_number: number;
       /** Workflow Name */
       workflow_name: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Status
        * @enum {string}
@@ -2943,6 +2947,8 @@ export interface components {
        * Format: uuid
        */
       style_guide_id: string;
+      /** Source Format */
+      source_format?: "session_markdown" | null;
     };
     /** ReportEdit */
     ReportEdit: {
@@ -3051,9 +3057,11 @@ export interface components {
       /**
        * Renderer
        * @default report-seed-1
-       * @constant
+       * @enum {string}
        */
-      renderer: "report-seed-1";
+      renderer: "report-seed-1" | "study-markdown-1";
+      /** Recorded Urls */
+      recorded_urls?: string[];
     };
     /** ReportRevision */
     ReportRevision: {
@@ -3357,6 +3365,8 @@ export interface components {
     ResearchSessionSetup: {
       /** Brief */
       brief: string;
+      /** Title */
+      title?: string | null;
       /**
        * Start From Sources
        * @default false
@@ -3418,6 +3428,8 @@ export interface components {
     ResearchSessionStart: {
       /** Brief */
       brief: string;
+      /** Title */
+      title?: string | null;
       /**
        * Start From Sources
        * @default false
@@ -3796,6 +3808,8 @@ export interface components {
       revision_number: number;
       /** Workflow Name */
       workflow_name: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Status
        * @enum {string}
@@ -3872,6 +3886,8 @@ export interface components {
       revision_number: number;
       /** Workflow Name */
       workflow_name: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Status
        * @enum {string}
@@ -6836,6 +6852,7 @@ export interface operations {
         limit?: number;
         offset?: number;
         agent_id?: string | null;
+        sessions_only?: boolean;
       };
       header?: never;
       path?: never;

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api, type RunArchivePage, type RunSummary } from "@/lib/workflow";
 import { formatTime, RunStatus, runStatusLabels } from "./run-status";
-import { sessionUrl } from "@/lib/research-sessions";
+import { sessionUrl, sourceLedBrief } from "@/lib/research-sessions";
 
 function ArchiveResults({
   query,
@@ -64,7 +64,7 @@ function ArchiveResults({
           {page.items.map(({ run, brief_excerpt }) => {
             const content = (
               <>
-                <strong>{run.workflow_name}</strong>
+                <strong>{run.study_title || run.workflow_name}</strong>
                 <span className="run-row-meta">
                   <RunStatus status={run.status} />
                   <time dateTime={run.created_at}>{formatTime(run.created_at, true)}</time>
@@ -76,7 +76,9 @@ function ArchiveResults({
                   </span>
                   <span className="code-label">{run.id.slice(0, 8)}</span>
                 </span>
-                {brief_excerpt && <span className="archive-brief">{brief_excerpt}</span>}
+                {brief_excerpt && (!run.study_title || brief_excerpt !== sourceLedBrief) && (
+                  <span className="archive-brief">{brief_excerpt}</span>
+                )}
               </>
             );
             return (
@@ -209,7 +211,7 @@ export function RunArchive({
                 maxLength={200}
                 placeholder={
                   sessionsOnly
-                    ? "Study context, workflow, or study ID"
+                    ? "Study title, source, context, or ID"
                     : "Brief, agent, workflow, or run ID"
                 }
                 onChange={(event) => setSearch(event.target.value)}

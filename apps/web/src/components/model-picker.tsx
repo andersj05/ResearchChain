@@ -305,25 +305,27 @@ export function RoleModelSettings({
   return (
     <details className="role-model-settings" open={initiallyOpen || undefined}>
       <summary>Models by role{count > 0 && ` (${count} customized)`}</summary>
-      {roles.map(({ key, label }) => (
-        <div className="role-model-section" key={key}>
-          <h4>{label}</h4>
-          <ModelOverrideFields
-            label={label}
-            modelLabel={`${label} model`}
-            inherited={shared}
-            inheritedLabel={inheritedLabel}
-            settings={values[key]}
-            catalog={catalog}
-            disabled={disabled}
-            useSliders={useSliders}
-            onChange={(patch) => {
-              const next = { ...values[key], ...patch };
-              onChange(key, hasModelOverride(next) ? next : null);
-            }}
-          />
-        </div>
-      ))}
+      <div className="role-model-grid">
+        {roles.map(({ key, label }) => (
+          <div className="role-model-section" key={key}>
+            <h4>{label}</h4>
+            <ModelOverrideFields
+              label={label}
+              modelLabel={`${label} model`}
+              inherited={shared}
+              inheritedLabel={inheritedLabel}
+              settings={values[key]}
+              catalog={catalog}
+              disabled={disabled}
+              useSliders={useSliders}
+              onChange={(patch) => {
+                const next = { ...values[key], ...patch };
+                onChange(key, hasModelOverride(next) ? next : null);
+              }}
+            />
+          </div>
+        ))}
+      </div>
     </details>
   );
 }

@@ -5,6 +5,7 @@ import { Button } from "@ui-sdk/react/button";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { ReportSectionSources, ReportSource } from "@/components/report-sources";
 import { ReportReview } from "@/components/report-review";
+import { ResearchMarkdown } from "@/components/research-markdown";
 import { StyleGuideContent } from "@/components/style-guide-editor";
 import { useOwner } from "@/components/access-context";
 import {
@@ -13,6 +14,8 @@ import {
   legacyDraftAvailable,
   ownerStoragePrefix,
 } from "@/lib/access";
+import { contentDownloadUrl } from "@/lib/evidence";
+import { sessionUrl } from "@/lib/research-sessions";
 import { api, ApiError } from "@/lib/workflow";
 import { stableRequestId } from "@/lib/evaluations";
 import {
@@ -44,6 +47,9 @@ export function ReportEditor({
   const { owner } = useOwner();
   const storagePrefix = ownerStoragePrefix(owner);
   const record = view.revision;
+  const study = record.provenance.renderer === "study-markdown-1" ? record.provenance : null;
+  const studyFiles = study?.attempt.result?.workspace_files ?? [];
+  const studyUrls = new Set(study?.recorded_urls);
   const [original] = useState(() => reportDraft(record));
   const legacyKey = `researchchain.report.draft.${record.id}`;
   const storageKey = `${storagePrefix}.report.draft.${record.id}`;
@@ -487,12 +493,38 @@ export function ReportEditor({
           )}
           <details className="report-preview">
             <summary>Preview the saved report</summary>
-            <pre>{reportText(record)}</pre>
+            {study ? (
+              record.sections.map((saved) => (
+                <section key={saved.id}>
+                  <h3>{saved.heading}</h3>
+                  <ResearchMarkdown text={saved.body} sources={studyUrls} files={studyFiles} />
+                </section>
+              ))
+            ) : (
+              <pre>{reportText(record)}</pre>
+            )}
           </details>
           <ReportReview view={view} disabled={dirty || busy} onRefresh={onRefresh} />
         </main>
         <aside className="report-context" aria-label="Report context">
           <StyleGuideContent guide={guide} />
+          {study && (
+            <details>
+              <summary>Original study and files</summary>
+              <p>
+                <a href={sessionUrl(study.run_id)}>Open original study</a>
+              </p>
+              <ul>
+                {studyFiles.map((file) => (
+                  <li key={file.name}>
+                    <a href={contentDownloadUrl(file.artifact_id, file.name)} download>
+                      {file.name}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
           <details open>
             <summary>Source snapshots ({record.sources.length})</summary>
             <p className="field-hint">

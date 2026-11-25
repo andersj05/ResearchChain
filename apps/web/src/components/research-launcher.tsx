@@ -9,6 +9,7 @@ import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
 import { ownerStoragePrefix } from "@/lib/access";
+import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
 import { sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
@@ -33,6 +34,7 @@ import styles from "./research-desk.module.css";
 export function ResearchLauncher({ fromSession }: { fromSession: string | null }) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
+  const captureKey = `${key}.capture`;
   const [saved] = useState(() => readResearchBrief(key));
   const [form, setForm] = useState(() => initializeResearchBrief(saved, fromSession));
   const { draft, awaitingModelCatalog } = form;
@@ -81,6 +83,18 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
   const frozen = !active || !loaded || busy || !!pending;
   const hasMaterial = draft.evidence_ids.length > 0 && !packetError && records.every(Boolean);
   const retryable = !!pending?.start_from_sources && unconfirmed === pending.id;
+  const canStart =
+    active &&
+    loaded &&
+    !busy &&
+    !readingSample &&
+    !editingSource &&
+    (pending
+      ? retryable &&
+        !catalog.loading &&
+        !catalog.error &&
+        account?.id === pending.provider_account_id
+      : ready && hasMaterial);
 
   useEffect(() => {
     mounted.current = true;
@@ -135,6 +149,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         if (!current) return;
         admitted.current = true;
         storeResearchBrief(key, null);
+        storeResearchCaptureDraft(captureKey, null);
         window.location.assign(sessionUrl(pending.id));
       },
       (cause: unknown) => {
@@ -151,31 +166,18 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     return () => {
       current = false;
     };
-  }, [active, key, busy, pending, check]);
+  }, [active, key, captureKey, busy, pending, check]);
 
   async function start() {
-    if (
-      !active ||
-      !loaded ||
-      inFlight.current ||
-      admitted.current ||
-      readingSample ||
-      editingSource
-    )
-      return;
-    if (
-      pending
-        ? !retryable || !account || account.id !== pending.provider_account_id
-        : !ready || !account || !hasMaterial
-    )
-      return;
+    if (!canStart || !account || inFlight.current || admitted.current) return;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
+      title: draft.title?.trim() || undefined,
       start_from_sources: true,
       max_input_bytes: limit,
       id: crypto.randomUUID(),
       model,
-      provider_account_id: account!.id,
+      provider_account_id: account.id,
       ...(fromSession ? { baseline_run_id: fromSession } : {}),
     };
     inFlight.current = true;
@@ -193,6 +195,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         throw new Error("The server returned a different session. Check this start request.");
       admitted.current = true;
       storeResearchBrief(key, null);
+      storeResearchCaptureDraft(captureKey, null);
       window.location.assign(sessionUrl(receipt.run_id));
     } catch (cause) {
       if (!mounted.current) return;
@@ -225,6 +228,25 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     setStartError("");
   }
 
+  const count = draft.evidence_ids.length;
+  let nextStep = (
+    <a href="#packet-heading">
+      {count} {count === 1 ? "source" : "sources"} pinned
+    </a>
+  );
+  if (!loaded) nextStep = <>Restoring saved setup…</>;
+  else if (pending) nextStep = <a href="#first-reading-setup">Check the start request</a>;
+  else if (editingSource) nextStep = <>Pin or clear the material in progress.</>;
+  else if (!count) nextStep = <a href="#intake-heading">Pin a source to begin</a>;
+  else if (!hasMaterial) nextStep = <a href="#packet-heading">Check your study packet</a>;
+  else if (readingSample) nextStep = <>Reading the writing sample…</>;
+  else if (!ready)
+    nextStep = problem ? (
+      <a href="#study-settings">Check research settings</a>
+    ) : (
+      <a href="#first-reading-setup">Check the research connection</a>
+    );
+
   return (
     <section className={styles.launch} aria-labelledby="research-title">
       <h1 id="research-title">{fromSession ? "Revisit material" : "New study"}</h1>
@@ -232,8 +254,10 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         Gather the week’s material. The lead will suggest a sentence for you to investigate.
       </p>
       <nav className={styles.jumps} aria-label="Study sections">
+        <a href="#saved-sources">Saved sources</a>
         <a href="#packet-heading">Study packet ({draft.evidence_ids.length})</a>
         <a href="#study-settings">Research settings</a>
+        <a href="#research-history">Recent research</a>
       </nav>
       {fromSession && (
         <p className={styles.origin}>
@@ -253,6 +277,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
       )}
       <div className={styles.bench}>
         <DiscoverySources
+          storageKey={captureKey}
           ids={draft.evidence_ids}
           known={Array.from(captured.values())}
           onPin={pin}
@@ -260,7 +285,12 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           onChange={(evidence_ids) => update({ evidence_ids })}
           onEditing={setEditingSource}
         />
-        <aside className={styles.composer} aria-label="Prepare the first reading">
+        <aside
+          className={styles.composer}
+          id="first-reading-setup"
+          aria-label="Prepare the first reading"
+          tabIndex={-1}
+        >
           <StudyPacket
             ids={draft.evidence_ids}
             records={records}
@@ -272,6 +302,20 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
             retry={details.unresolved.length ? details.retry : undefined}
           />
           <fieldset disabled={frozen}>
+            <label className={styles.briefLabel} htmlFor="research-name">
+              Study title (optional)
+            </label>
+            <input
+              id="research-name"
+              className={styles.studyName}
+              type="text"
+              maxLength={160}
+              value={draft.title ?? ""}
+              placeholder={
+                draft.brief.trim().split("\n", 1)[0] || records[0]?.title || "Name this study"
+              }
+              onChange={(event) => update({ title: event.target.value })}
+            />
             <label className={styles.briefLabel} htmlFor="research-brief">
               Context for the lead (optional)
             </label>
@@ -309,11 +353,6 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               Research settings · {problem}
             </p>
           ) : null}
-          {startError && (
-            <p role="alert" className={styles.notice}>
-              {startError}
-            </p>
-          )}
           {pending && !busy && (
             <div className={styles.recovery}>
               <p role="status">
@@ -349,7 +388,7 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               )}
             </div>
           )}
-          <div className={styles.launchFooter}>
+          {(account || model) && (
             <div className={styles.account}>
               {account && (
                 <button
@@ -363,44 +402,16 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               )}
               {model && <span>{model}</span>}
             </div>
-            <button
-              type="submit"
-              form="study-settings"
-              className="button primary"
-              disabled={
-                !active ||
-                !loaded ||
-                busy ||
-                readingSample ||
-                editingSource ||
-                (pending
-                  ? !retryable ||
-                    catalog.loading ||
-                    !!catalog.error ||
-                    account?.id !== pending.provider_account_id
-                  : !ready || !hasMaterial)
-              }
-            >
-              {busy
-                ? "Starting research…"
-                : pending
-                  ? "Retry start"
-                  : "Ask the lead for a first reading"}
-            </button>
-          </div>
+          )}
           {account && manageConnection && (
             <ResearchPlanConnection catalog={catalog} connected disabled={busy} />
-          )}
-          {editingSource && (
-            <p className={styles.pendingHint} role="status">
-              Pin or clear the material in progress to start the reading.
-            </p>
           )}
         </aside>
       </div>
       <form
         id="study-settings"
         className={styles.setup}
+        tabIndex={-1}
         onSubmit={(event) => {
           event.preventDefault();
           void start();
@@ -426,6 +437,31 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           </label>
         </fieldset>
       </form>
+      <div className={styles.launchBar}>
+        {startError && (
+          <p id="first-reading-error" className={styles.launchError} role="alert">
+            {startError}
+          </p>
+        )}
+        <p id="first-reading-status" role="status">
+          {nextStep}
+        </p>
+        <button
+          type="submit"
+          form="study-settings"
+          className="button primary"
+          aria-describedby={
+            startError ? "first-reading-status first-reading-error" : "first-reading-status"
+          }
+          disabled={!canStart}
+        >
+          {busy
+            ? "Starting research…"
+            : pending
+              ? "Retry start"
+              : "Ask the lead for a first reading"}
+        </button>
+      </div>
     </section>
   );
 }

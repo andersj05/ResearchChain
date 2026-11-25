@@ -63,6 +63,9 @@ test("commission a different investigation from a week of pinned material and in
   const sheet = page.getByRole("region", { name: "Source-led investigation" });
   const assign = sheet.getByRole("button", { name: "Assign research" });
   await expect(assign).toBeVisible({ timeout: 45_000 });
+  const sections = page.getByRole("navigation", { name: "Study sections" });
+  await sections.getByRole("link", { name: "Choose working sentence" }).click();
+  await expect(sheet).toBeFocused();
   await expect(assign).toBeDisabled();
   await expect(
     sheet.getByText("At our desk, the median member was flat.", { exact: true }),
@@ -94,6 +97,7 @@ test("commission a different investigation from a week of pinned material and in
   await assignments.getByRole("link", { name: "Inspect researcher request" }).click();
   await expect(page).toHaveURL(/workspace=agent-1&pass=/);
   const workspace = page.getByRole("region", { name: "Compare refinancing groups workspace" });
+  await expect(workspace).toBeFocused();
   const saved = await workspace.getByRole("link", { name: "Saved request" }).getAttribute("href");
   const receipt = await (await request.get(saved!)).json();
   const input = JSON.parse(receipt.input[0].content[0].text);

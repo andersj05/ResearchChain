@@ -4,6 +4,8 @@ import hashlib
 from typing import Any
 from uuid import UUID, uuid4
 
+from psycopg import Connection
+from psycopg.rows import DictRow
 from psycopg.types.json import Jsonb
 from pydantic import ValidationError
 
@@ -33,9 +35,11 @@ from researchchain.report_records import (
 )
 from researchchain.report_sources import source_basis, validate_sources
 from researchchain.research import read_attempts, read_manifest
-from researchchain.research_models import ResearchResult
+from researchchain.research_models import ModelAttempt, ResearchResult
 from researchchain.research_prompt import json_bytes
+from researchchain.research_session_export import read_report_file, session_report_files
 from researchchain.revisions import ConflictError, NotFoundError, read_revision
+from researchchain.web_research import safe_web_url
 
 
 def digest(value: Any) -> str:
@@ -117,6 +121,58 @@ def seed_sections(result: ResearchResult) -> list[ReportSection]:
     return sections
 
 
+def seed_study_report(
+    conn: Connection[DictRow], run_id: UUID, attempt: ModelAttempt, attempts: list[ModelAttempt]
+) -> tuple[list[ReportSection], list[str]]:
+    assert attempt.result is not None
+    files = session_report_files(conn, run_id, attempt_id=attempt.id)
+    markdown_file = next(
+        (file for file in files if file.name == "report.md"),
+        next(file for file in files if file.name.lower().endswith(".md")),
+    )
+    try:
+        markdown = read_report_file(conn, markdown_file).decode("utf-8-sig")
+    except UnicodeDecodeError:
+        raise EvidenceError("The saved report must contain readable UTF-8 Markdown.") from None
+    if not markdown.strip() or "\x00" in markdown or len(markdown) > 200_000:
+        raise EvidenceError("The saved report must contain between 1 and 200,000 text characters.")
+
+    recorded_urls: dict[str, None] = {}
+    for item in attempts:
+        if not item.result:
+            continue
+        web = item.result.web_research
+        sec = item.result.sec_financials
+        urls = [source.url for source in web.sources] if web else []
+        if sec and sec.status == "available" and sec.source_url:
+            urls.append(sec.source_url)
+        for url in urls:
+            if url in markdown and safe_web_url(url):
+                recorded_urls[url] = None
+
+    sections: list[ReportSection] = []
+    while markdown:
+        limit = 60_000
+        if len(markdown) > limit:
+            newline = markdown.rfind("\n", limit // 2, limit)
+            if newline >= 0:
+                limit = newline + 1
+        body, markdown = markdown[:limit], markdown[limit:]
+        if body.strip():
+            sections.append(
+                ReportSection(
+                    id=uuid4(),
+                    heading="Study report"
+                    if not sections
+                    else f"Study report, part {len(sections) + 1}",
+                    body=body,
+                )
+            )
+    # Keep the recorded hypotheses and their structured citations separately from the article.
+    sections.extend(seed_sections(attempt.result)[1:])
+    return sections, list(recorded_urls)
+
+
 class StyleGuides:
     def __init__(self, database: Database):
         self.database = database
@@ -175,14 +231,8 @@ class Reports:
             manifest = read_manifest(conn, request.run_id)
             if not row or not manifest:
                 raise NotFoundError("Recorded research run not found.")
-            attempt = next(
-                (
-                    item
-                    for item in read_attempts(conn, request.run_id)
-                    if item.id == request.attempt_id
-                ),
-                None,
-            )
+            attempts = read_attempts(conn, request.run_id)
+            attempt = next((item for item in attempts if item.id == request.attempt_id), None)
             if not attempt:
                 raise NotFoundError("Research attempt not found in this run.")
             if (
@@ -195,7 +245,12 @@ class Reports:
                     "Choose a completed research attempt with recorded input and output."
                 )
             sources = [read_evidence(conn, item.evidence_id) for item in manifest.evidence]
-            sections = seed_sections(attempt.result)
+            study = request.source_format == "session_markdown"
+            sections, recorded_urls = (
+                seed_study_report(conn, request.run_id, attempt, attempts)
+                if study
+                else (seed_sections(attempt.result), [])
+            )
             # Keep the same size limits on the server-created draft as on later edits.
             try:
                 ReportSave(
@@ -218,6 +273,8 @@ class Reports:
                 workflow_hash=read_revision(conn, row["revision_id"]).content_hash,
                 manifest=manifest,
                 attempt=attempt,
+                renderer="study-markdown-1" if study else "report-seed-1",
+                recorded_urls=recorded_urls,
             )
             record = ReportRevision(
                 id=request.id,

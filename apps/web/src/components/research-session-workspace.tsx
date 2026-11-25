@@ -13,6 +13,17 @@ import styles from "./research-session.module.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 
+export function focusSessionWorkspace() {
+  const url = new URL(window.location.href);
+  url.hash = "current-research-workspace";
+  window.history.replaceState(null, "", url);
+  requestAnimationFrame(() => {
+    const workspace = document.getElementById("current-research-workspace");
+    workspace?.focus({ preventScroll: true });
+    workspace?.scrollIntoView({ block: "start" });
+  });
+}
+
 export function sessionModelProfiles(run: RunSnapshot) {
   const shared = run.research_manifest?.settings;
   if (!shared || run.research_manifest?.tool_config.model_settings_version !== "model-settings-1")
@@ -88,6 +99,23 @@ function sourceUrls(attempts: Attempt[]) {
       ...researchToolUrls(result),
     ]),
   );
+}
+
+export function sessionReport(lane: SessionWorkspace, status: RunSnapshot["status"]) {
+  if (lane.key !== "editor") return;
+  const latest = lane.attempts.at(-1);
+  const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
+  const complete =
+    status === "completed" &&
+    latest?.status === "completed" &&
+    !!latest.result &&
+    !latest.result.workspace_activity &&
+    !latest.result.next_lead;
+  const files = result?.workspace_files ?? [];
+  const file =
+    files.find((item) => item.name === "report.md") ??
+    (complete ? files.find((item) => item.name.toLowerCase().endsWith(".md")) : undefined);
+  if (file) return { file, complete };
 }
 
 type Result = NonNullable<Attempt["result"]>;
@@ -238,8 +266,8 @@ export function SessionActivity({
     .sort((left, right) => Date.parse(right.time) - Date.parse(left.time));
   if (!entries.length) return null;
   return (
-    <details className={styles.activity}>
-      <summary>
+    <details id="research-activity" className={styles.activity}>
+      <summary id="research-activity-heading">
         Activity log · {entries.length} recorded {entries.length === 1 ? "pass" : "passes"}
       </summary>
       <ol>
@@ -260,9 +288,7 @@ export function SessionActivity({
               <button
                 onClick={() => {
                   select(lane.key, attempt.id);
-                  document
-                    .getElementById("research-workspaces")
-                    ?.scrollIntoView({ block: "start" });
+                  focusSessionWorkspace();
                 }}
               >
                 <time dateTime={time}>{new Date(time).toLocaleTimeString()}</time>
@@ -289,25 +315,16 @@ export function SessionWorkspaceDetail({
   run,
   passId,
   onPass,
+  returnToReview,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
+  returnToReview?: { id: string; title: string };
 } & PassSelection) {
   const latest = lane.attempts.at(-1);
   const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
   const files = result?.workspace_files ?? [];
-  const finalReport =
-    lane.key === "editor" &&
-    run.status === "completed" &&
-    latest?.status === "completed" &&
-    !!latest.result &&
-    !latest.result.workspace_activity &&
-    !latest.result.next_lead;
-  const report =
-    lane.key === "editor"
-      ? (files.find((file) => file.name === "report.md") ??
-        (finalReport && files.find((file) => file.name.toLowerCase().endsWith(".md"))))
-      : undefined;
+  const report = sessionReport(lane, run.status);
   const urls = sourceUrls(lane.key === "editor" ? (run.model_attempts ?? []) : lane.attempts);
   const active =
     run.status === "running" && (latest?.status === "preparing" || latest?.status === "requesting");
@@ -317,10 +334,16 @@ export function SessionWorkspaceDetail({
       id="current-research-workspace"
       className={styles.detail}
       aria-label={`${lane.title} workspace`}
+      tabIndex={-1}
     >
+      {returnToReview && (
+        <a className="text-link" href={`#consultation-${returnToReview.id}-answer`}>
+          Return to {returnToReview.title}’s question
+        </a>
+      )}
       <div className={styles.detailHeading}>
         <div>
-          <h2>{report ? (finalReport ? "Research report" : "Report draft") : lane.title}</h2>
+          <h2>{report ? (report.complete ? "Research report" : "Report draft") : lane.title}</h2>
           <p>{lane.objective}</p>
           {lane.path && (
             <p className={styles.workspacePath}>
@@ -334,10 +357,22 @@ export function SessionWorkspaceDetail({
             </p>
           )}
         </div>
-        {report && finalReport && (
-          <a className="button small" href={`/api/research-sessions/${run.id}/report.zip`} download>
-            Download report and files
-          </a>
+        {report?.complete && latest && (
+          <div className={styles.actions}>
+            <a
+              className="button small primary"
+              href={`/?${new URLSearchParams({ view: "reports", fromStudy: run.id, reportAttempt: latest.id })}`}
+            >
+              Edit in Reports
+            </a>
+            <a
+              className="button small"
+              href={`/api/research-sessions/${run.id}/report.zip`}
+              download
+            >
+              Download report and files
+            </a>
+          </div>
         )}
       </div>
       {active && latest && (
@@ -364,7 +399,7 @@ export function SessionWorkspaceDetail({
         </p>
       )}
       {report ? (
-        <WorkspaceFilePreview file={report} sources={urls} files={files} />
+        <WorkspaceFilePreview file={report.file} sources={urls} files={files} />
       ) : result?.swarm_action ? (
         <SwarmDecision action={result.swarm_action} />
       ) : assignments ? (

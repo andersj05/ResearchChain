@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Files, Upload, X } from "lucide-react";
 import { api } from "@/lib/workflow";
 import {
@@ -12,10 +12,16 @@ import {
 import styles from "./source-intake.module.css";
 
 const extensions = ".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.markdown,.csv,.tsv";
+const clipboardImageExtensions = new Map([
+  ["image/png", "png"],
+  ["image/jpeg", "jpg"],
+  ["image/webp", "webp"],
+]);
 type Row = {
   id: string;
   file: File;
   kind: EvidenceCreate["kind"];
+  title: string;
   invalid?: string;
   error?: string;
   command?: EvidenceInput;
@@ -36,11 +42,9 @@ export function SourceFileBatch({
   onPin,
   onPending,
   onSaving,
-  children,
 }: {
   attribution: Attribution;
   count: number;
-  children: ReactNode;
   disabled: boolean;
   onPin: (source: EvidenceRecord) => void;
   onPending: (pending: boolean) => void;
@@ -53,9 +57,10 @@ export function SourceFileBatch({
   const input = useRef<HTMLInputElement>(null);
   const saving = useRef(false);
   const depth = useRef(0);
+  const pastedCharts = useRef(0);
   const permitted = attribution.rights && attribution.rights !== "unknown";
 
-  function choose(files: FileList | null) {
+  function choose(files: FileList | File[] | null, pasted = false) {
     if (disabled || saving.current || !files?.length) return;
     setNotice("");
     if (count + rows.length + files.length > 100) {
@@ -68,15 +73,44 @@ export function SourceFileBatch({
       id: crypto.randomUUID(),
       file,
       kind: kindFor(file.name),
+      title: pasted ? `Pasted chart ${++pastedCharts.current}` : file.name.slice(0, 240),
       invalid: !extensions.split(",").some((ext) => file.name.toLowerCase().endsWith(ext))
         ? "Unsupported format. Remove this file or supply a supported original."
         : !file.size || file.size > 20 * 1024 * 1024
           ? "Choose a file between 1 byte and 20 MB."
           : undefined,
     }));
-    setRows([...rows, ...additions]);
+    setRows((list) => [...list, ...additions]);
     onPending(true);
   }
+  const pasteChart = useEffectEvent((event: ClipboardEvent) => {
+    if (disabled || saving.current || event.defaultPrevented) return;
+    const target = event.target;
+    if (
+      (target instanceof HTMLElement && target.isContentEditable) ||
+      (target instanceof Element &&
+        target.closest("input, textarea, select, [role=textbox], dialog[open], [role=dialog]"))
+    ) {
+      return;
+    }
+    const files = Array.from(event.clipboardData?.files ?? []).flatMap((file) => {
+      const extension = clipboardImageExtensions.get(file.type);
+      if (!extension) return [];
+      const named = /\.(png|jpe?g|webp)$/i.test(file.name);
+      return named ? file : new File([file], `clipboard.${extension}`, { type: file.type });
+    });
+    if (!files.length) return;
+    event.preventDefault();
+    choose(files, true);
+  });
+  useEffect(() => {
+    function onPaste(event: ClipboardEvent) {
+      pasteChart(event);
+    }
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
   function remove(id: string) {
     const next = rows.filter((row) => row.id !== id);
     setRows(next);
@@ -109,7 +143,7 @@ export function SourceFileBatch({
               );
             command = {
               id: row.id,
-              title: row.file.name.slice(0, 240),
+              title: row.title.trim() || row.file.name.slice(0, 240),
               kind: row.kind,
               ...attribution,
               representation: row.kind === "image" ? "chart_screenshot" : "original",
@@ -183,9 +217,9 @@ export function SourceFileBatch({
         <span>
           <strong>Drop files or browse</strong>
           <small>Charts, PDFs, text, Markdown, CSV and TSV · up to 20 MB per file</small>
+          <small>You can also paste a screenshot while you’re on the desk.</small>
         </span>
       </button>
-      {children}
       {!!rows.length && (
         <div className={styles.queue}>
           <ul aria-label="Files to pin">
@@ -193,9 +227,26 @@ export function SourceFileBatch({
               <li key={row.id}>
                 <Files size={15} aria-hidden />
                 <div>
-                  <strong>{row.file.name}</strong>
+                  <label className={styles.titleField}>
+                    Packet title<span className="sr-only"> for {row.file.name}</span>
+                    <input
+                      type="text"
+                      value={row.title}
+                      disabled={disabled || !!row.command}
+                      maxLength={240}
+                      onChange={(event) => {
+                        const title = event.target.value;
+                        setRows((list) =>
+                          list.map((item) => (item.id === row.id ? { ...item, title } : item)),
+                        );
+                      }}
+                    />
+                  </label>
                   <small>
-                    {(row.file.size / 1024).toLocaleString(undefined, { maximumFractionDigits: 1 })}{" "}
+                    {row.title !== row.file.name && `${row.file.name} · `}
+                    {(row.file.size / 1024).toLocaleString(undefined, {
+                      maximumFractionDigits: 1,
+                    })}{" "}
                     KB
                   </small>
                   {(row.invalid || row.error) && (
@@ -248,6 +299,7 @@ export function SourceFileBatch({
               ? "Pinning files…"
               : `Pin ${rows.length} ${rows.length === 1 ? "file" : "files"}`}
           </button>
+          {!permitted && <p className={styles.feedback}>Select usage rights above to pin files.</p>}
         </div>
       )}
       {(progress || notice) && (

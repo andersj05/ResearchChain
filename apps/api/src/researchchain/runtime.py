@@ -56,10 +56,10 @@ from researchchain.research import (
     read_manifest,
 )
 from researchchain.research_directions import DIRECTIONS_VERSION
-from researchchain.research_discovery import DISCOVERY_VERSION
+from researchchain.research_discovery import DISCOVERY_VERSION, check_first_reading_start
 from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
 from researchchain.research_session_report import REPORT_VERSION
-from researchchain.research_sessions import SESSION_VERSION
+from researchchain.research_sessions import SESSION_VERSION, SOURCE_LED_BRIEF
 from researchchain.research_swarm import SWARM_VERSION
 from researchchain.research_team import TEAM_VERSION
 from researchchain.retention_guards import require_retained_run
@@ -281,18 +281,34 @@ class RunStore:
             pending = []
         reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
+        research = read_manifest(conn, manifest["id"])
+        evidence_ids = self._evidence_ids(conn, manifest["id"])
+        study_title = research.tool_config.get("study_title") if research else None
+        if (
+            study_title is None
+            and manifest["brief"] == SOURCE_LED_BRIEF
+            and evidence_ids
+            and research
+            and research.tool_config.get("discovery_version")
+        ):
+            source = conn.execute(
+                "SELECT document->>'title' AS title FROM evidence_records WHERE id = %s",
+                (evidence_ids[0],),
+            ).fetchone()
+            study_title = source["title"] if source else None
         return RunSnapshot(
             **run_agent(conn, manifest["id"]),
             id=manifest["id"],
             revision_id=revision.id,
             revision_number=revision.number,
             workflow_name=revision.name,
+            study_title=study_title,
             created_at=manifest["created_at"],
             workflow=revision.workflow,
             brief=manifest["brief"],
             baseline_run_id=manifest["baseline_run_id"],
             artifacts=manifest["artifacts"],
-            evidence_ids=self._evidence_ids(conn, manifest["id"]),
+            evidence_ids=evidence_ids,
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             checkpoint_steps=checkpoint_steps(state, status),
@@ -326,7 +342,7 @@ class RunStore:
                     for item in attempts
                 ),
             ),
-            research_manifest=read_manifest(conn, manifest["id"]),
+            research_manifest=research,
             model_attempts=attempts,
         )
 
@@ -435,7 +451,12 @@ class RunStore:
         ]
 
     def start_command(
-        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+        self,
+        conn: Connection[DictRow],
+        request: RunRequest,
+        *,
+        research_session: bool = False,
+        study_title: str | None = None,
     ) -> DictRow:
         """Validate and journal inputs; the caller serializes admission and commits."""
         require_retained_run(conn, request.id)
@@ -458,6 +479,12 @@ class RunStore:
             )
         ):
             raise ConflictError("This ID already belongs to a different run.")
+        if (
+            research_session
+            and existing_research
+            and study_title != existing_research.tool_config.get("study_title")
+        ):
+            raise ConflictError("This run ID already belongs to a different study title.")
         if existing and request.provider_account_id != (
             existing_research.account_id if existing_research else None
         ):
@@ -514,8 +541,13 @@ class RunStore:
                 )
                 if research_session:
                     research_manifest.tool_config["session"] = SESSION_VERSION
+                    if study_title is not None:
+                        research_manifest.tool_config["study_title"] = study_title
                     if workflow.start_node == "discovery":
                         research_manifest.tool_config["discovery_version"] = DISCOVERY_VERSION
+                        check_first_reading_start(
+                            conn, research_manifest, workflow.nodes[0], request.brief
+                        )
                     research_manifest.tool_config["session_report_version"] = REPORT_VERSION
                     research_manifest.tool_config["owner_directions_version"] = DIRECTIONS_VERSION
             elif request.provider_account_id:
@@ -623,6 +655,8 @@ class RunStore:
                 "w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
+                "COALESCE(rm.manifest->'tool_config'->>'study_title', "
+                "primary_source.document->>'title') AS study_title, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
                 "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
                 "WHEN EXISTS ("
@@ -637,24 +671,34 @@ class RunStore:
                 "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
                 "LEFT JOIN agent_runs a ON a.run_id = r.id "
                 "JOIN run_controls c ON c.run_id = r.id "
+                "LEFT JOIN run_research_manifests rm ON %(sessions_only)s AND rm.run_id = r.id "
+                "AND rm.manifest->'tool_config'->>'session' = %(session_version)s "
+                "LEFT JOIN run_evidence pin ON pin.run_id = rm.run_id AND pin.ordinal = 0 "
+                "AND r.brief = %(source_led_brief)s "
+                "AND rm.manifest->'tool_config' ? 'discovery_version' "
+                "LEFT JOIN evidence_records primary_source ON primary_source.id = pin.evidence_id "
                 "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
                 "WHERE (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
-                "AND (NOT %(sessions_only)s OR EXISTS (SELECT 1 FROM run_research_manifests rm "
-                "WHERE rm.run_id = r.id AND rm.manifest->'tool_config'->>'session' "
-                "= %(session_version)s)) "
+                "AND (NOT %(sessions_only)s OR rm.run_id IS NOT NULL) "
                 "AND (NOT %(unassigned)s OR a.agent_id IS NULL) "
                 "AND (%(exclude_id)s::uuid IS NULL OR r.id <> %(exclude_id)s) "
                 "AND (%(before_created_at)s::timestamptz IS NULL "
                 "OR (r.created_at, r.id) < (%(before_created_at)s, %(before_id)s)) "
                 "AND (%(search)s = '' OR strpos(lower(concat_ws(' ', "
-                "w.workflow->>'name', a.agent_name, r.id::text, r.brief)), lower(%(search)s)) > 0)"
+                "w.workflow->>'name', a.agent_name, r.id::text, r.brief, "
+                "rm.manifest->'tool_config'->>'study_title')), lower(%(search)s)) > 0 "
+                "OR (rm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM run_evidence source_pin "
+                "JOIN evidence_records source ON source.id = source_pin.evidence_id "
+                "WHERE source_pin.run_id = r.id "
+                "AND strpos(lower(source.document->>'title'), lower(%(search)s)) > 0)))"
                 ") summary WHERE (%(status)s::text IS NULL OR status = %(status)s) "
                 "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
                 {
                     **query.model_dump(),
                     "session_version": SESSION_VERSION,
+                    "source_led_brief": SOURCE_LED_BRIEF,
                     "search": query.search.strip(),
                     "limit": query.limit + int(look_ahead),
                 },
@@ -677,7 +721,7 @@ class RunStore:
         ]
 
     def pending_reviews(
-        self, limit: int, offset: int, agent_id: UUID | None = None
+        self, limit: int, offset: int, agent_id: UUID | None = None, *, sessions_only: bool = False
     ) -> PendingReviewsPage:
         # Read the most recent command receipt. An admitted resume has no response
         # yet and hides the old questions until the worker records its next pause.
@@ -685,6 +729,8 @@ class RunStore:
             rows = conn.execute(
                 "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
+                "COALESCE(rm.manifest->'tool_config'->>'study_title', "
+                "primary_source.document->>'title') AS study_title, "
                 "command.response->>'checkpoint_id' AS checkpoint_id, "
                 "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
                 "THEN command.response->'reviews' "
@@ -692,6 +738,12 @@ class RunStore:
                 "FROM runs r JOIN run_controls c ON c.run_id = r.id "
                 "JOIN workflow_revisions w ON w.id = r.revision_id "
                 "LEFT JOIN agent_runs a ON a.run_id = r.id "
+                "LEFT JOIN run_research_manifests rm ON %(sessions_only)s AND rm.run_id = r.id "
+                "AND rm.manifest->'tool_config'->>'session' = %(session_version)s "
+                "LEFT JOIN run_evidence pin ON pin.run_id = rm.run_id AND pin.ordinal = 0 "
+                "AND r.brief = %(source_led_brief)s "
+                "AND rm.manifest->'tool_config' ? 'discovery_version' "
+                "LEFT JOIN evidence_records primary_source ON primary_source.id = pin.evidence_id "
                 "JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
                 "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
                 "WHERE c.terminal_status IS NULL AND command.response->>'status' = 'paused' "
@@ -699,8 +751,16 @@ class RunStore:
                 "AND (command.response->>'review' IS NOT NULL "
                 "OR command.response->'reviews'->0 IS NOT NULL) "
                 "AND (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(sessions_only)s OR rm.run_id IS NOT NULL) "
                 "ORDER BY r.created_at, r.id LIMIT %(limit)s OFFSET %(offset)s",
-                {"agent_id": agent_id, "limit": limit + 1, "offset": offset},
+                {
+                    "agent_id": agent_id,
+                    "limit": limit + 1,
+                    "offset": offset,
+                    "sessions_only": sessions_only,
+                    "session_version": SESSION_VERSION,
+                    "source_led_brief": SOURCE_LED_BRIEF,
+                },
             ).fetchall()
             return PendingReviewsPage(
                 items=[PendingReviewRun.model_validate(row) for row in rows[:limit]],

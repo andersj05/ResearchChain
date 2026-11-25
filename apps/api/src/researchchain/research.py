@@ -41,9 +41,8 @@ from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
 from researchchain.research_directions import DIRECTIONS_VERSION, pin_directions
-from researchchain.research_discovery import DISCOVERY_VERSION, first_reading
+from researchchain.research_discovery import DISCOVERY_VERSION, first_reading, prepare_first_reading
 from researchchain.research_models import (
-    DiscoveryReading,
     EvidenceSnapshot,
     ModelAttempt,
     OwnerDirection,
@@ -790,27 +789,36 @@ class ResearchExecutor:
         try:
             self.guard(path)
             with self.control.lock:
-                prepared = prepare_research(
-                    self.conn,
-                    self.manifest,
-                    node.config.stage,
-                    self.brief,
-                    context,
-                    feedback,
-                    node.instructions,
-                    model=selected.model,
-                    reasoning_effort=selected.reasoning_effort,
-                    verbosity=selected.verbosity,
-                    web_search=node.config.web_search,
-                    sec_financials=node.config.sec_financials,
-                    style_excerpt=node.config.style_excerpt,
-                    owner_directions=directions,
-                )
                 if discovery:
                     if discovery != DISCOVERY_VERSION:
                         raise ValueError("This study requires its pinned discovery implementation.")
-                    prepared.instructions = node.instructions
-                    prepared.schema = DiscoveryReading.model_json_schema()
+                    prepared = prepare_first_reading(
+                        self.conn,
+                        self.manifest,
+                        node,
+                        self.brief,
+                        selected,
+                        context=context,
+                        feedback=feedback,
+                        directions=directions,
+                    )
+                else:
+                    prepared = prepare_research(
+                        self.conn,
+                        self.manifest,
+                        node.config.stage,
+                        self.brief,
+                        context,
+                        feedback,
+                        node.instructions,
+                        model=selected.model,
+                        reasoning_effort=selected.reasoning_effort,
+                        verbosity=selected.verbosity,
+                        web_search=node.config.web_search,
+                        sec_financials=node.config.sec_financials,
+                        style_excerpt=node.config.style_excerpt,
+                        owner_directions=directions,
+                    )
                 if director:
                     assert director.analyst and director.team
                     prepare_plan(

@@ -2982,6 +2982,16 @@
               ],
               "title": "Agent Id"
             }
+          },
+          {
+            "name": "sessions_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Sessions Only"
+            }
           }
         ],
         "responses": {
@@ -6794,6 +6804,17 @@
             "type": "string",
             "title": "Brief Excerpt"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -7158,6 +7179,17 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -7271,6 +7303,18 @@
             "type": "string",
             "format": "uuid",
             "title": "Style Guide Id"
+          },
+          "source_format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "session_markdown"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Format"
           }
         },
         "additionalProperties": false,
@@ -7548,9 +7592,16 @@
           },
           "renderer": {
             "type": "string",
-            "const": "report-seed-1",
+            "enum": ["report-seed-1", "study-markdown-1"],
             "title": "Renderer",
             "default": "report-seed-1"
+          },
+          "recorded_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recorded Urls"
           }
         },
         "additionalProperties": false,
@@ -8182,6 +8233,19 @@
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "pattern": "^[^\\x00\\r\\n]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "start_from_sources": {
             "type": "boolean",
             "title": "Start From Sources",
@@ -8336,6 +8400,19 @@
             "maxLength": 10000,
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "pattern": "^[^\\x00\\r\\n]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
           },
           "start_from_sources": {
             "type": "boolean",
@@ -9202,6 +9279,17 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -9414,6 +9502,17 @@
           "workflow_name": {
             "type": "string",
             "title": "Workflow Name"
+          },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
           },
           "status": {
             "type": "string",

@@ -1,5 +1,6 @@
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@ui-sdk/react/button";
 import {
   Dialog,
   DialogBackdrop,
@@ -29,6 +30,10 @@ const kinds = {
   report: ["Report", FileText],
   dataset: ["Dataset", Table2],
 } as const;
+
+function sourceCount(count: number) {
+  return `${count} ${count === 1 ? "source" : "sources"}`;
+}
 
 export function packetSize(records: (EvidenceRecord | undefined)[]) {
   return records.reduce((sum, item) => {
@@ -63,25 +68,108 @@ export function StudyPacket({
   retry?: () => void;
 }) {
   const [previewId, setPreviewId] = useState<string>();
+  const [edit, setEdit] = useState<{
+    ids: string[];
+    focusId: string;
+    message: string;
+    restoreIds?: string[];
+  }>();
   const opener = useRef<HTMLButtonElement>(null);
+  const packetId = useId();
   const charts = records.filter(
     (record): record is EvidenceRecord => !!record?.artifact?.media_type.startsWith("image/"),
   );
   const chartIndex = charts.findIndex((item) => item.id === previewId);
   const chart = charts[chartIndex];
-  function move(index: number, distance: number) {
+  const appliedEdit = edit?.ids === ids ? edit : undefined;
+  const canUndoBulkUnpin = !!appliedEdit?.restoreIds;
+  const bulkUnpinId = `${packetId}-unpin-all`;
+  const undoId = `${packetId}-undo-unpin-all`;
+  useLayoutEffect(() => {
+    if (appliedEdit) document.getElementById(appliedEdit.focusId)?.focus();
+  }, [appliedEdit]);
+
+  function move(index: number, distance: -1 | 1, focusId: string, title: string) {
+    const destination = index + distance;
+    const id = ids[index];
+    const neighbor = ids[destination];
+    if (!id || !neighbor) return;
     const next = [...ids];
-    [next[index], next[index + distance]] = [ids[index + distance]!, ids[index]!];
+    next[index] = neighbor;
+    next[destination] = id;
+    setEdit({
+      ids: next,
+      focusId,
+      message: `${title} moved to position ${destination + 1} of ${ids.length}.`,
+    });
     onChange(next);
+  }
+  function unpin(id: string, index: number, title: string) {
+    const next = ids.filter((item) => item !== id);
+    const neighbor = ids[index + 1] ?? ids[index - 1];
+    setEdit({
+      ids: next,
+      focusId: neighbor ? `${packetId}-${neighbor}-unpin` : "packet-heading",
+      message: `Unpinned ${title}. ${sourceCount(next.length)} in the packet.`,
+    });
+    onChange(next);
+  }
+  function unpinAll() {
+    const next: string[] = [];
+    setEdit({
+      ids: next,
+      focusId: undoId,
+      message: `Unpinned ${sourceCount(ids.length)}. Undo is available.`,
+      restoreIds: ids,
+    });
+    onChange(next);
+  }
+  function undoUnpinAll() {
+    const restore = appliedEdit?.restoreIds;
+    if (!restore) return;
+    setEdit({
+      ids: restore,
+      focusId: bulkUnpinId,
+      message: `Restored ${sourceCount(restore.length)} in reading order.`,
+    });
+    onChange(restore);
   }
   return (
     <section className={styles.packet} aria-labelledby="packet-heading">
       <header>
-        <h2 id="packet-heading">Study packet</h2>
-        <span aria-live="polite">
-          {ids.length} {ids.length === 1 ? "source" : "sources"}
-        </span>
+        <h2 id="packet-heading" tabIndex={-1}>
+          Study packet
+        </h2>
+        <div className={styles.packetActions}>
+          <span>{sourceCount(ids.length)}</span>
+          {ids.length > 1 && (
+            <button
+              id={bulkUnpinId}
+              type="button"
+              className="button small"
+              disabled={disabled}
+              onClick={unpinAll}
+            >
+              Unpin all
+            </button>
+          )}
+          {canUndoBulkUnpin && (
+            <button
+              id={undoId}
+              type="button"
+              className="button small"
+              disabled={disabled}
+              aria-label="Undo unpin all"
+              onClick={undoUnpinAll}
+            >
+              Undo
+            </button>
+          )}
+        </div>
       </header>
+      <p className="sr-only" role="status">
+        {appliedEdit?.message ?? sourceCount(ids.length)}
+      </p>
       {ids.length ? (
         <>
           <ol aria-label="Pinned material" className={styles.pins}>
@@ -89,6 +177,8 @@ export function StudyPacket({
               const item = records[index];
               const [label, Icon] = kinds[item?.kind ?? "text"];
               const title = item?.title ?? `Source ${id.slice(0, 8)}`;
+              const upId = `${packetId}-${id}-up`;
+              const downId = `${packetId}-${id}-down`;
               return (
                 <li key={id}>
                   {item?.artifact?.media_type.startsWith("image/") ? (
@@ -135,34 +225,37 @@ export function StudyPacket({
                   <div className={styles.pinTools}>
                     {ids.length > 1 && (
                       <>
-                        <button
+                        <Button
+                          id={upId}
                           className={styles.icon}
-                          type="button"
                           disabled={disabled || index === 0}
+                          focusableWhenDisabled={!disabled}
                           aria-label={`Move ${title} up`}
-                          onClick={() => move(index, -1)}
+                          onClick={() => move(index, -1, upId, title)}
                         >
-                          <ChevronUp size={15} />
-                        </button>
-                        <button
+                          <ChevronUp size={15} aria-hidden />
+                        </Button>
+                        <Button
+                          id={downId}
                           className={styles.icon}
-                          type="button"
                           disabled={disabled || index === ids.length - 1}
+                          focusableWhenDisabled={!disabled}
                           aria-label={`Move ${title} down`}
-                          onClick={() => move(index, 1)}
+                          onClick={() => move(index, 1, downId, title)}
                         >
-                          <ChevronDown size={15} />
-                        </button>
+                          <ChevronDown size={15} aria-hidden />
+                        </Button>
                       </>
                     )}
                     <button
+                      id={`${packetId}-${id}-unpin`}
                       type="button"
                       className={styles.icon}
                       aria-label={`Unpin ${title}`}
                       disabled={disabled}
-                      onClick={() => onChange(ids.filter((v) => v !== id))}
+                      onClick={() => unpin(id, index, title)}
                     >
-                      <X size={15} />
+                      <X size={15} aria-hidden />
                     </button>
                   </div>
                 </li>

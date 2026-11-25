@@ -1,18 +1,18 @@
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import type { components } from "@researchchain/contracts";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { readReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
-import { PassLink, rememberAnswer } from "./session-consultations";
+import { SessionWorkspaceLink, rememberAnswer } from "./session-consultations";
 import styles from "./session-discovery.module.css";
 
 type Reading = components["schemas"]["DiscoveryReading"];
 type Review = NonNullable<RunSnapshot["review"]>;
 type Decision = components["schemas"]["ReviewResponse"];
-type SelectPass = (workspace: string, pass: string) => void;
+type SelectPass = (workspace: string, pass: string | null) => void;
 
 const basisLabel = {
   source_text: "Source text",
@@ -154,6 +154,7 @@ function ChooseSentence({
   disabled,
   respond,
   sources,
+  actionNotice,
 }: {
   run: RunSnapshot;
   reading: Reading;
@@ -162,6 +163,7 @@ function ChooseSentence({
   disabled: boolean;
   respond: (decision: Decision["decision"], sentence: string) => void;
   sources: ReturnType<typeof useSourceDetails>;
+  actionNotice?: ReactNode;
 }) {
   const [sentence, setSentence] = useState(
     () => readReviewDrafts(draftKey)[review.interrupt_id] ?? "",
@@ -223,6 +225,7 @@ function ChooseSentence({
               Park this study
             </button>
           </div>
+          {actionNotice}
         </form>
       </FirstReading>
     </>
@@ -244,9 +247,9 @@ function IssuedAssignment({
       <h4>{lane.title}</h4>
       <p>{lane.objective}</p>
       {receipt && (
-        <PassLink runId={runId} lane={lane} pass={receipt.id} onSelect={onSelect}>
+        <SessionWorkspaceLink runId={runId} lane={lane} pass={receipt.id} onSelect={onSelect}>
           Inspect researcher request
-        </PassLink>
+        </SessionWorkspaceLink>
       )}
     </li>
   );
@@ -261,6 +264,7 @@ export function SessionDiscovery({
   disabled,
   respond,
   onSelect,
+  actionNotice,
 }: {
   run: RunSnapshot;
   review?: Review;
@@ -270,6 +274,7 @@ export function SessionDiscovery({
   disabled: boolean;
   respond: (decision: Decision["decision"], sentence: string) => void;
   onSelect: SelectPass;
+  actionNotice?: ReactNode;
 }) {
   const sources = useSourceDetails(run.evidence_ids ?? []);
   const reading = run.model_attempts?.find(
@@ -282,6 +287,7 @@ export function SessionDiscovery({
       className={styles.sheet}
       id="source-led-investigation"
       aria-label="Source-led investigation"
+      tabIndex={-1}
     >
       {reading && review && !decision ? (
         <ChooseSentence
@@ -293,6 +299,7 @@ export function SessionDiscovery({
           draftKey={draftKey}
           disabled={disabled}
           respond={respond}
+          actionNotice={actionNotice}
         />
       ) : (
         <>

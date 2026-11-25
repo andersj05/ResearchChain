@@ -1,11 +1,12 @@
-import { useEffect, useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { RunSnapshot } from "@/lib/workflow";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
+import { focusSessionWorkspace } from "./research-session-workspace";
 import styles from "./research-session.module.css";
 
 type Review = NonNullable<RunSnapshot["review"]>;
-type Selection = (workspace: string, pass: string) => void;
+type Selection = (workspace: string, pass: string | null) => void;
 
 export function rememberAnswer(key: string, id: string, value: string) {
   const drafts = readReviewDrafts(key);
@@ -14,20 +15,21 @@ export function rememberAnswer(key: string, id: string, value: string) {
   storeReviewDrafts(key, JSON.stringify(drafts));
 }
 
-export function PassLink({
+export function SessionWorkspaceLink({
   runId,
   lane,
-  pass,
+  pass = null,
   onSelect,
   children,
 }: {
   runId: string;
   lane: SessionWorkspace;
-  pass: string;
+  pass?: string | null;
   onSelect: Selection;
   children: React.ReactNode;
 }) {
-  const params = new URLSearchParams({ session: runId, workspace: lane.key, pass });
+  const params = new URLSearchParams({ session: runId, workspace: lane.key });
+  if (pass) params.set("pass", pass);
   return (
     <a
       href={`/?${params}#current-research-workspace`}
@@ -36,9 +38,7 @@ export function PassLink({
           return;
         event.preventDefault();
         onSelect(lane.key, pass);
-        requestAnimationFrame(() =>
-          document.getElementById("current-research-workspace")?.scrollIntoView(),
-        );
+        focusSessionWorkspace();
       }}
     >
       {children}
@@ -54,6 +54,7 @@ export function LeadConsultation({
   onSelect,
   onAnswer,
   disabled,
+  actionNotice,
 }: {
   review: Review;
   runId: string;
@@ -62,14 +63,11 @@ export function LeadConsultation({
   onSelect: Selection;
   onAnswer: (text: string) => Promise<void>;
   disabled: boolean;
+  actionNotice?: ReactNode;
 }) {
   const request = review.perspective!;
   const [text, setText] = useState(() => readReviewDrafts(draftKey)[review.interrupt_id] ?? "");
   const id = `consultation-${review.interrupt_id}`;
-  useEffect(() => {
-    if (window.location.hash === `#${encodeURIComponent(id)}`)
-      document.getElementById(id)?.scrollIntoView();
-  }, [id]);
   const lead = lanes.find((lane) =>
     lane.attempts.some((attempt) => attempt.path === request.action_path),
   );
@@ -87,7 +85,7 @@ export function LeadConsultation({
     rememberAnswer(draftKey, review.interrupt_id, value);
   }
   return (
-    <section className={styles.judgment} id={id} aria-labelledby={id + "-title"}>
+    <section className={styles.judgment} id={id} aria-labelledby={id + "-title"} tabIndex={-1}>
       <h2 id={id + "-title"}>{request.lead_title} requests your perspective</h2>
       <h3>{request.question}</h3>
       <p>
@@ -95,13 +93,19 @@ export function LeadConsultation({
       </p>
       {lead && turn && (
         <div className={styles.receiptLinks}>
-          <PassLink runId={runId} lane={lead} pass={turn.id} onSelect={onSelect}>
+          <SessionWorkspaceLink runId={runId} lane={lead} pass={turn.id} onSelect={onSelect}>
             Inspect the lead’s work
-          </PassLink>
+          </SessionWorkspaceLink>
           {supporting.map(({ lane, pass }) => (
-            <PassLink key={pass.id} runId={runId} lane={lane} pass={pass.id} onSelect={onSelect}>
+            <SessionWorkspaceLink
+              key={pass.id}
+              runId={runId}
+              lane={lane}
+              pass={pass.id}
+              onSelect={onSelect}
+            >
               {lane.title} · Pass {lane.attempts.indexOf(pass) + 1}
-            </PassLink>
+            </SessionWorkspaceLink>
           ))}
         </div>
       )}
@@ -140,6 +144,7 @@ export function LeadConsultation({
         <button className="button primary" type="submit" disabled={disabled || !text.trim()}>
           Send perspective to lead
         </button>
+        {actionNotice}
       </form>
     </section>
   );
@@ -187,9 +192,14 @@ export function ConsultationHistory({
                           <strong>{lane.title}</strong>
                           <p>{lane.objective}</p>
                           {pass && (
-                            <PassLink runId={run.id} lane={lane} pass={pass.id} onSelect={onSelect}>
+                            <SessionWorkspaceLink
+                              runId={run.id}
+                              lane={lane}
+                              pass={pass.id}
+                              onSelect={onSelect}
+                            >
                               Inspect researcher request
-                            </PassLink>
+                            </SessionWorkspaceLink>
                           )}
                         </li>
                       );
@@ -199,13 +209,23 @@ export function ConsultationHistory({
               )}
               {lead && turn && (
                 <div className={styles.receiptLinks}>
-                  <PassLink runId={run.id} lane={lead} pass={turn.id} onSelect={onSelect}>
+                  <SessionWorkspaceLink
+                    runId={run.id}
+                    lane={lead}
+                    pass={turn.id}
+                    onSelect={onSelect}
+                  >
                     Original consultation
-                  </PassLink>
+                  </SessionWorkspaceLink>
                   {next && (
-                    <PassLink runId={run.id} lane={lead} pass={next.id} onSelect={onSelect}>
+                    <SessionWorkspaceLink
+                      runId={run.id}
+                      lane={lead}
+                      pass={next.id}
+                      onSelect={onSelect}
+                    >
                       Lead’s next turn
-                    </PassLink>
+                    </SessionWorkspaceLink>
                   )}
                 </div>
               )}

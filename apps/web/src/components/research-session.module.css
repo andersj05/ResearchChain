@@ -14,6 +14,7 @@
   font-size: clamp(26px, 3.4vw, 42px);
   letter-spacing: -0.045em;
   line-height: 1.14;
+  overflow-wrap: anywhere;
 }
 .meta,
 .summary,
@@ -41,6 +42,35 @@
 .summary span + span {
   border-left: 1px solid var(--border-strong);
   padding-left: 12px;
+}
+.studyNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.studyNav a {
+  min-width: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.studyNav a:hover {
+  border-color: var(--border-strong);
+  text-decoration: underline;
+}
+.studyNav .reviewShortcut {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+.page :target,
+.detail {
+  scroll-margin-top: 16px;
 }
 .settings {
   font-size: 13px;
@@ -122,6 +152,58 @@
 .roster button span {
   font-size: 12px;
   color: var(--muted);
+}
+.rosterGroups:not([hidden]) {
+  display: contents;
+}
+.rosterSearch {
+  display: grid;
+  gap: 4px;
+  margin: 0 12px 12px;
+}
+.rosterSearch label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.rosterSearch input {
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 13px;
+}
+.rosterMatchCount,
+.rosterSelection > p {
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.rosterSelection {
+  padding-bottom: 8px;
+}
+.rosterMatches {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rosterMatches li + li,
+.roster .moreRosterMatches {
+  border-top: 1px solid var(--line);
+}
+.rosterObjective {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.roster .moreRosterMatches {
+  color: var(--blue);
+  font-weight: 500;
+}
+.moreRosterMatches:hover {
+  text-decoration: underline;
 }
 .leadGroup {
   border-block-start: 1px solid var(--line);
@@ -261,12 +343,26 @@
   border-left: 2px solid var(--amber);
   background: var(--amber-soft);
 }
+.actionError {
+  padding: 9px 12px;
+  border-inline-start: 2px solid var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.actionError p + p {
+  margin-block-start: 4px;
+}
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+.footer .actionError {
+  flex-basis: 100%;
 }
 .footer > a {
   color: var(--muted);
@@ -395,6 +491,10 @@
   .roster button {
     align-content: start;
     padding: 8px;
+  }
+  .rosterSearch input {
+    min-height: 44px;
+    font-size: 16px;
   }
   .swarmRoster {
     display: block;
