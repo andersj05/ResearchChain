@@ -13,6 +13,7 @@ const orderLabels = {
 };
 type Order = keyof typeof orderLabels;
 export type ModelActivityFilter = { query: string; step?: string; fitFiltered: boolean };
+export type ModelActivityPreferences = { display: "table" | "timeline"; order: Order };
 
 function readPreference(key: string) {
   try {
@@ -34,21 +35,26 @@ export function RunModelActivity({
   run,
   inspect,
   filter,
+  initialPreferences,
   onFilterChange,
 }: {
   run: RunSnapshot;
-  inspect: (path: string, attemptId: string) => void;
+  inspect: (path: string, attemptId: string, preferences: ModelActivityPreferences) => void;
   filter: ModelActivityFilter;
+  initialPreferences?: ModelActivityPreferences;
   onFilterChange: (filter: ModelActivityFilter) => void;
 }) {
   const { owner } = useOwner();
   const orderKey = `${ownerStoragePrefix(owner)}.model-activity-order`;
   const displayKey = `${ownerStoragePrefix(owner)}.model-activity-display`;
   const { query, step, fitFiltered } = filter;
-  const [display, setDisplay] = useState<"table" | "timeline">(() =>
-    readPreference(displayKey) === "timeline" ? "timeline" : "table",
+  const [display, setDisplay] = useState<ModelActivityPreferences["display"]>(
+    () =>
+      initialPreferences?.display ??
+      (readPreference(displayKey) === "timeline" ? "timeline" : "table"),
   );
   const [order, setOrder] = useState<Order>(() => {
+    if (initialPreferences) return initialPreferences.order;
     const value = readPreference(orderKey);
     return value && Object.hasOwn(orderLabels, value) ? (value as Order) : "newest";
   });
@@ -60,6 +66,7 @@ export function RunModelActivity({
     setDisplay(next);
     storePreference(displayKey, next);
   };
+  const inspectAttempt = (path: string, id: string) => inspect(path, id, { display, order });
   const attempts = run.model_attempts ?? [];
   const passes = new Map<string, number>();
   const rows = attempts.map((attempt) => {
@@ -131,6 +138,7 @@ export function RunModelActivity({
           Filter model activity
           <input
             type="search"
+            data-model-activity-filter
             value={query}
             onChange={(event) => onFilterChange({ ...filter, query: event.target.value })}
             placeholder="Step, model, or status"
@@ -189,7 +197,7 @@ export function RunModelActivity({
           rows={rows}
           visible={visible}
           fitVisible={filtered && fitFiltered}
-          inspect={inspect}
+          inspect={inspectAttempt}
         />
       ) : (
         <div
@@ -214,7 +222,11 @@ export function RunModelActivity({
               {visible.map(({ attempt, path, pass, label, location, status, elapsed }) => (
                 <tr key={attempt.id}>
                   <th scope="row">
-                    <button type="button" onClick={() => inspect(path, attempt.id)}>
+                    <button
+                      type="button"
+                      data-model-activity-attempt={attempt.id}
+                      onClick={() => inspectAttempt(path, attempt.id)}
+                    >
                       {label} · Pass {pass}
                     </button>
                     {location && <small>{location}</small>}

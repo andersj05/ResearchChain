@@ -122,6 +122,7 @@ export function RunStepInspector({
   changeFeedback,
   onResume,
   onIterateStep,
+  onReturnToModelActivity,
   onModelActivity,
   select,
 }: {
@@ -134,6 +135,7 @@ export function RunStepInspector({
   changeFeedback: (id: string, value: string) => void;
   onResume: ResumeReview;
   onIterateStep: () => Promise<void>;
+  onReturnToModelActivity?: () => void;
   onModelActivity: () => void;
   select: (path: string, attemptId?: string) => void;
 }) {
@@ -202,6 +204,11 @@ export function RunStepInspector({
         </span>
       </div>
       <div className="actions">
+        {onReturnToModelActivity && (
+          <Button className="button small" onClick={onReturnToModelActivity}>
+            Back to model activity
+          </Button>
+        )}
         <Button className="button small" disabled={busy} onClick={onIterateStep}>
           Iterate from this step
         </Button>

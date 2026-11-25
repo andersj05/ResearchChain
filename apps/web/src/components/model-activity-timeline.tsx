@@ -56,6 +56,7 @@ export function ModelActivityTimeline({
                 <button
                   className="text-link"
                   type="button"
+                  data-model-activity-attempt={attempt.id}
                   onClick={() => inspect(path, attempt.id)}
                 >
                   {label} · <span>Pass {pass}</span>
