@@ -2,6 +2,17 @@
 
 Updated 2026-11-25.
 
+## Reading and editorial decisions
+
+Completed reports have a focused layout that preserves the reading position and
+keeps bookmarks, downloads and the Reports handoff available. Open exact saved
+research findings from the editorial question, then return to the same unsent
+judgment. The browser rehearsal covered 80 assignments across four leads.
+
+The header keeps its links on one row at 390px and wraps at narrower widths.
+The methodology and prelaunch comparison load only on their routes. Paired
+production builds reduced initial JavaScript by 15.1 kB before compression.
+
 ## Report reading and pinned sources
 
 Saved studies put **Revisit material** and the report link on the first screen.
