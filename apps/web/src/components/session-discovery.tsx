@@ -6,13 +6,13 @@ import { readReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
-import { PassLink, rememberAnswer } from "./session-consultations";
+import { SessionWorkspaceLink, rememberAnswer } from "./session-consultations";
 import styles from "./session-discovery.module.css";
 
 type Reading = components["schemas"]["DiscoveryReading"];
 type Review = NonNullable<RunSnapshot["review"]>;
 type Decision = components["schemas"]["ReviewResponse"];
-type SelectPass = (workspace: string, pass: string) => void;
+type SelectPass = (workspace: string, pass: string | null) => void;
 
 const basisLabel = {
   source_text: "Source text",
@@ -244,9 +244,9 @@ function IssuedAssignment({
       <h4>{lane.title}</h4>
       <p>{lane.objective}</p>
       {receipt && (
-        <PassLink runId={runId} lane={lane} pass={receipt.id} onSelect={onSelect}>
+        <SessionWorkspaceLink runId={runId} lane={lane} pass={receipt.id} onSelect={onSelect}>
           Inspect researcher request
-        </PassLink>
+        </SessionWorkspaceLink>
       )}
     </li>
   );
@@ -282,6 +282,7 @@ export function SessionDiscovery({
       className={styles.sheet}
       id="source-led-investigation"
       aria-label="Source-led investigation"
+      tabIndex={-1}
     >
       {reading && review && !decision ? (
         <ChooseSentence

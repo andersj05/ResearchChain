@@ -111,7 +111,12 @@ test("follow two research leads from queued work through an expert consultation 
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
     timeout: 65_000,
   });
-  await roster.getByRole("button", { name: /^Report editor/ }).click();
+  await expect(page.locator("#current-research-workspace")).toContainText("Inventory timing");
+  await page
+    .getByRole("navigation", { name: "Study sections" })
+    .getByRole("link", { name: "Read report" })
+    .click();
+  await expect(page.locator("#current-research-workspace")).toBeFocused();
   await expect(
     page
       .locator("#current-research-workspace")
@@ -369,19 +374,31 @@ test("separate lead consultations retain their own drafts, supporting receipts a
   await page.goto(`/?session=${runId}`);
   const demand = page.getByRole("region", { name: "Demand timing requests your perspective" });
   const supply = page.getByRole("region", { name: "Supply timing requests your perspective" });
+  const sections = page.getByRole("navigation", { name: "Study sections" });
+  const supplyQuestion = sections.getByRole("link", { name: "Question from Supply timing" });
+  await supplyQuestion.focus();
+  await supplyQuestion.press("Enter");
+  await expect(supply).toBeFocused();
   await expect(demand.getByRole("group", { name: "Suggested perspectives" })).toHaveCount(0);
   await demand.getByLabel("Your perspective").fill("Hold the first observation fixed.");
+  const answer = supply.getByLabel("Your perspective");
   await supply.getByRole("button", { name: "Later release", exact: true }).click();
   await page.reload();
   await expect(demand.getByLabel("Your perspective")).toHaveValue(
     "Hold the first observation fixed.",
   );
-  await expect(supply.getByLabel("Your perspective")).toHaveValue("Later release");
+  await expect(answer).toHaveValue("Later release");
   await supply.getByRole("link", { name: "Release check · Pass 1" }).click();
   await expect(page).toHaveURL(/workspace=lead-2%2Fagent-1/);
-  await expect(page.locator("#current-research-workspace")).toContainText(
-    "Receipt for Supply timing.",
-  );
+  const workspace = page.locator("#current-research-workspace");
+  await expect(workspace).toBeFocused();
+  await expect(workspace).toContainText("Receipt for Supply timing.");
+  const returnToQuestion = workspace.getByRole("link", {
+    name: "Return to Supply timing’s question",
+  });
+  await returnToQuestion.press("Enter");
+  await expect(answer).toBeFocused();
+  await expect(answer).toHaveValue("Later release");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({
     path: info.outputPath("phone-consultations-and-leads.png"),
@@ -389,6 +406,10 @@ test("separate lead consultations retain their own drafts, supporting receipts a
   });
   await supply.getByRole("button", { name: "Send perspective to lead" }).click();
   await expect(supply).toHaveCount(0);
+  await expect(returnToQuestion).toHaveCount(0);
+  await expect(workspace).toContainText("Receipt for Supply timing.");
+  await sections.getByRole("link", { name: "Activity log", exact: true }).click();
+  await expect(page.locator("#research-activity")).toHaveJSProperty("open", true);
   await expect(demand.getByLabel("Your perspective")).toHaveValue(
     "Hold the first observation fixed.",
   );

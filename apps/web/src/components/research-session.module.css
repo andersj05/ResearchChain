@@ -14,6 +14,7 @@
   font-size: clamp(26px, 3.4vw, 42px);
   letter-spacing: -0.045em;
   line-height: 1.14;
+  overflow-wrap: anywhere;
 }
 .meta,
 .summary,
@@ -41,6 +42,35 @@
 .summary span + span {
   border-left: 1px solid var(--border-strong);
   padding-left: 12px;
+}
+.studyNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.studyNav a {
+  min-width: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.studyNav a:hover {
+  border-color: var(--border-strong);
+  text-decoration: underline;
+}
+.studyNav .reviewShortcut {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+.page :target,
+.detail {
+  scroll-margin-top: 16px;
 }
 .settings {
   font-size: 13px;

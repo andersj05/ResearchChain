@@ -12,6 +12,7 @@ import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import {
   SessionActivity,
   sessionModelProfiles,
+  sessionReport,
   sessionWorkspaces,
   SessionWorkspaceDetail,
 } from "./research-session-workspace";
@@ -19,7 +20,12 @@ import { formatTime, RunStatus } from "./run-status";
 import { SessionDirections } from "./session-directions";
 import { SessionDiscovery } from "./session-discovery";
 import { SessionRoster } from "./session-roster";
-import { LeadConsultation, ConsultationHistory, rememberAnswer } from "./session-consultations";
+import {
+  LeadConsultation,
+  ConsultationHistory,
+  rememberAnswer,
+  SessionWorkspaceLink,
+} from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
 
@@ -48,7 +54,12 @@ function OwnerQuestion({
     });
   }
   return (
-    <section className={styles.judgment} aria-labelledby="judgment-title">
+    <section
+      className={styles.judgment}
+      id="editorial-review"
+      aria-labelledby="judgment-title"
+      tabIndex={-1}
+    >
       <h2 id="judgment-title">Your judgment</h2>
       <p>{question.question}</p>
       <label htmlFor="editor-feedback">Direction for the editor</label>
@@ -84,6 +95,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
   const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
+  const [returnToReview, setReturnToReview] = useState<string>();
   const [chosen, setChosen] = useState(() =>
     typeof window === "undefined"
       ? null
@@ -138,6 +150,22 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
     };
   }, [runId, refresh, busy, active, owner]);
 
+  const loaded = !!run;
+  useEffect(() => {
+    if (!loaded) return;
+    const anchor = window.location.hash.slice(1);
+    const target = document.getElementById(anchor);
+    if (!target) return;
+    if (
+      anchor === "source-led-investigation" ||
+      anchor === "editorial-review" ||
+      anchor.startsWith("consultation-")
+    ) {
+      target.focus({ preventScroll: true });
+    }
+    target.scrollIntoView({ block: "start" });
+  }, [loaded]);
+
   async function act(action: string, body: object) {
     if (busy || !active) return;
     setBusy(true);
@@ -191,6 +219,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const questions = pendingReviews(run).filter(
     (review) => !acceptedReviews.includes(review.interrupt_id),
   );
+  const consultations = questions.filter((review) => review.perspective);
+  const returnQuestion = consultations.find((review) => review.interrupt_id === returnToReview);
   const question = questions.find((review) => !review.perspective);
   const discovery = !!run.research_manifest?.tool_config.discovery_version;
   const sentenceReview = question?.path === "root/working_sentence" ? question : undefined;
@@ -200,9 +230,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const recordedJudgment = run.events.find(
     (event) => event.review_response && event.path === "root/judgment",
   )?.review_response;
-  const title = run.brief.trim().split("\n")[0]!.slice(0, 120);
+  const title = (run.study_title || run.brief).trim().split("\n")[0]!;
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
   const started = run.model_attempts?.length ?? 0;
+  const report = sessionReport(editor, run.status);
+  const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
   return (
     <main className={styles.page}>
       <div className={styles.intro}>
@@ -215,8 +247,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           <time dateTime={run.created_at}>{formatTime(run.created_at)}</time>
         </div>
         <h1>
-          {title}
-          {title.length < run.brief.trim().split("\n")[0]!.length && "…"}
+          {title.slice(0, 120)}
+          {title.length > 120 && "…"}
         </h1>
         <div className={styles.summary}>
           {swarm && (
@@ -245,6 +277,55 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             {Math.floor((run.usage?.active_seconds ?? 0) % 60)}s active
           </span>
         </div>
+        <nav aria-label="Study sections" className={styles.studyNav}>
+          {discovery && (
+            <a
+              href="#source-led-investigation"
+              className={sentenceReview ? styles.reviewShortcut : undefined}
+            >
+              {sentenceReview
+                ? "Choose working sentence"
+                : sentenceDecision?.decision === "reject"
+                  ? "Parked study"
+                  : sentenceDecision
+                    ? "Working sentence"
+                    : "First reading"}
+            </a>
+          )}
+          {run.checkpoint_id &&
+            consultations.map((review) => (
+              <a
+                key={review.interrupt_id}
+                href={`#consultation-${review.interrupt_id}`}
+                className={styles.reviewShortcut}
+              >
+                Question from {review.perspective?.lead_title}
+              </a>
+            ))}
+          {question && !sentenceReview && run.checkpoint_id && (
+            <a href="#editorial-review" className={styles.reviewShortcut}>
+              Editorial review
+            </a>
+          )}
+          {report?.complete && (
+            <SessionWorkspaceLink runId={runId} lane={editor} onSelect={selectWorkspace}>
+              Read report
+            </SessionWorkspaceLink>
+          )}
+          <a href="#research-workspaces">Workspaces</a>
+          {hasActivity && (
+            <a
+              href="#research-activity-heading"
+              onClick={(event) => {
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                const log = document.getElementById("research-activity");
+                if (log instanceof HTMLDetailsElement) log.open = true;
+              }}
+            >
+              Activity log
+            </a>
+          )}
+        </nav>
         <details className={styles.settings}>
           <summary>{discovery ? "Sources and settings" : "Brief and settings"}</summary>
           {(!discovery || run.brief !== "Source-led study") && <p>{run.brief}</p>}
@@ -347,27 +428,28 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         />
       )}
       {run.checkpoint_id &&
-        questions
-          .filter((review) => review.perspective)
-          .map((review) => (
-            <LeadConsultation
-              key={review.interrupt_id}
-              review={review}
-              runId={runId}
-              lanes={lanes}
-              draftKey={draftKey}
-              onSelect={selectWorkspace}
-              disabled={busy || !active || run.execution_pending}
-              onAnswer={(feedback) =>
-                act("resume", {
-                  checkpoint_id: run.checkpoint_id,
-                  interrupt_id: review.interrupt_id,
-                  decision: "approve",
-                  feedback,
-                })
-              }
-            />
-          ))}
+        consultations.map((review) => (
+          <LeadConsultation
+            key={review.interrupt_id}
+            review={review}
+            runId={runId}
+            lanes={lanes}
+            draftKey={draftKey}
+            onSelect={(key, pass) => {
+              selectWorkspace(key, pass);
+              setReturnToReview(review.interrupt_id);
+            }}
+            disabled={busy || !active || run.execution_pending}
+            onAnswer={(feedback) =>
+              act("resume", {
+                checkpoint_id: run.checkpoint_id,
+                interrupt_id: review.interrupt_id,
+                decision: "approve",
+                feedback,
+              })
+            }
+          />
+        ))}
       <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
       {(!discovery || sentenceDecision?.decision === "approve") && (
         <SessionDirections
@@ -404,7 +486,7 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           </p>
         </details>
       )}
-      <div className={styles.work} id="research-workspaces">
+      <div className={styles.work} id="research-workspaces" tabIndex={-1}>
         <SessionRoster lanes={lanes} selected={workspace.key} onSelect={selectWorkspace} />
         <SessionWorkspaceDetail
           key={workspace.key}
@@ -412,6 +494,11 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           run={run}
           passId={passId}
           onPass={(id) => selectWorkspace(workspace.key, id)}
+          returnToReview={
+            returnQuestion?.perspective
+              ? { id: returnQuestion.interrupt_id, title: returnQuestion.perspective.lead_title }
+              : undefined
+          }
         />
       </div>
       <SessionActivity lanes={lanes} select={selectWorkspace} />

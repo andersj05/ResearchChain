@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { activityLabel } from "./research-session-workspace";
+import { activityLabel, focusSessionWorkspace } from "./research-session-workspace";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
 
@@ -18,11 +18,7 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
   const swarm = lanes.some((lane) => lane.role === "director" || lane.parentKey);
   function select(lane: SessionWorkspace) {
     onSelect(lane.key);
-    if (swarm && window.matchMedia("(max-width: 680px)").matches) {
-      requestAnimationFrame(() =>
-        document.getElementById("current-research-workspace")?.scrollIntoView(),
-      );
-    }
+    if (window.matchMedia("(max-width: 680px)").matches) focusSessionWorkspace();
   }
   function workspace(lane: SessionWorkspace) {
     return (
