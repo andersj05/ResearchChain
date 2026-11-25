@@ -8,21 +8,24 @@ import type { EvidenceRecord } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
+import { StudySettingsReuse } from "./study-settings-reuse";
 import { ownerStoragePrefix } from "@/lib/access";
 import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
-import { resolveModelProfile, sessionModelProblem } from "@/lib/model-settings";
+import { modelSettingLabel, resolveModelProfile, sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
   admissionTimeout,
   ApiError,
   researchDefaults,
   type CommandReceipt,
+  type RecentRunSummary,
 } from "@/lib/workflow";
 import {
   editableResearchBrief,
   initializeResearchBrief,
   newStudyModelProfiles,
   readResearchBrief,
+  reusableResearchSettings,
   sessionUrl,
   storeResearchBrief,
   type ResearchBrief,
@@ -42,7 +45,13 @@ function browsingSavedStudies() {
   return query.get("studies") === "1" || !!query.get("session");
 }
 
-export function ResearchLauncher({ fromSession }: { fromSession: string | null }) {
+export function ResearchLauncher({
+  fromSession,
+  recentStudies,
+}: {
+  fromSession: string | null;
+  recentStudies?: RecentRunSummary[];
+}) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
   const captureKey = `${key}.capture`;
@@ -92,9 +101,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     (models.find((item) => item.slug === researchDefaults.model) ?? models[0])?.slug ||
     "";
   const shared = { ...draft, model };
-  const firstReadingModel = resolveModelProfile(shared, draft.lead).model;
+  const firstReading = resolveModelProfile(shared, draft.lead);
   const firstReadingLabel =
-    models.find((item) => item.slug === firstReadingModel)?.display_name || firstReadingModel;
+    models.find((item) => item.slug === firstReading.model)?.display_name || firstReading.model;
   const problem = sessionModelProblem(models, shared, draft);
   const ready =
     !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
@@ -258,6 +267,16 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     if (frozen || inFlight.current) return;
     setForm((previous) => ({ ...previous, draft: { ...previous.draft, ...patch } }));
     setStartError("");
+  }
+
+  function reuseSettings(setup: ResearchSessionSetup) {
+    if (fromSession || frozen || inFlight.current) return false;
+    setForm(({ draft }) => ({
+      draft: { ...draft, ...reusableResearchSettings(setup) },
+      awaitingModelCatalog: false,
+    }));
+    setStartError("");
+    return true;
   }
 
   function pin(source: EvidenceRecord) {
@@ -478,7 +497,15 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
                   {firstReadingLabel && (
                     <div>
                       <dt>First-reading model</dt>
-                      <dd>{firstReadingLabel}</dd>
+                      <dd>
+                        {firstReadingLabel}
+                        {!catalog.loading && (
+                          <span className={styles.launchProfile}>
+                            {modelSettingLabel(firstReading.reasoning_effort)} effort ·{" "}
+                            {modelSettingLabel(firstReading.verbosity)} detail
+                          </span>
+                        )}
+                      </dd>
                     </div>
                   )}
                   <div>
@@ -513,6 +540,16 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
             disabled={frozen}
             awaitingModelCatalog={awaitingModelCatalog}
             onReadingSample={setReadingSample}
+            reuseSettings={
+              !fromSession &&
+              !!recentStudies?.length && (
+                <StudySettingsReuse
+                  studies={recentStudies}
+                  disabled={frozen}
+                  onApply={reuseSettings}
+                />
+              )
+            }
           />
         </fieldset>
       </form>

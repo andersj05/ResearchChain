@@ -10,8 +10,38 @@ import {
   type ResearchCaptureDraft,
 } from "@/lib/research-capture-draft";
 import { EvidencePicker } from "./evidence-picker";
+import { SourceChartDialog, type ChartPreviewSource } from "./source-chart-dialog";
 import { SourceFileBatch, type Attribution } from "./source-file-batch";
 import styles from "./source-intake.module.css";
+
+type SavedChart = ChartPreviewSource & { source: EvidenceRecord };
+const chartMediaTypes = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+function savedChart(source: EvidenceRecord): SavedChart | null {
+  const artifact = source.artifact;
+  if (
+    source.kind !== "image" ||
+    (source.availability ?? "available") !== "available" ||
+    !artifact ||
+    !/^sha256:[a-f0-9]{64}$/u.test(artifact.id) ||
+    !chartMediaTypes.has(artifact.media_type)
+  )
+    return null;
+  return {
+    id: source.id,
+    title: source.title,
+    artifactId: artifact.id,
+    attribution: [
+      source.author || source.publisher,
+      source.as_of_date
+        ? `As of ${source.as_of_date}`
+        : source.published_date && `Published ${source.published_date}`,
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    source,
+  };
+}
 
 export function DiscoverySources({
   storageKey,
@@ -37,11 +67,16 @@ export function DiscoverySources({
   const [error, setError] = useState("");
   const [filePending, setFilePending] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [preview, setPreview] = useState<{ charts: SavedChart[]; id: string }>();
+  const previewOpener = useRef<HTMLButtonElement>(null);
   const rightsSelect = useRef<HTMLSelectElement>(null);
   const writing = useRef(false);
   const touched = !!(title || body || url);
   const editing = touched || filePending;
   const locked = disabled || saving;
+  const packetFull = ids.length >= 100;
+  const viewedChart = preview?.charts.find((chart) => chart.id === preview.id)?.source;
+  const chartPinned = !!viewedChart && ids.includes(viewedChart.id);
   const attribution: Attribution = { author: author.trim(), as_of_date: date || null, rights };
   const label = kind === "link" ? "link" : kind === "discussion" ? "conversation" : "note";
   const needsRights = kind !== "link" && rights === "unknown";
@@ -60,7 +95,7 @@ export function DiscoverySources({
     setError("");
   }
   async function pinText() {
-    if (locked || writing.current || ids.length >= 100 || !canPinText) return;
+    if (locked || writing.current || packetFull || !canPinText) return;
     writing.current = true;
     setSaving(true);
     setError("");
@@ -156,7 +191,7 @@ export function DiscoverySources({
             void pinText();
           }}
         >
-          <fieldset disabled={locked || ids.length >= 100}>
+          <fieldset disabled={locked || packetFull}>
             <legend>Paste a source</legend>
             <div className={styles.kinds} role="group" aria-label="Pasted source type">
               {(["text", "discussion", "link"] as const).map((value) => (
@@ -272,8 +307,52 @@ export function DiscoverySources({
           attachedCharts={known}
           showSelected={false}
           disabled={locked || filePending}
+          renderResultAction={(source, visible) => {
+            const chart = savedChart(source);
+            return (
+              chart && (
+                <button
+                  type="button"
+                  className="button small"
+                  aria-haspopup="dialog"
+                  aria-label={`Preview chart ${chart.title}${chart.attribution ? ` · ${chart.attribution}` : ""}`}
+                  disabled={locked || filePending}
+                  onClick={(event) => {
+                    previewOpener.current = event.currentTarget;
+                    setPreview({
+                      id: chart.id,
+                      charts: visible.map(savedChart).filter((item) => item !== null),
+                    });
+                  }}
+                >
+                  Preview
+                </button>
+              )
+            );
+          }}
         />
       </section>
+      <SourceChartDialog
+        charts={preview?.charts ?? []}
+        selectedId={locked || filePending ? undefined : preview?.id}
+        onSelect={(id) => setPreview((current) => (id && current ? { ...current, id } : undefined))}
+        opener={previewOpener}
+        action={
+          viewedChart && (
+            <button
+              type="button"
+              className="button primary"
+              disabled={locked || filePending || chartPinned || packetFull}
+              onClick={() => {
+                onPin(viewedChart);
+                setPreview(undefined);
+              }}
+            >
+              {chartPinned ? "Chart pinned" : packetFull ? "Packet full" : "Pin this chart"}
+            </button>
+          )
+        }
+      />
     </>
   );
 }

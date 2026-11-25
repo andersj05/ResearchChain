@@ -27,7 +27,8 @@ date. Fields use batch attribution until edited. **Use batch attribution**
 restores those defaults for the file.
 
 **Saved sources** selects existing library records. Search by title or
-attribution and choose **Pin loaded results** to append the matches on screen
+attribution. Use **Preview** to inspect original charts and **Pin this chart** to
+add the version on screen. Choose **Pin loaded results** to append the matches
 in their current order. The action skips sources already pinned. Load more
 matches to include them, or narrow the search if the group exceeds the packet's
 remaining space.
@@ -46,8 +47,9 @@ The library accepts originals up to 20 MiB each. A new desk study has an 8 MB li
 packet. Before anyone receives an assignment, the lead brings you an
 observation, a question and up to two possible working sentences. Each proposal
 names a rival explanation, its first check and what would weaken it. Follow a
-source title to see the cited passage or chart. A sparse packet can yield a
-question with no proposed sentence.
+source title to see the cited passage or chart. **Return to proposal** restores
+focus to the citation you opened. A sparse packet can yield a question with no
+proposed sentence.
 
 Choose **Use this sentence** to bring a proposal into **Your working sentence**.
 Edit it or write your own. For example, a lead might suggest checking whether
@@ -69,7 +71,8 @@ editorial review setting controls the separate decision about the report.
   for structure and voice.
 - Turn on **Allow live web search** if the team and editor should look beyond the
   packet after you choose a working sentence. The packet sidebar shows the
-  first-reading model and the current web-search setting.
+  first-reading model, its thinking effort and detail, and the team’s web-search
+  setting.
 - **Research settings** starts with up to three researchers, six passes per
   researcher and editor, and a 30-minute active-time limit. You can choose up to
   four researchers, twelve passes and one hour. The lead can use fewer researchers
@@ -113,6 +116,11 @@ dates and availability. **Preview chart** opens the pinned original and lets
 you page through the available charts in reading order. A workspace's **Model
 passes** includes the saved request for each pass. **Revisit material** restores
 your choices for the next experiment.
+
+To reuse an operating setup in **New study**, open **Use settings from a study**
+under **Research settings**. Choose a recent study and apply its team structure,
+consultation settings, model choices, and limits. The current draft keeps its
+title, context, sources, writing sample, live web search, and editorial review choice.
 
 ### Run a swarm
 

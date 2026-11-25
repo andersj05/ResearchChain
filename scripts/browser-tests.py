@@ -16,14 +16,24 @@ from researchchain.access_service import AccessService
 from researchchain.database import LOCAL_DATABASE_URL, Database
 
 
+def bind_browser_port(listener: socket.socket) -> int:
+    # The private port range avoids browser-blocked service ports such as 1719.
+    for _ in range(32):
+        port = 49152 + secrets.randbelow(16384)
+        try:
+            listener.bind(("127.0.0.1", port))
+        except OSError:
+            continue
+        return port
+    raise RuntimeError("Could not reserve a loopback port for browser tests.")
+
+
 def browser_ports() -> tuple[int, int]:
     if os.environ.get("CI"):
         # CI builds the frontend before starting the test runner.
         return 3000, 8000
     with socket.socket() as web, socket.socket() as api:
-        web.bind(("127.0.0.1", 0))
-        api.bind(("127.0.0.1", 0))
-        return web.getsockname()[1], api.getsockname()[1]
+        return bind_browser_port(web), bind_browser_port(api)
 
 
 Database.from_env()

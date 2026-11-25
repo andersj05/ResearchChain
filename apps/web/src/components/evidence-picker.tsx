@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { mergeSources, readSources, useEvidenceLibrary } from "@/lib/use-evidence-library";
@@ -23,6 +23,7 @@ export function EvidencePicker({
   onAttachChart,
   attachedCharts = [],
   showSelected = true,
+  renderResultAction,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
@@ -33,6 +34,7 @@ export function EvidencePicker({
   onAttachChart?: (known: EvidenceRecord[]) => void;
   attachedCharts?: EvidenceRecord[];
   showSelected?: boolean;
+  renderResultAction?: (item: EvidenceRecord, visible: EvidenceRecord[]) => ReactNode;
 }) {
   const [search, setSearch] = useState("");
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
@@ -218,28 +220,39 @@ export function EvidencePicker({
         </div>
       )}
       <div className="evidence-options">
-        {visible.map((item) => (
-          <label className="evidence-option" key={item.id}>
-            <input
-              type="checkbox"
-              aria-labelledby={`${pickerId}-${item.id}-name`}
-              aria-describedby={`${pickerId}-${item.id}-details`}
-              checked={selectedIds.has(item.id)}
-              disabled={disabled || (!slots && !selectedIds.has(item.id))}
-              onChange={(event) => {
-                if (event.target.checked) add([item]);
-                else remove(item.id);
-              }}
-            />
-            <span className="evidence-option-copy">
-              <span id={`${pickerId}-${item.id}-name`}>
-                <strong>{item.title}</strong>
-                <small>{availabilityLabels[item.availability ?? "available"]}</small>
+        {visible.map((item) => {
+          const label = (
+            <label className="evidence-option" key={item.id}>
+              <input
+                type="checkbox"
+                aria-labelledby={`${pickerId}-${item.id}-name`}
+                aria-describedby={`${pickerId}-${item.id}-details`}
+                checked={selectedIds.has(item.id)}
+                disabled={disabled || (!slots && !selectedIds.has(item.id))}
+                onChange={(event) => {
+                  if (event.target.checked) add([item]);
+                  else remove(item.id);
+                }}
+              />
+              <span className="evidence-option-copy">
+                <span id={`${pickerId}-${item.id}-name`}>
+                  <strong>{item.title}</strong>
+                  <small>{availabilityLabels[item.availability ?? "available"]}</small>
+                </span>
+                <small id={`${pickerId}-${item.id}-details`}>{sourceMetadata(item)}</small>
               </span>
-              <small id={`${pickerId}-${item.id}-details`}>{sourceMetadata(item)}</small>
-            </span>
-          </label>
-        ))}
+            </label>
+          );
+          const action = renderResultAction?.(item, visible);
+          return action ? (
+            <div key={item.id} className="evidence-option-row">
+              {label}
+              {action}
+            </div>
+          ) : (
+            label
+          );
+        })}
         {!library.loading && !library.error && !visible.length && (
           <p className="muted">{query ? "No matching sources." : "No saved sources yet."}</p>
         )}

@@ -14,6 +14,7 @@ test("start with the edited settings while the first-reading action stays visibl
   const setup = page.getByRole("complementary", { name: "Prepare the first reading" });
   await expect(setup.getByText("First-reading model", { exact: true })).toBeVisible();
   await expect(setup.getByText(/Astra 6\.2/)).toBeVisible();
+  await expect(setup.getByText("High effort · High detail", { exact: true })).toBeVisible();
   await expect(setup.getByText("Off", { exact: true })).toBeVisible();
 
   const settings = page.getByRole("navigation", { name: "Study sections" });
@@ -26,6 +27,21 @@ test("start with the edited settings while the first-reading action stays visibl
 
   const sourceId = await pinDeskNote(page);
   await settings.getByRole("link", { name: "Research settings" }).click();
+  const lead = page.getByRole("group", { name: "Research lead", exact: true });
+  await lead
+    .getByRole("group", { name: "Thinking effort control" })
+    .getByRole("button", { name: "Use model default" })
+    .click();
+  await expect(
+    setup.getByText("Model default effort · High detail", { exact: true }),
+  ).toBeVisible();
+  await lead
+    .getByRole("group", { name: "Response detail control" })
+    .getByRole("button", { name: "Use model default" })
+    .click();
+  await expect(
+    setup.getByText("Model default effort · Model default detail", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("checkbox", { name: "Allow live web search" }).check();
   await expect(setup.getByText("On", { exact: true })).toBeVisible();
   await page.getByRole("spinbutton", { name: "Passes per agent" }).fill("5");
@@ -59,6 +75,7 @@ test("start with the edited settings while the first-reading action stays visibl
     max_passes: 5,
     web_search: true,
     start_from_sources: true,
+    lead: { reasoning_effort: "model_default", verbosity: "model_default" },
   });
 });
 

@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useState, type RefObject } from "react";
+import { useState, type ReactNode, type RefObject } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -44,11 +44,13 @@ export function SourceChartDialog({
   selectedId,
   onSelect,
   opener,
+  action,
 }: {
   charts: ChartPreviewSource[];
   selectedId: string | undefined;
   onSelect: (id: string | undefined) => void;
   opener: RefObject<HTMLButtonElement | null>;
+  action?: ReactNode;
 }) {
   const index = charts.findIndex((chart) => chart.id === selectedId);
   const chart = charts[index];
@@ -102,6 +104,7 @@ export function SourceChartDialog({
                   Next chart
                 </button>
               </div>
+              {action}
             </footer>
           </>
         )}

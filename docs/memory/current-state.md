@@ -2,6 +2,20 @@
 
 Updated 2026-11-25.
 
+## Reusing research settings
+
+**New study** can copy the operational settings of a recent study after an
+explicit selection and confirmation. Team, model choices, thinking effort,
+response detail and limits go into the current draft. The draft keeps its
+material and context. Its first reading uses the new brief and packet.
+
+The packet shows the effective first-reading model, thinking effort and detail.
+Saved-source previews can pin the exact chart on screen. First-reading citations
+return to the originating proposal and retain the working-sentence draft.
+
+Evaluation case and topic identifiers use native browser validation. The local
+Chromium runner selects its loopback ports from the private port range.
+
 ## Source queue and batch uploads
 
 Opening **Studies** and reading a saved study keeps the file queue and edited

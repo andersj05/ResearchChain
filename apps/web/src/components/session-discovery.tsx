@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { components } from "@researchchain/contracts";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { readReviewDrafts } from "@/lib/run-review-drafts";
@@ -13,6 +13,27 @@ type Reading = components["schemas"]["DiscoveryReading"];
 type Review = NonNullable<RunSnapshot["review"]>;
 type Decision = components["schemas"]["ReviewResponse"];
 type SelectPass = (workspace: string, pass: string | null) => void;
+type CitationOrigin = { evidenceId: string; linkId: string };
+
+const sourceNoteId = (id: string) => `reading-source-${id}`;
+const proposalCitationId = (index: number, id: string) => `proposal-${index}-citation-${id}`;
+
+function focusCitationTarget(event: MouseEvent<HTMLAnchorElement>) {
+  if (
+    event.defaultPrevented ||
+    event.button ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+    return false;
+  const target = document.getElementById(event.currentTarget.hash.slice(1));
+  if (!target) return false;
+  // Let the browser keep handling the fragment, scrolling and navigation history.
+  target.focus({ preventScroll: true });
+  return true;
+}
 
 const basisLabel = {
   source_text: "Source text",
@@ -28,10 +49,12 @@ function SourceNotes({
   run,
   reading,
   sources,
+  origin,
 }: {
   run: RunSnapshot;
   reading: Reading;
   sources: ReturnType<typeof useSourceDetails>;
+  origin?: CitationOrigin;
 }) {
   const cited = [...new Set(reading.citations.map((c) => c.evidence_id))];
   return (
@@ -44,13 +67,21 @@ function SourceNotes({
         const citations = reading.citations.filter((c) => c.evidence_id === id);
         const name = item?.title ?? `Source ${id.slice(0, 8)}`;
         const chart = saved?.representation === "chart_screenshot" && saved.original;
+        const noteId = sourceNoteId(id);
         return (
-          <article key={id} id={`reading-source-${id}`}>
-            <h4>
-              <a href={evidenceUrl(id)} target="_blank" rel="noopener">
-                {name}
-              </a>
-            </h4>
+          <article key={id} id={noteId} aria-labelledby={`${noteId}-title`} tabIndex={-1}>
+            <div className={styles.sourceHeading}>
+              <h4 id={`${noteId}-title`}>
+                <a href={evidenceUrl(id)} target="_blank" rel="noopener">
+                  {name}
+                </a>
+              </h4>
+              {origin?.evidenceId === id && (
+                <a href={`#${origin.linkId}`} onClick={focusCitationTarget}>
+                  Return to proposal
+                </a>
+              )}
+            </div>
             <p className={styles.byline}>
               {[
                 item?.kind === "discussion" ? "Conversation" : null,
@@ -107,6 +138,7 @@ function FirstReading({
   choose?: (sentence: string) => void;
   children?: React.ReactNode;
 }) {
+  const [origin, setOrigin] = useState<CitationOrigin>();
   return (
     <div className={styles.spread}>
       <div className={styles.reading}>
@@ -124,7 +156,15 @@ function FirstReading({
             </dl>
             <div className={styles.references}>
               {p.evidence_ids.map((id) => (
-                <a key={id} href={`#reading-source-${id}`}>
+                <a
+                  key={id}
+                  id={proposalCitationId(i, id)}
+                  href={`#${sourceNoteId(id)}`}
+                  onClick={(event) => {
+                    if (focusCitationTarget(event))
+                      setOrigin({ evidenceId: id, linkId: event.currentTarget.id });
+                  }}
+                >
                   {sources.items.get(id)?.title ?? `Source ${id.slice(0, 8)}`}
                 </a>
               ))}
@@ -141,7 +181,7 @@ function FirstReading({
         )}
         {children}
       </div>
-      <SourceNotes run={run} reading={reading} sources={sources} />
+      <SourceNotes run={run} reading={reading} sources={sources} origin={origin} />
     </div>
   );
 }
@@ -286,6 +326,29 @@ export function SessionDiscovery({
 }) {
   const active = run.execution_pending || ["queued", "running", "paused"].includes(run.status);
   const parked = decision?.decision === "reject";
+  const history = useRef<HTMLDetailsElement>(null);
+  const bookmark = useRef<string | null>(null);
+  useEffect(() => {
+    if (bookmark.current === null) bookmark.current = window.location.hash.slice(1);
+    const fragment = bookmark.current;
+    if (!fragment || !reading) return;
+    const matching =
+      reading.citations.some((citation) => sourceNoteId(citation.evidence_id) === fragment) ||
+      reading.proposals.some((proposal, index) =>
+        proposal.evidence_ids.some((id) => proposalCitationId(index, id) === fragment),
+      );
+    if (!matching || window.location.hash !== `#${fragment}`) {
+      bookmark.current = "";
+      return;
+    }
+    if (history.current) history.current.open = true;
+    const target = document.getElementById(fragment);
+    if (!target) return;
+    bookmark.current = "";
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
+  }, [reading, readingRequested]);
+
   return (
     <section
       className={styles.sheet}
@@ -361,6 +424,7 @@ export function SessionDiscovery({
           {reading ? (
             <details
               className={styles.history}
+              ref={history}
               onToggle={(event) => {
                 if (event.currentTarget.open) onReadOriginal();
               }}

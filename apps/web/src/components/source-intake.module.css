@@ -171,6 +171,18 @@
 .panel :global(.evidence-option) {
   display: flex;
 }
+.panel :global(.evidence-option-row) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-end: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.panel :global(.evidence-option-row) :global(.evidence-option) {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
+}
 .panel :global(.evidence-picker) input[type="checkbox"] {
   accent-color: var(--ink);
 }

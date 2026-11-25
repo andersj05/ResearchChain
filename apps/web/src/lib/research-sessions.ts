@@ -85,13 +85,9 @@ export function newStudyModelProfiles(models: readonly ProviderModel[], fallback
   };
 }
 
-export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
+export function reusableResearchSettings(source: ResearchSessionSetup) {
   return {
-    brief: source.start_from_sources && source.brief === sourceLedBrief ? "" : source.brief,
-    ...(source.title && { title: source.title }),
-    ...(source.start_from_sources && { start_from_sources: true }),
     max_input_bytes: source.max_input_bytes ?? 4_000_000,
-    style_excerpt: source.style_excerpt ?? "",
     model: source.model,
     reasoning_effort: source.reasoning_effort,
     verbosity: source.verbosity,
@@ -99,10 +95,20 @@ export function editableResearchBrief(source: ResearchSessionSetup): ResearchBri
     researcher: source.researcher,
     editor: source.editor,
     swarm: source.swarm,
-    evidence_ids: source.evidence_ids ?? [],
     max_agents: source.max_agents ?? blankResearchBrief.max_agents,
     max_passes: source.max_passes ?? blankResearchBrief.max_passes,
     max_active_seconds: source.max_active_seconds ?? blankResearchBrief.max_active_seconds,
+  };
+}
+
+export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
+  return {
+    ...reusableResearchSettings(source),
+    brief: source.start_from_sources && source.brief === sourceLedBrief ? "" : source.brief,
+    ...(source.title && { title: source.title }),
+    ...(source.start_from_sources && { start_from_sources: true }),
+    style_excerpt: source.style_excerpt ?? "",
+    evidence_ids: source.evidence_ids ?? [],
     web_search: source.web_search ?? false,
     review_mode: source.review_mode ?? "when_needed",
   };
