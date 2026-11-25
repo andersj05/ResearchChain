@@ -131,6 +131,7 @@ export function ReportEditor({
   const draftBody = useMemo(() => JSON.stringify(draft), [draft]);
   const originalBody = useMemo(() => JSON.stringify(original), [original]);
   const dirty = draftBody !== originalBody;
+  const hasUnfinishedWork = dirty || referenceDrafts.size > 0;
   const stale = view.current_revision_id !== record.id;
   const retryingSave = stale && pendingBody === draftBody;
   const saveDisabled =
@@ -776,21 +777,43 @@ export function ReportEditor({
           <details>
             <summary>Revision history</summary>
             <p className="field-hint">
-              Latest 100 revisions. Opening a revision keeps unsaved edits in this browser.
+              Latest 100 revisions.
+              {hasUnfinishedWork &&
+                " Other revisions open in a new tab to keep this draft in place."}
             </p>
-            {history.map((h) => (
-              <Button
-                className="report-history-item"
-                key={h.id}
-                disabled={busy || h.id === record.id}
-                onClick={() => action(() => onOpen(h.id))}
-              >
-                <strong>
-                  Revision {h.version} · {h.author === "human" ? "Human" : "Research seed"}
-                </strong>
-                <span>{h.change_note}</span>
-              </Button>
-            ))}
+            {history.map((h) => {
+              const isOpen = h.id === record.id;
+              const openInNewTab = hasUnfinishedWork && !isOpen && !busy;
+              const content = (
+                <>
+                  <strong>
+                    Revision {h.version} · {h.author === "human" ? "Human" : "Research seed"}
+                    {openInNewTab && " (new tab)"}
+                  </strong>
+                  <span>{h.change_note}</span>
+                </>
+              );
+              return openInNewTab ? (
+                <a
+                  className="report-history-item"
+                  key={h.id}
+                  href={`/?${new URLSearchParams({ view: "reports", report: h.id })}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {content}
+                </a>
+              ) : (
+                <Button
+                  className="report-history-item"
+                  key={h.id}
+                  disabled={busy || isOpen}
+                  onClick={() => action(() => onOpen(h.id))}
+                >
+                  {content}
+                </Button>
+              );
+            })}
           </details>
           <details>
             <summary>Research provenance</summary>
