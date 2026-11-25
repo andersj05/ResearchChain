@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources } from "./discovery-sources";
 import { StudyPacket, packetSize } from "./study-packet";
-import { StudySetupComparison } from "./study-setup-comparison";
 import type { EvidenceRecord } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
@@ -31,6 +30,12 @@ import {
   type ResearchSessionStart,
 } from "@/lib/research-sessions";
 import styles from "./research-desk.module.css";
+
+const StudySetupComparison = lazy(() =>
+  import("./study-setup-comparison").then(({ StudySetupComparison }) => ({
+    default: StudySetupComparison,
+  })),
+);
 
 export function ResearchLauncher({ fromSession }: { fromSession: string | null }) {
   const { active, owner } = useOwner();
@@ -288,12 +293,14 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         </p>
       )}
       {fromSession && loaded && (
-        <StudySetupComparison
-          fromSession={fromSession}
-          baseline={baseline}
-          draft={{ ...draft, model, max_input_bytes: limit }}
-          records={[...records, ...captured.values()]}
-        />
+        <Suspense fallback={null}>
+          <StudySetupComparison
+            fromSession={fromSession}
+            baseline={baseline}
+            draft={{ ...draft, model, max_input_bytes: limit }}
+            records={[...records, ...captured.values()]}
+          />
+        </Suspense>
       )}
       {setupError && (
         <div role="alert" className={styles.notice}>

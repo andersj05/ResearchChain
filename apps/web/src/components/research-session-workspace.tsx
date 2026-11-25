@@ -1,4 +1,5 @@
 import type { components } from "@researchchain/contracts";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { contentDownloadUrl } from "@/lib/evidence";
 import { modelSettingLabel, resolveModelProfile } from "@/lib/model-settings";
 import { modelAttemptStatus } from "@/lib/run-inspection";
@@ -7,7 +8,12 @@ import type { RunSnapshot } from "@/lib/workflow";
 import { CopyLinkButton } from "./copy-link-button";
 import { ResearchMarkdown } from "./research-markdown";
 import { ResearchToolReceipts, researchToolUrls } from "./research-tool-receipts";
-import { ResearchWorkspace, WorkspaceFilePreview, WorkspaceFiles } from "./research-workspace";
+import {
+  canPreviewWorkspaceFile,
+  ResearchWorkspace,
+  WorkspaceFilePreview,
+  WorkspaceFiles,
+} from "./research-workspace";
 import { formatTime } from "./run-status";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
 import styles from "./research-session.module.css";
@@ -246,10 +252,10 @@ function SavedFindings({
   );
 }
 
-function RecordedSources({ urls }: { urls: Set<string> }) {
+function RecordedSources({ urls, hidden }: { urls: Set<string>; hidden?: boolean }) {
   if (!urls.size) return null;
   return (
-    <details className={styles.receipts}>
+    <details className={styles.receipts} hidden={hidden}>
       <summary>Recorded sources ({urls.size})</summary>
       <ul>
         {[...urls].map((url) => (
@@ -379,11 +385,13 @@ export function SessionWorkspaceDetail({
   passId,
   onPass,
   returnToReview,
+  returnToJudgment,
   returnToIndex,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
   returnToReview?: { id: string; title: string };
+  returnToJudgment?: boolean;
   returnToIndex?: StudyIndexReturn;
 } & PassSelection) {
   const selected = lane.attempts.find((attempt) => attempt.id === passId);
@@ -397,6 +405,26 @@ export function SessionWorkspaceDetail({
       {returnToReview && (
         <a className="text-link" href={`#consultation-${returnToReview.id}-answer`}>
           Return to {returnToReview.title}’s question
+        </a>
+      )}
+      {returnToJudgment && (
+        <a
+          className="text-link"
+          href="#editor-feedback"
+          onClick={(event) => {
+            if (event.button || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
+              return;
+            const target =
+              document.querySelector<HTMLElement>("#editor-feedback:enabled") ??
+              document.getElementById("editorial-review");
+            if (!target) return;
+            event.preventDefault();
+            window.history.replaceState(null, "", `#${target.id}`);
+            target.focus({ preventScroll: true });
+            target.scrollIntoView({ block: "center" });
+          }}
+        >
+          Return to your judgment
         </a>
       )}
       {selected && returnToIndex && <StudyIndexLink {...returnToIndex} className="text-link" />}
@@ -439,6 +467,85 @@ export function SessionWorkspaceDetail({
   );
 }
 
+const reportViewportId = "study-report-text";
+
+type ReadingPlace = {
+  viewportTop: number;
+  block?: Element;
+  offset: number;
+  height: number;
+  restoreFocus: boolean;
+};
+
+function useReportReading(available: boolean) {
+  const [focused, setFocused] = useState(false);
+  const reading = available && focused;
+  const viewport = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const place = useRef<ReadingPlace>(undefined);
+
+  const change = useCallback((enabled: boolean, restoreFocus = false) => {
+    const panel = viewport.current;
+    if (panel) {
+      const viewportTop = panel.getBoundingClientRect().top;
+      const block = Array.from(panel.firstElementChild?.children ?? []).find(
+        (element) => element.getBoundingClientRect().bottom > viewportTop,
+      );
+      const rect = block?.getBoundingClientRect();
+      place.current = {
+        viewportTop,
+        block,
+        offset: rect ? viewportTop - rect.top : 0,
+        height: rect?.height ?? 0,
+        restoreFocus,
+      };
+    }
+    setFocused(enabled);
+  }, []);
+
+  useLayoutEffect(() => {
+    const panel = viewport.current;
+    const saved = place.current;
+    place.current = undefined;
+    if (!panel || !saved) return;
+    const viewportTop = panel.getBoundingClientRect().top;
+    if (saved.block && panel.contains(saved.block)) {
+      const rect = saved.block.getBoundingClientRect();
+      // Preserve the reading position within a paragraph even when lines reflow.
+      const offset =
+        saved.offset > 0 && saved.height > 0
+          ? (saved.offset / saved.height) * rect.height
+          : saved.offset;
+      panel.scrollTop += rect.top - viewportTop + offset;
+    }
+    window.scrollBy(0, viewportTop - saved.viewportTop);
+    if (saved.restoreFocus) {
+      button.current?.focus({ preventScroll: true });
+      button.current?.scrollIntoView({ block: "nearest" });
+    }
+  }, [reading]);
+
+  useEffect(() => {
+    if (!reading) return;
+    function exit(event: KeyboardEvent) {
+      const workspace = button.current?.closest("#current-research-workspace");
+      if (
+        event.key === "Escape" &&
+        !event.defaultPrevented &&
+        event.target instanceof Node &&
+        workspace?.contains(event.target)
+      ) {
+        event.preventDefault();
+        change(false, true);
+      }
+    }
+    window.addEventListener("keydown", exit);
+    return () => window.removeEventListener("keydown", exit);
+  }, [reading, change]);
+
+  return { reading, change, viewport, button };
+}
+
 function WorkspaceOverview({
   lane,
   run,
@@ -452,7 +559,12 @@ function WorkspaceOverview({
   const result = latest?.result ?? lane.attempts.findLast((attempt) => attempt.result)?.result;
   const files = result?.workspace_files ?? [];
   const report = sessionReport(lane, run.status);
-  const urls = sourceUrls(lane.key === "editor" ? (run.model_attempts ?? []) : lane.attempts);
+  const canFocusReport = !!report?.complete && canPreviewWorkspaceFile(report.file);
+  const { reading, change, viewport, button } = useReportReading(canFocusReport);
+  const urls = useMemo(
+    () => sourceUrls(lane.key === "editor" ? (run.model_attempts ?? []) : lane.attempts),
+    [lane.attempts, lane.key, run.model_attempts],
+  );
   const active =
     run.status === "running" && (latest?.status === "preparing" || latest?.status === "requesting");
   const assignments = result?.swarm_plan?.leads ?? result?.team_plan?.assignments;
@@ -461,13 +573,13 @@ function WorkspaceOverview({
       <div className={styles.detailHeading}>
         <div>
           <h2>{report ? (report.complete ? "Research report" : "Report draft") : lane.title}</h2>
-          <p>{lane.objective}</p>
-          {lane.path && (
+          {!reading && <p>{lane.objective}</p>}
+          {!reading && lane.path && (
             <p className={styles.workspacePath}>
               <code>{lane.path}</code> · {activityLabel(lane)}
             </p>
           )}
-          {lane.path && lane.profile && (
+          {!reading && lane.path && lane.profile && (
             <p>
               Model · {lane.profile.model} · {modelSettingLabel(lane.profile.reasoning_effort)}{" "}
               thinking effort · {modelSettingLabel(lane.profile.verbosity)} response detail
@@ -476,6 +588,27 @@ function WorkspaceOverview({
         </div>
         {report?.complete && latest && (
           <div className={styles.actions}>
+            {canFocusReport && (
+              <button
+                ref={button}
+                className="button small"
+                type="button"
+                aria-controls={reportViewportId}
+                aria-keyshortcuts={reading ? "Escape" : undefined}
+                onClick={() => change(!reading)}
+              >
+                {reading ? (
+                  <>
+                    Exit reading{" "}
+                    <kbd className={styles.readingKey} aria-hidden="true">
+                      Esc
+                    </kbd>
+                  </>
+                ) : (
+                  "Focus reading"
+                )}
+              </button>
+            )}
             <a
               className="button small primary"
               href={`/?${new URLSearchParams({ view: "reports", fromStudy: run.id, reportAttempt: latest.id })}`}
@@ -521,6 +654,20 @@ function WorkspaceOverview({
           sources={urls}
           files={files}
           contents={report.complete}
+          viewport={
+            canFocusReport
+              ? {
+                  id: reportViewportId,
+                  role: "region",
+                  "aria-label": "Report text",
+                  tabIndex: 0,
+                  ref: viewport,
+                  className: reading
+                    ? `${styles.reportViewport} ${styles.focusedReport}`
+                    : styles.reportViewport,
+                }
+              : undefined
+          }
         />
       ) : result?.swarm_action ? (
         <SwarmDecision action={result.swarm_action} />
@@ -541,14 +688,14 @@ function WorkspaceOverview({
         lane.attempts.some(
           ({ result: r }) => r?.workspace_activity || r?.workspace_files?.length,
         ) && (
-          <details className={styles.receipts} open={!report || undefined}>
+          <details className={styles.receipts} open={!report || undefined} hidden={reading}>
             <summary>Workspace activity and files</summary>
             <ResearchWorkspace attempts={lane.attempts} running={!!active} />
           </details>
         )}
-      <RecordedSources urls={urls} />
+      <RecordedSources urls={urls} hidden={reading} />
       {latest && (
-        <details className={styles.receipts}>
+        <details className={styles.receipts} hidden={reading}>
           <summary>Model passes ({lane.attempts.length})</summary>
           <div className={styles.pass}>
             <PassPicker attempts={lane.attempts} passId={null} onPass={onPass} />

@@ -159,13 +159,19 @@ Expand a saved direction to see exactly which requests included it. Once the
 editor starts, the current study closes to further directions.
 
 If the session pauses for review, read the team's question and inspect the work
-behind it. You can give the editor your judgment or end the study at that point.
+behind it. Open **Research behind this review** to inspect a saved final pass.
+Researchers who raised the current question appear first. **Back to editorial
+review** returns to your drafted answer. You can give the editor your judgment
+or end the study at that point.
 
 ## Read the result and iterate
 
 Choose **Read report** at the top of a completed study to open its saved
 Markdown and figures. Longer reports show a **Contents** list with links to
 individual headings. A report section can be bookmarked and reopened directly.
+**Focus reading** gives the report the full workspace while keeping the current
+paragraph in view. Choose **Exit reading** or press Escape inside the report to
+return to the workspaces.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
 Choose **Edit in Reports** to create an editable report from the saved Markdown

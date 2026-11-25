@@ -48,6 +48,8 @@ export function ReportEditor({
   const storagePrefix = ownerStoragePrefix(owner);
   const record = view.revision;
   const study = record.provenance.renderer === "study-markdown-1" ? record.provenance : null;
+  const provenanceParams = new URLSearchParams({ view: "runs", run: record.provenance.run_id });
+  if (study) provenanceParams.set("attempt", study.attempt.id);
   const studyFiles = study?.attempt.result?.workspace_files ?? [];
   const studyUrls = new Set(study?.recorded_urls);
   const [original] = useState(() => reportDraft(record));
@@ -568,13 +570,9 @@ export function ReportEditor({
           <details>
             <summary>Research provenance</summary>
             <p>
-              Run{" "}
-              <a
-                href={`/?view=runs&run=${record.provenance.run_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {record.provenance.run_id.slice(0, 8)}
+              {!study && "Run "}
+              <a href={`/?${provenanceParams}`} target="_blank" rel="noopener noreferrer">
+                {study ? "Inspect source pass" : record.provenance.run_id.slice(0, 8)}
               </a>{" "}
               · {record.provenance.attempt.stage}
             </p>

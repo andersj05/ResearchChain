@@ -45,6 +45,14 @@ test("a phone gives queued transcript titles room and follows the visible desk o
   expect((await packet.boundingBox())!.y).toBeLessThan((await library.boundingBox())!.y);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
+  await page.setViewportSize({ width: 390, height: 844 });
+  const links = page.getByRole("navigation", { name: "Research navigation" }).getByRole("link");
+  await expect(links).toHaveCount(6);
+  const positions = await links.evaluateAll((items) =>
+    items.map((item) => Math.round(item.getBoundingClientRect().top)),
+  );
+  expect(new Set(positions).size).toBe(1);
+
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.evaluate(() => window.scrollTo(0, 0));
   const captureBox = (await capture.boundingBox())!;

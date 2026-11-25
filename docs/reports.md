@@ -11,8 +11,10 @@ Confirm the title and pinned style guide, then create the draft. It starts with
 the saved Markdown, original editor files, recorded references and source
 snapshots. Open **Preview the saved report** to read the Markdown with its
 figures and recorded web links. **Original study and files** links back to the
-study and offers individual downloads. If the receipt is lost, the same browser
-tab restores the pending request so you can retry it after refreshing.
+study and offers individual downloads. Under **Research provenance**, choose
+**Inspect source pass** to open the original editor pass in a new tab. If draft
+creation loses its receipt, the same browser tab restores the pending request so
+you can retry it after refreshing.
 
 Report creation copies a saved result. Section drafting and revision are human
 editing actions. The pinned guide is an editorial reference; it does not

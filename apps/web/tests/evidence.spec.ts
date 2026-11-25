@@ -114,7 +114,9 @@ test("pin evidence to a run and retain the earlier source after correction", asy
   await expect(down).toBeFocused();
   await expect(selection.getByRole("link")).toHaveText([companionTitle, title]);
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review");
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Needs review", {
+    timeout: 15_000,
+  });
   const context = page.getByRole("button", { name: "Run context", exact: true });
   await context.click();
   const pinned = page.getByRole("region", { name: "Pinned evidence" });

@@ -4,7 +4,6 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
-import { ResearchMethodology } from "./research-methodology";
 import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
 import { RunArchive } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
@@ -15,6 +14,11 @@ import styles from "./research-desk.module.css";
 
 const ResearchSession = lazy(() =>
   import("./research-session").then(({ ResearchSession }) => ({ default: ResearchSession })),
+);
+const ResearchMethodology = lazy(() =>
+  import("./research-methodology").then(({ ResearchMethodology }) => ({
+    default: ResearchMethodology,
+  })),
 );
 const studiesUrl = "/?view=research&studies=1";
 
@@ -157,7 +161,16 @@ export function ResearchDesk({
           />
         </Suspense>
       ) : deskView === "methodology" ? (
-        <ResearchMethodology />
+        <Suspense
+          fallback={
+            <main className={styles.page}>
+              <h1>Methodology</h1>
+              <p role="status">Opening the research methodology…</p>
+            </main>
+          }
+        >
+          <ResearchMethodology />
+        </Suspense>
       ) : deskView === "decisions" ? (
         <main className={styles.page}>
           <ResearchReviewQueue />

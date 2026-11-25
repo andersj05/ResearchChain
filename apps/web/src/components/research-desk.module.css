@@ -555,7 +555,14 @@
   .header nav {
     grid-column: 1 / -1;
     grid-row: 2;
-    gap: 16px;
+    justify-content: space-between;
+    gap: 4px;
+    padding-block: 4px 5px;
+  }
+  .header nav a {
+    display: inline-flex;
+    min-height: 28px;
+    align-items: center;
   }
   .headerInner :global(.settings-trigger) {
     grid-column: 2;

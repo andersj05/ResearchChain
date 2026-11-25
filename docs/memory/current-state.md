@@ -2,6 +2,17 @@
 
 Updated 2026-11-25.
 
+## Reading and editorial decisions
+
+Completed reports have a focused layout that preserves the reading position and
+keeps bookmarks, downloads and the Reports handoff available. Open exact saved
+research findings from the editorial question, then return to the same unsent
+judgment. The browser rehearsal covered 80 assignments across four leads.
+
+The header keeps its links on one row at 390px and wraps at narrower widths.
+The methodology and prelaunch comparison load only on their routes. Paired
+production builds reduced initial JavaScript by 15.1 kB before compression.
+
 ## Report reading and pinned sources
 
 Saved studies put **Revisit material** and the report link on the first screen.
@@ -13,6 +24,9 @@ unconfirmed pin for an exact retry.
 
 Sixteen focused production Chromium cases passed, including end-to-end team
 research, report reading, source order, and file retry with synthetic data.
+Desktop runs the `e5f9659` readout merge. The Studies route returned HTTP 200
+with two connected workers. CI passed 652 API tests with three skips and 246
+Chromium cases. [Readout PR](https://github.com/andersj05/ResearchChain/pull/152).
 
 ## Study archive and revision setup
 
