@@ -8,7 +8,7 @@ Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**
 
 Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
 
-**Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. You can leave **Context for the lead** blank.
+**Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. **Unpin all** clears the packet for a new batch and leaves the source library available. Use **Undo** to restore the previous reading order. You can leave **Context for the lead** blank.
 
 An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
 

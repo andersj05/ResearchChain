@@ -35,6 +35,27 @@ test("keyboard packet edits keep focus and announce the reading order at phone w
   await page.keyboard.press("Tab");
   await expect(packet.getByRole("button", { name: "Move Bravo follow-up down" })).toBeFocused();
 
+  const unpinAll = packet.getByRole("button", { name: "Unpin all", exact: true });
+  const undo = packet.getByRole("button", { name: "Undo unpin all", exact: true });
+  await unpinAll.focus();
+  await page.keyboard.press("Enter");
+  await expect(list).toHaveCount(0);
+  await expect(undo).toBeFocused();
+  await expect(status).toHaveText("Unpinned 3 sources. Undo is available.");
+  const library = page.getByRole("region", { name: "Source library" });
+  const order = ["Bravo follow-up", "Alpha weekly close", "Charlie reading"];
+  for (const title of order) {
+    const source = library.getByRole("checkbox", { name: title });
+    await expect(source).toBeVisible();
+    await expect(source).not.toBeChecked();
+  }
+  await page.keyboard.press("Enter");
+  await expect(list.getByRole("link")).toHaveCount(order.length);
+  await expect(list.getByRole("link")).toContainText(order);
+  await expect(status).toHaveText("Restored 3 sources in reading order.");
+  await expect(unpinAll).toBeFocused();
+  await expect(undo).toHaveCount(0);
+
   const alpha = packet.getByRole("button", { name: "Unpin Alpha weekly close" });
   const bravo = packet.getByRole("button", { name: "Unpin Bravo follow-up" });
   const charlie = packet.getByRole("button", { name: "Unpin Charlie reading" });

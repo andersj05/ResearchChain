@@ -68,7 +68,12 @@ export function StudyPacket({
   retry?: () => void;
 }) {
   const [previewId, setPreviewId] = useState<string>();
-  const [edit, setEdit] = useState<{ ids: string[]; focusId: string; message: string }>();
+  const [edit, setEdit] = useState<{
+    ids: string[];
+    focusId: string;
+    message: string;
+    restoreIds?: string[];
+  }>();
   const opener = useRef<HTMLButtonElement>(null);
   const packetId = useId();
   const charts = records.filter(
@@ -77,6 +82,9 @@ export function StudyPacket({
   const chartIndex = charts.findIndex((item) => item.id === previewId);
   const chart = charts[chartIndex];
   const appliedEdit = edit?.ids === ids ? edit : undefined;
+  const canUndoBulkUnpin = !!appliedEdit?.restoreIds;
+  const bulkUnpinId = `${packetId}-unpin-all`;
+  const undoId = `${packetId}-undo-unpin-all`;
   useLayoutEffect(() => {
     if (appliedEdit) document.getElementById(appliedEdit.focusId)?.focus();
   }, [appliedEdit]);
@@ -106,13 +114,58 @@ export function StudyPacket({
     });
     onChange(next);
   }
+  function unpinAll() {
+    const next: string[] = [];
+    setEdit({
+      ids: next,
+      focusId: undoId,
+      message: `Unpinned ${sourceCount(ids.length)}. Undo is available.`,
+      restoreIds: ids,
+    });
+    onChange(next);
+  }
+  function undoUnpinAll() {
+    const restore = appliedEdit?.restoreIds;
+    if (!restore) return;
+    setEdit({
+      ids: restore,
+      focusId: bulkUnpinId,
+      message: `Restored ${sourceCount(restore.length)} in reading order.`,
+    });
+    onChange(restore);
+  }
   return (
     <section className={styles.packet} aria-labelledby="packet-heading">
       <header>
         <h2 id="packet-heading" tabIndex={-1}>
           Study packet
         </h2>
-        <span>{sourceCount(ids.length)}</span>
+        <div className={styles.packetActions}>
+          <span>{sourceCount(ids.length)}</span>
+          {ids.length > 1 && (
+            <button
+              id={bulkUnpinId}
+              type="button"
+              className="button small"
+              disabled={disabled}
+              onClick={unpinAll}
+            >
+              Unpin all
+            </button>
+          )}
+          {canUndoBulkUnpin && (
+            <button
+              id={undoId}
+              type="button"
+              className="button small"
+              disabled={disabled}
+              aria-label="Undo unpin all"
+              onClick={undoUnpinAll}
+            >
+              Undo
+            </button>
+          )}
+        </div>
       </header>
       <p className="sr-only" role="status">
         {appliedEdit?.message ?? sourceCount(ids.length)}
