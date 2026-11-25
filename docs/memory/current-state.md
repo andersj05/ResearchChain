@@ -2,6 +2,19 @@
 
 Updated 2026-11-25.
 
+## Finding sources and reading reports
+
+**Saved sources** can filter an exact source type before pagination. Batch
+pinning and chart navigation stay within the loaded filtered results. Saved chart
+previews have a scrollable original-size view.
+
+Reports previews the selected section's unsaved heading and body in place.
+Study links and figures still come from the original editor pass. Activity
+search reuses normalized text while typing. In a paired Node CPU test of twelve
+query prefixes against 960 synthetic passes, median search work fell from 36.4
+to 5.8 ms including preparation. A 480-pass Chromium case verified a live match
+could arrive while inspecting an older exact file and return point.
+
 ## Packet editing and report handoff
 
 The packet can move an exact source directly to a different reading position.
