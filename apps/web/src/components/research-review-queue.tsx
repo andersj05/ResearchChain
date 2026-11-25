@@ -1,4 +1,11 @@
-import { useEffect, useState, type MouseEventHandler, type ReactNode } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useState,
+  type MouseEvent,
+  type MouseEventHandler,
+  type ReactNode,
+} from "react";
 import { useOwner } from "./access-context";
 import { formatTime } from "./run-status";
 import { sessionUrl } from "@/lib/research-sessions";
@@ -8,13 +15,25 @@ import styles from "./research-desk.module.css";
 
 type Study = PendingReviewsPage["items"][number];
 type Review = Study["reviews"][number];
+type DecisionRow = {
+  studyId: string;
+  interruptId: string;
+  studyIndex: number;
+  reviewIndex: number;
+  offset: number;
+};
+export type DecisionReturnPosition = DecisionRow & { top: number };
 type QueueLinks = {
-  onOpenDecision?: MouseEventHandler<HTMLAnchorElement>;
+  onOpenDecision?: (event: MouseEvent<HTMLAnchorElement>, row?: DecisionRow) => void;
   onViewQueue?: MouseEventHandler<HTMLAnchorElement>;
 };
 
 export const researchDecisionsUrl = "/?view=research&inbox=1";
 const pageSize = 20;
+
+function decisionId(study: Study, review: Review) {
+  return `pending-${study.id}-${review.interrupt_id}`;
+}
 
 function decisionLink(study: Study, review: Review) {
   if (review.perspective)
@@ -36,10 +55,12 @@ function ReviewPage({
   changePage,
   onOpenDecision,
   onViewQueue,
+  takeReturnPosition,
 }: {
   summary: boolean;
   offset: number;
   changePage: (offset: number) => void;
+  takeReturnPosition?: () => DecisionReturnPosition | undefined;
 } & QueueLinks) {
   const { active } = useOwner();
   const [page, setPage] = useState<PendingReviewsPage>();
@@ -53,6 +74,10 @@ function ReviewPage({
       try {
         const next = await api<PendingReviewsPage>(path);
         if (!isCurrent()) return;
+        if (offset && !next.items.length) {
+          changePage(offset - pageSize);
+          return;
+        }
         setPage(next);
         setError(false);
       } catch {
@@ -61,7 +86,27 @@ function ReviewPage({
         schedule(15000);
       }
     });
-  }, [active, offset, retry, summary]);
+  }, [active, changePage, offset, retry, summary]);
+
+  useLayoutEffect(() => {
+    if (!page || error) return;
+    const position = takeReturnPosition?.();
+    if (!position) return;
+    const adjacentIndex = position.offset > offset ? page.items.length - 1 : position.studyIndex;
+    const study =
+      page.items.find(({ id }) => id === position.studyId) ??
+      page.items[Math.min(adjacentIndex, page.items.length - 1)];
+    const review =
+      study?.reviews.find(({ interrupt_id }) => interrupt_id === position.interruptId) ??
+      study?.reviews[Math.min(position.reviewIndex, study.reviews.length - 1)];
+    if (!study || !review) return;
+    const target = document.getElementById(decisionId(study, review));
+    if (!target) return;
+    target.focus({ preventScroll: true });
+    const rect = target.getBoundingClientRect();
+    const top = Math.max(0, Math.min(position.top, window.innerHeight - rect.height));
+    window.scrollBy(0, rect.top - top);
+  }, [error, offset, page, takeReturnPosition]);
 
   if (summary) {
     const study = !error ? page?.items[0] : undefined;
@@ -105,17 +150,29 @@ function ReviewPage({
         </p>
       ) : (
         <ul className={styles.decisionRows} aria-label="Studies waiting for a decision">
-          {page.items.map((study) => (
+          {page.items.map((study, studyIndex) => (
             <li key={study.id}>
               <h2>{study.study_title || study.brief_excerpt || study.workflow_name}</h2>
               <time dateTime={study.created_at}>{formatTime(study.created_at, true)}</time>
               <ul aria-label="Open decisions">
-                {study.reviews.map((review) => {
+                {study.reviews.map((review, reviewIndex) => {
                   const { href, label } = decisionLink(study, review);
                   return (
                     <li key={review.interrupt_id}>
                       <p>{review.question}</p>
-                      <a href={href} onClick={onOpenDecision}>
+                      <a
+                        id={decisionId(study, review)}
+                        href={href}
+                        onClick={(event) =>
+                          onOpenDecision?.(event, {
+                            studyId: study.id,
+                            interruptId: review.interrupt_id,
+                            studyIndex,
+                            reviewIndex,
+                            offset,
+                          })
+                        }
+                      >
                         {label}
                       </a>
                     </li>
@@ -152,13 +209,28 @@ function ReviewPage({
 
 export function ResearchReviewQueue({
   summary = false,
+  visible = true,
   headingAction,
+  takeReturnPosition,
   ...links
-}: QueueLinks & { summary?: boolean; headingAction?: ReactNode }) {
+}: QueueLinks & {
+  summary?: boolean;
+  visible?: boolean;
+  headingAction?: ReactNode;
+  takeReturnPosition?: () => DecisionReturnPosition | undefined;
+}) {
   const [offset, setOffset] = useState(0);
-  const page = (
-    <ReviewPage key={offset} offset={offset} changePage={setOffset} summary={summary} {...links} />
-  );
+  // A return uses a fresh queue read so an admitted answer cannot restore an obsolete row.
+  const page = visible ? (
+    <ReviewPage
+      key={offset}
+      offset={offset}
+      changePage={setOffset}
+      summary={summary}
+      takeReturnPosition={takeReturnPosition}
+      {...links}
+    />
+  ) : null;
   if (summary) return page;
   return (
     <section className={styles.decisions} aria-labelledby="research-decisions">

@@ -94,6 +94,10 @@ packet and settings. **Recent research** lists the latest studies. Open
 or ID. **Decisions** opens working sentences, lead questions and editorial
 reviews even after a study drops out of the recent list.
 
+After opening a decision, use **Decisions** or browser Back to return to the
+review link and its place in the queue. The queue refreshes on return. If that
+decision has cleared, focus moves to a nearby open decision when available.
+
 When you open a study from the archive, the same tab remembers your submitted
 search, status filter and results page. Returning to **Studies** or going Back
 restores the opened result and its position when that result is still available.

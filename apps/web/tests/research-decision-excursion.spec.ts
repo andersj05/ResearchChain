@@ -1,7 +1,10 @@
-import type { RunSnapshot } from "../src/lib/workflow";
+import type { BrowserContext } from "@playwright/test";
+import type { PendingReviewsPage, RunSnapshot } from "../src/lib/workflow";
 import { expect, test } from "./fixtures";
 
 type Review = NonNullable<RunSnapshot["review"]>;
+type Study = PendingReviewsPage["items"][number];
+const decisionsUrl = "/?view=research&inbox=1";
 
 function consultation(title: string, index: number): Review {
   const path = `root/team/lead-${index}/turn-1`;
@@ -22,51 +25,61 @@ function consultation(title: string, index: number): Review {
   };
 }
 
+function queuedStudy(title: string, reviews: Review[]): Study {
+  return {
+    id: crypto.randomUUID(),
+    agent_name: null,
+    study_title: title,
+    brief_excerpt: title,
+    workflow_name: "Research session",
+    created_at: "2026-11-24T18:00:00Z",
+    checkpoint_id: crypto.randomUUID(),
+    reviews,
+  };
+}
+
+async function serveStudy(context: BrowserContext, study: Study) {
+  await context.route(`**/api/runs/${study.id}`, (route) =>
+    route.fulfill({
+      json: {
+        ...study,
+        brief: study.study_title,
+        status: "paused",
+        execution_pending: false,
+        events: [],
+        artifacts: [],
+        evidence_ids: [],
+        workflow: { nodes: [] },
+        research_manifest: {
+          settings: { model: "synthetic", limits: { max_model_calls: 30 } },
+          evidence: [],
+          tool_config: { session: "brief-led-1" },
+        },
+      },
+    }),
+  );
+}
+
 test("visit an exact decision and return to the staged study in the same tab", async ({
   page,
   context,
 }) => {
-  const now = "2026-11-24T18:00:00Z";
-  const decisionsUrl = "/?view=research&inbox=1";
-  const older = {
-    id: crypto.randomUUID(),
-    study_title: "Older synthetic releases",
-    workflow_name: "Research session",
-    created_at: now,
-    reviews: [consultation("Rates", 1)],
-  };
-  const later = {
+  const older = queuedStudy("Older synthetic releases", [consultation("Rates", 1)]);
+  const later = queuedStudy("Later synthetic releases", [
+    consultation("Demand", 1),
+    consultation("Credit", 2),
+  ]);
+  for (const study of [older, later]) await serveStudy(context, study);
+  const preceding = Array.from({ length: 8 }, (_, i) => ({
     ...older,
     id: crypto.randomUUID(),
-    study_title: "Later synthetic releases",
-    reviews: [consultation("Demand", 1), consultation("Credit", 2)],
-  };
-  for (const study of [older, later]) {
-    const checkpoint = crypto.randomUUID();
-    await context.route(`**/api/runs/${study.id}`, (route) =>
-      route.fulfill({
-        json: {
-          ...study,
-          brief: study.study_title,
-          status: "paused",
-          execution_pending: false,
-          checkpoint_id: checkpoint,
-          events: [],
-          artifacts: [],
-          evidence_ids: [],
-          workflow: { nodes: [] },
-          research_manifest: {
-            settings: { model: "synthetic", limits: { max_model_calls: 30 } },
-            evidence: [],
-            tool_config: { session: "brief-led-1" },
-          },
-        },
-      }),
-    );
-  }
+    study_title: `Earlier open study ${i + 1}`,
+  }));
   await page.route("**/api/runs/reviews?*", (route) => {
     const secondPage = new URL(route.request().url()).searchParams.get("offset") === "20";
-    return route.fulfill({ json: { items: [secondPage ? later : older], has_more: !secondPage } });
+    return route.fulfill({
+      json: { items: secondPage ? [...preceding, later] : [older], has_more: !secondPage },
+    });
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
@@ -96,6 +109,8 @@ test("visit an exact decision and return to the staged study in the same tab", a
   const exact = page.getByRole("link", { name: "Answer Credit" });
   const target = `/?session=${later.id}#consultation-${later.reviews[1]!.interrupt_id}`;
   await expect(exact).toHaveAttribute("href", target);
+  await exact.scrollIntoViewIfNeeded();
+  const originalTop = (await exact.boundingBox())!.y;
   await exact.press("Enter");
   const credit = page.getByRole("region", { name: "Credit requests your perspective" });
   await expect(page).toHaveURL(target);
@@ -104,8 +119,8 @@ test("visit an exact decision and return to the staged study in the same tab", a
 
   await page.goBack();
   await expect(page).toHaveURL(decisionsUrl);
-  await expect(heading).toBeFocused();
-  await expect(exact).toBeVisible();
+  await expect(exact).toBeFocused();
+  expect(Math.abs((await exact.boundingBox())!.y - originalTop)).toBeLessThan(4);
   await page.goBack();
   await expect(launcherTitle).toBeFocused();
   await expect(title).toHaveValue("Staged release note");
@@ -140,7 +155,7 @@ test("visit an exact decision and return to the staged study in the same tab", a
   await expect(launcherTitle).toBeFocused();
 
   const summary = page.getByRole("complementary", { name: "Pending study decisions" });
-  await summary.getByRole("link", { name: older.study_title }).press("Enter");
+  await summary.getByRole("link", { name: "Older synthetic releases" }).press("Enter");
   await expect(page.getByRole("region", { name: "Rates requests your perspective" })).toBeFocused();
   await page.goBack();
   await expect(launcherTitle).toBeFocused();
@@ -153,4 +168,37 @@ test("visit an exact decision and return to the staged study in the same tab", a
   await expect(page.getByRole("list", { name: "Pinned material" })).toContainText(
     "Staged release note",
   );
+});
+
+test("return to the nearest open decision when the last page has emptied", async ({
+  page,
+  context,
+}) => {
+  const next = queuedStudy("Still open synthetic study", [consultation("Rates", 1)]);
+  const former = queuedStudy("Synthetic study now handled in another tab", [
+    consultation("Credit", 1),
+  ]);
+  await serveStudy(context, former);
+  let anotherTabAnswered = false;
+  await page.route("**/api/runs/reviews?*", (route) => {
+    const secondPage = new URL(route.request().url()).searchParams.get("offset") === "20";
+    return route.fulfill({
+      json: {
+        items: secondPage ? (anotherTabAnswered ? [] : [former]) : [next],
+        has_more: !secondPage && !anotherTabAnswered,
+      },
+    });
+  });
+
+  await page.goto(decisionsUrl);
+  await page.getByRole("button", { name: "Next page" }).click();
+  await page.getByRole("link", { name: "Answer Credit" }).press("Enter");
+  await expect(
+    page.getByRole("region", { name: "Credit requests your perspective" }),
+  ).toBeFocused();
+  anotherTabAnswered = true;
+  await page.getByRole("link", { name: "Decisions", exact: true }).press("Enter");
+  await expect(page).toHaveURL(decisionsUrl);
+  await expect(page.getByRole("link", { name: "Answer Rates" })).toBeFocused();
+  await expect(page.getByRole("link", { name: "Answer Credit" })).toHaveCount(0);
 });
