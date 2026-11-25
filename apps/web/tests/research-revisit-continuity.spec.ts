@@ -1,8 +1,11 @@
 import { expect, test } from "./fixtures";
 
 for (const width of [390, 1440]) {
-  for (const sameBaseline of [false, true]) {
-    test(`keep the staged setup when revisiting ${sameBaseline ? "the same baseline" : "over a fresh draft"} at ${width}px`, async ({
+  for (const route of ["fresh draft", "same baseline", "previous study link"]) {
+    const sameBaseline = route !== "fresh draft";
+    const direct = route === "previous study link";
+
+    test(`keep the staged setup when revisiting from ${route} at ${width}px`, async ({
       page,
       context,
     }) => {
@@ -94,16 +97,27 @@ for (const width of [390, 1440]) {
       const queuedTitle = queue.getByLabel("Packet title for staged-rates.txt");
       await queuedTitle.fill("Edited staged rates note");
       await expect(queuedTitle).toHaveValue("Edited staged rates note");
-      await page.getByRole("link", { name: "Studies", exact: true }).press("Enter");
       const result = page
         .getByRole("list", { name: "Saved studies" })
         .getByRole("link", { name: new RegExp(title) });
-      await result.press("Enter");
-      await expect(page.getByRole("heading", { name: title, exact: true })).toBeFocused();
+      const comparison = page.getByText("Compare with previous setup", { exact: true });
+      if (direct) {
+        await comparison.click();
+        await expect(
+          page.getByRole("region", { name: "Context for the lead", exact: true }),
+        ).toContainText(currentDraftContext);
+        await page.getByRole("link", { name: "previous study", exact: true }).press("Enter");
+      } else {
+        await page.getByRole("link", { name: "Studies", exact: true }).press("Enter");
+        await result.press("Enter");
+      }
+      const reader = page.getByRole("heading", { name: title, exact: true });
+      await expect(reader).toBeVisible();
       await expect(queue).toBeHidden();
       expect(await page.evaluate(() => Reflect.get(window, "syntheticRevisitToken"))).toBe(
         documentToken,
       );
+      await expect(reader).toBeFocused();
       const revisit = page.getByRole("link", {
         name: sameBaseline ? "Revisit material" : "Revisit material (new tab)",
         exact: true,
@@ -148,6 +162,27 @@ for (const width of [390, 1440]) {
       }
       await expect(leadContext).toHaveValue(currentDraftContext);
       await expect(queuedTitle).toHaveValue("Edited staged rates note");
+      if (direct) {
+        await expect(page.locator("details").filter({ has: comparison })).toHaveAttribute(
+          "open",
+          "",
+        );
+        const home = page.getByRole("link", { name: "Research desk (new tab)", exact: true });
+        const opened = context.waitForEvent("page");
+        await home.press("Enter");
+        const fresh = await opened;
+        try {
+          await expect(
+            fresh.getByRole("heading", { name: "New study", exact: true }),
+          ).toBeVisible();
+          await expect(fresh.getByRole("list", { name: "Files to pin" })).toHaveCount(0);
+        } finally {
+          await fresh.close();
+        }
+        await page.bringToFront();
+        await expect(page).toHaveURL(revisitUrl);
+        await expect(queuedTitle).toHaveValue("Edited staged rates note");
+      }
       expect(await page.evaluate(() => Reflect.get(window, "syntheticRevisitToken"))).toBe(
         documentToken,
       );

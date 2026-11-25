@@ -9,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type MouseEventHandler,
 } from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources, type PendingCapture } from "./discovery-sources";
@@ -73,12 +74,14 @@ export function ResearchLauncher({
   sourceAppend,
   onSourceAppendHandled,
   onQueuedFiles,
+  onOpenPreviousStudy,
 }: {
   fromSession: string | null;
   recentStudies?: RecentRunSummary[];
   sourceAppend?: ArchivedSourceAppend;
   onSourceAppendHandled: (append: ArchivedSourceAppend) => void;
   onQueuedFiles: (queued: boolean) => void;
+  onOpenPreviousStudy: MouseEventHandler<HTMLAnchorElement>;
 }) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
@@ -454,7 +457,11 @@ export function ResearchLauncher({
       </nav>
       {fromSession && (
         <p className={styles.origin}>
-          Starting from a <a href={sessionUrl(fromSession)}>previous study</a>.
+          Starting from a{" "}
+          <a href={sessionUrl(fromSession)} onClick={onOpenPreviousStudy}>
+            previous study
+          </a>
+          .
         </p>
       )}
       {fromSession && loaded && (

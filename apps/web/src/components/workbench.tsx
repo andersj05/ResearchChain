@@ -29,7 +29,7 @@ import {
 import { CollectionLayout } from "@/components/collection-layout";
 import { RunHistory } from "@/components/run-history";
 import { RunInspector, type ReviewFocus } from "@/components/run-inspector";
-import type { ReviewTarget } from "@/components/review-inbox";
+import type { ReviewInboxHandle, ReviewInboxOrigin } from "@/components/review-inbox";
 import { bookmarkedReview, reviewPath } from "@/lib/run-inspection";
 import { formatTime } from "@/components/run-status";
 import {
@@ -140,7 +140,7 @@ export function Workbench() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const pendingValidationFocus = useRef(false);
+  const pendingWorkspaceFeedbackFocus = useRef(false);
   const validationStatus = useRef<HTMLParagraphElement>(null);
   const validationAlert = useRef<HTMLDivElement>(null);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -159,6 +159,7 @@ export function Workbench() {
   const runReadEpoch = useRef(0);
   const selectedRunId = useRef<string | null>(null);
   const [reviewFocus, setReviewFocus] = useState<ReviewFocus>();
+  const reviewInbox = useRef<ReviewInboxHandle>(null);
   const busyRef = useRef(false);
   const saved = revision !== null && JSON.stringify(workflow) === JSON.stringify(revision.workflow);
   const historyHead = revisions[0];
@@ -510,8 +511,8 @@ export function Workbench() {
   }, [edited, saved]);
 
   useLayoutEffect(() => {
-    if (busy || !pendingValidationFocus.current) return;
-    pendingValidationFocus.current = false;
+    if (busy || !pendingWorkspaceFeedbackFocus.current) return;
+    pendingWorkspaceFeedbackFocus.current = false;
     if (!accessActive || tab !== "workflow") return;
     if (error) validationAlert.current?.focus();
     else if (message) validationStatus.current?.focus();
@@ -547,7 +548,7 @@ export function Workbench() {
 
   function validateWorkflow() {
     if (busyRef.current) return;
-    pendingValidationFocus.current = true;
+    pendingWorkspaceFeedbackFocus.current = true;
     return action(async () => {
       await api("workflows/validate", workflow);
       setMessage("Workflow valid. Ready to run.");
@@ -630,28 +631,28 @@ export function Workbench() {
     window.history.replaceState(null, "", url);
   }
 
-  async function openRun(id: string, target?: ReviewTarget) {
-    if (!target) {
+  async function openRun(id: string, inboxOrigin?: ReviewInboxOrigin) {
+    if (!inboxOrigin) {
       if (selectedRunId.current !== id) setUnconfirmedStartId(null);
       selectedRunId.current = id;
     }
     const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
-    if (epoch === runReadEpoch.current && (target || selectedRunId.current === id)) {
-      if (target) {
-        const review = bookmarkedReview(result, target);
+    if (epoch === runReadEpoch.current && (inboxOrigin || selectedRunId.current === id)) {
+      if (inboxOrigin) {
+        const review = bookmarkedReview(result, inboxOrigin.target);
         if (!review) {
           if (selectedRunId.current === id) setRun(result);
           throw new Error("That checkpoint changed. Select a current review from the inbox.");
         }
-        setReviewFocus({ runId: id, path: reviewPath(review) });
+        setReviewFocus({ runId: id, path: reviewPath(review), inboxOrigin });
       } else {
         setReviewFocus((previous) => (previous?.runId === id ? previous : undefined));
       }
       setRun(result);
       setSetupOpen(false);
       setTab("runs");
-      rememberRun(id, Boolean(target));
+      rememberRun(id, Boolean(inboxOrigin));
       forgetPendingRun(pendingKey, id);
       if (pendingStart.current?.id === id) pendingStart.current = null;
       return true;
@@ -659,10 +660,10 @@ export function Workbench() {
     return false;
   }
 
-  async function openInboxReview(target: ReviewTarget) {
+  async function openInboxReview(origin: ReviewInboxOrigin) {
     let opened = false;
     await action(async () => {
-      opened = await openRun(target.runId, target);
+      opened = await openRun(origin.target.runId, origin);
     });
     return opened;
   }
@@ -1387,6 +1388,7 @@ export function Workbench() {
                   agentId={activeAgent?.id}
                   busy={busy}
                   onOpenReview={openInboxReview}
+                  reviewInboxRef={reviewInbox}
                   loaded={loaded}
                   onRefresh={() =>
                     void action(async () => {
@@ -1413,6 +1415,7 @@ export function Workbench() {
               <RunInspector
                 run={run}
                 reviewFocus={reviewFocus}
+                onBackToInbox={(origin) => reviewInbox.current?.restore(origin)}
                 recentRuns={runs}
                 busy={!loaded || busy}
                 onResume={(value, interruptId, feedback) =>
@@ -1544,7 +1547,12 @@ export function Workbench() {
                             className="button small"
                             disabled={busy}
                             aria-label={`Load revision ${item.number}`}
-                            onClick={() => action(() => loadRevision(item.id))}
+                            onClick={() =>
+                              action(async () => {
+                                await loadRevision(item.id);
+                                pendingWorkspaceFeedbackFocus.current = true;
+                              })
+                            }
                           >
                             Load revision
                           </Button>

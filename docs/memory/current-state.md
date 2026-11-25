@@ -2,6 +2,18 @@
 
 Updated 2026-11-25.
 
+## Returning to reviews, model receipts, and versions
+
+**Back to review inbox** restores the exact request and its page. If that request
+has gone, it focuses another available request nearby. **Back to model activity**
+restores the receipt, focus, filters, display, sort, and reading position.
+Loading a saved version focuses Build’s confirmation. Undo returns to the draft.
+
+An explicitly selected team file stays open as a newer file with the same name
+arrives. **Open latest version** loads the newer file. The current Research Desk
+link and a follow-up’s **previous study** link keep queued files available.
+A follow-up with queued files opens the fresh Desk in a separate tab.
+
 ## Keeping your place in Reports and Sources
 
 Opening a saved report brings its heading and actions into view. **All reports**
@@ -14,6 +26,7 @@ you return.
 The Research Desk opens Workflows, Sources, and Reports in a new tab while
 unsubmitted files are queued so their titles, attribution, and original bytes
 stay available in the setup. Thirty-six focused production Chromium cases passed.
+[Report and source continuity PR](https://github.com/andersj05/ResearchChain/pull/167).
 
 ## Preserving research and report drafts
 
@@ -27,7 +40,7 @@ Opening an archived study's baseline, saved pass, or editor report keeps the
 staged setup available. The swarm roster renders worker rows only for expanded
 teams. In an 80-assignment Chromium case, opening one team showed 20 worker rows
 in the DOM. The search still found all 80 assignments.
-The `954fff3` merge passed 325 browser cases in CI.
+The `954fff3` merge was verified on Desktop with 325 browser cases passing in CI.
 [Drafts and swarm roster PR](https://github.com/andersj05/ResearchChain/pull/166).
 
 ## Finding a workspace and revisiting material

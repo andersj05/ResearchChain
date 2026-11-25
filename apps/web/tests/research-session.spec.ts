@@ -272,9 +272,17 @@ test("follow parallel research from a source packet through owner judgment to an
   const style = await request.post("/api/style-guides", { data: styleBody(study) });
   expect(style.status()).toBe(201);
   const guide: StyleGuide = await style.json();
-  await page.getByRole("link", { name: "Edit in Reports", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Draft this study report" })).toBeVisible();
-  const create = page.getByRole("form", { name: "Create report" });
+  const readerUrl = page.url();
+  const edit = editor.getByRole("link", { name: "Edit in Reports (new tab)", exact: true });
+  const reportHref = `/?view=reports&fromStudy=${sessionId}&reportAttempt=${final.model_attempts!.at(-1)!.id}`;
+  await expect(edit).toHaveAttribute("target", "_blank");
+  await expect(edit).toHaveAttribute("href", reportHref);
+  const [reportPage] = await Promise.all([page.waitForEvent("popup"), edit.click()]);
+  await reportPage.setViewportSize({ width: 390, height: 844 });
+  await expect(reportPage).toHaveURL(reportHref);
+  await expect(page).toHaveURL(readerUrl);
+  await expect(reportPage.getByRole("heading", { name: "Draft this study report" })).toBeVisible();
+  const create = reportPage.getByRole("form", { name: "Create report" });
   const title = "Synthetic study editorial draft";
   await expect(create.getByRole("textbox", { name: "Report title" })).toHaveValue(
     brief.split("\n")[0]!,
@@ -282,7 +290,7 @@ test("follow parallel research from a source packet through owner judgment to an
   await create.getByRole("textbox", { name: "Report title" }).fill(title);
   await create.getByRole("combobox", { name: "Pinned style guide" }).selectOption(guide.id);
   const submissions: ReportCreate[] = [];
-  await page.route("**/api/reports", async (route) => {
+  await reportPage.route("**/api/reports", async (route) => {
     if (route.request().method() !== "POST") return route.continue();
     submissions.push(route.request().postDataJSON());
     if (submissions.length === 1) {
@@ -294,11 +302,11 @@ test("follow parallel research from a source packet through owner judgment to an
   const createButton = create.getByRole("button", { name: "Create report draft" });
   await createButton.click();
   await expect(create.getByRole("alert")).toBeVisible();
-  await page.reload();
+  await reportPage.reload();
   await expect(create.getByRole("textbox", { name: "Report title" })).toHaveValue(title);
   await expect(create.getByRole("combobox", { name: "Pinned style guide" })).toHaveValue(guide.id);
   await createButton.click();
-  await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible();
+  await expect(reportPage.getByRole("heading", { name: title, exact: true })).toBeVisible();
   expect(submissions).toHaveLength(2);
   expect(submissions[0]).toEqual(submissions[1]);
   expect(submissions[0]).toMatchObject({
@@ -306,21 +314,23 @@ test("follow parallel research from a source packet through owner judgment to an
     attempt_id: final.model_attempts!.at(-1)!.id,
     source_format: "session_markdown",
   });
-  await page.getByText("Preview the saved report", { exact: true }).click();
-  const importedChart = page.getByRole("img", { name: "Comparison of synthetic measures" });
+  await reportPage.getByText("Preview the saved report", { exact: true }).click();
+  const importedChart = reportPage.getByRole("img", { name: "Comparison of synthetic measures" });
   await importedChart.scrollIntoViewIfNeeded();
   await expect
     .poll(() => importedChart.evaluate((element) => (element as HTMLImageElement).naturalWidth))
     .toBeGreaterThan(1);
-  const section = page.getByRole("textbox", { name: "Section text", exact: true });
+  const section = reportPage.getByRole("textbox", { name: "Section text", exact: true });
   const originalMarkdown = await section.inputValue();
   expect(originalMarkdown).toContain(`Owner direction: ${feedback}`);
   const editorialNote = "Retain the sample periods in the revised report.";
   await section.fill(`${originalMarkdown}\n\n${editorialNote}`);
-  await page.getByRole("textbox", { name: "Revision change note" }).fill("Clarify study context.");
-  await page.getByRole("button", { name: "Save report revision", exact: true }).click();
-  await expect(page.getByText("Saved revision 2", { exact: true })).toBeVisible();
-  const revisedId = new URL(page.url()).searchParams.get("report");
+  await reportPage
+    .getByRole("textbox", { name: "Revision change note" })
+    .fill("Clarify study context.");
+  await reportPage.getByRole("button", { name: "Save report revision", exact: true }).click();
+  await expect(reportPage.getByText("Saved revision 2", { exact: true })).toBeVisible();
+  const revisedId = new URL(reportPage.url()).searchParams.get("report");
   const revised: ReportView = await (await request.get(`/api/reports/${revisedId}`)).json();
   expect(revised.revision.sections[0]!.body).toContain(editorialNote);
   expect(revised.revision.provenance.attempt.id).toBe(submissions[0]!.attempt_id);
@@ -328,13 +338,13 @@ test("follow parallel research from a source packet through owner judgment to an
     ({ id }) => id === revised.revision.provenance.attempt.id,
   )!;
 
-  const draftUrl = page.url();
+  const draftUrl = reportPage.url();
   const continuedEditing = `${await section.inputValue()}\n\nVerify the comparison against the saved request.`;
   await section.fill(continuedEditing);
-  await page.getByText("Research provenance", { exact: true }).click();
+  await reportPage.getByText("Research provenance", { exact: true }).click();
   const [source] = await Promise.all([
-    page.waitForEvent("popup"),
-    page.getByRole("link", { name: "Inspect source pass", exact: true }).click(),
+    reportPage.waitForEvent("popup"),
+    reportPage.getByRole("link", { name: "Inspect source pass", exact: true }).click(),
   ]);
   await expect(source).toHaveURL(
     (url) =>
@@ -355,9 +365,16 @@ test("follow parallel research from a source packet through owner judgment to an
     `/api/artifacts/${encodeURIComponent(pinnedPass.input_artifact_id!)}/content`,
   );
   await source.close();
-  await expect(page).toHaveURL(draftUrl);
+  await expect(reportPage).toHaveURL(draftUrl);
   await expect(section).toHaveValue(continuedEditing);
 
   const unchanged: RunSnapshot = await (await request.get(runUrl)).json();
   expect(unchanged.model_attempts).toEqual(final.model_attempts);
+  await reportPage.close();
+  await expect(page).toHaveURL(readerUrl);
+  await page.getByRole("link", { name: "Research desk", exact: true }).click();
+  await expect(page).toHaveURL(`/?fromSession=${sessionId}`);
+  await expect(page.getByLabel("Context for the lead (optional)", { exact: true })).toHaveValue(
+    brief,
+  );
 });
