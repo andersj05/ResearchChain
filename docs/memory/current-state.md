@@ -2,6 +2,18 @@
 
 Updated 2026-11-24.
 
+## Report reading and pinned sources
+
+Saved studies put **Revisit material** and the report link on the first screen.
+Long completed reports can jump to exact parsed headings, including duplicate
+and Unicode headings, and reopen a bookmarked section. **Sources and settings**
+uses pinned source order and dates and reads matching source names on demand.
+Mixed upload batches can discard local invalid files together and preserve an
+unconfirmed pin for an exact retry.
+
+Sixteen focused production Chromium cases passed, including end-to-end team
+research, report reading, source order, and file retry with synthetic data.
+
 ## Study archive and revision setup
 
 **Studies** opens the searchable archive without requesting source intake or
