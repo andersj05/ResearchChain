@@ -84,11 +84,11 @@ test("returns to the submitted study archive page and can reset or recover it", 
   await page.goto("/");
   const history = page.getByRole("region", { name: "Recent research" });
   const search = history.getByRole("searchbox", { name: "Search the archive" });
-  const status = history.getByRole("combobox", { name: "Saved run status" });
+  const status = history.getByRole("combobox", { name: "Study status" });
   const submit = history.getByRole("button", { name: "Search", exact: true });
   const reset = history.getByRole("button", { name: "Reset search" });
   const next = history.getByRole("button", { name: "Next page" });
-  const results = history.getByRole("list", { name: "Saved runs" });
+  const results = history.getByRole("list", { name: "Saved studies" });
   const archivedLink = results.getByRole("link", { name: /Archived curve check/ });
   await expect(search).toBeHidden();
   await history.getByText("Search past studies", { exact: true }).click();

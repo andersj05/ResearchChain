@@ -77,6 +77,7 @@ function ArchiveResults({
   const results = useRef<HTMLDivElement>(null);
   const params = new URLSearchParams(query);
   const sessionsOnly = params.get("sessions_only") === "true";
+  const filtered = Boolean(params.get("search") || params.get("status"));
   const cursor = cursors.at(-1);
   if (cursor) {
     params.set("before_created_at", cursor.created_at);
@@ -120,7 +121,7 @@ function ArchiveResults({
           </button>
         </div>
       ) : page.items.length ? (
-        <ul aria-label="Saved runs">
+        <ul aria-label={sessionsOnly ? "Saved studies" : "Saved runs"}>
           {page.items.map(({ run, brief_excerpt }) => {
             const content = (
               <>
@@ -186,7 +187,11 @@ function ArchiveResults({
         </div>
       ) : (
         <p className="muted" role="status">
-          {sessionsOnly ? "No studies match these filters." : "No saved runs match these filters."}
+          {sessionsOnly
+            ? filtered
+              ? "No studies match these filters."
+              : "No saved studies yet."
+            : "No saved runs match these filters."}
         </p>
       )}
       {(cursors.length > 0 || page?.has_more) && (
@@ -295,7 +300,7 @@ export function RunArchive({
         </label>
         <div className="archive-controls">
           <label>
-            Saved run status
+            {sessionsOnly ? "Study status" : "Saved run status"}
             <select value={status} onChange={(event) => setStatus(event.target.value)}>
               <option value="">All statuses</option>
               {Object.entries(runStatusLabels).map(([value, label]) => (

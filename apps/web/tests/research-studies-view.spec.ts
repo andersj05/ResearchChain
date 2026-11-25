@@ -48,17 +48,19 @@ test("open studies directly, without loading new-study data or losing its draft"
   await expect(page.getByRole("heading", { name: "Studies", level: 1 })).toBeVisible();
   await expect(studies).toHaveAttribute("aria-current", "page");
   await expect(page.getByRole("heading", { name: "New study", exact: true })).toHaveCount(0);
-  await expect(page.getByText("No studies match these filters.")).toBeVisible();
+  await expect(page.getByText("No saved studies yet.")).toBeVisible();
   await search.fill("credit vintages");
   await search.press("Enter");
-  const result = page.getByRole("link", { name: /Archived curves and credit vintages/ });
+  const result = page
+    .getByRole("list", { name: "Saved studies" })
+    .getByRole("link", { name: /Archived curves and credit vintages/ });
   await expect(result).toHaveAttribute("href", `/?session=${id}`);
   expect(archiveReads.map((params) => params.get("sessions_only"))).toEqual(["true", "true"]);
   expect(draftReads).toEqual([]);
   expect(providerReads).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 
-  const home = page.getByRole("link", { name: "Research desk", exact: true });
+  const home = page.getByRole("link", { name: "New study", exact: true });
   await home.click();
   const title = page.getByRole("textbox", { name: "Study title (optional)" });
   await title.fill("Unsaved research title");

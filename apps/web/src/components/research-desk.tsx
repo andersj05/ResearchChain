@@ -165,7 +165,12 @@ export function ResearchDesk({
       ) : deskView === "studies" ? (
         <main className={styles.page}>
           <section className={styles.studies} aria-labelledby="studies-title">
-            <h1 id="studies-title">Studies</h1>
+            <div className={styles.studiesHeading}>
+              <h1 id="studies-title">Studies</h1>
+              <a className="button" href="/?view=research">
+                New study
+              </a>
+            </div>
             <RunArchive sessionsOnly expanded />
           </section>
         </main>

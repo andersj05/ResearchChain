@@ -473,7 +473,12 @@
 .studies {
   max-width: 820px;
 }
-.studies h1 {
+.studiesHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
   margin-bottom: 20px;
 }
 .historyRows {
