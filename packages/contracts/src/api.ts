@@ -2716,6 +2716,8 @@ export interface components {
       workflow_name: string;
       /** Brief Excerpt */
       brief_excerpt: string;
+      /** Study Title */
+      study_title?: string | null;
       /**
        * Created At
        * Format: date-time
@@ -6842,6 +6844,7 @@ export interface operations {
         limit?: number;
         offset?: number;
         agent_id?: string | null;
+        sessions_only?: boolean;
       };
       header?: never;
       path?: never;

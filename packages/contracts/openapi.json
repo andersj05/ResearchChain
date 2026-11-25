@@ -2982,6 +2982,16 @@
               ],
               "title": "Agent Id"
             }
+          },
+          {
+            "name": "sessions_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Sessions Only"
+            }
           }
         ],
         "responses": {
@@ -6793,6 +6803,17 @@
           "brief_excerpt": {
             "type": "string",
             "title": "Brief Excerpt"
+          },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
           },
           "created_at": {
             "type": "string",

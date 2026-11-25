@@ -205,6 +205,7 @@ function OwnerWorkspace() {
         session={query.get("session")}
         fromSession={query.get("fromSession")}
         methodology={query.get("view") === "methodology"}
+        decisions={query.get("inbox") === "1"}
       />
     );
   return <Workbench />;

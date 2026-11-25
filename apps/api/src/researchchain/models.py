@@ -116,6 +116,7 @@ class PendingReviewRun(StrictModel):
     agent_name: str | None
     workflow_name: str
     brief_excerpt: str
+    study_title: str | None = Field(default=None, exclude_if=lambda title: title is None)
     created_at: datetime
     checkpoint_id: str
     reviews: list[ReviewPrompt]

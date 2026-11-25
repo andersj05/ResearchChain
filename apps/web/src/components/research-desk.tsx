@@ -5,6 +5,7 @@ import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
 import { ResearchMethodology } from "./research-methodology";
+import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
 import { ResearchSession } from "./research-session";
 import { RunArchive } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
@@ -81,10 +82,12 @@ export function ResearchDesk({
   session,
   fromSession,
   methodology,
+  decisions,
 }: {
   session: string | null;
   fromSession: string | null;
   methodology: boolean;
+  decisions: boolean;
 }) {
   const { active } = useOwner();
   return (
@@ -94,11 +97,19 @@ export function ResearchDesk({
           <a
             className={styles.homeLink}
             href="?view=research"
-            aria-current={!session && !fromSession && !methodology ? "page" : undefined}
+            aria-current={
+              !session && !fromSession && !methodology && !decisions ? "page" : undefined
+            }
           >
             Research desk
           </a>
           <nav aria-label="Research navigation">
+            <a
+              href={researchDecisionsUrl}
+              aria-current={decisions && !session && !methodology ? "page" : undefined}
+            >
+              Decisions
+            </a>
             <a href="?view=methodology" aria-current={methodology && !session ? "page" : undefined}>
               Methodology
             </a>
@@ -120,8 +131,13 @@ export function ResearchDesk({
         />
       ) : methodology ? (
         <ResearchMethodology />
+      ) : decisions ? (
+        <main className={styles.page}>
+          <ResearchReviewQueue />
+        </main>
       ) : (
         <main className={styles.page}>
+          {!fromSession && <ResearchReviewQueue summary />}
           <ResearchLauncher fromSession={fromSession} />
           <RecentStudies />
         </main>

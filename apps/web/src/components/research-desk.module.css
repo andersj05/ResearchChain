@@ -47,7 +47,8 @@
   margin: 0 auto;
   padding: clamp(24px, 4vw, 48px) 24px 64px;
 }
-.launch h1 {
+.launch h1,
+.decisions h1 {
   font-size: clamp(28px, 4vw, 38px);
   font-weight: 560;
   line-height: 1.14;
@@ -347,6 +348,69 @@
 .recovery button + button {
   margin-left: 14px;
 }
+.decisionSummary {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-bottom: 24px;
+  padding: 12px 14px;
+  background: var(--amber-soft);
+  border-left: 3px solid var(--amber);
+  font-size: 13px;
+}
+.decisionSummary > div {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  min-width: 0;
+  gap: 3px 12px;
+}
+.decisionSummary a,
+.decisionRows a {
+  overflow-wrap: anywhere;
+  text-underline-offset: 3px;
+}
+.decisionSummary span,
+.decisionRows time {
+  color: var(--muted);
+}
+.decisionRows,
+.decisionRows ul {
+  list-style: none;
+  padding: 0;
+}
+.decisionRows {
+  margin: 24px 0 16px;
+  border-top: 1px solid var(--line);
+  background: var(--surface);
+}
+.decisionRows > li {
+  padding: 16px;
+  border-bottom: 1px solid var(--line);
+}
+.decisionRows h2 {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.decisionRows time {
+  font-size: 12px;
+}
+.decisionRows ul {
+  margin-top: 8px;
+}
+.decisionRows li li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(100px, 195px);
+  align-items: baseline;
+  gap: 8px 16px;
+  padding: 10px 0;
+  overflow-wrap: anywhere;
+}
+.decisionRows li li + li {
+  border-top: 1px solid var(--line);
+}
 .history {
   margin-top: clamp(28px, 4vw, 46px);
 }
@@ -438,6 +502,9 @@
     grid-row: 1;
   }
   .settingGrid {
+    grid-template-columns: 1fr;
+  }
+  .decisionRows li li {
     grid-template-columns: 1fr;
   }
   .option summary > span {

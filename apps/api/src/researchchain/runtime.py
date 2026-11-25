@@ -702,7 +702,7 @@ class RunStore:
         ]
 
     def pending_reviews(
-        self, limit: int, offset: int, agent_id: UUID | None = None
+        self, limit: int, offset: int, agent_id: UUID | None = None, *, sessions_only: bool = False
     ) -> PendingReviewsPage:
         # Read the most recent command receipt. An admitted resume has no response
         # yet and hides the old questions until the worker records its next pause.
@@ -710,6 +710,7 @@ class RunStore:
             rows = conn.execute(
                 "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
+                "primary_source.document->>'title' AS study_title, "
                 "command.response->>'checkpoint_id' AS checkpoint_id, "
                 "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
                 "THEN command.response->'reviews' "
@@ -717,6 +718,12 @@ class RunStore:
                 "FROM runs r JOIN run_controls c ON c.run_id = r.id "
                 "JOIN workflow_revisions w ON w.id = r.revision_id "
                 "LEFT JOIN agent_runs a ON a.run_id = r.id "
+                "LEFT JOIN run_research_manifests rm ON %(sessions_only)s AND rm.run_id = r.id "
+                "AND rm.manifest->'tool_config'->>'session' = %(session_version)s "
+                "LEFT JOIN run_evidence pin ON pin.run_id = rm.run_id AND pin.ordinal = 0 "
+                "AND r.brief = %(source_led_brief)s "
+                "AND rm.manifest->'tool_config' ? 'discovery_version' "
+                "LEFT JOIN evidence_records primary_source ON primary_source.id = pin.evidence_id "
                 "JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
                 "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
                 "WHERE c.terminal_status IS NULL AND command.response->>'status' = 'paused' "
@@ -724,8 +731,16 @@ class RunStore:
                 "AND (command.response->>'review' IS NOT NULL "
                 "OR command.response->'reviews'->0 IS NOT NULL) "
                 "AND (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(sessions_only)s OR rm.run_id IS NOT NULL) "
                 "ORDER BY r.created_at, r.id LIMIT %(limit)s OFFSET %(offset)s",
-                {"agent_id": agent_id, "limit": limit + 1, "offset": offset},
+                {
+                    "agent_id": agent_id,
+                    "limit": limit + 1,
+                    "offset": offset,
+                    "sessions_only": sessions_only,
+                    "session_version": SESSION_VERSION,
+                    "source_led_brief": SOURCE_LED_BRIEF,
+                },
             ).fetchall()
             return PendingReviewsPage(
                 items=[PendingReviewRun.model_validate(row) for row in rows[:limit]],
