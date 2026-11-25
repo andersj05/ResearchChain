@@ -140,7 +140,7 @@ export function Workbench() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const pendingValidationFocus = useRef(false);
+  const pendingWorkspaceFeedbackFocus = useRef(false);
   const validationStatus = useRef<HTMLParagraphElement>(null);
   const validationAlert = useRef<HTMLDivElement>(null);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -510,8 +510,8 @@ export function Workbench() {
   }, [edited, saved]);
 
   useLayoutEffect(() => {
-    if (busy || !pendingValidationFocus.current) return;
-    pendingValidationFocus.current = false;
+    if (busy || !pendingWorkspaceFeedbackFocus.current) return;
+    pendingWorkspaceFeedbackFocus.current = false;
     if (!accessActive || tab !== "workflow") return;
     if (error) validationAlert.current?.focus();
     else if (message) validationStatus.current?.focus();
@@ -547,7 +547,7 @@ export function Workbench() {
 
   function validateWorkflow() {
     if (busyRef.current) return;
-    pendingValidationFocus.current = true;
+    pendingWorkspaceFeedbackFocus.current = true;
     return action(async () => {
       await api("workflows/validate", workflow);
       setMessage("Workflow valid. Ready to run.");
@@ -1544,7 +1544,12 @@ export function Workbench() {
                             className="button small"
                             disabled={busy}
                             aria-label={`Load revision ${item.number}`}
-                            onClick={() => action(() => loadRevision(item.id))}
+                            onClick={() =>
+                              action(async () => {
+                                await loadRevision(item.id);
+                                pendingWorkspaceFeedbackFocus.current = true;
+                              })
+                            }
                           >
                             Load revision
                           </Button>
