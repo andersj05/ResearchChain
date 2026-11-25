@@ -336,11 +336,6 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
               Research settings · {problem}
             </p>
           ) : null}
-          {startError && (
-            <p role="alert" className={styles.notice}>
-              {startError}
-            </p>
-          )}
           {pending && !busy && (
             <div className={styles.recovery}>
               <p role="status">
@@ -426,6 +421,11 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
         </fieldset>
       </form>
       <div className={styles.launchBar}>
+        {startError && (
+          <p id="first-reading-error" className={styles.launchError} role="alert">
+            {startError}
+          </p>
+        )}
         <p id="first-reading-status" role="status">
           {nextStep}
         </p>
@@ -433,7 +433,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
           type="submit"
           form="study-settings"
           className="button primary"
-          aria-describedby="first-reading-status"
+          aria-describedby={
+            startError ? "first-reading-status first-reading-error" : "first-reading-status"
+          }
           disabled={!canStart}
         >
           {busy

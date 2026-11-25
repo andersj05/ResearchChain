@@ -1,3 +1,4 @@
+import { blankResearchBrief } from "../src/lib/research-sessions";
 import { pinDeskNote } from "./desk-material";
 import { expect, test } from "./fixtures";
 
@@ -47,4 +48,55 @@ test("start with the edited settings while the first-reading action stays visibl
     web_search: true,
     start_from_sources: true,
   });
+});
+
+test("explain a rejected first reading beside the action and keep the editable packet", async ({
+  ownerSession,
+  page,
+  request,
+}) => {
+  const title = `Quoted notes ${crypto.randomUUID().slice(0, 8)}`;
+  const source = await request.post("/api/evidence", {
+    data: {
+      id: crypto.randomUUID(),
+      title,
+      kind: "text",
+      rights: "owned",
+      text: '\\"\n'.repeat(2500),
+    },
+  });
+  expect(source.ok()).toBeTruthy();
+  const sourceId = (await source.json()).id;
+  await page.addInitScript(
+    ({ key, draft }) => {
+      if (!sessionStorage.getItem(key)) sessionStorage.setItem(key, JSON.stringify({ draft }));
+    },
+    {
+      key: `${ownerSession.prefix}.research-brief.new`,
+      draft: {
+        ...blankResearchBrief,
+        model: "test-model",
+        evidence_ids: [sourceId],
+        max_input_bytes: 16000,
+      },
+    },
+  );
+  await page.setViewportSize({ width: 320, height: 740 });
+  await page.goto("/");
+  await page.getByRole("link", { name: "Research settings", exact: true }).click();
+  const start = page.getByRole("button", { name: "Ask the lead for a first reading" });
+  await expect(start).toBeEnabled();
+  const submitted = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" && response.url().endsWith("/api/research-sessions"),
+  );
+  await start.click();
+  expect((await submitted).status()).toBe(422);
+  const error = page.getByRole("alert").filter({ hasText: "input byte limit" });
+  await expect(error).toBeInViewport();
+  await expect(error).toContainText("Unpin a source");
+  await expect(start).toBeEnabled();
+  await expect(page.getByRole("list", { name: "Pinned material" })).toContainText(title);
+  const id = (await submitted).request().postDataJSON().id;
+  expect((await request.get(`/api/research-sessions/${id}/setup`)).status()).toBe(404);
 });

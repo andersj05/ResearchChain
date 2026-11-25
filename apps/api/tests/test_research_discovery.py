@@ -65,6 +65,33 @@ def test_source_only_studies_use_first_pin_as_title_and_find_any_pinned_source(d
         assert snapshot["brief"] == "Source-led study"
 
 
+def test_oversized_serialized_packet_is_rejected_before_queuing(database):
+    text = '\\"\n' * 2500
+    limit = 16000
+    assert len(text.encode()) < limit
+    source = EvidenceStore(database).create(
+        EvidenceCreate(id=uuid4(), title="Quoted notes", kind="text", rights="owned", text=text)
+    )
+    provider = DiscoveryProvider()
+    start = request(
+        start_from_sources=True, brief="", evidence_ids=[source.id], max_input_bytes=limit
+    )
+    with owner_client(create_app(database, provider), workers=False) as client:
+        entry = "/api/research-sessions"
+        payload = start.model_dump(mode="json")
+        rejected = client.post(entry, json=payload)
+        assert rejected.status_code == 422
+        assert "input byte limit" in rejected.json()["detail"]
+        assert client.get(f"{entry}/{start.id}/setup").status_code == 404
+        assert not RunWorker(RunStore(database, provider)).run_once()
+        assert not provider.calls
+        accepted = client.post(entry, json={**payload, "max_input_bytes": 50000})
+        assert accepted.status_code == 202
+        assert (
+            client.post(entry, json={**payload, "max_input_bytes": 50000}).json() == accepted.json()
+        )
+
+
 @pytest.mark.parametrize(
     ("sentence", "title"),
     [

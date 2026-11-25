@@ -301,6 +301,11 @@
   color: var(--muted);
   font-size: 13px;
 }
+.launchBar .launchError {
+  flex-basis: 100%;
+  color: var(--red);
+  overflow-wrap: anywhere;
+}
 .launchBar a {
   text-underline-offset: 3px;
 }
