@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
@@ -35,6 +35,8 @@ import {
 } from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
+
+const sessionControlsId = "session-controls";
 
 type Props = {
   runId: string;
@@ -124,6 +126,8 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
   const [refresh, setRefresh] = useState(0);
   const [busy, setBusy] = useState(false);
   const [confirmStop, setConfirmStop] = useState(false);
+  const stopChoice = useRef<HTMLButtonElement>(null);
+  const focusStopChoice = useRef(false);
   const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
   const [returnOrigin, setReturnOrigin] = useState<ReturnOrigin>();
   const [chosen, setChosen] = useState(() =>
@@ -135,6 +139,13 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
     typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("pass"),
   );
   const draftKey = ownerStoragePrefix(owner) + ".research.review." + runId;
+
+  useLayoutEffect(() => {
+    if (!focusStopChoice.current) return;
+    focusStopChoice.current = false;
+    stopChoice.current?.focus();
+  }, [confirmStop]);
+
   function selectWorkspace(key: string, pass: string | null = null, origin?: ReturnOrigin) {
     setChosen(key);
     setPassId(pass);
@@ -187,6 +198,7 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
     if (
       anchor === "source-led-investigation" ||
       anchor === "editorial-review" ||
+      anchor === sessionControlsId ||
       anchor.startsWith("consultation-")
     ) {
       target.focus({ preventScroll: true });
@@ -436,6 +448,7 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
               Compare with baseline
             </a>
           )}
+          {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
           <a href="#research-workspaces">Workspaces</a>
           {hasFiles && <StudyIndexLink index="files" />}
           {hasActivity && <StudyIndexLink index="activity" />}
@@ -650,7 +663,11 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
           selectWorkspace(key, pass, { kind: "index", index: "activity", targetId })
         }
       />
-      <footer className={styles.footer}>
+      <footer
+        className={styles.footer}
+        id={canStop ? sessionControlsId : undefined}
+        tabIndex={canStop ? -1 : undefined}
+      >
         {!failedReview && actionNotice}
         <a href={fullRun}>Open run inspector</a>
         {canStop && (
@@ -674,9 +691,11 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
                   Confirm stop
                 </Button>
                 <Button
+                  ref={stopChoice}
                   className="button"
                   disabled={busy}
                   onClick={() => {
+                    focusStopChoice.current = true;
                     setConfirmStop(false);
                     if (!failedReview) setActionFailure(undefined);
                   }}
@@ -686,9 +705,13 @@ function ResearchSessionView({ runId, onNewStudy, titleRef, onReuseSource }: Pro
               </>
             ) : (
               <Button
+                ref={stopChoice}
                 className="button"
                 disabled={busy || !active}
-                onClick={() => setConfirmStop(true)}
+                onClick={() => {
+                  focusStopChoice.current = true;
+                  setConfirmStop(true);
+                }}
               >
                 Stop session
               </Button>

@@ -186,6 +186,10 @@ Each researcher and the editor receive it when preparing their next request.
 Expand a saved direction to see exactly which requests included it. Once the
 editor starts, the current study closes to further directions.
 
+**Session controls** jumps from the study overview to its stop or recovery
+actions. Stopping uses a separate confirmation. Choose **Keep session** to
+return to the controls.
+
 If the session pauses for review, read the team's question and inspect the work
 behind it. Open **Research behind this review** to inspect a saved final pass.
 Researchers who raised the current question appear first. **Back to editorial
