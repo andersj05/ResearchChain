@@ -117,7 +117,7 @@ test("name a source-only study and compare its revision with the original", asyn
   const baselineId = new URL(page.url()).searchParams.get("session")!;
   const compare = page.getByRole("link", { name: "Compare with baseline" });
   await expect(compare).toHaveCount(0);
-  await page.getByRole("button", { name: "Revisit material" }).click();
+  await page.getByRole("link", { name: "Revisit material", exact: true }).click();
   await expect(title).toHaveValue(studyTitle);
   const context = page.getByLabel("Context for the lead (optional)");
   await expect(context).toHaveValue("");

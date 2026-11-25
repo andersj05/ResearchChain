@@ -71,7 +71,7 @@ the lead actually delegated. **Inspect researcher request** opens the saved
 pass for that assignment.
 
 **Park this study** ends the experiment before delegation. **Revisit material**
-opens a new setup with the sources and settings from the original study. The
+opens the setup for that study with its sources and settings. The
 editorial review setting controls the separate decision about the report.
 
 ## Set up the study
@@ -229,8 +229,12 @@ the title and a style guide before creating the draft. Further edits and editori
 feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
 
 Choose **Revisit material** beside the study title to start another experiment
-with the previous context, sample, sources and settings. Before starting, open **Compare with previous
-setup** to see packet changes, reading order, model roles, limits and context.
+with the previous context, sample, sources and settings. If that study's setup is
+already open in the tab, the action returns to it with its staged files. When a
+different setup is open, **Revisit material (new tab)** opens the archived
+study's setup in another tab. The original tab keeps its draft and staged files.
+Before starting, open **Compare with previous setup** to see packet changes,
+reading order, model roles, limits and context.
 In the revised study, **Compare with baseline** opens the original alongside the
 revision in the run inspector. When a study setup is open, the comparison opens
 in a new tab and the setup keeps its staged files. Use **Open research session**

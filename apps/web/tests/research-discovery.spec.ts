@@ -104,7 +104,7 @@ test("commission a different investigation from a week of pinned material and in
   expect(input.human_feedback).toBe(judgment);
   expect(input.prior_result.discovery.proposals[0].first_check).toContain("equal-weight");
   await sheet.screenshot({ path: info.outputPath("issued-assignment.png") });
-  await page.getByRole("button", { name: "Revisit material" }).click();
+  await page.getByRole("link", { name: "Revisit material", exact: true }).click();
   await expect(packet.getByRole("listitem")).toHaveCount(3);
   await expect(page.getByLabel("Context for the lead (optional)")).toBeEmpty();
   await start.click();
