@@ -87,11 +87,11 @@ test("reopen a decision beyond recent research and find the study by a secondary
 
   await pending.getByRole("link", { name: "View decision queue" }).click();
   await expect(page.getByRole("heading", { name: "Study decisions" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  await expect(page.getByRole("heading", { name: title, level: 2 })).toBeVisible();
   await page.screenshot({ path: info.outputPath("study-decisions-phone.png") });
   await page.getByRole("link", { name: "Choose a working sentence" }).click();
   await expect(page).toHaveURL(/#source-led-investigation$/);
-  await expect(page.getByRole("heading", { name: title })).toBeVisible();
+  await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
   await expect(page.getByRole("region", { name: "Source-led investigation" })).toBeFocused();
   await page.getByRole("button", { name: "Park this study" }).click();
   await expect(page.getByRole("heading", { name: "Study parked" })).toBeVisible();

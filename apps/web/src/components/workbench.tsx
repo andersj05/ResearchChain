@@ -1256,7 +1256,7 @@ export function Workbench() {
           <ReportDesk />
         </TabsPanel>
         <TabsPanel className="evaluations-view" value="evaluations">
-          <EvaluationDesk />
+          {loaded ? <EvaluationDesk /> : <p role="status">Opening evaluations…</p>}
         </TabsPanel>
         <TabsPanel className="operations-view" value="operations">
           <OperationsDesk onOpenRuns={() => switchTab("runs")} />
@@ -1266,27 +1266,36 @@ export function Workbench() {
           <CollectionLayout
             id="runs"
             list={
-              <RunHistory
-                key={activeAgent?.id ?? "all"}
-                runs={runs}
-                selected={run?.id}
-                agentName={activeAgent?.name}
-                agentId={activeAgent?.id}
-                busy={!loaded || busy}
-                onOpenReview={openInboxReview}
-                loaded={loaded}
-                onRefresh={() =>
-                  void action(async () => {
-                    await refreshHistory();
-                    setMessage("History refreshed.");
-                  })
-                }
-                onOpen={(id) =>
-                  void action(async () => {
-                    await openRun(id);
-                  })
-                }
-              />
+              loaded ? (
+                <RunHistory
+                  key={activeAgent?.id ?? "all"}
+                  runs={runs}
+                  selected={run?.id}
+                  agentName={activeAgent?.name}
+                  agentId={activeAgent?.id}
+                  busy={busy}
+                  onOpenReview={openInboxReview}
+                  loaded={loaded}
+                  onRefresh={() =>
+                    void action(async () => {
+                      await refreshHistory();
+                      setMessage("History refreshed.");
+                    })
+                  }
+                  onOpen={(id) =>
+                    void action(async () => {
+                      await openRun(id);
+                    })
+                  }
+                />
+              ) : (
+                <aside className="run-history" aria-label="Recent runs" aria-busy="true">
+                  <h2>Recent runs</h2>
+                  <p className="muted" role="status">
+                    Loading run history…
+                  </p>
+                </aside>
+              )
             }
             detail={
               <RunInspector

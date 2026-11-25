@@ -59,8 +59,10 @@ test("a linked run can be read while revision history loads", async ({ page, req
     await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed");
     const iterate = page.getByRole("button", { name: "Iterate from this run", exact: true });
     await expect(iterate).toBeDisabled();
+    await expect(page.getByRole("searchbox", { name: "Find a recent run" })).toHaveCount(0);
     release();
     await expect(iterate).toBeEnabled();
+    await expect(page.getByRole("searchbox", { name: "Find a recent run" })).toBeVisible();
   } finally {
     release();
   }
