@@ -321,6 +321,40 @@ test("follow parallel research from a source packet through owner judgment to an
   const revised: ReportView = await (await request.get(`/api/reports/${revisedId}`)).json();
   expect(revised.revision.sections[0]!.body).toContain(editorialNote);
   expect(revised.revision.provenance.attempt.id).toBe(submissions[0]!.attempt_id);
+  const pinnedPass = final.model_attempts!.find(
+    ({ id }) => id === revised.revision.provenance.attempt.id,
+  )!;
+
+  const draftUrl = page.url();
+  const continuedEditing = `${await section.inputValue()}\n\nVerify the comparison against the saved request.`;
+  await section.fill(continuedEditing);
+  await page.getByText("Research provenance", { exact: true }).click();
+  const [source] = await Promise.all([
+    page.waitForEvent("popup"),
+    page.getByRole("link", { name: "Inspect source pass", exact: true }).click(),
+  ]);
+  await expect(source).toHaveURL(
+    (url) =>
+      url.searchParams.get("view") === "runs" &&
+      url.searchParams.get("run") === sessionId &&
+      url.searchParams.get("attempt") === pinnedPass.id,
+  );
+  const sourceStep = source.getByRole("region", { name: "Selected step", exact: true });
+  await expect(
+    sourceStep.getByRole("heading", { name: "Report editor", exact: true }),
+  ).toBeVisible();
+  const sourcePass = sourceStep.locator(".research-attempt[open]");
+  await sourcePass.getByText("Attempt details", { exact: true }).click();
+  await expect(
+    sourcePass.getByRole("link", { name: "Saved request", exact: true }),
+  ).toHaveAttribute(
+    "href",
+    `/api/artifacts/${encodeURIComponent(pinnedPass.input_artifact_id!)}/content`,
+  );
+  await source.close();
+  await expect(page).toHaveURL(draftUrl);
+  await expect(section).toHaveValue(continuedEditing);
+
   const unchanged: RunSnapshot = await (await request.get(runUrl)).json();
   expect(unchanged.model_attempts).toEqual(final.model_attempts);
 });
