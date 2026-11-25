@@ -13,7 +13,17 @@ before pinning. Open a queued file's **File attribution** to set its own author 
 date. Fields use batch attribution until edited. **Use batch attribution**
 restores those defaults for the file.
 
-**Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. **Unpin all** clears the packet for a new batch and leaves the source library available. Use **Undo** to restore the previous reading order. You can leave **Context for the lead** blank.
+**Saved sources** selects existing library records. Search by title or
+attribution and choose **Pin loaded results** to append the matches on screen
+in their current order. The action skips sources already pinned. Load more
+matches to include them, or narrow the search if the group exceeds the packet's
+remaining space.
+
+The **Study packet** shows the reading order, previews and provenance. Select a
+chart thumbnail to inspect its original and page through the other charts. Move
+or unpin a source in the packet. **Unpin all** clears the packet for a new batch
+and leaves the source library available. Use **Undo** to restore the previous
+reading order. You can leave **Context for the lead** blank.
 
 An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
 
@@ -55,7 +65,11 @@ editorial review setting controls the separate decision about the report.
   for a guaranteed editorial checkpoint, or **Continue independently** to let the
   editor proceed after research.
 
-The **Ask the lead for a first reading** action stays in view as you edit the packet and settings. **Recent research** lists recently opened studies. **Search past studies** finds older studies by title, any pinned source title, context or ID. **Decisions** opens working sentences, lead questions and editorial reviews even after a study drops out of the recent list.
+The **Ask the lead for a first reading** action stays in view as you edit the
+packet and settings. **Recent research** lists the latest studies. Open
+**Studies** in the header to search by title, any pinned source title, context
+or ID. **Decisions** opens working sentences, lead questions and editorial
+reviews even after a study drops out of the recent list.
 
 When you open a study from the archive, the same tab remembers your submitted
 search, status filter and results page. **Reset search** clears the filters and
@@ -115,7 +129,9 @@ own workspaces. Open an earlier pass or an activity entry to inspect the request
 and response that produced it. The reader shows the findings, files and sources
 recorded for that pass, and the link remembers the workspace and pass. Choose
 **Inspect pass in Runs** to see structured request inputs, or **Back to latest
-workspace** to continue following the workspace.
+workspace** to continue following the workspace. **Copy study link** opens the
+study from its overview. **Copy pass link** points to the exact structured
+receipt in Runs.
 
 Use **Search study activity** in the **Activity log** to find a pass by
 workspace, lead, pass number, result text or filename. The log keeps the search
@@ -147,7 +163,9 @@ the title and a style guide before creating the draft. Further edits and editori
 feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
 
 Choose **Revisit material** to start another experiment with the previous context,
-sample, sources and settings. In the revised study, **Compare with baseline** opens
-the original alongside the revision in the run inspector. Use **Open research
-session** to return to the revision. To read the original by itself, choose
-**Open baseline session** under **Sources and settings**.
+sample, sources and settings. Before starting, open **Compare with previous
+setup** to see packet changes, reading order, model roles, limits and context.
+In the revised study, **Compare with baseline** opens the original alongside the
+revision in the run inspector. Use **Open research session** to return to the
+revision. To read the original by itself, choose **Open baseline session** under
+**Sources and settings**.
