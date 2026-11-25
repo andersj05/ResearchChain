@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { api, type RunArchivePage, type RunSummary } from "@/lib/workflow";
 import { formatTime, RunStatus, runStatusLabels } from "./run-status";
 import { sessionUrl, sourceLedBrief } from "@/lib/research-sessions";
+import "./run-archive.css";
 
 function ArchiveResults({
   query,

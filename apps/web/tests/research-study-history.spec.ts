@@ -77,6 +77,7 @@ test("reopen a decision beyond recent research and find the study by a secondary
   await expect(recent.getByRole("link", { name: /More recent study/ })).toHaveCount(20);
   await expect(recent.getByRole("link", { name: title })).toHaveCount(0);
   await recent.getByText("Search past studies", { exact: true }).click();
+  await expect(recent.locator(".archive-controls")).toHaveCSS("display", "grid");
   await recent.getByRole("searchbox", { name: "Search the archive" }).fill(secondary);
   await recent.getByRole("button", { name: "Search", exact: true }).click();
   await expect(recent.getByRole("link", { name: new RegExp(title) })).toHaveAttribute(

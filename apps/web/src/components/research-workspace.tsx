@@ -4,6 +4,7 @@ import { apiFetch } from "@/lib/access";
 import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 import { CsvPreview } from "./csv-preview";
+import "./research-workspace.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 type WorkspaceFile = components["schemas"]["WorkspaceFile"];
@@ -146,7 +147,7 @@ export function ResearchWorkspace({
       <section aria-label="Workspace activity">
         <h4>Workspace activity</h4>
         {!!actions.length && (
-          <ol className="workspace-actions">
+          <ol className="workspace-file-activity">
             {actions.map(({ id, pass, activity }) => (
               <li key={id}>
                 <div>

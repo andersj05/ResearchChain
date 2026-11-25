@@ -1,17 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
 import { ResearchMethodology } from "./research-methodology";
 import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
-import { ResearchSession } from "./research-session";
 import { RunArchive } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
 import { api, type RecentRunSummary } from "@/lib/workflow";
 import { sessionUrl } from "@/lib/research-sessions";
 import styles from "./research-desk.module.css";
+
+const ResearchSession = lazy(() =>
+  import("./research-session").then(({ ResearchSession }) => ({ default: ResearchSession })),
+);
 
 function RecentStudies() {
   const { active } = useOwner();
@@ -126,14 +129,23 @@ export function ResearchDesk({
         </div>
       </header>
       {session ? (
-        <ResearchSession
-          runId={session}
-          onNewStudy={(source) => {
-            window.location.assign(
-              source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",
-            );
-          }}
-        />
+        <Suspense
+          fallback={
+            <main className={styles.page}>
+              <h1>Research session</h1>
+              <p role="status">Opening the research session…</p>
+            </main>
+          }
+        >
+          <ResearchSession
+            runId={session}
+            onNewStudy={(source) => {
+              window.location.assign(
+                source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",
+              );
+            }}
+          />
+        </Suspense>
       ) : methodology ? (
         <ResearchMethodology />
       ) : decisions ? (
