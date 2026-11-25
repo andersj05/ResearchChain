@@ -108,6 +108,7 @@ test("reopens an exact historical pass with its own findings, files, and sources
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/?session=${runId}&workspace=agent-1`);
+  await expect(page.getByText("Active time unreported", { exact: true })).toBeVisible();
   const workspace = page.getByRole("region", { name: "Release checks workspace" });
   await expect(workspace).toContainText("Revised conclusion.");
   await expect(workspace.getByRole("cell", { name: "Revised" })).toBeVisible();

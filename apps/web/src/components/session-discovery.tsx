@@ -4,7 +4,7 @@ import type { components } from "@researchchain/contracts";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { readReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
-import { useSourceDetails } from "@/lib/use-evidence-library";
+import type { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
 import { SessionWorkspaceLink, rememberAnswer } from "./session-consultations";
 import styles from "./session-discovery.module.css";
@@ -40,7 +40,7 @@ function SourceNotes({
       {cited.length === 0 && <p>The lead cited no source passages.</p>}
       {cited.map((id) => {
         const item = sources.items.get(id);
-        const saved = run.research_manifest?.evidence.find((s) => s.evidence_id === id);
+        const saved = run.research_manifest?.evidence?.find((s) => s.evidence_id === id);
         const citations = reading.citations.filter((c) => c.evidence_id === id);
         const name = item?.title ?? `Source ${id.slice(0, 8)}`;
         const chart = saved?.representation === "chart_screenshot" && saved.original;
@@ -85,7 +85,7 @@ function SourceNotes({
           </article>
         );
       })}
-      {!!sources.unresolved.length && (
+      {sources.unresolved.some((id) => cited.includes(id)) && (
         <button className="text-link" onClick={sources.retry}>
           Retry source details
         </button>
@@ -257,6 +257,10 @@ function IssuedAssignment({
 
 export function SessionDiscovery({
   run,
+  reading,
+  sources,
+  readingRequested,
+  onReadOriginal,
   review,
   decision,
   team,
@@ -267,6 +271,10 @@ export function SessionDiscovery({
   actionNotice,
 }: {
   run: RunSnapshot;
+  reading?: Reading;
+  sources: ReturnType<typeof useSourceDetails>;
+  readingRequested: boolean;
+  onReadOriginal: () => void;
   review?: Review;
   decision?: Decision | null;
   team: SessionWorkspace[];
@@ -276,10 +284,6 @@ export function SessionDiscovery({
   onSelect: SelectPass;
   actionNotice?: ReactNode;
 }) {
-  const sources = useSourceDetails(run.evidence_ids ?? []);
-  const reading = run.model_attempts?.find(
-    (pass) => pass.path === "root/discovery" && pass.status === "completed",
-  )?.result?.discovery;
   const active = run.execution_pending || ["queued", "running", "paused"].includes(run.status);
   const parked = decision?.decision === "reject";
   return (
@@ -355,10 +359,19 @@ export function SessionDiscovery({
             </section>
           )}
           {reading ? (
-            <details className={styles.history}>
+            <details
+              className={styles.history}
+              onToggle={(event) => {
+                if (event.currentTarget.open) onReadOriginal();
+              }}
+            >
               <summary>Read the original lead proposal</summary>
-              <FirstReading run={run} reading={reading} sources={sources} />
-              <p>{reading.question}</p>
+              {readingRequested && (
+                <>
+                  <FirstReading run={run} reading={reading} sources={sources} />
+                  <p>{reading.question}</p>
+                </>
+              )}
             </details>
           ) : (
             <p role="status">

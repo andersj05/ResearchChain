@@ -236,7 +236,11 @@ test("follow parallel research from a source packet through owner judgment to an
   expect(await bundle.failure()).toBeNull();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: info.outputPath("illustrated-report-mobile.png"), fullPage: true });
-  await page.getByRole("button", { name: "Revisit material" }).click();
+  await page.evaluate(() => scrollTo(0, 0));
+  const revisit = page.getByRole("button", { name: "Revisit material", exact: true });
+  await expect(revisit).toBeInViewport();
+  await expect(page.getByRole("link", { name: "Read report", exact: true })).toBeInViewport();
+  await revisit.click();
   await expect(page.getByLabel("Context for the lead (optional)", { exact: true })).toHaveValue(
     brief,
   );
