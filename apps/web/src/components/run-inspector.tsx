@@ -171,10 +171,32 @@ function RunWorkspace({
   const path = manual ?? current;
   const readingPane = useRef<HTMLDivElement>(null);
   const focusOnInspect = useRef(false);
+  const comparisonOrigin = useRef<{
+    path: string;
+    pageScroll: number;
+    paneScroll: number;
+  }>(null);
   const comparingIterations = Boolean(iterationComparison);
   useLayoutEffect(() => {
     const pane = readingPane.current;
     if (!pane) return;
+    if (!comparingIterations) {
+      const origin = view === "outputs" ? comparisonOrigin.current : null;
+      comparisonOrigin.current = null;
+      if (origin) {
+        const opener = pane.querySelector<HTMLButtonElement>(
+          `[data-output-comparison-path="${CSS.escape(origin.path)}"]`,
+        );
+        if (opener) {
+          focusOnInspect.current = false;
+          pane.scrollTop = origin.paneScroll;
+          window.scrollTo(window.scrollX, origin.pageScroll);
+          opener.focus({ preventScroll: true });
+          opener.scrollIntoView({ block: "nearest", inline: "nearest" });
+          return;
+        }
+      }
+    }
     pane.scrollTop = 0;
     if (focusOnInspect.current) {
       focusOnInspect.current = false;
@@ -512,7 +534,12 @@ function RunWorkspace({
                 inspect={inspectFromPanel}
                 filter={outputFilter}
                 onFilterChange={setOutputFilter}
-                onCompare={(selection) => {
+                onCompare={(selection, path) => {
+                  comparisonOrigin.current = {
+                    path,
+                    pageScroll: window.scrollY,
+                    paneScroll: readingPane.current?.scrollTop ?? 0,
+                  };
                   focusOnInspect.current = true;
                   clearIterationLink();
                   changeView("outputs");

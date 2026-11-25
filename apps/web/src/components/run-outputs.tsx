@@ -78,7 +78,7 @@ export function RunOutputs({
   filter: OutputFilter;
   onFilterChange: (filter: OutputFilter) => void;
   inspect: (path: string, attemptId?: string) => void;
-  onCompare: (selection: IterationComparison) => void;
+  onCompare: (selection: IterationComparison, path: string) => void;
 }) {
   const { outputs, labelCounts, modelOutputs } = useMemo(() => {
     const labelCounts = new Map<string, number>();
@@ -155,6 +155,7 @@ export function RunOutputs({
                 peer.difference < 0
                   ? { comparison: other, current: original }
                   : { comparison: original, current: other },
+                path,
               );
             };
             const rowLabel =
@@ -178,6 +179,7 @@ export function RunOutputs({
                       type="button"
                       onClick={compare}
                       aria-label={`Compare iterations for ${rowLabel}`}
+                      data-output-comparison-path={path}
                     >
                       Compare iterations
                     </button>
