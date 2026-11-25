@@ -4986,6 +4986,7 @@ export interface operations {
         offset?: number;
         search?: string;
         availability?: ("available" | "reference_only" | "missing" | "paywalled") | null;
+        kind?: ("link" | "report" | "discussion" | "image" | "dataset" | "text") | null;
       };
       header?: never;
       path?: never;

@@ -170,6 +170,15 @@
   border: 0;
   padding: 0;
 }
+.panel :global(.evidence-search-filters) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: end;
+  gap: 8px;
+}
+.panel :global(.evidence-search-filters) > label {
+  margin: 0;
+}
 .panel :global(.evidence-options) {
   max-height: 200px;
 }

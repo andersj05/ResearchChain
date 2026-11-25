@@ -5,6 +5,7 @@ export type EvidenceCreate = components["schemas"]["EvidenceCreate"];
 export type EvidenceInput = Pick<EvidenceCreate, "id" | "kind" | "title" | "rights"> &
   Partial<EvidenceCreate>;
 export type EvidenceRecord = components["schemas"]["EvidenceRecord"];
+export type EvidenceKind = EvidenceRecord["kind"];
 export type EvidencePage = components["schemas"]["EvidencePage"];
 export type EvidenceSnapshot = components["schemas"]["EvidenceSnapshot"];
 export type ArtifactInfo = components["schemas"]["ArtifactInfo"];

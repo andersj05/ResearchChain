@@ -172,6 +172,35 @@ def test_evidence_search_filters_before_pagination(client: TestClient) -> None:
     assert client.get("/api/evidence", params={"search": "x" * 241}).status_code == 422
 
 
+def test_evidence_kind_refines_search_availability_and_pagination(client: TestClient) -> None:
+    older = create(client, title="Weekly curve", kind="text")
+    create(client, title="Unrelated note", kind="text")
+    newer = create(client, title="Weekly curve", kind="text")
+    report = create(client, title="Weekly curve", kind="report")
+    create(
+        client,
+        title="Weekly curve",
+        kind="text",
+        text="",
+        availability="missing",
+        source_url="https://example.test/weekly",
+        rights="unknown",
+    )
+
+    params = {"kind": "text", "search": " WEEkly ", "availability": "available", "limit": "1"}
+    first = client.get("/api/evidence", params=params)
+    assert first.status_code == 200
+    assert first.json() == {"items": [newer], "total": 2, "next_offset": 1}
+    second = client.get("/api/evidence", params={**params, "offset": "1"}).json()
+    assert second == {"items": [older], "total": 2, "next_offset": None}
+
+    all_kinds = client.get(
+        "/api/evidence", params={"search": "weekly", "availability": "available"}
+    ).json()
+    assert all_kinds == {"items": [report, newer, older], "total": 3, "next_offset": None}
+    assert client.get("/api/evidence", params={"kind": "Text"}).status_code == 422
+
+
 @pytest.mark.parametrize("availability", ["reference_only", "missing", "paywalled"])
 def test_uncaptured_sources_do_not_invent_content(client: TestClient, availability: str) -> None:
     record = create(
