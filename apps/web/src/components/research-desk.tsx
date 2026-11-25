@@ -18,8 +18,9 @@ import { ResearchLauncher } from "./research-launcher";
 import { ResearchReviewQueue, researchDecisionsUrl } from "./research-review-queue";
 import { RunArchive, type ArchiveReturnPosition } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
+import type { EvidenceRecord } from "@/lib/evidence";
 import { api, type RecentRunSummary } from "@/lib/workflow";
-import { sessionUrl } from "@/lib/research-sessions";
+import { sessionUrl, type ArchivedSourceAppend } from "@/lib/research-sessions";
 import { pollVisiblePage } from "@/lib/poll-visible-page";
 import styles from "./research-desk.module.css";
 
@@ -34,6 +35,7 @@ const ResearchMethodology = lazy(() =>
 const studiesUrl = "?view=research&studies=1";
 const readerTitle = "study-reader-title";
 const decisionsTitle = "research-decisions";
+const packetHeading = "packet-heading";
 
 function useRecentStudies(enabled: boolean) {
   const [studies, setStudies] = useState<RecentRunSummary[]>();
@@ -136,7 +138,10 @@ export function ResearchDesk({
   const [draftScope, setDraftScope] = useState<string | null | undefined>(() =>
     showingDraft ? fromSession : undefined,
   );
+  const [sourceAppend, setSourceAppend] = useState<ArchivedSourceAppend>();
   if (showingDraft && draftScope !== fromSession) setDraftScope(fromSession);
+  if (sourceAppend && (!showingDraft || sourceAppend.scope !== fromSession))
+    setSourceAppend(undefined);
   const readingWithDraft = deskView === "session" && draftScope !== undefined;
   const showingDecisions = deskView === "decisions";
   const returningToDraft = deskView === "studies" || showingDecisions || readingWithDraft;
@@ -173,7 +178,13 @@ export function ResearchDesk({
       return;
     }
     focusAfterNavigation.current = null;
-    document.getElementById(id)?.focus({ preventScroll: true });
+    const target = document.getElementById(id);
+    if (id === packetHeading) {
+      (target ?? document.getElementById("research-title"))?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "start" });
+      return;
+    }
+    target?.focus({ preventScroll: true });
     window.scrollTo(0, 0);
   }, [deskView, session]);
 
@@ -215,6 +226,13 @@ export function ResearchDesk({
       };
     focusAfterNavigation.current = heading ?? null;
     onNavigate(href);
+  }
+
+  function appendArchivedSource(source: EvidenceRecord) {
+    if (!active || !readingWithDraft || draftScope === undefined) return;
+    setSourceAppend({ scope: draftScope, source });
+    focusAfterNavigation.current = packetHeading;
+    onNavigate(`${returnToDraft}#${packetHeading}`);
   }
 
   return (
@@ -284,6 +302,10 @@ export function ResearchDesk({
               key={draftScope ?? "new"}
               fromSession={draftScope}
               recentStudies={recent.studies}
+              sourceAppend={sourceAppend?.scope === draftScope ? sourceAppend : undefined}
+              onSourceAppendHandled={(handled) =>
+                setSourceAppend((current) => (current === handled ? undefined : current))
+              }
             />
           </Activity>
           {showingDraft && (
@@ -326,6 +348,7 @@ export function ResearchDesk({
           <ResearchSession
             runId={session}
             titleRef={focusReaderTitle}
+            onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
             onNewStudy={(source) => {
               window.location.assign(
                 source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",

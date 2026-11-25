@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources } from "./discovery-sources";
 import { StudyPacket, packetSize } from "./study-packet";
@@ -27,7 +27,9 @@ import {
   readResearchBrief,
   reusableResearchSettings,
   sessionUrl,
+  studySourceLimit,
   storeResearchBrief,
+  type ArchivedSourceAppend,
   type ResearchBrief,
   type ResearchSessionSetup,
   type ResearchSessionStart,
@@ -45,12 +47,27 @@ function browsingSavedStudies() {
   return query.get("studies") === "1" || !!query.get("session");
 }
 
+function packetCapacity(records: (EvidenceRecord | undefined)[], limit: number) {
+  const size = packetSize(records);
+  const error =
+    size >= limit
+      ? "The source content fills the request limit. Unpin files to leave room for the lead’s instructions."
+      : records.filter((item) => item?.artifact).length > 64
+        ? "The analyst workspace holds 64 source files. Unpin files before starting this study."
+        : "";
+  return { size, error };
+}
+
 export function ResearchLauncher({
   fromSession,
   recentStudies,
+  sourceAppend,
+  onSourceAppendHandled,
 }: {
   fromSession: string | null;
   recentStudies?: RecentRunSummary[];
+  sourceAppend?: ArchivedSourceAppend;
+  onSourceAppendHandled: (append: ArchivedSourceAppend) => void;
 }) {
   const { active, owner } = useOwner();
   const key = `${ownerStoragePrefix(owner)}.research-brief.${fromSession ?? "new"}`;
@@ -70,22 +87,18 @@ export function ResearchLauncher({
   const [busy, setBusy] = useState(false);
   const [readingSample, setReadingSample] = useState(false);
   const [editingSource, setEditingSource] = useState(false);
+  const [sourceAppendNotice, setSourceAppendNotice] = useState("");
   const [captured, setCaptured] = useState<Map<string, EvidenceRecord>>(() => new Map());
   const details = useSourceDetails(draft.evidence_ids.filter((id) => !captured.has(id)));
   const records = draft.evidence_ids.map((id) => captured.get(id) ?? details.items.get(id));
   const limit = draft.max_input_bytes ?? 8_000_000;
-  const size = packetSize(records);
-  const packetError =
-    size >= limit
-      ? "The source content fills the request limit. Unpin files to leave room for the lead’s instructions."
-      : records.filter((item) => item?.artifact).length > 64
-        ? "The analyst workspace holds 64 source files. Unpin files before starting this study."
-        : "";
+  const { size, error: packetError } = packetCapacity(records, limit);
   const [manageConnection, setManageConnection] = useState(false);
   const inFlight = useRef(false);
   const admitted = useRef(false);
   const mounted = useRef(false);
   const deferNavigation = useRef(false);
+  const savingSource = useRef(false);
   const launchBar = useRef<HTMLDivElement>(null);
   const catalog = useModelCatalog(active && !confirmedStart);
   const account = catalog.status?.accounts.find(
@@ -266,6 +279,7 @@ export function ResearchLauncher({
   function update(patch: Partial<ResearchBrief>) {
     if (frozen || inFlight.current) return;
     setForm((previous) => ({ ...previous, draft: { ...previous.draft, ...patch } }));
+    if (patch.evidence_ids) setSourceAppendNotice("");
     setStartError("");
   }
 
@@ -275,6 +289,7 @@ export function ResearchLauncher({
       draft: { ...draft, ...reusableResearchSettings(setup) },
       awaitingModelCatalog: false,
     }));
+    setSourceAppendNotice("");
     setStartError("");
     return true;
   }
@@ -289,8 +304,44 @@ export function ResearchLauncher({
             draft: { ...previous.draft, evidence_ids: [...previous.draft.evidence_ids, source.id] },
           },
     );
+    setSourceAppendNotice("");
     setStartError("");
   }
+
+  const appendSavedSource = useEffectEvent((append: ArchivedSourceAppend) => {
+    if (append !== sourceAppend || append.scope !== fromSession) return;
+    const { source } = append;
+    const capacityError = packetCapacity([...records, source], limit).error;
+    let notice: string;
+    if (admitted.current)
+      notice = "This study started while you were reading. Open a new setup to add the source.";
+    else if (frozen || inFlight.current || savingSource.current)
+      notice = "The study setup is busy. Try adding the source after the current request settles.";
+    else if (draft.evidence_ids.includes(source.id))
+      notice = `${source.title} is already in the study packet.`;
+    else if (draft.evidence_ids.length >= studySourceLimit)
+      notice = `The study packet holds ${studySourceLimit} sources. Unpin a source to make room.`;
+    else if (records.some((record) => !record))
+      notice = "Some pinned source details are unavailable. Check the packet and try again.";
+    else if (capacityError) notice = `Could not add ${source.title}. ${capacityError}`;
+    else {
+      pin(source);
+      notice = `Added ${source.title} to the study packet.`;
+    }
+    setSourceAppendNotice(notice);
+    onSourceAppendHandled(append);
+  });
+
+  useEffect(() => {
+    if (!sourceAppend) return;
+    let current = true;
+    queueMicrotask(() => {
+      if (current) appendSavedSource(sourceAppend);
+    });
+    return () => {
+      current = false;
+    };
+  }, [sourceAppend]);
 
   if (confirmedStart) {
     return (
@@ -298,6 +349,7 @@ export function ResearchLauncher({
         <h1 id="research-title" tabIndex={-1}>
           Study started
         </h1>
+        {sourceAppendNotice && <p role="status">{sourceAppendNotice}</p>}
         <div className={styles.intro}>
           <a className="button primary" href={sessionUrl(confirmedStart)}>
             Open study
@@ -375,6 +427,9 @@ export function ResearchLauncher({
           disabled={frozen}
           onChange={(evidence_ids) => update({ evidence_ids })}
           onEditing={setEditingSource}
+          onSaving={(value) => {
+            savingSource.current = value;
+          }}
         >
           <aside
             className={styles.composer}
@@ -390,6 +445,7 @@ export function ResearchLauncher({
               limit={limit}
               size={size}
               error={packetError}
+              appendNotice={sourceAppendNotice}
               retry={details.unresolved.length ? details.retry : undefined}
             />
             <fieldset disabled={frozen}>

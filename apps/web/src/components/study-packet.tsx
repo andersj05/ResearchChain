@@ -49,6 +49,7 @@ export function StudyPacket({
   limit,
   size,
   error,
+  appendNotice,
   retry,
 }: {
   ids: string[];
@@ -58,6 +59,7 @@ export function StudyPacket({
   limit: number;
   size: number;
   error: string;
+  appendNotice?: string;
   retry?: () => void;
 }) {
   const [previewId, setPreviewId] = useState<string>();
@@ -169,6 +171,7 @@ export function StudyPacket({
           )}
         </div>
       </header>
+      {appendNotice && <p role="status">{appendNotice}</p>}
       <p className="sr-only" role="status">
         {appliedEdit?.message ?? sourceCount(ids.length)}
       </p>

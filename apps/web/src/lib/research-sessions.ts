@@ -1,9 +1,12 @@
 import type { components } from "@researchchain/contracts";
+import type { EvidenceRecord } from "./evidence";
 import type { ModelOverride, ModelProfile, ProviderModel } from "./model-settings";
 
 export type ResearchSessionSetup = components["schemas"]["ResearchSessionSetup"];
 export type ResearchSessionStart = components["schemas"]["ResearchSessionStart"];
 export const sourceLedBrief = "Source-led study";
+export const studySourceLimit = 100;
+export type ArchivedSourceAppend = { scope: string | null; source: EvidenceRecord };
 export type SwarmSettings = NonNullable<ResearchSessionSetup["swarm"]>;
 export const initialSwarm: Required<SwarmSettings> = {
   lead_count: 2,
@@ -156,7 +159,7 @@ function validDraft(value: ResearchBrief) {
     value.style_excerpt.length <= 32000 &&
     typeof value.model === "string" &&
     Array.isArray(value.evidence_ids) &&
-    value.evidence_ids.length <= 100 &&
+    value.evidence_ids.length <= studySourceLimit &&
     value.evidence_ids.every((id) => typeof id === "string" && uuid.test(id)) &&
     [value.max_agents, value.max_passes, value.max_active_seconds].every(Number.isInteger) &&
     typeof value.web_search === "boolean" &&

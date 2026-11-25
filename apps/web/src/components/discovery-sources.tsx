@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/workflow";
 import { rightsLabels, type EvidenceInput, type EvidenceRecord } from "@/lib/evidence";
+import { studySourceLimit } from "@/lib/research-sessions";
 import {
   captureRights,
   readResearchCaptureDraft,
@@ -52,6 +53,7 @@ export function DiscoverySources({
   onChange,
   onPin,
   onEditing,
+  onSaving,
 }: {
   storageKey: string;
   ids: string[];
@@ -61,6 +63,7 @@ export function DiscoverySources({
   onChange: (ids: string[]) => void;
   onPin: (item: EvidenceRecord) => void;
   onEditing: (value: boolean) => void;
+  onSaving: (value: boolean) => void;
 }) {
   const [draft, setDraft] = useState(() => readResearchCaptureDraft(storageKey));
   const { kind, title, body, url, rights, author, date, command } = draft;
@@ -74,7 +77,7 @@ export function DiscoverySources({
   const touched = !!(title || body || url);
   const editing = touched || filePending;
   const locked = disabled || saving;
-  const packetFull = ids.length >= 100;
+  const packetFull = ids.length >= studySourceLimit;
   const viewedChart = preview?.charts.find((chart) => chart.id === preview.id)?.source;
   const chartPinned = !!viewedChart && ids.includes(viewedChart.id);
   const attribution: Attribution = { author: author.trim(), as_of_date: date || null, rights };
@@ -98,10 +101,16 @@ export function DiscoverySources({
     setDraft((current) => ({ ...current, ...patch, command: null }));
     setError("");
   }
+
+  function setPinning(value: boolean) {
+    setSaving(value);
+    onSaving(value);
+  }
+
   async function pinText() {
     if (locked || writing.current || packetFull || !canPinText) return;
     writing.current = true;
-    setSaving(true);
+    setPinning(true);
     setError("");
     try {
       const request: EvidenceInput = command ?? {
@@ -130,7 +139,7 @@ export function DiscoverySources({
       setError(cause instanceof Error ? cause.message : "Could not pin this source.");
     } finally {
       writing.current = false;
-      setSaving(false);
+      setPinning(false);
     }
   }
   return (
@@ -144,7 +153,7 @@ export function DiscoverySources({
           disabled={locked}
           attribution={attribution}
           onPin={onPin}
-          onSaving={setSaving}
+          onSaving={setPinning}
           onPending={setFilePending}
           onChooseRights={focusRights}
         >
