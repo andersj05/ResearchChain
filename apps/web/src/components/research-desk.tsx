@@ -10,6 +10,7 @@ import {
   useRef,
   useState,
   type MouseEvent,
+  type MouseEventHandler,
 } from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
@@ -57,7 +58,12 @@ function useRecentStudies(enabled: boolean) {
   return { studies, error, retry: () => setRefresh((n) => n + 1) };
 }
 
-function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStudies>) {
+function RecentStudies({
+  studies,
+  error,
+  retry,
+  onOpenStudy,
+}: ReturnType<typeof useRecentStudies> & { onOpenStudy: MouseEventHandler<HTMLAnchorElement> }) {
   return (
     <section
       className={styles.history}
@@ -78,7 +84,7 @@ function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStu
         <ul className={styles.historyRows}>
           {studies.map((study) => (
             <li key={study.id}>
-              <a href={sessionUrl(study.id)}>
+              <a href={sessionUrl(study.id)} onClick={onOpenStudy}>
                 <span className={styles.studyTitle}>
                   {study.study_title || study.brief_excerpt || study.workflow_name}
                 </span>
@@ -95,7 +101,7 @@ function RecentStudies({ studies, error, retry }: ReturnType<typeof useRecentStu
           </p>
         )
       )}
-      {!!studies?.length && <RunArchive sessionsOnly />}
+      {!!studies?.length && <RunArchive sessionsOnly onOpenLink={onOpenStudy} />}
     </section>
   );
 }
@@ -257,7 +263,12 @@ export function ResearchDesk({
               recentStudies={recent.studies}
             />
           </Activity>
-          {showingDraft && <RecentStudies {...recent} />}
+          {showingDraft && (
+            <RecentStudies
+              {...recent}
+              onOpenStudy={(event) => navigateWithinDesk(event, readerTitle)}
+            />
+          )}
         </main>
       )}
       {visitedDecisions && (

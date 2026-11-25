@@ -13,8 +13,8 @@ mixed drop, **Remove invalid files** clears the files that failed local
 validation. A file with an unconfirmed pin stays queued for its exact retry.
 Original uploads can overlap while the pins keep their queue order.
 
-To look up another study while you assemble a packet, open **Studies** and
-select the saved study. **Research desk** takes you back to the same in-tab
+To look up another study while you assemble a packet, open **Studies** or
+select a saved study under **Recent research**. **Research desk** takes you back to the same in-tab
 setup. From the archive, choose **Return to study setup**. Browser history
 also preserves the staged files. If a first reading was accepted during the
 visit, **Open study** opens the confirmed session.
