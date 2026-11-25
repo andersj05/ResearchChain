@@ -383,7 +383,12 @@ class Reports:
                 else "unreviewed",
             )
 
-    def list(self, revision_id: UUID | None = None) -> list[ReportSummary]:
+    def list(
+        self,
+        revision_id: UUID | None = None,
+        *,
+        study_origin: tuple[UUID, UUID] | None = None,
+    ) -> list[ReportSummary]:
         with self.database.connection() as conn:
             if revision_id:
                 record = read_record(conn, "report_revisions", revision_id, ReportRevision)
@@ -393,10 +398,21 @@ class Reports:
                     (record.series_id,),
                 )
             else:
+                origin_filter = ""
+                params: tuple[str, ...] = ()
+                if study_origin is not None:
+                    origin_filter = (
+                        "AND r.document #>> '{provenance,renderer}' = 'study-markdown-1' "
+                        "AND r.document #>> '{provenance,run_id}' = %s "
+                        "AND r.document #>> '{provenance,attempt,id}' = %s "
+                    )
+                    params = tuple(map(str, study_origin))
                 rows = conn.execute(
                     "SELECT document FROM report_revisions r WHERE NOT EXISTS "
                     "(SELECT 1 FROM report_revisions n WHERE n.replaces_id = r.id) "
-                    "ORDER BY created_at DESC,id DESC LIMIT 100"
+                    + origin_filter
+                    + "ORDER BY created_at DESC,id DESC LIMIT 100",
+                    params,
                 )
             return [
                 ReportSummary(

@@ -7,7 +7,9 @@ with the original run, model, workflow and prompt provenance.
 
 From a completed Research desk study, choose **Edit in Reports** beside the
 download action. The draft form opens on that report editor's final result.
-Confirm the title and pinned style guide, then create the draft. It starts with
+**Saved reports from this editor pass** shows the latest saved revision of each report
+created from that exact result. Open an existing revision or confirm the title
+and pinned style guide to create a separate draft. A new draft starts with
 the saved Markdown, original editor files, recorded references and source
 snapshots. Open **Preview the saved report** to read the Markdown with its
 figures and recorded web links. **Original study and files** links back to the

@@ -16,9 +16,9 @@ Original uploads can overlap while the pins keep their queue order.
 To look up another study while you assemble a packet, open **Studies** or
 select a saved study under **Recent research**. **Research desk** takes you back
 to the same in-tab setup. From the archive or **Decisions**, choose **Return to
-study setup**. Opening an exact decision and using browser history also keeps
-the staged files. If a first reading was accepted during the visit, **Open
-study** opens the confirmed session.
+study setup**. Visiting **Methodology**, opening an exact decision and using
+browser history also keeps the staged files. If a first reading was accepted
+during the visit, **Open study** opens the confirmed session.
 
 Use **Paste a source** for a note, conversation or reference URL. You can add files
 before filling in **Source details**, which applies to both uploads and pasted
@@ -40,8 +40,9 @@ remaining space.
 
 The **Study packet** shows the reading order, previews and provenance. Select a
 chart thumbnail to inspect its original and page through the other charts. Move
-or unpin a source in the packet. **Unpin all** clears the packet for a new batch
-and leaves the source library available. Use **Undo** to restore the previous
+or unpin a source in the packet. Open **Move a source** to send a source directly
+to a different position in a long packet. **Unpin all** clears the packet for a
+new batch and leaves the source library available. Use **Undo** to restore the previous
 reading order. You can leave **Context for the lead** blank.
 
 An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
@@ -184,6 +185,10 @@ Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.
 Expand a saved direction to see exactly which requests included it. Once the
 editor starts, the current study closes to further directions.
+
+**Session controls** jumps from the study overview to its stop or recovery
+actions. Stopping uses a separate confirmation. Choose **Keep session** to
+return to the controls.
 
 If the session pauses for review, read the team's question and inspect the work
 behind it. Open **Research behind this review** to inspect a saved final pass.

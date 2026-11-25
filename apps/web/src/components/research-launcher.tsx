@@ -1,6 +1,15 @@
 "use client";
 
-import { lazy, Suspense, useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useOwner } from "./access-context";
 import { DiscoverySources } from "./discovery-sources";
 import { StudyPacket, packetSize } from "./study-packet";
@@ -88,9 +97,28 @@ export function ResearchLauncher({
   const [readingSample, setReadingSample] = useState(false);
   const [editingSource, setEditingSource] = useState(false);
   const [sourceAppendNotice, setSourceAppendNotice] = useState("");
-  const [captured, setCaptured] = useState<Map<string, EvidenceRecord>>(() => new Map());
-  const details = useSourceDetails(draft.evidence_ids.filter((id) => !captured.has(id)));
-  const records = draft.evidence_ids.map((id) => captured.get(id) ?? details.items.get(id));
+  const sourceSession = useMemo(
+    () => (active && owner.csrf_token ? Symbol() : null),
+    [active, owner.csrf_token],
+  );
+  const [capture, setCapture] = useState(() => ({
+    session: sourceSession,
+    records: new Map<string, { source: EvidenceRecord; verifiedForPacket: boolean }>(),
+  }));
+  if (capture.session !== sourceSession) setCapture({ session: sourceSession, records: new Map() });
+  const captured = capture.records;
+  const capturedRecords = draft.evidence_ids.map((id) => {
+    const item = captured.get(id);
+    return item?.verifiedForPacket ? item.source : undefined;
+  });
+  const knownSources = Array.from(captured.values(), (item) => item.source);
+  const details = useSourceDetails(
+    draft.evidence_ids.filter((_, index) => !capturedRecords[index]),
+    sourceSession,
+  );
+  const records = draft.evidence_ids.map(
+    (id, index) => capturedRecords[index] ?? details.items.get(id),
+  );
   const limit = draft.max_input_bytes ?? 8_000_000;
   const { size, error: packetError } = packetCapacity(records, limit);
   const [manageConnection, setManageConnection] = useState(false);
@@ -279,7 +307,22 @@ export function ResearchLauncher({
   function update(patch: Partial<ResearchBrief>) {
     if (frozen || inFlight.current) return;
     setForm((previous) => ({ ...previous, draft: { ...previous.draft, ...patch } }));
-    if (patch.evidence_ids) setSourceAppendNotice("");
+    if (patch.evidence_ids) {
+      const selected = new Set(patch.evidence_ids);
+      setCapture((previous) => {
+        const records = new Map(previous.records);
+        let changed = false;
+        // Keep the row in Saved sources while requiring a fresh detail after re-pinning it.
+        for (const [id, record] of previous.records) {
+          if (record.verifiedForPacket && !selected.has(id)) {
+            records.set(id, { ...record, verifiedForPacket: false });
+            changed = true;
+          }
+        }
+        return changed ? { ...previous, records } : previous;
+      });
+      setSourceAppendNotice("");
+    }
     setStartError("");
   }
 
@@ -295,7 +338,14 @@ export function ResearchLauncher({
   }
 
   function pin(source: EvidenceRecord) {
-    setCaptured((previous) => new Map(previous).set(source.id, source));
+    setCapture((previous) => {
+      if (!sourceSession || previous.session !== sourceSession) return previous;
+      const verifiedForPacket = previous.records.get(source.id)?.verifiedForPacket ?? true;
+      return {
+        ...previous,
+        records: new Map(previous.records).set(source.id, { source, verifiedForPacket }),
+      };
+    });
     setForm((previous) =>
       previous.draft.evidence_ids.includes(source.id)
         ? previous
@@ -403,7 +453,7 @@ export function ResearchLauncher({
             fromSession={fromSession}
             baseline={baseline}
             draft={{ ...draft, model, max_input_bytes: limit }}
-            records={[...records, ...captured.values()]}
+            records={[...knownSources, ...records]}
           />
         </Suspense>
       )}
@@ -422,7 +472,7 @@ export function ResearchLauncher({
         <DiscoverySources
           storageKey={captureKey}
           ids={draft.evidence_ids}
-          known={Array.from(captured.values())}
+          known={knownSources}
           onPin={pin}
           disabled={frozen}
           onChange={(evidence_ids) => update({ evidence_ids })}

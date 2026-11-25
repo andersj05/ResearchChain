@@ -8,6 +8,69 @@ import { StyleGuideContent, StyleGuideEditor } from "@/components/style-guide-ed
 import { api } from "@/lib/workflow";
 import type { ReportSummary, ReportView, StyleGuide } from "@/lib/reports";
 
+function StudyReportMatches({ runId, attemptId }: { runId: string; attemptId: string }) {
+  const [matches, setMatches] = useState<ReportSummary[] | "failed">();
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    const params = new URLSearchParams({ study_run_id: runId, study_attempt_id: attemptId });
+    api<ReportSummary[]>(`reports?${params}`).then(
+      (items) => {
+        if (active) setMatches(items);
+      },
+      () => {
+        if (active) setMatches("failed");
+      },
+    );
+    return () => {
+      active = false;
+    };
+  }, [runId, attemptId, retry]);
+
+  if (!matches)
+    return (
+      <p className="report-banner" role="status">
+        Checking for saved reports from this editor pass…
+      </p>
+    );
+  if (matches === "failed")
+    return (
+      <div className="report-banner source-notice" role="alert">
+        <p>Could not check for saved reports from this editor pass.</p>
+        <button
+          className="button small"
+          type="button"
+          onClick={() => {
+            setMatches(undefined);
+            setRetry((count) => count + 1);
+          }}
+        >
+          Retry report lookup
+        </button>
+      </div>
+    );
+  if (!matches.length) return null;
+  return (
+    <section className="report-list" aria-labelledby="study-report-matches">
+      <h2 id="study-report-matches">Saved reports from this editor pass</h2>
+      {matches.map((report) => (
+        <a
+          className="report-list-row report-browser-row"
+          href={`/?${new URLSearchParams({ view: "reports", report: report.id })}`}
+          key={report.id}
+        >
+          <strong>Open {report.title}</strong>
+          <span>
+            Revision {report.version} · {new Date(report.created_at).toLocaleString()}
+          </span>
+          <span>{report.change_note}</span>
+        </a>
+      ))}
+      <p className="field-hint">You can also use the form below to create a separate report.</p>
+    </section>
+  );
+}
+
 export function ReportDesk() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState("recent");
@@ -18,6 +81,7 @@ export function ReportDesk() {
   const [study, setStudy] = useState(() => {
     if (typeof window === "undefined") return null;
     const params = new URLSearchParams(window.location.search);
+    if (params.get("report")) return null;
     const runId = params.get("fromStudy");
     const attemptId = params.get("reportAttempt");
     return runId && attemptId ? { runId, attemptId } : null;
@@ -33,8 +97,11 @@ export function ReportDesk() {
     const styleVersion = styleWrites.current;
     async function load() {
       try {
+        const params = new URL(window.location.href).searchParams;
+        const fromStudy =
+          !params.get("report") && params.get("fromStudy") && params.get("reportAttempt");
         const [items, guides] = await Promise.all([
-          api<ReportSummary[]>("reports"),
+          fromStudy ? [] : api<ReportSummary[]>("reports"),
           api<StyleGuide[]>("style-guides"),
         ]);
         const id = new URL(window.location.href).searchParams.get("report");
@@ -82,7 +149,7 @@ export function ReportDesk() {
   }
   function cancelCreate() {
     setCreating(false);
-    if (study) remember(null);
+    if (study) leave();
   }
   const visibleReports = reports
     .filter((report) =>
@@ -110,7 +177,7 @@ export function ReportDesk() {
             <Button
               className="button"
               onClick={() => {
-                if (study) remember(null);
+                if (study) leave();
                 setCreating(true);
                 setPage("reports");
                 setStyleEdit(undefined);
@@ -187,30 +254,34 @@ export function ReportDesk() {
           ))}
         </div>
       ) : creating ? (
-        styles.length ? (
-          <ReportCreateForm
-            key={study?.attemptId ?? "new"}
-            study={study ?? undefined}
-            styles={styles}
-            onCancel={cancelCreate}
-            onCreate={async (r) => open(r.id)}
-          />
-        ) : (
-          <div className="report-list">
-            <h2>Create a style guide first</h2>
-            <p>
-              Capture analytical structure, source discipline and voice before starting the report.
-            </p>
-            <Button className="button primary" onClick={() => setStyleEdit(null)}>
-              New style guide
-            </Button>
-            {study && (
-              <Button className="button" onClick={cancelCreate}>
-                Cancel report creation
+        <>
+          {study && <StudyReportMatches key={`${study.attemptId}-${epoch}`} {...study} />}
+          {styles.length ? (
+            <ReportCreateForm
+              key={study?.attemptId ?? "new"}
+              study={study ?? undefined}
+              styles={styles}
+              onCancel={cancelCreate}
+              onCreate={async (r) => open(r.id)}
+            />
+          ) : (
+            <div className="report-list">
+              <h2>Create a style guide first</h2>
+              <p>
+                Capture analytical structure, source discipline and voice before starting the
+                report.
+              </p>
+              <Button className="button primary" onClick={() => setStyleEdit(null)}>
+                New style guide
               </Button>
-            )}
-          </div>
-        )
+              {study && (
+                <Button className="button" onClick={cancelCreate}>
+                  Cancel report creation
+                </Button>
+              )}
+            </div>
+          )}
+        </>
       ) : (
         <div className="report-list">
           <h2>Recent reports</h2>

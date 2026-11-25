@@ -2,6 +2,16 @@
 
 Updated 2026-11-25.
 
+## Packet editing and report handoff
+
+The packet can move an exact source directly to a different reading position.
+Loaded source details stay available through packet selection edits, and returning
+from a saved study still checks availability. **Methodology** preserves the open
+setup. **Session controls** reaches stop and recovery actions from the overview.
+
+**Edit in Reports** offers existing report heads from the exact editor pass and
+allows a separate report. The saved provenance continues through revisions.
+
 ## Capture and decision continuity
 
 File capture comes before the shared attribution fields. When a queued file
@@ -12,6 +22,10 @@ to the opened row and viewport position when the result is still present.
 The saved-study reader can add a verified source version to an open setup and
 return to the packet. Reports focuses a missing revision note before save and
 places the continuation beside the note.
+Desktop runs the `31a38e9` capture and decision merge. The Studies route returned
+HTTP 200 and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 264 Chromium cases.
+[Capture and decision PR](https://github.com/andersj05/ResearchChain/pull/156).
 
 ## Reusing research settings
 
@@ -26,6 +40,10 @@ return to the originating proposal and retain the working-sentence draft.
 
 Evaluation case and topic identifiers use native browser validation. The local
 Chromium runner selects its loopback ports from the private port range.
+Desktop runs the `feaf4e9` settings merge. The Studies route returned HTTP 200
+and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 260 Chromium cases.
+[Settings PR](https://github.com/andersj05/ResearchChain/pull/155).
 
 ## Source queue and batch uploads
 

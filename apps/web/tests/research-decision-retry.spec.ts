@@ -188,15 +188,32 @@ for (const scenario of cases) {
       await expect(sibling.getByLabel("Your perspective")).toHaveValue("Other lead draft.");
 
     if (scenario.kind === "editorial review") {
-      await page.route(`**/api/runs/${runId}/cancel`, (route) =>
-        route.fulfill({ status: 503, json: { detail: "The worker could not be reached." } }),
-      );
+      let stops = 0;
+      await page.route(`**/api/runs/${runId}/cancel`, (route) => {
+        stops += 1;
+        return route.fulfill({ status: 503, json: { detail: "The worker could not be reached." } });
+      });
       const footer = page.locator("main footer");
-      await footer.getByRole("button", { name: "Stop session" }).click();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      const controls = page.getByRole("link", { name: "Session controls", exact: true });
+      await expect(controls).toBeInViewport();
+      await controls.press("Enter");
+      await expect(page).toHaveURL(/#session-controls$/);
+      await expect(footer).toBeFocused();
+      const stop = footer.getByRole("button", { name: "Stop session" });
+      const keep = footer.getByRole("button", { name: "Keep session" });
+      await stop.press("Enter");
+      await expect(keep).toBeFocused();
+      await page.keyboard.press("Enter");
+      await expect(stop).toBeFocused();
+      expect(stops).toBe(0);
+      await stop.press("Enter");
       await footer.getByRole("button", { name: "Confirm stop" }).click();
       await expect(footer.getByRole("alert")).toContainText("The worker could not be reached.");
-      await footer.getByRole("button", { name: "Keep session" }).click();
+      expect(stops).toBe(1);
+      await keep.click();
       await expect(footer.getByRole("alert")).toHaveCount(0);
+      await expect(stop).toBeFocused();
     }
   });
 }
