@@ -14,6 +14,10 @@ from psycopg import sql
 from researchchain.access_config import AccessConfig
 from researchchain.access_service import AccessService
 from researchchain.database import LOCAL_DATABASE_URL, Database
+from researchchain.usage_models import UsagePolicyUpdate
+from researchchain.usage_store import UsageStore
+
+SYNTHETIC_REQUEST_ALLOWANCE = 2_000
 
 
 def bind_browser_port(listener: socket.socket) -> int:
@@ -47,6 +51,16 @@ database = Database(
 )
 try:
     database.migrate()
+    # Parallel cases and their retries share this disposable e2e schema.
+    usage = UsageStore(database)
+    usage.configure(
+        UsagePolicyUpdate(
+            expected_revision=usage.snapshot().policy.revision,
+            max_requests_24h=SYNTHETIC_REQUEST_ALLOWANCE,
+            paused=False,
+        ),
+        "operator",
+    )
     with TemporaryDirectory(prefix="researchchain-browser-access-") as directory:
         config = AccessConfig.from_env(database)
         access = AccessService(

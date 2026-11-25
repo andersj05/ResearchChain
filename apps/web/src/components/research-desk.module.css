@@ -55,6 +55,9 @@
   line-height: 1.14;
   letter-spacing: -1.5px;
 }
+.launch h1 {
+  scroll-margin-block-start: 8px;
+}
 .origin {
   margin-top: 8px;
   color: var(--muted);
