@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { EvidencePicker } from "@/components/evidence-picker";
 import { ReportSectionSources, ReportSource } from "@/components/report-sources";
@@ -50,8 +50,13 @@ export function ReportEditor({
   const study = record.provenance.renderer === "study-markdown-1" ? record.provenance : null;
   const provenanceParams = new URLSearchParams({ view: "runs", run: record.provenance.run_id });
   if (study) provenanceParams.set("attempt", study.attempt.id);
-  const studyFiles = study?.attempt.result?.workspace_files ?? [];
-  const studyUrls = new Set(study?.recorded_urls);
+  const { studyFiles, studyUrls } = useMemo(
+    () => ({
+      studyFiles: study?.attempt.result?.workspace_files ?? [],
+      studyUrls: new Set(study?.recorded_urls),
+    }),
+    [study],
+  );
   const [original] = useState(() => reportDraft(record));
   const legacyKey = `researchchain.report.draft.${record.id}`;
   const storageKey = `${storagePrefix}.report.draft.${record.id}`;
@@ -82,6 +87,11 @@ export function ReportEditor({
   });
   const [draft, setDraft] = useState<ReportDraft>(recovery.draft);
   const [selected, setSelected] = useState(record.sections[0]!.id);
+  const [showDraftPreview, setShowDraftPreview] = useState(false);
+  const sectionTextId = useId();
+  const previewId = `${sectionTextId}-preview`;
+  const sectionText = useRef<HTMLTextAreaElement>(null);
+  const restoreSectionFocus = useRef(false);
   const [history, setHistory] = useState<ReportSummary[]>([]);
   const [recovered, setRecovered] = useState(recovery.recovered);
   const [recoveryError, setRecoveryError] = useState(recovery.error);
@@ -105,6 +115,19 @@ export function ReportEditor({
   const showNoteMessage = showSaveContinuation && noteMissing;
   const section = draft.sections.find((s) => s.id === selected) ?? draft.sections[0]!;
   const guide = styles.find((s) => s.id === draft.style_guide_id) ?? view.style_guide;
+  const draftMarkdown = useMemo(
+    () =>
+      showDraftPreview && study ? (
+        <ResearchMarkdown text={section.body} sources={studyUrls} files={studyFiles} />
+      ) : null,
+    [section.body, showDraftPreview, study, studyUrls, studyFiles],
+  );
+
+  useLayoutEffect(() => {
+    if (showDraftPreview || !restoreSectionFocus.current) return;
+    restoreSectionFocus.current = false;
+    sectionText.current?.focus({ preventScroll: true });
+  }, [showDraftPreview]);
 
   useEffect(() => {
     let active = true;
@@ -451,20 +474,54 @@ export function ReportEditor({
               Classification is your editorial judgment. Facts require captured supporting
               references; split sections when their claims need different labels.
             </p>
-            <label>
-              Section text
-              <textarea
-                className="report-body"
-                maxLength={60000}
-                rows={18}
-                value={section.body}
-                onChange={(e) => editSection({ ...section, body: e.target.value })}
-              />
-            </label>
+          </fieldset>
+          <div className="report-section-text-controls">
+            <label htmlFor={sectionTextId}>Section text</label>
+            <button
+              type="button"
+              className="button small"
+              aria-controls={previewId}
+              aria-expanded={showDraftPreview}
+              onClick={() => {
+                restoreSectionFocus.current = showDraftPreview;
+                setShowDraftPreview(!showDraftPreview);
+              }}
+            >
+              {showDraftPreview ? "Return to section text" : "Preview draft section"}
+            </button>
+          </div>
+          <textarea
+            id={sectionTextId}
+            ref={sectionText}
+            className="report-body"
+            hidden={showDraftPreview}
+            disabled={locked}
+            maxLength={60000}
+            rows={18}
+            value={section.body}
+            onChange={(e) => editSection({ ...section, body: e.target.value })}
+          />
+          {!showDraftPreview && (
             <p className="field-hint">
               {Array.from(section.body).length.toLocaleString()} characters
             </p>
-          </fieldset>
+          )}
+          <div
+            id={previewId}
+            key={`${previewId}-${section.id}`}
+            className="report-section-draft-preview"
+            role="region"
+            aria-label="Unsaved section preview"
+            tabIndex={0}
+            hidden={!showDraftPreview}
+          >
+            {showDraftPreview && (
+              <>
+                <h3>{section.heading || "Untitled section"}</h3>
+                {draftMarkdown ?? <div className="report-prose">{section.body}</div>}
+              </>
+            )}
+          </div>
           <ReportSectionSources
             key={section.id}
             section={section}
