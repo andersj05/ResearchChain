@@ -139,6 +139,7 @@ function ResearchSessionView({
   const [acceptedReviews, setAcceptedReviews] = useState<string[]>([]);
   const [returnOrigin, setReturnOrigin] = useState<ReturnOrigin>();
   const returnToSavedFile = useRef<((targetId: string) => void) | null>(null);
+  const returnToActivity = useRef<((targetId: string) => void) | null>(null);
   const [chosen, setChosen] = useState(() =>
     typeof window === "undefined"
       ? null
@@ -419,7 +420,12 @@ function ResearchSessionView({
               : `${Math.floor(activeSeconds / 60)}m ${Math.floor(activeSeconds % 60)}s active`}
           </span>
         </div>
-        <nav aria-label="Study sections" className={styles.studyNav}>
+        <nav
+          id="study-sections"
+          aria-label="Study sections"
+          className={styles.studyNav}
+          tabIndex={-1}
+        >
           {report ? (
             <SessionWorkspaceLink
               className={report.complete ? styles.reportShortcut : undefined}
@@ -482,6 +488,11 @@ function ResearchSessionView({
           )}
           {canStop && <a href={`#${sessionControlsId}`}>Session controls</a>}
           <a href="#research-workspaces">Workspaces</a>
+          {live && (
+            <a className={styles.phoneSectionLink} href="#current-research-workspace">
+              Current workspace
+            </a>
+          )}
           {hasFiles && <StudyIndexLink index="files" />}
           {hasActivity && <StudyIndexLink index="activity" />}
         </nav>
@@ -658,6 +669,7 @@ function ResearchSessionView({
           key={workspace.key}
           lane={workspace}
           run={run}
+          showStudySections={live}
           passId={passId}
           onPass={(id) =>
             selectWorkspace(
@@ -678,7 +690,10 @@ function ResearchSessionView({
             returnOrigin.reviewId === question.interrupt_id
           }
           returnToIndex={returnIndex}
-          onReturnToSavedFile={(targetId) => returnToSavedFile.current?.(targetId)}
+          onReturnToIndex={(index, targetId) => {
+            const target = index === "files" ? returnToSavedFile : returnToActivity;
+            target.current?.(targetId);
+          }}
         />
       </div>
       {hasFiles && (
@@ -693,6 +708,7 @@ function ResearchSessionView({
       )}
       <SessionActivity
         lanes={lanes}
+        returnRef={returnToActivity}
         select={(key, pass, targetId) =>
           selectWorkspace(key, pass, { kind: "index", index: "activity", targetId })
         }

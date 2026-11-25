@@ -413,19 +413,21 @@ function PassReceipt({
 export function SessionWorkspaceDetail({
   lane,
   run,
+  showStudySections,
   passId,
   onPass,
   returnToReview,
   returnToJudgment,
   returnToIndex,
-  onReturnToSavedFile,
+  onReturnToIndex,
 }: {
   lane: SessionWorkspace;
   run: RunSnapshot;
+  showStudySections?: boolean;
   returnToReview?: { id: string; title: string };
   returnToJudgment?: boolean;
   returnToIndex?: StudyIndexReturn;
-  onReturnToSavedFile: (targetId: string) => void;
+  onReturnToIndex: (index: StudyIndexReturn["index"], targetId: string) => void;
 } & PassSelection) {
   const selected = lane.attempts.find((attempt) => attempt.id === passId);
   return (
@@ -435,6 +437,11 @@ export function SessionWorkspaceDetail({
       aria-label={`${lane.title} workspace`}
       tabIndex={-1}
     >
+      {showStudySections && (
+        <a className={`text-link ${styles.phoneSectionLink}`} href="#study-sections">
+          Study sections
+        </a>
+      )}
       {returnToReview && (
         <a className="text-link" href={`#consultation-${returnToReview.id}-answer`}>
           Return to {returnToReview.title}’s question
@@ -464,7 +471,7 @@ export function SessionWorkspaceDetail({
         <StudyIndexLink
           {...returnToIndex}
           className="text-link"
-          onReturn={returnToIndex.index === "files" ? onReturnToSavedFile : undefined}
+          onReturn={(targetId) => onReturnToIndex(returnToIndex.index, targetId)}
         />
       )}
       {selected ? (

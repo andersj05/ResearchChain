@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Undo2, Redo2, CheckCheck, X } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { AgentSwitcher, type StartingWorkflow } from "@/components/agent-switcher";
@@ -130,6 +130,9 @@ export function Workbench() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const pendingValidationFocus = useRef(false);
+  const validationStatus = useRef<HTMLParagraphElement>(null);
+  const validationAlert = useRef<HTMLDivElement>(null);
   const [setupOpen, setSetupOpen] = useState(false);
   const [setupUsesPendingRevision, setSetupUsesPendingRevision] = useState(false);
   const [evidenceIds, setEvidenceIds] = useState<string[]>([]);
@@ -496,6 +499,14 @@ export function Workbench() {
     return () => window.removeEventListener("beforeunload", warn);
   }, [edited, saved]);
 
+  useLayoutEffect(() => {
+    if (busy || !pendingValidationFocus.current) return;
+    pendingValidationFocus.current = false;
+    if (!accessActive || tab !== "workflow") return;
+    if (error) validationAlert.current?.focus();
+    else if (message) validationStatus.current?.focus();
+  }, [accessActive, busy, error, message, tab]);
+
   function change(next: Workflow, group?: string) {
     setEdited(true);
     recordChange(next, group);
@@ -522,6 +533,15 @@ export function Workbench() {
       busyRef.current = false;
       setBusy(false);
     }
+  }
+
+  function validateWorkflow() {
+    if (busyRef.current) return;
+    pendingValidationFocus.current = true;
+    return action(async () => {
+      await api("workflows/validate", workflow);
+      setMessage("Workflow valid. Ready to run.");
+    }, workflow);
   }
 
   async function refreshHistory() {
@@ -1010,7 +1030,7 @@ export function Workbench() {
           )}
         </div>
         <div className={showFeedback || canReturnToSetup ? "workspace-feedback" : "sr-only"}>
-          <p role="status" aria-label="Workspace status">
+          <p ref={validationStatus} role="status" aria-label="Workspace status" tabIndex={-1}>
             {canReturnToSetup
               ? "Run start is unconfirmed. Your setup is ready to review."
               : busy
@@ -1034,7 +1054,7 @@ export function Workbench() {
           ) : null}
         </div>
         {error && !setupOpen && (
-          <div className="error workspace-error" role="alert">
+          <div ref={validationAlert} className="error workspace-error" role="alert" tabIndex={-1}>
             {diagnostics ? (
               <>
                 <strong>Workflow needs attention</strong>
@@ -1231,12 +1251,7 @@ export function Workbench() {
                 <Button
                   className="button small"
                   disabled={!loaded || busy}
-                  onClick={() =>
-                    action(async () => {
-                      await api("workflows/validate", workflow);
-                      setMessage("Workflow valid. Ready to run.");
-                    }, workflow)
-                  }
+                  onClick={validateWorkflow}
                 >
                   <CheckCheck size={14} aria-hidden="true" /> Validate workflow
                 </Button>

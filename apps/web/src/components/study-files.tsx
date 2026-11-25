@@ -1,11 +1,11 @@
-import { useImperativeHandle, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
+import { useMemo, useState } from "react";
 import type { components } from "@researchchain/contracts";
 import { contentDownloadUrl } from "@/lib/evidence";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import { researchToolUrls } from "./research-tool-receipts";
 import { canPreviewWorkspaceFile, WorkspaceFilePreview } from "./research-workspace";
 import { SessionWorkspaceLink } from "./session-consultations";
-import { focusStudyIndex } from "./study-index-link";
+import { useStudyIndex, type StudyIndexFocus } from "./study-index-link";
 import styles from "./study-files.module.css";
 
 type Attempt = SessionWorkspace["attempts"][number];
@@ -99,33 +99,12 @@ export function StudyFiles({
   runId: string;
   lanes: SessionWorkspace[];
   onSelect: (workspace: string, pass: string | null, targetId: string) => void;
-  returnRef: Ref<(targetId: string) => void>;
+  returnRef: StudyIndexFocus;
 }) {
-  const [open, setOpen] = useState(
-    () => typeof window !== "undefined" && window.location.hash === "#study-files-heading",
-  );
+  const [open, setOpen] = useStudyIndex("files", returnRef);
   const [query, setQuery] = useState("");
   const [shown, setShown] = useState(pageSize);
   const [preview, setPreview] = useState<string>();
-  const pendingReturn = useRef<string | undefined>(undefined);
-  useImperativeHandle(
-    returnRef,
-    () => (targetId) => {
-      if (open) {
-        focusStudyIndex("files", targetId);
-      } else {
-        pendingReturn.current = targetId;
-        setOpen(true);
-      }
-    },
-    [open],
-  );
-  useLayoutEffect(() => {
-    if (!open || !pendingReturn.current) return;
-    const targetId = pendingReturn.current;
-    pendingReturn.current = undefined;
-    focusStudyIndex("files", targetId);
-  }, [open]);
   const entries = useMemo(() => (open ? indexFiles(lanes) : []), [lanes, open]);
   const words = query.toLowerCase().trim().split(/\s+/);
   const matches = entries.filter(({ search }) => words.every((word) => search.includes(word)));

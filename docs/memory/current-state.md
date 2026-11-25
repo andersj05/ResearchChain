@@ -2,6 +2,14 @@
 
 Updated 2026-11-25.
 
+## Current workspace and validation
+
+On a phone, **Current workspace** jumps to the selected work in a live study.
+**Study sections** returns to the shortcuts with the same workspace and pass
+selected. The Activity log shows the receipt count while collapsed and prepares
+its rows on opening. **Validate workflow** brings the existing result into
+view and focuses it so its exact repair links are available from the footer.
+
 ## Keeping context while iterating
 
 The first-reading bar links to the queued files or pasted source that must be

@@ -280,8 +280,10 @@ test("finds an older pass in a large swarm and returns to it after a live result
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`/?session=${runId}`);
-  await page.getByRole("link", { name: "Activity log", exact: true }).click();
   const log = page.locator("#research-activity");
+  await expect(log.locator("summary")).toHaveText("Activity log · 480 recorded passes");
+  await expect(log.locator("input")).toHaveCount(0);
+  await page.getByRole("link", { name: "Activity log", exact: true }).click();
   const search = log.getByRole("searchbox", { name: "Search study activity" });
   const status = log.getByRole("status");
   const results = log.getByRole("list", { name: "Recorded model passes" }).getByRole("button");
@@ -312,6 +314,9 @@ test("finds an older pass in a large swarm and returns to it after a live result
   await expect(status).toHaveText("2 matching passes");
   await expect(workspace).toBeFocused();
   await expect(workspace.getByRole("cell", { name: "Original", exact: true })).toBeVisible();
+  await log.locator("summary").click();
+  await expect(log.locator("input")).toHaveCount(0);
+  await expect(log.locator("summary")).toHaveText("Activity log · 481 recorded passes");
   await workspace.getByRole("link", { name: "Back to activity", exact: true }).click();
   await expect(search).toHaveValue(query);
   await expect(results.first()).toContainText("Assignment 4.20 · Pass 2");
