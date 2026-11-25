@@ -45,6 +45,7 @@ export function ReportEditor({
   headingRef,
   initialSectionId,
   onOpen,
+  onOpenHistory,
   onRefresh,
 }: {
   view: ReportView;
@@ -53,6 +54,7 @@ export function ReportEditor({
   headingRef: Ref<HTMLHeadingElement>;
   initialSectionId?: string;
   onOpen: (id: string, sectionId?: string) => Promise<void>;
+  onOpenHistory: (id: string) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
   const { owner } = useOwner();
@@ -808,7 +810,7 @@ export function ReportEditor({
                   className="report-history-item"
                   key={h.id}
                   disabled={busy || isOpen}
-                  onClick={() => action(() => onOpen(h.id))}
+                  onClick={() => action(() => onOpenHistory(h.id))}
                 >
                   {content}
                 </Button>

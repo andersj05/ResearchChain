@@ -105,6 +105,7 @@ export function ReportDesk({ visit }: { visit: number }) {
   const styleWrites = useRef(0);
   const desk = useRef<HTMLElement>(null);
   const reportHeading = useRef<HTMLHeadingElement>(null);
+  const openingHistory = useRef<string | null>(null);
   const listSearch = useRef<HTMLInputElement>(null);
   const listPosition = useRef<ReportListPosition | null>(null);
   const listTransition = useRef<"open" | "return" | null>(null);
@@ -160,6 +161,15 @@ export function ReportDesk({ visit }: { visit: number }) {
     row.scrollIntoView({ block: "nearest" });
   }, [view]);
 
+  useLayoutEffect(() => {
+    if (openingHistory.current !== view?.revision.id) return;
+    openingHistory.current = null;
+    if (document.activeElement !== document.body) return;
+    const heading = reportHeading.current;
+    heading?.focus({ preventScroll: true });
+    heading?.scrollIntoView({ block: "center" });
+  }, [view]);
+
   useEffect(() => {
     let active = true;
     const styleVersion = styleWrites.current;
@@ -212,6 +222,15 @@ export function ReportDesk({ visit }: { visit: number }) {
     setCreating(false);
     setStyleEdit(undefined);
     remember(id);
+  }
+  async function openHistory(id: string) {
+    openingHistory.current = id;
+    try {
+      await open(id);
+    } catch (cause) {
+      if (openingHistory.current === id) openingHistory.current = null;
+      throw cause;
+    }
   }
   function leave(restorePosition = false) {
     listTransition.current = restorePosition && listPosition.current ? "return" : null;
@@ -312,6 +331,7 @@ export function ReportDesk({ visit }: { visit: number }) {
             savedSection?.revisionId === view.revision.id ? savedSection.sectionId : undefined
           }
           onOpen={open}
+          onOpenHistory={openHistory}
           onRefresh={async () => setView(await api<ReportView>(`reports/${view.revision.id}`))}
         />
       ) : page === "styles" ? (

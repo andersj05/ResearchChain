@@ -163,6 +163,7 @@ for (const width of [390, 1440]) {
     const pastText = `Saved section 1 at revision ${pastVersion}.`;
     await page.goto(headUrl);
     const editor = page.getByRole("region", { name: "Report editor", exact: true });
+    const heading = editor.getByRole("heading", { name: history[0]!.title, exact: true });
     const filter = editor.getByRole("searchbox", { name: "Find a section", exact: true });
     const outline = editor.getByRole("navigation", { name: "Report sections", exact: true });
     const sectionText = editor.getByRole("textbox", { name: "Section text", exact: true });
@@ -170,14 +171,21 @@ for (const width of [390, 1440]) {
     const historyHeader = editor.getByText("Revision history", { exact: true });
     const pastLabel = new RegExp(`^Revision ${pastVersion} · Human`);
     const latest = editor.getByRole("button", { name: "Open latest revision", exact: true });
+    await expect(heading).toBeVisible();
+    await expect(heading).not.toBeFocused();
     await historyHeader.click();
     await expect(editor.getByRole("button", { name: /^Revision \d+ ·/ })).toHaveCount(
       revisionCount,
     );
-    await editor.getByRole("button", { name: pastLabel }).click();
+    const pastRow = editor.getByRole("button", { name: pastLabel });
+    await pastRow.scrollIntoViewIfNeeded();
+    await expect(heading).not.toBeInViewport();
+    await pastRow.press("Enter");
     await expect(page).toHaveURL(pastUrl);
     await expect(sectionText).toHaveValue(pastText);
     await expect(sectionText).toBeDisabled();
+    await expect(heading).toBeFocused();
+    await expect(heading).toBeInViewport({ ratio: 1 });
     await latest.click();
     await expect(page).toHaveURL(headUrl);
     await expect(sectionText).toBeEnabled();
