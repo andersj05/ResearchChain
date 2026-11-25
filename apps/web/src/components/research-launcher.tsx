@@ -11,7 +11,7 @@ import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-o
 import { StudySettingsReuse } from "./study-settings-reuse";
 import { ownerStoragePrefix } from "@/lib/access";
 import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
-import { resolveModelProfile, sessionModelProblem } from "@/lib/model-settings";
+import { modelSettingLabel, resolveModelProfile, sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
   admissionTimeout,
@@ -101,9 +101,9 @@ export function ResearchLauncher({
     (models.find((item) => item.slug === researchDefaults.model) ?? models[0])?.slug ||
     "";
   const shared = { ...draft, model };
-  const firstReadingModel = resolveModelProfile(shared, draft.lead).model;
+  const firstReading = resolveModelProfile(shared, draft.lead);
   const firstReadingLabel =
-    models.find((item) => item.slug === firstReadingModel)?.display_name || firstReadingModel;
+    models.find((item) => item.slug === firstReading.model)?.display_name || firstReading.model;
   const problem = sessionModelProblem(models, shared, draft);
   const ready =
     !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
@@ -497,7 +497,15 @@ export function ResearchLauncher({
                   {firstReadingLabel && (
                     <div>
                       <dt>First-reading model</dt>
-                      <dd>{firstReadingLabel}</dd>
+                      <dd>
+                        {firstReadingLabel}
+                        {!catalog.loading && (
+                          <span className={styles.launchProfile}>
+                            {modelSettingLabel(firstReading.reasoning_effort)} effort ·{" "}
+                            {modelSettingLabel(firstReading.verbosity)} detail
+                          </span>
+                        )}
+                      </dd>
                     </div>
                   )}
                   <div>

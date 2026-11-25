@@ -354,6 +354,10 @@
   font-size: 12px;
   text-align: end;
 }
+.launchProfile {
+  display: block;
+  color: var(--muted);
+}
 .account > a {
   font-size: 12px;
   text-underline-offset: 3px;

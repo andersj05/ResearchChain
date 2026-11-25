@@ -69,7 +69,8 @@ editorial review setting controls the separate decision about the report.
   for structure and voice.
 - Turn on **Allow live web search** if the team and editor should look beyond the
   packet after you choose a working sentence. The packet sidebar shows the
-  first-reading model and the current web-search setting.
+  first-reading model, its thinking effort and detail, and the team’s web-search
+  setting.
 - **Research settings** starts with up to three researchers, six passes per
   researcher and editor, and a 30-minute active-time limit. You can choose up to
   four researchers, twelve passes and one hour. The lead can use fewer researchers
