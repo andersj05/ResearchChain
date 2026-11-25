@@ -3,7 +3,11 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type Ref } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { EvidencePicker } from "@/components/evidence-picker";
-import { ReportSectionSources, ReportSource } from "@/components/report-sources";
+import {
+  ReportSectionSources,
+  ReportSource,
+  type SectionReferenceDraft,
+} from "@/components/report-sources";
 import { ReportReview } from "@/components/report-review";
 import { ResearchMarkdown } from "@/components/research-markdown";
 import { StyleGuideContent } from "@/components/style-guide-editor";
@@ -93,6 +97,9 @@ export function ReportEditor({
     }
   });
   const [draft, setDraft] = useState<ReportDraft>(recovery.draft);
+  const [referenceDrafts, setReferenceDrafts] = useState(
+    () => new Map<string, SectionReferenceDraft>(),
+  );
   const [selected, setSelected] = useState(
     () =>
       recovery.draft.sections.find((item) => item.id === initialSectionId)?.id ??
@@ -209,6 +216,15 @@ export function ReportEditor({
   }
   function editSection(next: ReportSection) {
     changeDraft({ ...draft, sections: draft.sections.map((s) => (s.id === next.id ? next : s)) });
+  }
+  function changeReferenceDraft(sectionId: string, draft: SectionReferenceDraft | null) {
+    setReferenceDrafts((current) => {
+      if (!draft && !current.has(sectionId)) return current;
+      const next = new Map(current);
+      if (draft) next.set(sectionId, draft);
+      else next.delete(sectionId);
+      return next;
+    });
   }
   function selectSection(id: string) {
     setSelected(id);
@@ -333,6 +349,7 @@ export function ReportEditor({
                 retry.current = saved.pending;
                 setPendingBody(saved.pending?.body ?? null);
                 setDraft(saved.draft);
+                setReferenceDrafts(new Map());
                 setRecovered(true);
                 setLegacyAvailable(false);
               })
@@ -504,6 +521,7 @@ export function ReportEditor({
                 className="button small"
                 disabled={draft.sections.length === 1}
                 onClick={() => {
+                  if (removed) changeReferenceDraft(removed.section.id, null);
                   setRemoved({
                     section,
                     index: sectionIndex,
@@ -650,6 +668,8 @@ export function ReportEditor({
             view={view}
             disabled={locked}
             onChange={editSection}
+            referenceDraft={referenceDrafts.get(section.id)}
+            onReferenceDraftChange={(draft) => changeReferenceDraft(section.id, draft)}
           />
           <label>
             Revision change note
@@ -687,6 +707,7 @@ export function ReportEditor({
                 disabled={busy}
                 onClick={() => {
                   changeDraft(original);
+                  setReferenceDrafts(new Map());
                   setRecovered(false);
                   setRemoved(null);
                   retry.current = null;

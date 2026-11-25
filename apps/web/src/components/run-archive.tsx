@@ -9,11 +9,13 @@ import "./run-archive.css";
 type ArchiveCursor = Pick<RunSummary, "created_at" | "id">;
 type ArchiveView = { open: boolean; search: string; status: string; cursors: ArchiveCursor[] };
 type Pagination = { cursors: ArchiveCursor[]; onChange: (cursors: ArchiveCursor[]) => void };
-export type ArchiveReturnPosition = { studyId: string; path: string; top: number };
-type OpenArchiveLink = (
-  event: MouseEvent<HTMLAnchorElement>,
-  study: Omit<ArchiveReturnPosition, "top">,
-) => void;
+export type ArchiveReturnPosition = {
+  studyId: string;
+  path: string;
+  top: number;
+  listTop?: number;
+};
+type OpenArchiveLink = (event: MouseEvent<HTMLAnchorElement>, study: ArchiveReturnPosition) => void;
 const defaultView: ArchiveView = { open: false, search: "", status: "", cursors: [] };
 const searchLimit = 200;
 
@@ -123,6 +125,12 @@ function ArchiveResults({
       container.focus();
       return;
     }
+    const list = target.closest("ul");
+    if (list && position.listTop !== undefined) {
+      const bounds = target.getBoundingClientRect();
+      const listTop = Math.max(0, Math.min(position.listTop, list.clientHeight - bounds.height));
+      list.scrollTop += bounds.top - list.getBoundingClientRect().top - listTop;
+    }
     target.focus({ preventScroll: true });
     const bounds = target.getBoundingClientRect();
     const top = Math.max(0, Math.min(position.top, window.innerHeight - bounds.height));
@@ -186,7 +194,16 @@ function ArchiveResults({
                     data-archive-study={onOpenLink ? run.id : undefined}
                     onClick={
                       onOpenLink
-                        ? (event) => onOpenLink(event, { studyId: run.id, path })
+                        ? (event) => {
+                            const link = event.currentTarget;
+                            const top = link.getBoundingClientRect().top;
+                            const list = link.closest("ul");
+                            const listTop =
+                              list && list.scrollHeight > list.clientHeight
+                                ? top - list.getBoundingClientRect().top
+                                : undefined;
+                            onOpenLink(event, { studyId: run.id, path, top, listTop });
+                          }
                         : undefined
                     }
                     href={

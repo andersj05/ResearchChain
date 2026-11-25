@@ -17,7 +17,11 @@ import { StudyPacket, packetSize } from "./study-packet";
 import type { EvidenceRecord } from "@/lib/evidence";
 import { useSourceDetails } from "@/lib/use-evidence-library";
 import { useModelCatalog } from "./model-picker";
-import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
+import {
+  ResearchBriefOptions,
+  ResearchPlanConnection,
+  researchSettingsControlsId,
+} from "./research-brief-options";
 import { StudySettingsReuse } from "./study-settings-reuse";
 import { ownerStoragePrefix } from "@/lib/access";
 import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
@@ -51,6 +55,7 @@ const StudySetupComparison = lazy(() =>
     default: StudySetupComparison,
   })),
 );
+const researchSettingsHref = `#${researchSettingsControlsId}`;
 
 function browsingSavedStudies() {
   const query = new URLSearchParams(window.location.search);
@@ -436,7 +441,7 @@ export function ResearchLauncher({
   else if (readingSample) nextStep = <>Reading the writing sample…</>;
   else if (!ready)
     nextStep = problem ? (
-      <a href="#study-settings">Check research settings</a>
+      <a href={researchSettingsHref}>Check research settings</a>
     ) : (
       <a href="#first-reading-setup">Check the research connection</a>
     );
@@ -452,7 +457,7 @@ export function ResearchLauncher({
       <nav className={styles.jumps} aria-label="Study sections">
         <a href="#saved-sources">Saved sources</a>
         <a href="#packet-heading">Study packet ({draft.evidence_ids.length})</a>
-        <a href="#study-settings">Research settings</a>
+        <a href={researchSettingsHref}>Research settings</a>
         <a href="#research-history">Recent research</a>
       </nav>
       {fromSession && (
@@ -637,7 +642,7 @@ export function ResearchLauncher({
                     <dd>{draft.web_search ? "On" : "Off"}</dd>
                   </div>
                 </dl>
-                <a href="#study-settings">Change research settings</a>
+                <a href={researchSettingsHref}>Change research settings</a>
               </div>
             )}
             {account && manageConnection && (

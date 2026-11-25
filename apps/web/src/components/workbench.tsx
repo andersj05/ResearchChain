@@ -263,9 +263,12 @@ export function Workbench() {
           savedRevisions[0]?.id;
         if (detail && revisionId && !versions?.some((item) => item.revision.id === revisionId))
           throw new Error("This revision does not belong to the selected agent.");
-        const latest = revisionId
-          ? await read<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
-          : null;
+        const latest =
+          detail && detail.revision.id === revisionId
+            ? detail.revision
+            : revisionId
+              ? await read<WorkflowRevision>(`revisions/${encodeURIComponent(revisionId)}`)
+              : null;
         const agentRuns = detail
           ? await read<RecentRunSummary[]>(`runs?agent_id=${detail.agent.id}`)
           : recentRuns;

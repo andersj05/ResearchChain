@@ -1,12 +1,18 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Display captured chart originals without transforms. */
 
-import { useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { contentUrl, evidenceUrl, representationLabels, type EvidenceRecord } from "@/lib/evidence";
 import type { ReportSection, ReportView } from "@/lib/reports";
 
 type Citation = NonNullable<ReportSection["citations"]>[number];
+
+export type SectionReferenceDraft = {
+  citation: Citation;
+  editing: number | null;
+  error?: string;
+};
+
 export function ReportSource({ source }: { source: EvidenceRecord }) {
   return (
     <details className="report-source">
@@ -70,23 +76,30 @@ export function ReportSectionSources({
   view,
   disabled,
   onChange,
+  referenceDraft,
+  onReferenceDraftChange,
 }: {
   section: ReportSection;
   view: ReportView;
   disabled: boolean;
   onChange: (section: ReportSection) => void;
+  referenceDraft?: SectionReferenceDraft;
+  onReferenceDraftChange: (draft: SectionReferenceDraft | null) => void;
 }) {
-  const [editing, setEditing] = useState<number | null>(null);
-  const [citation, setCitation] = useState<Citation | null>(null);
-  const [error, setError] = useState("");
+  const citation = referenceDraft?.citation;
+  const editing = referenceDraft?.editing ?? null;
+  const error = referenceDraft?.error;
   const sources = view.revision.sources;
   const charts = sources.filter(
     (s) => s.artifact && ["image/png", "image/jpeg", "image/webp"].includes(s.artifact.media_type),
   );
   const currentSource = sources.find((s) => s.id === citation?.evidence_id);
+  function changeCitation(citation: Citation) {
+    onReferenceDraftChange({ citation, editing, error });
+  }
   function choose(id: string) {
     const basis = view.source_bases[id] as Citation["basis"];
-    setCitation({
+    changeCitation({
       evidence_id: id,
       basis,
       relation: basis === "metadata_only" ? "context" : "supports",
@@ -114,11 +127,7 @@ export function ReportSectionSources({
             <Button
               className="button small"
               disabled={disabled}
-              onClick={() => {
-                setEditing(i);
-                setCitation(c);
-                setError("");
-              }}
+              onClick={() => onReferenceDraftChange({ editing: i, citation: c })}
             >
               Edit reference {i + 1}
             </Button>
@@ -127,7 +136,7 @@ export function ReportSectionSources({
               disabled={disabled}
               onClick={() => {
                 onChange({ ...section, citations: section.citations?.filter((_, n) => n !== i) });
-                setCitation(null);
+                onReferenceDraftChange(null);
               }}
             >
               Remove reference {i + 1}
@@ -139,11 +148,7 @@ export function ReportSectionSources({
         <Button
           className="button small"
           disabled={disabled || !sources.length}
-          onClick={() => {
-            setEditing(null);
-            choose(sources[0]!.id);
-            setError("");
-          }}
+          onClick={() => choose(sources[0]!.id)}
         >
           Add source reference
         </Button>
@@ -161,13 +166,23 @@ export function ReportSectionSources({
             </select>
           </label>
           <p className="field-hint">Basis: {citation.basis.replaceAll("_", " ")}</p>
+          {currentSource && (
+            <a
+              className="button small"
+              href={evidenceUrl(currentSource.id)}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Inspect selected source (new tab)
+            </a>
+          )}
           <label>
             Evidence relationship
             <select
               disabled={citation.basis === "metadata_only"}
               value={citation.relation}
               onChange={(e) =>
-                setCitation({ ...citation, relation: e.target.value as Citation["relation"] })
+                changeCitation({ ...citation, relation: e.target.value as Citation["relation"] })
               }
             >
               <option value="supports">Supports</option>
@@ -180,7 +195,7 @@ export function ReportSectionSources({
             <input
               maxLength={500}
               value={citation.locator}
-              onChange={(e) => setCitation({ ...citation, locator: e.target.value })}
+              onChange={(e) => changeCitation({ ...citation, locator: e.target.value })}
               placeholder="Page, section, row, or chart detail"
             />
           </label>
@@ -191,7 +206,7 @@ export function ReportSectionSources({
                 maxLength={2000}
                 rows={3}
                 value={citation.quote}
-                onChange={(e) => setCitation({ ...citation, quote: e.target.value })}
+                onChange={(e) => changeCitation({ ...citation, quote: e.target.value })}
               />
             </label>
           )}
@@ -201,7 +216,7 @@ export function ReportSectionSources({
               maxLength={3000}
               rows={2}
               value={citation.rationale}
-              onChange={(e) => setCitation({ ...citation, rationale: e.target.value })}
+              onChange={(e) => changeCitation({ ...citation, rationale: e.target.value })}
             />
           </label>
           {error && (
@@ -214,7 +229,11 @@ export function ReportSectionSources({
               className="button"
               onClick={() => {
                 if (!citation.locator.trim() || !citation.rationale.trim()) {
-                  setError("Add a location and explain why this source matters.");
+                  onReferenceDraftChange({
+                    citation,
+                    editing,
+                    error: "Add a location and explain why this source matters.",
+                  });
                   return;
                 }
                 onChange({
@@ -224,13 +243,12 @@ export function ReportSectionSources({
                       ? [...(section.citations ?? []), citation]
                       : (section.citations ?? []).map((c, i) => (i === editing ? citation : c)),
                 });
-                setCitation(null);
-                setError("");
+                onReferenceDraftChange(null);
               }}
             >
               Apply reference to draft
             </Button>
-            <Button className="button" onClick={() => setCitation(null)}>
+            <Button className="button" onClick={() => onReferenceDraftChange(null)}>
               Cancel reference
             </Button>
           </div>

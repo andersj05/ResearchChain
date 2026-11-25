@@ -1,14 +1,18 @@
 import type { RunArchivePage } from "../src/lib/workflow";
-import { expect, test } from "./fixtures";
+import { expect, test, type Page } from "./fixtures";
 
 type ArchiveItem = RunArchivePage["items"][number];
 
-test("returns to the submitted study archive page and can reset or recover it", async ({
-  page,
-  ownerSession,
-}) => {
+for (const width of [390, 1440]) {
+  test(`returns to the exact submitted archive result and can recover the page at ${width}px`, ({
+    page,
+    ownerSession,
+  }) => checkArchiveReturn(page, ownerSession.prefix, width));
+}
+
+async function checkArchiveReturn(page: Page, prefix: string, width: number) {
   const searchTerm = "credit vintages";
-  const storageKey = `${ownerSession.prefix}.research.archive.v1`;
+  const storageKey = `${prefix}.research.archive.v1`;
   function study(
     title: string,
     createdAt: string,
@@ -29,6 +33,16 @@ test("returns to the submitted study archive page and can reset or recover it", 
   }
   const recent = study("Current credit review", "2026-11-24T15:06:10.123456Z", "completed");
   const archived = study("Archived curve check", "2026-11-20T13:05:00Z", "completed");
+  const older = Array.from({ length: 16 }, (_, index) =>
+    study(
+      `Saved credit study ${index + 1}`,
+      new Date(
+        Date.UTC(2026, 10, 20, 13 + (index < 10 ? 10 - index : 9 - index) * 6),
+      ).toISOString(),
+      "completed",
+    ),
+  );
+  const olderPage = [...older.slice(0, 10), archived, ...older.slice(10)];
   const waiting = study("Waiting on a decision", "2026-11-21T13:05:00Z", "paused");
   await page.addInitScript(() => {
     sessionStorage.setItem(
@@ -74,7 +88,7 @@ test("returns to the submitted study archive page and can reset or recover it", 
       expect(params.get("before_id")).toBe(recent.run.id);
       expect(params.get("before_created_at")).toBe(recent.run.created_at);
       return route.fulfill({
-        json: { items: archivePageMissing ? [] : [archived], has_more: false },
+        json: { items: archivePageMissing ? [] : olderPage, has_more: false },
       });
     }
     if (params.get("status") === "paused")
@@ -82,7 +96,7 @@ test("returns to the submitted study archive page and can reset or recover it", 
     return route.fulfill({ json: { items: [recent], has_more: true } });
   });
 
-  await page.setViewportSize({ width: 390, height: 844 });
+  await page.setViewportSize({ width, height: 844 });
   await page.goto("/");
   const history = page.getByRole("region", { name: "Recent research" });
   await page.getByLabel("Source files").setInputFiles({
@@ -132,16 +146,35 @@ test("returns to the submitted study archive page and can reset or recover it", 
 
   await search.fill("unsubmitted change");
   await status.selectOption("paused");
-  await archivedLink.click();
-  await expect(page.getByRole("heading", { name: archived.run.study_title! })).toBeVisible();
+  await archivedLink.evaluate((element) => element.scrollIntoView({ block: "center" }));
+  await archivedLink.focus();
+  const top = () => archivedLink.evaluate((element) => element.getBoundingClientRect().top);
+  const archivedTop = await top();
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+  expect(await results.evaluate((list) => list.scrollTop)).toBeGreaterThan(100);
+  const readerHeading = page.getByRole("heading", { name: archived.run.study_title!, exact: true });
+  await archivedLink.press("Enter");
+  await expect(readerHeading).toBeFocused();
   await page.getByRole("link", { name: "Research desk", exact: true }).click();
   await expect(queuedTitle).toHaveValue("Credit observations to keep");
   await expect(search).toHaveValue(searchTerm);
   await expect(status).toHaveValue("completed");
   await expect(history.getByText("Page 2", { exact: true })).toBeVisible();
-  await expect(archivedLink).toBeVisible();
+  await expect(archivedLink).toBeFocused();
+  await expect(archivedLink).toBeInViewport();
+  await expect.poll(async () => Math.abs((await top()) - archivedTop)).toBeLessThan(12);
   expect(lastQuery?.get("search")).toBe(searchTerm);
   expect(lastQuery?.get("status")).toBe("completed");
+
+  await archivedLink.press("Enter");
+  await expect(readerHeading).toBeFocused();
+  await page.goBack();
+  await expect(archivedLink).toBeFocused();
+  await expect.poll(async () => Math.abs((await top()) - archivedTop)).toBeLessThan(12);
+  await page.goForward();
+  await expect(readerHeading).toBeVisible();
+  await page.goBack();
+  await expect(archivedLink).toBeFocused();
 
   await status.selectOption("paused");
   await submit.click();
@@ -177,4 +210,4 @@ test("returns to the submitted study archive page and can reset or recover it", 
   expect(lastQuery?.has("status")).toBe(false);
   expect(lastQuery?.has("before_id")).toBe(false);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-});
+}
