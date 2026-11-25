@@ -9,6 +9,7 @@ const apiPort = process.env.RESEARCHCHAIN_BROWSER_API_PORT;
 if (!webPort || !apiPort) throw new Error("Run the isolated browser-test runner.");
 
 const webOrigin = `http://127.0.0.1:${webPort}`;
+const useBuild = Boolean(process.env.CI || process.env.RESEARCHCHAIN_BROWSER_USE_BUILD === "1");
 
 export default defineConfig({
   testDir: "./tests",
@@ -65,7 +66,7 @@ export default defineConfig({
       timeout: 60000,
     },
     {
-      command: process.env.CI ? "pnpm start" : `pnpm dev --port ${webPort}`,
+      command: `pnpm ${useBuild ? "start" : "dev"} --port ${webPort}`,
       url: webOrigin,
       reuseExistingServer: false,
       timeout: 60000,

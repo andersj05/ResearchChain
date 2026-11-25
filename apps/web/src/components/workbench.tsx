@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Undo2, Redo2, CheckCheck, X } from "lucide-react";
 import { useOwner } from "@/components/access-context";
 import { AgentSwitcher, type StartingWorkflow } from "@/components/agent-switcher";
@@ -63,6 +63,16 @@ import {
 } from "@/lib/workflow";
 
 const legacyKey = "researchchain.workflow.v0.1";
+const workspaceViews = [
+  "workflow",
+  "runs",
+  "revisions",
+  "evidence",
+  "evaluations",
+  "reports",
+  "operations",
+] as const;
+type WorkspaceView = (typeof workspaceViews)[number];
 
 export function Workbench() {
   const { owner, active: accessActive } = useOwner();
@@ -105,7 +115,18 @@ export function Workbench() {
   const [baselineRunId, setBaselineRunId] = useState<string | null>(null);
   const [run, setRun] = useState<RunSnapshot | null>(null);
   const [runs, setRuns] = useState<RecentRunSummary[]>([]);
-  const [tab, setTab] = useState("workflow");
+  const [parameters] = useState(
+    () => new URLSearchParams(typeof window === "undefined" ? "" : window.location.search),
+  );
+  const requestedView = workspaceViews.find((value) => value === parameters.get("view"));
+  const runId = parameters.get("run");
+  const [tab, setView] = useState(requestedView ?? (runId ? "runs" : "workflow"));
+  const [buildOpened, setBuildOpened] = useState(tab === "workflow");
+  const switchedTab = useRef(false);
+  const setTab = useCallback((value: WorkspaceView) => {
+    if (value === "workflow") setBuildOpened(true);
+    setView(value);
+  }, []);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -153,16 +174,6 @@ export function Workbench() {
       }
     }
     async function load() {
-      const parameters = new URL(window.location.href).searchParams;
-      const view = [
-        "workflow",
-        "runs",
-        "revisions",
-        "evidence",
-        "evaluations",
-        "reports",
-        "operations",
-      ].find((value) => value === parameters.get("view"));
       try {
         const pending = readPendingRun(pendingKey);
         if (pending) {
@@ -172,23 +183,33 @@ export function Workbench() {
           setArtifacts(pending.artifacts ?? []);
           setProviderAccount(pending.provider_account_id ?? null);
         }
-        const [savedRevisions, recentRuns, agentList] = await Promise.all([
+        const linkedReadEpoch = runReadEpoch.current;
+        async function restoreLinkedRun() {
+          if (!runId) return null;
+          try {
+            const restored = await read<RunSnapshot>(`runs/${encodeURIComponent(runId)}`);
+            if (active && runReadEpoch.current === linkedReadEpoch) {
+              selectedRunId.current = restored.id;
+              setRun(restored);
+              forgetPendingRun(pendingKey, restored.id);
+              if (pendingStart.current?.id === restored.id) pendingStart.current = null;
+            }
+            return restored;
+          } catch (cause) {
+            if (cause instanceof ApiError && cause.status === 404 && pending?.id === runId) {
+              if (active && !requestedView && !switchedTab.current) setTab("workflow");
+              return null;
+            }
+            throw cause;
+          }
+        }
+        const [savedRevisions, recentRuns, agentList, restored] = await Promise.all([
           read<RevisionSummary[]>("revisions"),
           read<RecentRunSummary[]>("runs"),
           read<AgentSummary[]>("agents?limit=1000"),
+          restoreLinkedRun(),
         ]);
         if (!active) return;
-        setAgents(agentList);
-        const runId = parameters.get("run");
-        const restored = runId
-          ? await read<RunSnapshot>(`runs/${encodeURIComponent(runId)}`).catch((cause) => {
-              // An unconfirmed admission may not exist yet. Restore its pinned
-              // workflow and inputs so retry keeps the exact request identity.
-              if (cause instanceof ApiError && cause.status === 404 && pending?.id === runId)
-                return null;
-              throw cause;
-            })
-          : null;
         const unconfirmed = pending?.id === runId ? pending : null;
         let agentId =
           parameters.get("agent") ?? restored?.agent_id ?? unconfirmed?.agent_id ?? null;
@@ -219,7 +240,7 @@ export function Workbench() {
         const agentRuns = detail
           ? await read<RecentRunSummary[]>(`runs?agent_id=${detail.agent.id}`)
           : recentRuns;
-        const reopenBuild = view === "workflow" && parameters.has("revision");
+        const reopenBuild = requestedView === "workflow" && parameters.has("revision");
         let draft =
           detail && (!runId || reopenBuild) ? readAgentDraft(storagePrefix, detail.agent.id) : null;
         if (parameters.has("revision") && draft?.revision?.id !== revisionId) draft = null;
@@ -245,13 +266,7 @@ export function Workbench() {
           setProviderAccount(draft.providerAccount);
           setEdited(true);
         }
-        if (restored) {
-          selectedRunId.current = restored.id;
-          setRun(restored);
-          forgetPendingRun(pendingKey, restored.id);
-          if (pendingStart.current?.id === restored.id) pendingStart.current = null;
-          if (!view) setTab("runs");
-        } else if (unconfirmed) {
+        if (!restored && unconfirmed) {
           setBaselineRunId(unconfirmed.baseline_run_id ?? null);
           setMessage(
             "Unconfirmed run restored. Start again with the same inputs to retry this request.",
@@ -263,17 +278,14 @@ export function Workbench() {
           setError(`${detail} The draft is editable. Refresh history when the API is available.`);
         }
       } finally {
-        if (active) {
-          if (view) setTab(view);
-          setLoaded(true);
-        }
+        if (active) setLoaded(true);
       }
     }
     void load();
     return () => {
       active = false;
     };
-  }, [initialize, pendingKey, storagePrefix]);
+  }, [initialize, parameters, pendingKey, requestedView, runId, setTab, storagePrefix]);
 
   useEffect(() => {
     if (!loaded || !activeAgent) return;
@@ -531,7 +543,8 @@ export function Workbench() {
   }
 
   function switchTab(value: string | null) {
-    const next = value ?? "workflow";
+    const next = workspaceViews.find((candidate) => candidate === value) ?? "workflow";
+    switchedTab.current = true;
     setTab(next);
     setMessage("");
     const url = new URL(window.location.href);
@@ -1004,7 +1017,7 @@ export function Workbench() {
         <TabsPanel
           className="workflow-view"
           value="workflow"
-          keepMounted
+          keepMounted={buildOpened}
           hidden={tab !== "workflow"}
         >
           <h1 className="sr-only">Agent builder</h1>
@@ -1243,7 +1256,7 @@ export function Workbench() {
           <ReportDesk />
         </TabsPanel>
         <TabsPanel className="evaluations-view" value="evaluations">
-          <EvaluationDesk />
+          {loaded ? <EvaluationDesk /> : <p role="status">Opening evaluations…</p>}
         </TabsPanel>
         <TabsPanel className="operations-view" value="operations">
           <OperationsDesk onOpenRuns={() => switchTab("runs")} />
@@ -1253,34 +1266,43 @@ export function Workbench() {
           <CollectionLayout
             id="runs"
             list={
-              <RunHistory
-                key={activeAgent?.id ?? "all"}
-                runs={runs}
-                selected={run?.id}
-                agentName={activeAgent?.name}
-                agentId={activeAgent?.id}
-                busy={busy}
-                onOpenReview={openInboxReview}
-                loaded={loaded}
-                onRefresh={() =>
-                  void action(async () => {
-                    await refreshHistory();
-                    setMessage("History refreshed.");
-                  })
-                }
-                onOpen={(id) =>
-                  void action(async () => {
-                    await openRun(id);
-                  })
-                }
-              />
+              loaded ? (
+                <RunHistory
+                  key={activeAgent?.id ?? "all"}
+                  runs={runs}
+                  selected={run?.id}
+                  agentName={activeAgent?.name}
+                  agentId={activeAgent?.id}
+                  busy={busy}
+                  onOpenReview={openInboxReview}
+                  loaded={loaded}
+                  onRefresh={() =>
+                    void action(async () => {
+                      await refreshHistory();
+                      setMessage("History refreshed.");
+                    })
+                  }
+                  onOpen={(id) =>
+                    void action(async () => {
+                      await openRun(id);
+                    })
+                  }
+                />
+              ) : (
+                <aside className="run-history" aria-label="Recent runs" aria-busy="true">
+                  <h2>Recent runs</h2>
+                  <p className="muted" role="status">
+                    Loading run history…
+                  </p>
+                </aside>
+              )
             }
             detail={
               <RunInspector
                 run={run}
                 reviewFocus={reviewFocus}
                 recentRuns={runs}
-                busy={busy}
+                busy={!loaded || busy}
                 onResume={(value, interruptId, feedback) =>
                   action(() => resumeRun(value, interruptId, feedback))
                 }

@@ -1,10 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { LockKeyhole } from "lucide-react";
 import { OwnerContext } from "@/components/access-context";
-import { Workbench } from "@/components/workbench";
 import { ResearchDesk } from "@/components/research-desk";
 import {
   accessSnapshot,
@@ -17,6 +16,10 @@ import {
   type AccessStatus,
   type OwnerSession,
 } from "@/lib/access";
+
+const Workbench = lazy(() =>
+  import("@/components/workbench").then(({ Workbench }) => ({ default: Workbench })),
+);
 
 export function AccessGate() {
   const [view, setView] = useState<{ status: AccessStatus | null; owner: OwnerSession | null }>({
@@ -208,5 +211,15 @@ function OwnerWorkspace() {
         decisions={query.get("inbox") === "1"}
       />
     );
-  return <Workbench />;
+  return (
+    <Suspense
+      fallback={
+        <main className="access-page">
+          <p role="status">Opening the workbench…</p>
+        </main>
+      }
+    >
+      <Workbench />
+    </Suspense>
+  );
 }

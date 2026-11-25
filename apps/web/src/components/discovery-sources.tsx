@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "@/lib/workflow";
 import { rightsLabels, type EvidenceInput, type EvidenceRecord } from "@/lib/evidence";
 import {
@@ -18,6 +18,7 @@ export function DiscoverySources({
   ids,
   known,
   disabled,
+  children,
   onChange,
   onPin,
   onEditing,
@@ -26,6 +27,7 @@ export function DiscoverySources({
   ids: string[];
   known: EvidenceRecord[];
   disabled: boolean;
+  children: ReactNode;
   onChange: (ids: string[]) => void;
   onPin: (item: EvidenceRecord) => void;
   onEditing: (value: boolean) => void;
@@ -93,7 +95,7 @@ export function DiscoverySources({
     }
   }
   return (
-    <div className={styles.intake}>
+    <>
       <section className={styles.panel} aria-labelledby="intake-heading">
         <h2 id="intake-heading" tabIndex={-1}>
           Add material
@@ -254,6 +256,7 @@ export function DiscoverySources({
           </fieldset>
         </form>
       </section>
+      {children}
       <section
         id="saved-sources"
         className={styles.panel}
@@ -270,6 +273,6 @@ export function DiscoverySources({
           disabled={locked || filePending}
         />
       </section>
-    </div>
+    </>
   );
 }

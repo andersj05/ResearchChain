@@ -161,11 +161,13 @@
   gap: 4px;
   margin: 0 12px 12px;
 }
-.rosterSearch label {
+.rosterSearch label,
+.activitySearch label {
   color: var(--muted);
   font-size: 12px;
 }
-.rosterSearch input {
+.rosterSearch input,
+.activitySearch input {
   min-width: 0;
   width: 100%;
   min-height: 36px;
@@ -373,6 +375,22 @@
   gap: 8px;
   padding-block: 12px 0;
 }
+.passHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.passMeta {
+  display: grid;
+  gap: 4px;
+}
+.passOutput {
+  max-block-size: 20rem;
+  overflow: auto;
+  margin-block-start: 8px;
+  white-space: pre-wrap;
+}
 .guidance {
   border-left: 2px solid var(--blue);
   padding: 7px 14px;
@@ -431,7 +449,8 @@
   background: var(--surface);
   padding: 4px 8px;
 }
-.pass > span,
+.passHeading span,
+.passMeta,
 .activity time,
 .activity small {
   color: var(--muted);
@@ -444,6 +463,17 @@
 .activity summary {
   width: fit-content;
   font-weight: 500;
+}
+.activitySearch {
+  display: grid;
+  gap: 4px;
+  max-width: 24rem;
+  margin-block-start: 12px;
+}
+.activityCount {
+  margin-block-start: 6px;
+  font-size: 12px;
+  color: var(--muted);
 }
 .activity ol {
   margin: 12px 0;
@@ -492,7 +522,8 @@
     align-content: start;
     padding: 8px;
   }
-  .rosterSearch input {
+  .rosterSearch input,
+  .activitySearch input {
     min-height: 44px;
     font-size: 16px;
   }

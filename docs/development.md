@@ -123,6 +123,8 @@ so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schem
 and temporary synthetic owner credentials. API fixtures authenticate normally;
 there is no test bypass. The access project runs after feature tests because
 password/revocation cases intentionally invalidate its synthetic sessions.
+Run `pnpm test:e2e --production` to build and serve the production frontend on
+the same isolated ports. The default run uses the development server.
 Focus it with `pnpm test:e2e --project=access --no-deps --workers=1`.
 The worker project follows access tests and uses temporary database slot locks to
 exercise queued UI behavior without affecting other tests. Focus it with

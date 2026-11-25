@@ -2,6 +2,19 @@
 
 Updated 2026-11-24.
 
+## Study reading and startup
+
+The desk loads Workbench and the saved-study reader on demand. In paired
+production builds on Windows, initial JavaScript fell from 1.32 MB to 0.71 MB.
+Direct Reports and saved-run links open while unrelated history loads, and
+the Build editor mounts when first opened.
+
+Historical passes show their own output, request, sources and files. The
+**Activity log** and **Saved files** find older receipts across assignments.
+Phone intake keeps queued titles editable and follows the same keyboard order
+as the visible layout. Long code and CSV previews scroll within their panels.
+Fifteen focused production Chromium cases passed with synthetic data.
+
 ## Research desk iteration
 
 The desk accepts pasted screenshots and editable file titles. Shared source
@@ -20,6 +33,9 @@ Synthetic browser rehearsals covered a lost capture and report receipt, an
 older pending decision, a conflict that retained the owner's draft, an
 80-researcher swarm and a baseline comparison. Owner feedback on a full study
 using private material remains the next product validation.
+
+Desktop runs the `19ce6a2` dev merge with healthy web and two connected
+workers. CI passed 652 backend tests with three skips and 226 Chromium cases.
 [Desk guide](../research-sessions.md) ·
 [Delivery PR](https://github.com/andersj05/ResearchChain/pull/148).
 

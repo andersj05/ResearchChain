@@ -4,6 +4,7 @@ import { apiFetch } from "@/lib/access";
 import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 import { CsvPreview } from "./csv-preview";
+import "./research-workspace.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 type WorkspaceFile = components["schemas"]["WorkspaceFile"];
@@ -73,7 +74,15 @@ export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
   );
 }
 
-function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: Set<string> }) {
+export function WorkspaceFiles({
+  files,
+  sources,
+  label = "Workspace files",
+}: {
+  files: WorkspaceFile[];
+  sources: Set<string>;
+  label?: string;
+}) {
   const [selected, setSelected] = useState<string | null>(null);
   const file =
     files.find((item) => item.name === selected) ??
@@ -81,10 +90,10 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
     files[0];
   if (!file) return null;
   return (
-    <section className="workspace-files" aria-label="Workspace files">
+    <section className="workspace-files" aria-label={label}>
       <div className="workspace-files-heading">
         <label>
-          Workspace files
+          {label}
           <select
             aria-label="Preview workspace file"
             value={file.name}
@@ -138,7 +147,7 @@ export function ResearchWorkspace({
       <section aria-label="Workspace activity">
         <h4>Workspace activity</h4>
         {!!actions.length && (
-          <ol className="workspace-actions">
+          <ol className="workspace-file-activity">
             {actions.map(({ id, pass, activity }) => (
               <li key={id}>
                 <div>
