@@ -137,6 +137,7 @@ export function Workbench() {
   const [edited, setEdited] = useState(false);
   const [providerAccount, setProviderAccount] = useState<string | null>(null);
   const [executingId, setExecutingId] = useState<string | null>(null);
+  const [unconfirmedStartId, setUnconfirmedStartId] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
   const catalog = useModelCatalog(
     loaded && accessActive && tab === "workflow" && !!workflow.research,
@@ -280,7 +281,9 @@ export function Workbench() {
           setProviderAccount(draft.providerAccount);
           setEdited(true);
         }
-        if (!restored && unconfirmed) {
+        if (!restored && unconfirmed && linkedReadEpoch === runReadEpoch.current) {
+          selectedRunId.current = unconfirmed.id;
+          setUnconfirmedStartId(unconfirmed.id);
           setBaselineRunId(unconfirmed.baseline_run_id ?? null);
           setMessage(
             "Unconfirmed run restored. Start again with the same inputs to retry this request.",
@@ -345,6 +348,7 @@ export function Workbench() {
     });
   }
   function rememberAgent(id: string | null) {
+    setUnconfirmedStartId(null);
     const url = new URL(window.location.href);
     if (id) url.searchParams.set("agent", id);
     else url.searchParams.delete("agent");
@@ -535,6 +539,7 @@ export function Workbench() {
 
   function rememberRun(id: string, fromInbox = false) {
     selectedRunId.current = id;
+    setUnconfirmedStartId(null);
     const url = new URL(window.location.href);
     const changedRun = url.searchParams.get("run") !== id;
     if (changedRun) {
@@ -566,6 +571,27 @@ export function Workbench() {
     window.history.replaceState(null, "", url);
   }
 
+  function changeRunSetup(open: boolean) {
+    if (open) {
+      setSetupUsesPendingRevision(pendingMatchesRevision());
+      if (workflow.research) catalog.refresh();
+    }
+    setSetupOpen(open);
+  }
+
+  function returnToRunSetup() {
+    if (
+      !accessActive ||
+      busyRef.current ||
+      !unconfirmedStartId ||
+      selectedRunId.current !== unconfirmedStartId ||
+      pendingStart.current?.id !== unconfirmedStartId
+    )
+      return;
+    switchTab("workflow");
+    changeRunSetup(true);
+  }
+
   function rememberRevision(id: string) {
     const url = new URL(window.location.href);
     url.searchParams.set("revision", id);
@@ -573,7 +599,10 @@ export function Workbench() {
   }
 
   async function openRun(id: string, target?: ReviewTarget) {
-    if (!target) selectedRunId.current = id;
+    if (!target) {
+      if (selectedRunId.current !== id) setUnconfirmedStartId(null);
+      selectedRunId.current = id;
+    }
     const epoch = ++runReadEpoch.current;
     const result = await api<RunSnapshot>(`runs/${id}`);
     if (epoch === runReadEpoch.current && (target || selectedRunId.current === id)) {
@@ -728,8 +757,10 @@ export function Workbench() {
     setExecutingId(request.id);
     setSetupOpen(false);
     setTab("runs");
+    let acknowledged = false;
     try {
       await api<CommandReceipt>("runs", request, admissionTimeout);
+      acknowledged = true;
       forgetPendingRun(pendingKey, request.id);
       await openRun(request.id);
       pendingStart.current = null;
@@ -738,7 +769,17 @@ export function Workbench() {
     } catch (cause) {
       // A lost reply does not mean execution failed. Locate the accepted run;
       // retries retain the same ID if the request never reached the server.
-      await openRun(request.id).catch(() => undefined);
+      await openRun(request.id).catch((readError: unknown) => {
+        if (
+          !acknowledged &&
+          readError instanceof ApiError &&
+          readError.status === 404 &&
+          pendingStart.current?.id === request.id &&
+          selectedRunId.current === request.id
+        ) {
+          setUnconfirmedStartId(request.id);
+        }
+      });
       await refreshHistory().catch(() => undefined);
       throw cause;
     } finally {
@@ -815,6 +856,7 @@ export function Workbench() {
   }
 
   const showFeedback = !!message && !error && !setupOpen && !busy;
+  const canReturnToSetup = tab === "runs" && !run && !!unconfirmedStartId && accessActive && !busy;
   return (
     <main
       className="studio"
@@ -930,13 +972,7 @@ export function Workbench() {
               <RunSetup
                 workflow={setupOpen ? pruneDefinitions(workflow) : workflow}
                 open={setupOpen}
-                onOpenChange={(open) => {
-                  if (open) {
-                    setSetupUsesPendingRevision(pendingMatchesRevision());
-                    if (workflow.research) catalog.refresh();
-                  }
-                  setSetupOpen(open);
-                }}
+                onOpenChange={changeRunSetup}
                 brief={brief}
                 onBriefChange={setBrief}
                 baselineRunId={baselineRunId}
@@ -973,11 +1009,21 @@ export function Workbench() {
             </div>
           )}
         </div>
-        <div className={showFeedback ? "workspace-feedback" : "sr-only"}>
+        <div className={showFeedback || canReturnToSetup ? "workspace-feedback" : "sr-only"}>
           <p role="status" aria-label="Workspace status">
-            {busy ? "Working…" : error ? "" : message}
+            {canReturnToSetup
+              ? "Run start is unconfirmed. Your setup is ready to review."
+              : busy
+                ? "Working…"
+                : error
+                  ? ""
+                  : message}
           </p>
-          {showFeedback && (
+          {canReturnToSetup ? (
+            <button type="button" className="button small" onClick={returnToRunSetup}>
+              Return to run setup
+            </button>
+          ) : showFeedback ? (
             <button
               className="button icon-button ghost"
               aria-label="Dismiss status"
@@ -985,7 +1031,7 @@ export function Workbench() {
             >
               <X size={14} aria-hidden="true" />
             </button>
-          )}
+          ) : null}
         </div>
         {error && !setupOpen && (
           <div className="error workspace-error" role="alert">
