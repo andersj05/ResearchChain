@@ -10,7 +10,6 @@ import {
   useRef,
   useState,
   type MouseEvent,
-  type MouseEventHandler,
 } from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
@@ -42,6 +41,7 @@ const readerTitle = "study-reader-title";
 const decisionsTitle = "research-decisions";
 const methodologyTitle = "research-methodology-title";
 const packetHeading = "packet-heading";
+type DeskArchivePosition = ArchiveReturnPosition & { view: "launch" | "studies" };
 
 function useRecentStudies(enabled: boolean) {
   const [studies, setStudies] = useState<RecentRunSummary[]>();
@@ -71,7 +71,11 @@ function RecentStudies({
   error,
   retry,
   onOpenStudy,
-}: ReturnType<typeof useRecentStudies> & { onOpenStudy: MouseEventHandler<HTMLAnchorElement> }) {
+  getReturnPosition,
+}: ReturnType<typeof useRecentStudies> & {
+  onOpenStudy: (event: MouseEvent<HTMLAnchorElement>, study?: ArchiveReturnPosition) => void;
+  getReturnPosition: () => ArchiveReturnPosition | undefined;
+}) {
   return (
     <section
       className={styles.history}
@@ -109,7 +113,9 @@ function RecentStudies({
           </p>
         )
       )}
-      {!!studies?.length && <RunArchive sessionsOnly onOpenLink={onOpenStudy} />}
+      {!!studies?.length && (
+        <RunArchive sessionsOnly onOpenLink={onOpenStudy} getReturnPosition={getReturnPosition} />
+      )}
     </section>
   );
 }
@@ -182,7 +188,7 @@ export function ResearchDesk({
   const focusAfterNavigation = useRef<string>(null);
   const previousView = useRef(deskView);
   const previousDecision = useRef(false);
-  const archivePosition = useRef<ArchiveReturnPosition | undefined>(undefined);
+  const archivePosition = useRef<DeskArchivePosition | undefined>(undefined);
   const decisionPosition = useRef<DecisionReturnPosition | undefined>(undefined);
   const previousReader = useRef<string | null>(null);
   const returnToDraft = draftScope
@@ -191,7 +197,7 @@ export function ResearchDesk({
 
   useLayoutEffect(() => {
     if (deskView === "session") previousReader.current = session;
-    else if (deskView !== "studies") previousReader.current = null;
+    else if (deskView !== "studies" && deskView !== "launch") previousReader.current = null;
     const from = previousView.current;
     const fromDecision = previousDecision.current;
     previousView.current = deskView;
@@ -248,11 +254,12 @@ export function ResearchDesk({
   }, []);
 
   const getArchiveReturnPosition = useCallback(() => {
-    const focused = document.activeElement;
-    if (focused && focused !== document.body && focused.id !== "studies-title") return;
     const position = archivePosition.current;
-    return position?.studyId === previousReader.current ? position : undefined;
-  }, []);
+    if (position?.view !== deskView || position.studyId !== previousReader.current) return;
+    const focused = document.activeElement;
+    const heading = position.view === "launch" ? "research-title" : "studies-title";
+    if (!focused || focused === document.body || focused.id === heading) return position;
+  }, [deskView]);
 
   const takeDecisionReturnPosition = useCallback(() => {
     const position = decisionPosition.current;
@@ -264,7 +271,7 @@ export function ResearchDesk({
   function navigateWithinDesk(
     event: MouseEvent<HTMLAnchorElement>,
     heading?: string,
-    archiveStudy?: Omit<ArchiveReturnPosition, "top">,
+    archiveStudy?: ArchiveReturnPosition,
   ) {
     if (
       event.defaultPrevented ||
@@ -278,11 +285,8 @@ export function ResearchDesk({
     event.preventDefault();
     const { href } = event.currentTarget;
     if (href === window.location.href) return false;
-    if (archiveStudy)
-      archivePosition.current = {
-        ...archiveStudy,
-        top: event.currentTarget.getBoundingClientRect().top,
-      };
+    if (heading === readerTitle && (deskView === "launch" || deskView === "studies"))
+      archivePosition.current = archiveStudy ? { ...archiveStudy, view: deskView } : undefined;
     focusAfterNavigation.current = heading ?? null;
     onNavigate(href);
     return true;
@@ -398,7 +402,8 @@ export function ResearchDesk({
           {showingDraft && (
             <RecentStudies
               {...recent}
-              onOpenStudy={(event) => navigateWithinDesk(event, readerTitle)}
+              onOpenStudy={(event, study) => navigateWithinDesk(event, readerTitle, study)}
+              getReturnPosition={getArchiveReturnPosition}
             />
           )}
         </main>
