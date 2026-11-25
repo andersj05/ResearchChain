@@ -2,6 +2,27 @@
 
 Updated 2026-11-24.
 
+## Research desk iteration
+
+The desk accepts pasted screenshots and editable file titles. Shared source
+details apply to files and pasted excerpts. A tab restores an unsent excerpt
+and its exact pending pin request. Restored packets show sources as they load,
+and packet edits retain keyboard focus.
+
+Study titles and pinned source titles make the archive searchable. **Decisions**
+surfaces open judgments beyond the most recent studies. The study reader links
+to the original receipt, pending decisions and completed report. Large swarms
+can be searched by assignment or lead. Revisions link to the pinned baseline
+comparison, and a finished study can seed an editable **Reports** draft with its
+saved figures and citations.
+
+Synthetic browser rehearsals covered a lost capture and report receipt, an
+older pending decision, a conflict that retained the owner's draft, an
+80-researcher swarm and a baseline comparison. Owner feedback on a full study
+using private material remains the next product validation.
+[Desk guide](../research-sessions.md) ·
+[Delivery PR](https://github.com/andersj05/ResearchChain/pull/148).
+
 ## Source-led research
 
 The desk opens directly on source intake. Drop multiple charts, documents, tables or transcripts, paste sources, or pin saved material beside the visible packet. New studies and revisions use a first reading. The Methodology page shows the handoffs, parking path and optional editorial review. A lead reads the pinned sources, then waits for the owner's
