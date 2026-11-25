@@ -32,6 +32,7 @@ import {
   type ReportView,
   type StyleGuide,
 } from "@/lib/reports";
+import positionStyles from "./report-section-position.module.css";
 
 export function ReportEditor({
   view,
@@ -96,6 +97,8 @@ export function ReportEditor({
       record.sections[0]!.id,
   );
   const [sectionSearch, setSectionSearch] = useState("");
+  const [moveTarget, setMoveTarget] = useState<{ sectionId: string; targetId: string }>();
+  const [moveNotice, setMoveNotice] = useState("");
   const sectionFilterInput = useRef<HTMLInputElement>(null);
   const outlineId = useId();
   const [showDraftPreview, setShowDraftPreview] = useState(false);
@@ -126,7 +129,17 @@ export function ReportEditor({
   const noteMissing = !draft.change_note.trim();
   const showSaveContinuation = awaitingNote && dirty && !stale && !invalidRecovery;
   const showNoteMessage = showSaveContinuation && noteMissing;
-  const section = draft.sections.find((s) => s.id === selected) ?? draft.sections[0]!;
+  const sectionIndex = Math.max(
+    0,
+    draft.sections.findIndex((item) => item.id === selected),
+  );
+  const section = draft.sections[sectionIndex]!;
+  const chosenIndex =
+    moveTarget?.sectionId === section.id
+      ? draft.sections.findIndex((item) => item.id === moveTarget.targetId)
+      : -1;
+  const destinationIndex = chosenIndex < 0 ? sectionIndex : chosenIndex;
+  const longOutline = draft.sections.length >= 8;
   const sectionQuery = sectionSearch.trim().toLowerCase();
   const searchingSections = Boolean(sectionQuery);
   const indexedSections = useMemo(
@@ -195,14 +208,21 @@ export function ReportEditor({
   function editSection(next: ReportSection) {
     changeDraft({ ...draft, sections: draft.sections.map((s) => (s.id === next.id ? next : s)) });
   }
-  function move(offset: number) {
+  function selectSection(id: string) {
+    setSelected(id);
+    setMoveTarget(undefined);
+    setMoveNotice("");
+  }
+  function moveSectionTo(destination: number) {
+    if (locked || destination === sectionIndex || !draft.sections[destination]) return;
     const sections = [...draft.sections];
-    const i = sections.findIndex((s) => s.id === section.id);
-    const moving = sections[i];
-    const adjacent = sections[i + offset];
-    if (!moving || !adjacent) return;
-    sections[i] = adjacent;
-    sections[i + offset] = moving;
+    sections.splice(sectionIndex, 1);
+    sections.splice(destination, 0, section);
+    setSelected(section.id);
+    setMoveTarget(undefined);
+    setMoveNotice(
+      `${section.heading.trim() || "Section"} moved to position ${destination + 1} of ${sections.length}.`,
+    );
     changeDraft({ ...draft, sections });
   }
   async function action(work: () => Promise<void>) {
@@ -396,7 +416,7 @@ export function ReportEditor({
                 </select>
               </label>
             </div>
-            {(draft.sections.length >= 8 || sectionSearch) && (
+            {(longOutline || sectionSearch) && (
               <div className="report-outline-search">
                 <label>
                   Find a section
@@ -432,7 +452,7 @@ export function ReportEditor({
                     item.id === section.id ? "report-outline-item selected" : "report-outline-item"
                   }
                   aria-current={item.id === section.id ? "true" : undefined}
-                  onClick={() => setSelected(item.id)}
+                  onClick={() => selectSection(item.id)}
                 >
                   {index + 1}. {item.heading}
                 </Button>
@@ -457,22 +477,22 @@ export function ReportEditor({
                     chart_ids: [],
                   };
                   changeDraft({ ...draft, sections: [...draft.sections, next] });
-                  setSelected(next.id);
+                  selectSection(next.id);
                 }}
               >
                 Add section
               </Button>
               <Button
                 className="button small"
-                disabled={draft.sections[0]!.id === section.id}
-                onClick={() => move(-1)}
+                disabled={sectionIndex === 0}
+                onClick={() => moveSectionTo(sectionIndex - 1)}
               >
                 Move earlier
               </Button>
               <Button
                 className="button small"
-                disabled={draft.sections.at(-1)?.id === section.id}
-                onClick={() => move(1)}
+                disabled={sectionIndex === draft.sections.length - 1}
+                onClick={() => moveSectionTo(sectionIndex + 1)}
               >
                 Move later
               </Button>
@@ -482,8 +502,10 @@ export function ReportEditor({
                 onClick={() => {
                   setRemoved({
                     section,
-                    index: draft.sections.findIndex((s) => s.id === section.id),
+                    index: sectionIndex,
                   });
+                  setMoveTarget(undefined);
+                  setMoveNotice("");
                   changeDraft({
                     ...draft,
                     sections: draft.sections.filter((s) => s.id !== section.id),
@@ -499,7 +521,7 @@ export function ReportEditor({
                     const sections = [...draft.sections];
                     sections.splice(removed.index, 0, removed.section);
                     changeDraft({ ...draft, sections });
-                    setSelected(removed.section.id);
+                    selectSection(removed.section.id);
                     setRemoved(null);
                   }}
                 >
@@ -507,6 +529,42 @@ export function ReportEditor({
                 </Button>
               )}
             </div>
+            {longOutline && (
+              <details className={positionStyles.details}>
+                <summary>Move to position</summary>
+                <div className={positionStyles.fields}>
+                  <label>
+                    New position
+                    <select
+                      value={draft.sections[destinationIndex]!.id}
+                      onChange={(event) =>
+                        setMoveTarget({ sectionId: section.id, targetId: event.target.value })
+                      }
+                    >
+                      {indexedSections.map(({ item, index }) => (
+                        <option key={item.id} value={item.id}>
+                          {index + 1}.{" "}
+                          {index === sectionIndex
+                            ? "Current position"
+                            : `${index < sectionIndex ? "Before" : "After"} ${item.heading.trim() || "untitled section"}`}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <Button
+                    className="button small"
+                    disabled={locked || destinationIndex === sectionIndex}
+                    focusableWhenDisabled={!locked}
+                    onClick={() => moveSectionTo(destinationIndex)}
+                  >
+                    Move section
+                  </Button>
+                </div>
+              </details>
+            )}
+            <p className="sr-only" role="status">
+              {moveNotice}
+            </p>
             <label>
               Section heading
               <input

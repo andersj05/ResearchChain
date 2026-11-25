@@ -1,0 +1,19 @@
+.details {
+  margin-top: 8px;
+}
+.details > summary {
+  width: fit-content;
+  padding-block: 8px;
+  color: var(--blue);
+  font-size: 13px;
+}
+.fields {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.fields > label {
+  min-width: 0;
+  margin: 0;
+}
