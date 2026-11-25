@@ -20,11 +20,31 @@ test("preview exact pinned charts in reading order without loading images ahead 
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a1ioAAAAASUVORK5CYII=",
     "base64",
   );
+  const wideChart = Buffer.from(
+    await page.evaluate(() => {
+      const canvas = document.createElement("canvas");
+      canvas.width = 1600;
+      canvas.height = 900;
+      const context = canvas.getContext("2d")!;
+      context.fillStyle = "#fff";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.fillStyle = "#171717";
+      context.font = "22px sans-serif";
+      for (let column = 0; column < 10; column += 1) {
+        const x = 38 + 150 * column;
+        const bar = 300 + column * 30;
+        context.fillRect(x, 760 - bar, 48, bar);
+        context.fillText(`Week ${column + 1}`, x, 800);
+      }
+      return canvas.toDataURL("image/png").split(",")[1]!;
+    }),
+    "base64",
+  );
   await page.route("**/api/artifacts/*/content*", (route) => {
     const id = decodeURIComponent(new URL(route.request().url()).pathname.split("/")[3]!);
     artifactReads.push(id);
     return id === first.original || id === last.original
-      ? route.fulfill({ contentType: "image/png", body: png })
+      ? route.fulfill({ contentType: "image/png", body: id === first.original ? wideChart : png })
       : route.fulfill({ status: 404 });
   });
   await page.route("**/api/evidence/*", (route) => {
@@ -107,11 +127,36 @@ test("preview exact pinned charts in reading order without loading images ahead 
     "src",
     new URL(`/api/artifacts/${encodeURIComponent(first.original)}/content`, page.url()).href,
   );
-  await expect.poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBe(1);
+  await expect.poll(() => image.evaluate((el) => (el as HTMLImageElement).naturalWidth)).toBe(1600);
+  expect(artifactReads).toEqual([first.original]);
+
+  const scale = dialog.getByRole("button", { name: "Original size", exact: true });
+  const viewport = dialog.getByRole("region", { name: "Chart image" });
+  await expect(scale).toHaveAttribute("aria-pressed", "false");
+  expect(await viewport.evaluate((element) => element.scrollWidth === element.clientWidth)).toBe(
+    true,
+  );
+  await scale.press("Enter");
+  await expect(scale).toHaveAttribute("aria-pressed", "true");
+  expect((await image.boundingBox())!.width).toBe(1600);
+  expect(await viewport.evaluate((element) => element.scrollWidth > element.clientWidth)).toBe(
+    true,
+  );
+  expect(await dialog.evaluate((element) => element.scrollWidth === element.clientWidth)).toBe(
+    true,
+  );
+  await viewport.press("ArrowRight");
+  await expect.poll(() => viewport.evaluate((element) => element.scrollLeft)).toBeGreaterThan(0);
+  await scale.press("Enter");
+  await expect(scale).toHaveAttribute("aria-pressed", "false");
+  expect(await viewport.evaluate((element) => element.scrollWidth === element.clientWidth)).toBe(
+    true,
+  );
   expect(artifactReads).toEqual([first.original]);
 
   await dialog.getByRole("button", { name: "Next chart" }).press("Enter");
   await expect(dialog).toHaveAccessibleName(last.title);
+  await expect(scale).toHaveAttribute("aria-pressed", "false");
   await expect(dialog.getByRole("link", { name: "Open source record" })).toHaveAttribute(
     "href",
     `/?view=evidence&evidence=${last.id}`,

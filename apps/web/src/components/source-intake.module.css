@@ -349,6 +349,30 @@ button.thumb:hover:enabled {
   display: flex;
   gap: 6px;
 }
+.chartViewTools {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 18px;
+}
+.chartViewTools button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
+.chartViewport {
+  height: min(60dvh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--paper);
+}
+.chartViewport:focus-visible {
+  outline-offset: -2px;
+}
+.chartViewport[data-original-size] .original {
+  width: auto;
+  height: auto;
+  max-width: none;
+  margin-inline: auto;
+}
 .original {
   display: block;
   width: 100%;
