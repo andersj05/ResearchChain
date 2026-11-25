@@ -12,6 +12,8 @@ receipt, so a failed file can be retried while the others stay pinned. After a
 mixed drop, **Remove invalid files** clears the files that failed local
 validation. A file with an unconfirmed pin stays queued for its exact retry.
 Original uploads can overlap while the pins keep their queue order.
+Unpinned files live in the current tab. If your browser warns before a reload
+or close, stay on the page to keep the queue. Pin files to keep them across reloads.
 
 To look up another study while you assemble a packet, open **Studies** or
 select a saved study under **Recent research**. **Research desk** takes you back
