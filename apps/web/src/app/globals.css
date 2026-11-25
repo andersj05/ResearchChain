@@ -1753,6 +1753,19 @@ td time {
 .source-list > label {
   margin-top: 0;
 }
+.source-list-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.source-list-filters label {
+  margin: 0;
+  min-width: 0;
+}
+.clear-source-filters {
+  margin-top: 8px;
+}
 .source-list > .muted {
   margin: 20px 0;
 }
