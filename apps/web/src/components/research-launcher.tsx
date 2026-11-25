@@ -10,7 +10,7 @@ import { useModelCatalog } from "./model-picker";
 import { ResearchBriefOptions, ResearchPlanConnection } from "./research-brief-options";
 import { ownerStoragePrefix } from "@/lib/access";
 import { storeResearchCaptureDraft } from "@/lib/research-capture-draft";
-import { sessionModelProblem } from "@/lib/model-settings";
+import { resolveModelProfile, sessionModelProblem } from "@/lib/model-settings";
 import {
   api,
   admissionTimeout,
@@ -77,6 +77,9 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
     (models.find((item) => item.slug === researchDefaults.model) ?? models[0])?.slug ||
     "";
   const shared = { ...draft, model };
+  const firstReadingModel = resolveModelProfile(shared, draft.lead).model;
+  const firstReadingLabel =
+    models.find((item) => item.slug === firstReadingModel)?.display_name || firstReadingModel;
   const problem = sessionModelProblem(models, shared, draft);
   const ready =
     !!account && !awaitingModelCatalog && !catalog.loading && !catalog.error && !problem;
@@ -402,7 +405,19 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
                     ChatGPT plan · {account.label}
                   </button>
                 )}
-                {model && <span>{model}</span>}
+                <dl className={styles.launchSettings}>
+                  {firstReadingLabel && (
+                    <div>
+                      <dt>First-reading model</dt>
+                      <dd>{firstReadingLabel}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt>Team web search</dt>
+                    <dd>{draft.web_search ? "On" : "Off"}</dd>
+                  </div>
+                </dl>
+                <a href="#study-settings">Change research settings</a>
               </div>
             )}
             {account && manageConnection && (
@@ -430,14 +445,6 @@ export function ResearchLauncher({ fromSession }: { fromSession: string | null }
             awaitingModelCatalog={awaitingModelCatalog}
             onReadingSample={setReadingSample}
           />
-          <label className={styles.web}>
-            <input
-              type="checkbox"
-              checked={draft.web_search}
-              onChange={(event) => update({ web_search: event.target.checked })}
-            />{" "}
-            Allow live web search
-          </label>
         </fieldset>
       </form>
       <div className={styles.launchBar}>

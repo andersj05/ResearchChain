@@ -226,6 +226,20 @@ export function ResearchBriefOptions({
               ))}
             </select>
           </label>
+          <div className={styles.webSetting}>
+            <label>
+              <input
+                type="checkbox"
+                checked={draft.web_search}
+                aria-describedby="study-web-scope"
+                onChange={(event) => update({ web_search: event.target.checked })}
+              />
+              Allow live web search
+            </label>
+            <p id="study-web-scope" className="field-hint">
+              Available to the team and editor after you choose a working sentence.
+            </p>
+          </div>
           <fieldset className={styles.sharedProfile}>
             <legend>Team defaults</legend>
             <ModelPicker

@@ -39,6 +39,8 @@ test("a phone gives queued transcript titles room and follows the visible desk o
   const account = packet.getByRole("button", { name: /^ChatGPT plan/ });
   await account.focus();
   await page.keyboard.press("Tab");
+  await expect(packet.getByRole("link", { name: "Change research settings" })).toBeFocused();
+  await page.keyboard.press("Tab");
   await expect(library.getByRole("searchbox")).toBeFocused();
   expect((await packet.boundingBox())!.y).toBeLessThan((await library.boundingBox())!.y);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

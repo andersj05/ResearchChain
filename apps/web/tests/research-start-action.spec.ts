@@ -11,6 +11,10 @@ test("start with the edited settings while the first-reading action stays visibl
   await expect(start).toBeInViewport();
   await expect(start).toBeDisabled();
   await expect(page.getByRole("link", { name: "Pin a source to begin" })).toBeInViewport();
+  const setup = page.getByRole("complementary", { name: "Prepare the first reading" });
+  await expect(setup.getByText("First-reading model", { exact: true })).toBeVisible();
+  await expect(setup.getByText(/Astra 6\.2/)).toBeVisible();
+  await expect(setup.getByText("Off", { exact: true })).toBeVisible();
 
   const settings = page.getByRole("navigation", { name: "Study sections" });
   await settings.getByRole("link", { name: "Saved sources" }).press("Enter");
@@ -23,6 +27,7 @@ test("start with the edited settings while the first-reading action stays visibl
   const sourceId = await pinDeskNote(page);
   await settings.getByRole("link", { name: "Research settings" }).click();
   await page.getByRole("checkbox", { name: "Allow live web search" }).check();
+  await expect(setup.getByText("On", { exact: true })).toBeVisible();
   await page.getByRole("spinbutton", { name: "Passes per agent" }).fill("5");
   const roleSettings = page.getByRole("heading", {
     name: /^(Research lead|Researchers|Report editor)$/,
