@@ -67,7 +67,8 @@
 .bench {
   display: grid;
   grid-template-columns: minmax(0, 1.42fr) minmax(315px, 1fr);
-  gap: clamp(16px, 2.3vw, 30px);
+  grid-template-rows: max-content auto;
+  gap: 18px clamp(16px, 2.3vw, 30px);
   margin-top: 24px;
   align-items: start;
 }
@@ -86,6 +87,8 @@
   border: 1px solid var(--border-strong);
 }
 .composer {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   position: sticky;
   top: 14px;
 }
@@ -540,10 +543,12 @@
 @media (max-width: 780px) {
   .bench {
     grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto;
+    gap: 16px;
   }
   .composer {
+    grid-area: auto;
     position: static;
-    order: 1;
   }
 }
 @media (min-width: 860px) {
