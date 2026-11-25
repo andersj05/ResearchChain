@@ -482,6 +482,47 @@ test("complete an attempted report save from its missing change note on a phone"
   expect(original.revision.sections[0]?.body).toBe(record.sections[0]?.body);
 });
 
+test("saving a report keeps the active section for the next edit on a phone", async ({
+  page,
+  request,
+}) => {
+  const { record } = await seed(request, crypto.randomUUID().slice(0, 8));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`/?view=reports&report=${record.id}`);
+  const editor = page.getByRole("region", { name: "Report editor", exact: true });
+  const outline = editor.getByRole("navigation", { name: "Report sections", exact: true });
+  const heading = editor.getByRole("textbox", { name: "Section heading", exact: true });
+  const text = editor.getByRole("textbox", { name: "Section text", exact: true });
+  const note = editor.getByRole("textbox", { name: "Revision change note", exact: true });
+  const save = editor.getByRole("button", { name: "Save report revision", exact: true });
+  const sectionName = "Alternative release-date interpretation";
+  const sectionBody = "The synthetic alternative depends on which date is used.";
+  const activeSection = outline.getByRole("button", { name: new RegExp(sectionName) });
+
+  await editor.getByRole("button", { name: "Add section", exact: true }).click();
+  await heading.fill(sectionName);
+  await text.fill(sectionBody);
+  await expect(activeSection).toHaveAttribute("aria-current", "true");
+  await note.fill("Record an alternative interpretation for editorial review.");
+  await save.click();
+
+  await expect(editor.getByText("Saved revision 2", { exact: true })).toBeVisible();
+  expect(new URL(page.url()).searchParams.get("report")).not.toBe(record.id);
+  await expect(activeSection).toHaveAttribute("aria-current", "true");
+  await expect(heading).toHaveValue(sectionName);
+  await expect(text).toHaveValue(sectionBody);
+  await expect(note).toBeEmpty();
+  await expect(save).toBeDisabled();
+
+  const nextBody = "Compare the synthetic alternative against the revised date.";
+  await text.fill(nextBody);
+  await note.fill("Clarify which date applies to the alternative.");
+  await save.click();
+  await expect(editor.getByText("Saved revision 3", { exact: true })).toBeVisible();
+  await expect(activeSection).toHaveAttribute("aria-current", "true");
+  await expect(text).toHaveValue(nextBody);
+});
+
 test("report save receipt survives a lost response and refresh", async ({
   page,
   request,

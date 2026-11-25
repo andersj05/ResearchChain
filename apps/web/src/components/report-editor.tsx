@@ -36,12 +36,14 @@ import {
 export function ReportEditor({
   view,
   styles,
+  initialSectionId,
   onOpen,
   onRefresh,
 }: {
   view: ReportView;
   styles: StyleGuide[];
-  onOpen: (id: string) => Promise<void>;
+  initialSectionId?: string;
+  onOpen: (id: string, sectionId?: string) => Promise<void>;
   onRefresh: () => Promise<void>;
 }) {
   const { owner } = useOwner();
@@ -86,7 +88,11 @@ export function ReportEditor({
     }
   });
   const [draft, setDraft] = useState<ReportDraft>(recovery.draft);
-  const [selected, setSelected] = useState(record.sections[0]!.id);
+  const [selected, setSelected] = useState(
+    () =>
+      recovery.draft.sections.find((item) => item.id === initialSectionId)?.id ??
+      record.sections[0]!.id,
+  );
   const [sectionSearch, setSectionSearch] = useState("");
   const sectionFilterInput = useRef<HTMLInputElement>(null);
   const outlineId = useId();
@@ -235,7 +241,7 @@ export function ReportEditor({
         );
       }
       const saved = await api<ReportRevision>("reports/revisions", { ...draft, id });
-      await onOpen(saved.id);
+      await onOpen(saved.id, section.id);
       try {
         localStorage.removeItem(storageKey);
       } catch {
