@@ -117,10 +117,29 @@ test("operations refresh returns to owner sign-in after session revocation", asy
   request,
 }) => {
   await page.goto("/?view=operations");
-  await expect(page.getByRole("button", { name: "Refresh status", exact: true })).toBeEnabled();
-  expect((await request.post("/api/access/logout")).status()).toBe(200);
-  await page.getByRole("button", { name: "Refresh status", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Sign in again", exact: true })).toBeVisible();
-  await expect(page.getByRole("region", { name: "Workspace operations" })).not.toBeVisible();
+  const refresh = page.getByRole("button", { name: "Refresh status", exact: true });
+  await expect(refresh).toBeEnabled();
+  // Let the real operations request detect revocation before the background access check.
+  let releaseAccessCheck = () => {};
+  const accessCheck = new Promise<void>((resolve) => {
+    releaseAccessCheck = resolve;
+  });
+  await page.route("**/api/access/status", async (route) => {
+    await accessCheck;
+    await route.continue();
+  });
+  try {
+    expect((await request.post("/api/access/logout")).status()).toBe(200);
+    const rejection = page.waitForResponse(
+      (response) =>
+        new URL(response.url()).pathname === "/api/operations" && response.status() === 401,
+    );
+    await refresh.click();
+    await rejection;
+    await expect(page.getByRole("heading", { name: "Sign in again", exact: true })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Workspace operations" })).not.toBeVisible();
+  } finally {
+    releaseAccessCheck();
+  }
   expect((await request.get("/api/operations")).status()).toBe(401);
 });
