@@ -20,6 +20,7 @@ import {
 import styles from "./source-intake.module.css";
 
 const extensions = ".png,.jpg,.jpeg,.webp,.pdf,.txt,.md,.markdown,.csv,.tsv";
+const uploadLookahead = 3;
 const clipboardImageExtensions = new Map([
   ["image/png", "png"],
   ["image/jpeg", "jpg"],
@@ -37,6 +38,36 @@ type Row = {
   command?: EvidenceInput;
 };
 export type Attribution = Pick<EvidenceCreate, "rights" | "author" | "as_of_date">;
+type PreparedPin = { command: EvidenceInput } | { cause: unknown };
+
+async function preparePin(row: Row, attribution: Attribution): Promise<PreparedPin> {
+  try {
+    const artifact = await uploadOriginal(row.file, attribution.rights);
+    const media = artifact.media_type;
+    const expected =
+      row.kind === "image"
+        ? media.startsWith("image/")
+        : row.kind === "report"
+          ? media === "application/pdf"
+          : media.startsWith("text/");
+    if (!expected)
+      throw new Error("The content does not match the file format. Choose the original file.");
+    return {
+      command: {
+        id: row.id,
+        title: row.title.trim() || row.file.name.slice(0, 240),
+        kind: row.kind,
+        ...attribution,
+        author: (row.authorOverride ?? attribution.author ?? "").trim(),
+        as_of_date: (row.dateOverride ?? attribution.as_of_date) || null,
+        representation: row.kind === "image" ? "chart_screenshot" : "original",
+        artifact_id: artifact.id,
+      },
+    };
+  } catch (cause) {
+    return { cause };
+  }
+}
 
 function kindFor(name: string): Row["kind"] {
   if (/\.(png|jpe?g|webp)$/i.test(name)) return "image";
@@ -197,35 +228,35 @@ export function SourceFileBatch({
     if (saving.current || disabled || !permitted || !eligible.length) return;
     saving.current = true;
     onSaving(true);
+    const prepared: Promise<PreparedPin>[] = [];
+    const lastUpload = new Map<number, Promise<PreparedPin>>();
+    function prepareNext() {
+      const row = eligible[prepared.length];
+      if (!row) return;
+      if (row.command) {
+        prepared.push(Promise.resolve({ command: row.command }));
+        return;
+      }
+      // Identical originals share an artifact. Keep the first filename and detected
+      // media type deterministic by sending possibly identical bytes in queue order.
+      const size = row.file.size;
+      const pending = Promise.resolve(lastUpload.get(size)).then(() =>
+        preparePin(row, attribution),
+      );
+      lastUpload.set(size, pending);
+      prepared.push(pending);
+    }
     let completed = 0;
     try {
+      for (let ahead = 1; ahead < uploadLookahead; ahead++) prepareNext();
       for (const [index, row] of eligible.entries()) {
+        prepareNext();
         setProgress(`Pinning ${index + 1} of ${eligible.length} · ${row.file.name}`);
         try {
-          let command = row.command;
-          if (!command) {
-            const artifact = await uploadOriginal(row.file, attribution.rights);
-            const media = artifact.media_type;
-            const expected =
-              row.kind === "image"
-                ? media.startsWith("image/")
-                : row.kind === "report"
-                  ? media === "application/pdf"
-                  : media.startsWith("text/");
-            if (!expected)
-              throw new Error(
-                "The content does not match the file format. Choose the original file.",
-              );
-            command = {
-              id: row.id,
-              title: row.title.trim() || row.file.name.slice(0, 240),
-              kind: row.kind,
-              ...attribution,
-              author: (row.authorOverride ?? attribution.author ?? "").trim(),
-              as_of_date: (row.dateOverride ?? attribution.as_of_date) || null,
-              representation: row.kind === "image" ? "chart_screenshot" : "original",
-              artifact_id: artifact.id,
-            };
+          const result = await prepared[index]!;
+          if ("cause" in result) throw result.cause;
+          const { command } = result;
+          if (!row.command) {
             // Retry an unconfirmed POST with the same identity and provenance.
             setRows((list) =>
               list.map((item) => (item.id === row.id ? { ...item, command } : item)),
