@@ -160,6 +160,15 @@ test("append the exact archived source to the open setup once", async ({ page })
   await expect(page.getByText(`${original.title} is already in the study packet.`)).toBeVisible();
   await expect(rows).toHaveCount(2);
 
+  await page
+    .getByRole("button", { name: "Remove queued new-observations.txt", exact: true })
+    .click();
+  await packet.getByRole("button", { name: `Unpin ${original.title}`, exact: true }).click();
+  await expect(rows).toHaveCount(1);
+  await page.goBack();
+  await page.goForward();
+  await expect(rows).toHaveCount(1);
+
   await page.goBack();
   await settings.click();
   await addSource(page, oversized.title!).click();
@@ -168,15 +177,6 @@ test("append the exact archived source to the open setup once", async ({ page })
       "The source content fills the request limit. Unpin files to leave room for the lead’s instructions.",
     ),
   ).toBeVisible();
-  await expect(rows).toHaveCount(2);
-
-  await page
-    .getByRole("button", { name: "Remove queued new-observations.txt", exact: true })
-    .click();
-  await packet.getByRole("button", { name: `Unpin ${original.title}`, exact: true }).click();
-  await expect(rows).toHaveCount(1);
-  await page.goBack();
-  await page.goForward();
   await expect(rows).toHaveCount(1);
   await page.goBack();
   await page.goBack();
