@@ -6,7 +6,6 @@ import { useOwner } from "./access-context";
 import { ownerStoragePrefix } from "@/lib/access";
 import { api, ApiError, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
-import { evidenceUrl } from "@/lib/evidence";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
 import { sessionUrl } from "@/lib/research-sessions";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
@@ -25,6 +24,7 @@ import { SessionDiscovery } from "./session-discovery";
 import { SessionRoster } from "./session-roster";
 import { hasStudyFiles, StudyFiles } from "./study-files";
 import { StudyIndexLink, type StudyIndexReturn } from "./study-index-link";
+import { StudyPinnedSources, useStudySourceDetails } from "./study-pinned-sources";
 import {
   LeadConsultation,
   ConsultationHistory,
@@ -106,6 +106,8 @@ function OwnerQuestion({
 function ResearchSessionView({ runId, onNewStudy }: Props) {
   const { active, owner } = useOwner();
   const [run, setRun] = useState<RunSnapshot>();
+  const [readingSourcesRequested, setReadingSourcesRequested] = useState(false);
+  const sourceDetails = useStudySourceDetails(run, active, readingSourcesRequested);
   const [readError, setReadError] = useState("");
   const [actionFailure, setActionFailure] = useState<ActionFailure>();
   const sending = useRef(false);
@@ -141,6 +143,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
         if (!isCurrent()) return;
         if (next.research_manifest?.tool_config?.session !== "brief-led-1")
           throw new ApiError("This run belongs to Workflows.", [], 404);
+        if (pendingReviews(next).some((review) => review.path === "root/working_sentence"))
+          setReadingSourcesRequested(true);
         setRun(next);
         setReadError("");
         setActionFailure((failure) =>
@@ -308,9 +312,14 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
   const recordedJudgment = run.events.find(
     (event) => event.review_response && event.path === "root/judgment",
   )?.review_response;
-  const title = (run.study_title || run.brief).trim().split("\n")[0]!;
+  const briefTitle = run.brief.trim().split("\n")[0] || run.workflow_name;
+  const title =
+    run.study_title?.trim() ||
+    (briefTitle.length > 120 ? `${briefTitle.slice(0, 120)}…` : briefTitle);
   const live = run.execution_pending || ["queued", "running"].includes(run.status);
+  const canStop = live || run.status === "paused" || run.status === "interrupted";
   const started = run.model_attempts?.length ?? 0;
+  const activeSeconds = run.usage?.active_seconds;
   const report = sessionReport(editor, run.status);
   const hasActivity = lanes.some((lane) => lane.attempts.length > 0);
   const hasFiles = hasStudyFiles(lanes);
@@ -334,10 +343,12 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             success="Study link copied."
           />
         </div>
-        <h1>
-          {title.slice(0, 120)}
-          {title.length > 120 && "…"}
-        </h1>
+        <div className={styles.titleRow}>
+          <h1>{title}</h1>
+          <Button className="button" onClick={() => onNewStudy(run.id)}>
+            Revisit material
+          </Button>
+        </div>
         <div className={styles.summary}>
           {swarm && (
             <span>
@@ -361,11 +372,22 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
             {started} recorded {started === 1 ? "pass" : "passes"}
           </span>
           <span>
-            {Math.floor((run.usage?.active_seconds ?? 0) / 60)}m{" "}
-            {Math.floor((run.usage?.active_seconds ?? 0) % 60)}s active
+            {activeSeconds == null
+              ? "Active time unreported"
+              : `${Math.floor(activeSeconds / 60)}m ${Math.floor(activeSeconds % 60)}s active`}
           </span>
         </div>
         <nav aria-label="Study sections" className={styles.studyNav}>
+          {report && (
+            <SessionWorkspaceLink
+              className={report.complete ? styles.reportShortcut : undefined}
+              runId={runId}
+              lane={editor}
+              onSelect={selectWorkspace}
+            >
+              {report.complete ? "Read report" : "Read report draft"}
+            </SessionWorkspaceLink>
+          )}
           {discovery && (
             <a
               href="#source-led-investigation"
@@ -395,11 +417,6 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               Editorial review
             </a>
           )}
-          {report?.complete && (
-            <SessionWorkspaceLink runId={runId} lane={editor} onSelect={selectWorkspace}>
-              Read report
-            </SessionWorkspaceLink>
-          )}
           {run.baseline_run_id && (
             <a href={`${fullRun}&compare=${encodeURIComponent(run.baseline_run_id)}`}>
               Compare with baseline
@@ -409,7 +426,12 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
           {hasFiles && <StudyIndexLink index="files" />}
           {hasActivity && <StudyIndexLink index="activity" />}
         </nav>
-        <details className={styles.settings}>
+        <details
+          className={styles.settings}
+          onToggle={(event) => {
+            if (active && event.currentTarget.open) sourceDetails.requestSettings();
+          }}
+        >
           <summary>{discovery ? "Sources and settings" : "Brief and settings"}</summary>
           {(!discovery || run.brief !== "Source-led study") && <p>{run.brief}</p>}
           {swarm && (
@@ -456,20 +478,8 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               request.
             </p>
           )}
-          {!!run.evidence_ids?.length && (
-            <ul>
-              {run.research_manifest?.evidence.map((source) => (
-                <li key={source.evidence_id}>
-                  <a href={evidenceUrl(source.evidence_id)}>
-                    {run.artifacts.find((item) => item.id === source.original)?.name ||
-                      source.publisher ||
-                      source.source_url ||
-                      source.evidence_id}
-                  </a>
-                  {source.as_of_date && ` · ${source.as_of_date}`}
-                </li>
-              ))}
-            </ul>
+          {sourceDetails.settingsRequested && (
+            <StudyPinnedSources lookup={sourceDetails} artifacts={run.artifacts} />
           )}
           {run.baseline_run_id && (
             <a href={`/?session=${encodeURIComponent(run.baseline_run_id)}`}>
@@ -492,6 +502,10 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
       {discovery && (
         <SessionDiscovery
           run={run}
+          reading={sourceDetails.reading}
+          sources={sourceDetails.sources}
+          readingRequested={readingSourcesRequested}
+          onReadOriginal={() => setReadingSourcesRequested(true)}
           review={sentenceReview}
           decision={sentenceDecision}
           team={team}
@@ -603,18 +617,18 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
       <footer className={styles.footer}>
         {!failedReview && actionNotice}
         <a href={fullRun}>Open run inspector</a>
-        <div className={styles.actions}>
-          {run.status === "interrupted" && !live && (
-            <Button
-              className="button"
-              disabled={busy || !active}
-              onClick={() => act({ name: "recover" })}
-            >
-              Recover session
-            </Button>
-          )}
-          {(live || run.status === "paused" || run.status === "interrupted") &&
-            (confirmStop ? (
+        {canStop && (
+          <div className={styles.actions}>
+            {run.status === "interrupted" && !live && (
+              <Button
+                className="button"
+                disabled={busy || !active}
+                onClick={() => act({ name: "recover" })}
+              >
+                Recover session
+              </Button>
+            )}
+            {confirmStop ? (
               <>
                 <Button
                   className="button"
@@ -642,11 +656,9 @@ function ResearchSessionView({ runId, onNewStudy }: Props) {
               >
                 Stop session
               </Button>
-            ))}
-          <Button className="button" onClick={() => onNewStudy(run.id)}>
-            Revisit material
-          </Button>
-        </div>
+            )}
+          </div>
+        )}
       </footer>
     </main>
   );

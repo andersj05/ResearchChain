@@ -9,6 +9,13 @@
   display: grid;
   gap: 12px;
 }
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
 .intro h1 {
   max-width: 35ch;
   font-size: clamp(26px, 3.4vw, 42px);
@@ -67,6 +74,11 @@
 .studyNav .reviewShortcut {
   border-color: var(--amber);
   background: var(--amber-soft);
+}
+.studyNav .reportShortcut {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
 }
 .page :target,
 .detail {

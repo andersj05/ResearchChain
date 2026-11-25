@@ -4,7 +4,13 @@ Open the **Research desk** to assemble a source packet. **Methodology** opens an
 
 ## Start from a week of material
 
-Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**, or select several files at once. You can also paste a screenshot directly onto the desk. Edit file titles in the queue before pinning. With a text file, choose **Conversation** to identify a transcript. Each file has its own receipt, so a failed file can be retried while the others stay pinned.
+Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**,
+or select several files at once. You can also paste a screenshot directly onto
+the desk. Edit file titles in the queue before pinning. With a text file,
+choose **Conversation** to identify a transcript. Each file has its own
+receipt, so a failed file can be retried while the others stay pinned. After a
+mixed drop, **Remove invalid files** clears the files that failed local
+validation. A file with an unconfirmed pin stays queued for its exact retry.
 
 Use **Paste a source** for a note, conversation or reference URL. The **Source details** fields apply to uploads and pasted sources. Choose usage rights for files, notes and conversations, and add the author or speaker and observation date when known. Pin separately when attribution or rights differ.
 
@@ -94,8 +100,11 @@ or level is unavailable on the connected account, the desk identifies which
 choice needs attention.
 
 During a study, **Sources and settings** shows the model, effort and detail
-pinned for each role. A workspace's **Model passes** includes the saved request
-for each pass. **Revisit material** restores your choices for the next experiment.
+pinned for each role. The same panel lists sources in pinned order. It retrieves
+titles and authors for matching source versions and keeps the study’s recorded
+dates and availability. A workspace's **Model passes** includes the saved
+request for each pass. **Revisit material** restores your choices for the next
+experiment.
 
 ### Run a swarm
 
@@ -154,7 +163,9 @@ behind it. You can give the editor your judgment or end the study at that point.
 
 ## Read the result and iterate
 
-Open the report editor's workspace to read the saved Markdown with its figures.
+Choose **Read report** at the top of a completed study to open its saved
+Markdown and figures. Longer reports show a **Contents** list with links to
+individual headings. A report section can be bookmarked and reopened directly.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
 Choose **Edit in Reports** to create an editable report from the saved Markdown
@@ -162,8 +173,8 @@ with the figures, the original study and its recorded sources attached. Confirm
 the title and a style guide before creating the draft. Further edits and editorial
 feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
 
-Choose **Revisit material** to start another experiment with the previous context,
-sample, sources and settings. Before starting, open **Compare with previous
+Choose **Revisit material** beside the study title to start another experiment
+with the previous context, sample, sources and settings. Before starting, open **Compare with previous
 setup** to see packet changes, reading order, model roles, limits and context.
 In the revised study, **Compare with baseline** opens the original alongside the
 revision in the run inspector. Use **Open research session** to return to the

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import {
   Dialog,
   DialogBackdrop,
@@ -101,12 +101,24 @@ export function SourceFileBatch({
   const [notice, setNotice] = useState("");
   const [previewId, setPreviewId] = useState<string>();
   const input = useRef<HTMLInputElement>(null);
+  const dropButton = useRef<HTMLButtonElement>(null);
+  const pinButton = useRef<HTMLButtonElement>(null);
+  const focusAfterCleanup = useRef(false);
   const previewOpener = useRef<HTMLButtonElement>(null);
   const saving = useRef(false);
   const depth = useRef(0);
   const pastedCharts = useRef(0);
   const permitted = attribution.rights && attribution.rights !== "unknown";
   const preview = disabled ? undefined : rows.find((row) => row.id === previewId);
+  const eligible = rows.filter((row) => !row.invalid);
+  const invalidCount = rows.length - eligible.length;
+
+  useLayoutEffect(() => {
+    if (!focusAfterCleanup.current) return;
+    focusAfterCleanup.current = false;
+    const pin = pinButton.current;
+    (pin && !pin.disabled ? pin : dropButton.current)?.focus();
+  }, [rows]);
 
   function choose(files: FileList | File[] | null, pasted = false) {
     if (disabled || saving.current || !files?.length) return;
@@ -165,6 +177,13 @@ export function SourceFileBatch({
     onPending(next.length > 0);
     setNotice("");
   }
+  function removeInvalid() {
+    if (disabled || saving.current || !invalidCount) return;
+    focusAfterCleanup.current = true;
+    setRows(eligible);
+    onPending(eligible.length > 0);
+    setNotice(`Removed ${invalidCount} invalid ${invalidCount === 1 ? "file" : "files"}.`);
+  }
   function edit(
     id: string,
     patch: Partial<Pick<Row, "kind" | "title" | "authorOverride" | "dateOverride">>,
@@ -175,14 +194,13 @@ export function SourceFileBatch({
     );
   }
   async function pin() {
-    if (saving.current || disabled || !permitted || !rows.length) return;
+    if (saving.current || disabled || !permitted || !eligible.length) return;
     saving.current = true;
     onSaving(true);
     let completed = 0;
     try {
-      for (const [index, row] of rows.entries()) {
-        setProgress(`Pinning ${index + 1} of ${rows.length} · ${row.file.name}`);
-        if (row.invalid) continue;
+      for (const [index, row] of eligible.entries()) {
+        setProgress(`Pinning ${index + 1} of ${eligible.length} · ${row.file.name}`);
         try {
           let command = row.command;
           if (!command) {
@@ -226,7 +244,7 @@ export function SourceFileBatch({
       }
       const remaining = rows.length - completed;
       setNotice(
-        `${completed} ${completed === 1 ? "file" : "files"} pinned.${remaining ? ` Review ${remaining} remaining below.` : ""}`,
+        `${completed} ${completed === 1 ? "file" : "files"} pinned.${remaining ? ` ${remaining} still queued.` : ""}`,
       );
       onPending(remaining > 0);
     } finally {
@@ -252,6 +270,7 @@ export function SourceFileBatch({
         }}
       />
       <button
+        ref={dropButton}
         type="button"
         className={styles.drop}
         data-dragging={dragging || undefined}
@@ -407,22 +426,34 @@ export function SourceFileBatch({
               </li>
             ))}
           </ul>
-          <button
-            className="button"
-            type="button"
-            disabled={
-              disabled ||
-              !permitted ||
-              rows.every((row) => !!row.invalid) ||
-              count + rows.length > 100
-            }
-            onClick={() => void pin()}
-          >
-            {progress
-              ? "Pinning files…"
-              : `Pin ${rows.length} ${rows.length === 1 ? "file" : "files"}`}
-          </button>
-          {!permitted && <p className={styles.feedback}>Select usage rights above to pin files.</p>}
+          <div className={styles.actions}>
+            {eligible.length > 0 && (
+              <button
+                ref={pinButton}
+                className="button"
+                type="button"
+                disabled={disabled || !permitted || count + rows.length > 100}
+                onClick={() => void pin()}
+              >
+                {progress
+                  ? "Pinning files…"
+                  : `Pin ${eligible.length} ${eligible.length === 1 ? "file" : "files"}`}
+              </button>
+            )}
+            {invalidCount > 0 && (
+              <button
+                className="button small"
+                type="button"
+                disabled={disabled}
+                onClick={removeInvalid}
+              >
+                Remove {invalidCount} invalid {invalidCount === 1 ? "file" : "files"}
+              </button>
+            )}
+          </div>
+          {eligible.length > 0 && !permitted && (
+            <p className={styles.feedback}>Select usage rights above to pin files.</p>
+          )}
         </div>
       )}
       {(progress || notice) && (
