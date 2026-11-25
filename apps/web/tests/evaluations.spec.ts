@@ -64,8 +64,18 @@ for (const width of [1440, 390]) {
     await page.getByRole("button", { name: "New dataset", exact: true }).click();
     await page.getByLabel("Dataset title", { exact: true }).fill(`Evaluation ${tag}`);
     await page.getByLabel("Case title", { exact: true }).fill(`Mechanism ${tag}`);
-    await page.getByLabel("Case identifier", { exact: true }).fill(`case-${tag}`);
-    await page.getByLabel("Topic identifier", { exact: true }).fill(`topic-${tag}`);
+    const caseId = page.getByLabel("Case identifier", { exact: true });
+    const topicId = page.getByLabel("Topic identifier", { exact: true });
+    await caseId.fill(`Case-${tag}`);
+    await topicId.fill(`topic.${tag}`);
+    expect(await caseId.evaluate((field: HTMLInputElement) => field.validity.patternMismatch)).toBe(
+      true,
+    );
+    expect(
+      await topicId.evaluate((field: HTMLInputElement) => field.validity.patternMismatch),
+    ).toBe(true);
+    await caseId.fill(`case-${tag}`);
+    await topicId.fill(`topic-${tag}`);
     await page
       .getByLabel("Research or writing brief", { exact: true })
       .fill(`Assess the synthetic mechanism ${tag}.`);
