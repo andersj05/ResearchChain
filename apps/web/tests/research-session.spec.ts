@@ -78,7 +78,8 @@ test("inspect a legacy parallel study from its source packet through an illustra
     .click();
   const writerDetail = writerControls.getByRole("slider", { name: "Response detail" });
   await writerDetail.press("End");
-  await expect(page.getByLabel("Editorial review")).toHaveValue("when_needed");
+  await expect(page.getByLabel("Editorial review")).toHaveValue("always");
+  await page.getByLabel("Editorial review").selectOption("when_needed");
   await page.getByRole("button", { name: "Ask the lead for a first reading", exact: true }).click();
   await expect(page).toHaveURL(/\?session=[\da-f-]{36}/);
   const sessionId = new URL(page.url()).searchParams.get("session")!;

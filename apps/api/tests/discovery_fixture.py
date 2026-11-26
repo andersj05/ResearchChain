@@ -89,6 +89,17 @@ class DiscoveryProvider(SessionProvider):
                         "assignments": [discovery_assignment(packet["human_feedback"])],
                     },
                 )
+            tools = prepared.analyst_options["tools"][0]["tools"]
+            if not any(tool["name"] == "finish" for tool in tools):
+                return swarm_reply(
+                    prepared.model,
+                    tool="ask_expert",
+                    arguments={
+                        "thesis": "Differences between sectors may explain the weekly move.",
+                        "question": "Which comparison would distinguish concentration from a sector effect?",
+                        "options": [],
+                    },
+                )
             return swarm_reply(
                 prepared.model,
                 tool="finish",

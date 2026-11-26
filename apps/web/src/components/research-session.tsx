@@ -15,7 +15,7 @@ import { ownerStoragePrefix } from "@/lib/access";
 import { api, ApiError, apiResponse, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
-import { sessionUrl } from "@/lib/research-sessions";
+import { expertReviewLabels, expertReviewMode, sessionUrl } from "@/lib/research-sessions";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { pollVisiblePage } from "@/lib/poll-visible-page";
 import {
@@ -563,7 +563,7 @@ function ResearchSessionView({
               {swarm.max_lead_turns === null
                 ? "Leads finish when ready"
                 : `${swarm.max_lead_turns} turns per lead`}{" "}
-              · Expert consultations {swarm.allow_consultations ? "on" : "off"}
+              · Expert judgment · {expertReviewLabels[expertReviewMode(swarm)]}
             </p>
           )}
           <p>

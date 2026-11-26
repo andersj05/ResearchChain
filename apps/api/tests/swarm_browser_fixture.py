@@ -86,6 +86,17 @@ def lead_turn(model, state):
         )
     if title == "Demand" and state["turn"] == 1:
         tasks = ["Orders", "Backlog"]
+    elif title == "Demand" and state["turn"] == 2:
+        assert state["history"][0]["workers"]
+        return result(
+            model,
+            tool="ask_expert",
+            arguments={
+                "thesis": "Orders and backlog may use different cutoffs.",
+                "question": "Which release window should determine the comparison?",
+                "options": [],
+            },
+        )
     elif title == "Supply" and state["turn"] == 2:
         assert any(item.get("owner_answer") == FEEDBACK for item in state["history"])
         tasks = ["Inventory timing"]

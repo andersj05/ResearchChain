@@ -1,5 +1,9 @@
-import { initialSwarm, type ResearchBrief } from "@/lib/research-sessions";
-import styles from "./research-desk.module.css";
+import {
+  expertReviewLabels,
+  expertReviewMode,
+  initialSwarm,
+  type ResearchBrief,
+} from "@/lib/research-sessions";
 
 type Props = { draft: ResearchBrief; update: (patch: Partial<ResearchBrief>) => void };
 
@@ -54,15 +58,26 @@ export function SwarmControls({ draft, update }: Props) {
           }
         />
       </label>
-      <label className={styles.consultationConsent}>
-        <input
-          type="checkbox"
-          checked={settings.allow_consultations}
+      <label>
+        Expert judgment
+        <select
+          value={expertReviewMode(settings)}
           onChange={(event) =>
-            update({ swarm: { ...settings, allow_consultations: event.target.checked } })
+            update({
+              swarm: {
+                ...settings,
+                allow_consultations: event.target.value !== "off",
+                require_expert_judgment: event.target.value === "each_lead",
+              },
+            })
           }
-        />
-        Allow leads to ask for expert judgment
+        >
+          {Object.entries(expertReviewLabels).map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
       </label>
     </>
   );
