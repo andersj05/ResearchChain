@@ -1,4 +1,4 @@
-"""Admission checks for owner-requested replay after confirmed provider failures."""
+"""Admission checks for owner-requested replay from a stopped study."""
 
 from uuid import UUID
 
@@ -6,6 +6,7 @@ from psycopg import Connection
 from psycopg.rows import DictRow
 
 from researchchain.controls import ACTIVE_TIME_LIMIT_REASON
+from researchchain.graph import ResearchLimits
 from researchchain.providers.chatgpt_auth import (
     GENERIC_PROVIDER_ERROR,
     PROVIDER_OVERLOAD_CODES,
@@ -24,6 +25,9 @@ TRANSIENT_STREAM_CODES = {
 } | PROVIDER_OVERLOAD_CODES
 
 PEER_STOPPED_BEFORE_DISPATCH = "Another researcher failed before this request was sent."
+MODEL_CALL_LIMIT_REASON = "Model-call budget reached."
+TOOL_CALL_LIMIT_REASON = "Evidence-tool call budget reached."
+CALL_LIMIT_REASONS = (MODEL_CALL_LIMIT_REASON, TOOL_CALL_LIMIT_REASON)
 
 
 def _retryable(attempt: DictRow) -> bool:
@@ -61,18 +65,19 @@ def recovery_candidate(conn: Connection[DictRow], run_id: UUID) -> DictRow | Non
     """Find a continuation for a retryable provider failure or a known legacy stop."""
     command = conn.execute(
         "SELECT c.id, c.checkpoint_id, c.interrupt_id, c.decision, c.feedback, "
-        "c.response->>'status' AS command_status, controls.terminal_status, controls.reason "
+        "c.response->>'status' AS command_status, controls.terminal_status, controls.reason, "
+        "m.manifest->'settings'->'limits' AS limits "
         "FROM run_commands c JOIN run_controls controls ON controls.run_id = c.run_id "
         "JOIN run_research_manifests m ON m.run_id = c.run_id "
         "WHERE c.run_id = %s AND ("
         "(controls.terminal_status = 'failed' AND "
         "m.manifest->'tool_config'->>'swarm_version' IS NOT NULL) OR "
-        "(controls.terminal_status = 'limited' AND controls.reason = %s)) "
+        "(controls.terminal_status = 'limited' AND controls.reason = ANY(%s))) "
         "AND m.manifest->'tool_config'->>'session' = %s "
         "AND NOT EXISTS (SELECT 1 FROM run_commands pending WHERE pending.run_id = c.run_id "
         "AND pending.response IS NULL) "
         "ORDER BY c.created_at DESC, c.id DESC LIMIT 1",
-        (run_id, ACTIVE_TIME_LIMIT_REASON, SESSION_VERSION),
+        (run_id, [ACTIVE_TIME_LIMIT_REASON, *CALL_LIMIT_REASONS], SESSION_VERSION),
     ).fetchone()
     if command is None or command["command_status"] != command["terminal_status"]:
         return None
@@ -84,10 +89,20 @@ def recovery_candidate(conn: Connection[DictRow], run_id: UUID) -> DictRow | Non
         (run_id,),
     ).fetchall()
     if command["terminal_status"] == "limited":
-        # An older timer could fire between requests or during an admitted call.
-        # Only the first case can continue with all effects confirmed.
+        # Clean stops occur between requests. An unfinished effect needs its own
+        # recovery path even when there is now room under the study budget.
         if attempts:
             return None
+        if command["reason"] in CALL_LIMIT_REASONS:
+            limits = ResearchLimits.model_validate(command["limits"])
+            count = conn.execute(
+                "SELECT count(*) AS calls FROM research_attempts "
+                "WHERE run_id = %s AND superseded_at IS NULL",
+                (run_id,),
+            ).fetchone()
+            assert count is not None
+            if count["calls"] >= min(limits.max_model_calls, limits.max_tool_calls):
+                return None
         command["requires_confirmation"] = False
         return command
     if command["reason"] == LEGACY_REPLAY_STOP_REASON:
