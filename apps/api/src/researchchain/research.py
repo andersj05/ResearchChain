@@ -82,7 +82,11 @@ from researchchain.research_prompt import (
     validate_result,
     web_prompt_hash,
 )
-from researchchain.research_recovery import PEER_STOPPED_BEFORE_DISPATCH
+from researchchain.research_recovery import (
+    MODEL_CALL_LIMIT_REASON,
+    PEER_STOPPED_BEFORE_DISPATCH,
+    TOOL_CALL_LIMIT_REASON,
+)
 from researchchain.research_session_report import (
     REPORT_VERSION,
     confirm_editor_report,
@@ -472,6 +476,7 @@ class ResearchExecutor:
     ) -> tuple[UUID, StoredResearchResult | None, list[OwnerDirection]]:
         assert isinstance(node.config, ResearchConfig)
         limits = self.manifest.settings.limits
+        desk_session = self.manifest.tool_config.get("session") == SESSION_VERSION
         with self.control.lock:
             previous = self.conn.execute(
                 "SELECT * FROM research_attempts WHERE run_id = %s AND path = %s "
@@ -495,18 +500,20 @@ class ResearchExecutor:
                 else:
                     reason = previous["reason"] or "The prior model attempt did not complete."
                 raise ExecutionStopped(reason, "failed")
+            # Desk budgets are calculated from the planned steps. Superseded
+            # attempts still count toward actual usage and workspace admissions.
             attempts = self.conn.execute(
-                "SELECT count(*) AS calls, "
+                "SELECT count(*) FILTER (WHERE superseded_at IS NULL OR NOT %s) AS calls, "
                 "COALESCE(sum(input_tokens + output_tokens), 0) AS tokens, "
                 "bool_or(status = 'completed' AND (input_tokens IS NULL OR output_tokens IS NULL)) "
                 "AS missing_usage FROM research_attempts WHERE run_id = %s",
-                (self.run_id,),
+                (desk_session, self.run_id),
             ).fetchone()
             assert attempts
             if attempts["calls"] >= limits.max_model_calls:
-                raise ExecutionStopped("Model-call budget reached.")
+                raise ExecutionStopped(MODEL_CALL_LIMIT_REASON)
             if attempts["calls"] >= limits.max_tool_calls:
-                raise ExecutionStopped("Evidence-tool call budget reached.")
+                raise ExecutionStopped(TOOL_CALL_LIMIT_REASON)
             token_limit = limits.max_total_tokens
             if token_limit != "as_needed":
                 if attempts["missing_usage"]:

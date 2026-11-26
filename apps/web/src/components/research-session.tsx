@@ -568,7 +568,7 @@ function ResearchSessionView({
           )}
           <p>
             {run.research_manifest?.settings.model} · No active-time limit ·{" "}
-            {run.research_manifest?.settings.limits?.max_model_calls} model requests maximum
+            {run.research_manifest?.settings.limits?.max_model_calls} model steps maximum
           </p>
           {profiles ? (
             <div className={styles.profileList}>
@@ -634,7 +634,7 @@ function ResearchSessionView({
             <>
               <p>
                 {run.status === "limited"
-                  ? "Resume from the saved checkpoint without a study time limit."
+                  ? "Resume from the saved checkpoint and reuse the completed steps."
                   : "Resume from the saved checkpoint. Retried requests use your plan allowance."}
               </p>
               {run.recovery_requires_confirmation && (

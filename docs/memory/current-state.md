@@ -2,6 +2,13 @@
 
 Updated 2026-11-25.
 
+## Study budgets and recovery
+
+Superseded attempts stay in usage history and count toward the workspace request
+allowance. They no longer consume a slot in the Desk study's planned model and
+tool budgets. **Resume research** can continue a study that hit the old count
+when the saved checkpoint has room for another step and no unfinished attempt.
+
 ## Resuming lead consultations
 
 When recovering a study, the swarm skips an exact repeat of a consultation
