@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useState, type CSSProperties, type MouseEventHandler, type Ref } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -190,7 +190,15 @@ function Connectors() {
   );
 }
 
-export function ResearchMethodology() {
+export function ResearchMethodology({
+  titleRef,
+  setupHref,
+  onReturn,
+}: {
+  titleRef: Ref<HTMLHeadingElement>;
+  setupHref?: string;
+  onReturn?: MouseEventHandler<HTMLAnchorElement>;
+}) {
   const [selected, setSelected] = useState<Step>("sentence");
   const [example, setExample] = useState<keyof typeof cases>("breadth");
   const step = steps[selected];
@@ -199,11 +207,14 @@ export function ResearchMethodology() {
     <main className={styles.page}>
       <div className={styles.title}>
         <div>
-          <h1>Methodology</h1>
+          <h1 id="research-methodology-title" ref={titleRef} tabIndex={-1}>
+            Methodology
+          </h1>
           <p>How a week of sources becomes a working sentence, an assignment and a report.</p>
         </div>
-        <a href="?view=research" className="button">
-          Open research desk <ArrowRight size={15} />
+        <a href={setupHref ?? "?view=research"} className="button" onClick={onReturn}>
+          {setupHref ? "Return to study setup" : "Open research desk"}{" "}
+          <ArrowRight size={15} aria-hidden />
         </a>
       </div>
       <section aria-labelledby="map-title" className={styles.sheet}>

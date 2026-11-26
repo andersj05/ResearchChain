@@ -1,6 +1,7 @@
 """Resolve Python inputs from pinned evidence and this run's confirmed research receipts."""
 
 import base64
+import json
 import re
 from pathlib import PurePosixPath
 from uuid import UUID
@@ -11,6 +12,7 @@ from psycopg.types.json import Jsonb
 
 from researchchain.analyst_workspace import MAX_FILES, MAX_INPUT_BYTES, MAX_INPUT_FILE_BYTES
 from researchchain.artifacts import put_artifact, read_content
+from researchchain.research_directions import read_report_request
 from researchchain.research_models import StoredResearchResult, TeamPlan, WorkspaceFile
 from researchchain.research_prompt import PreparedResearch, json_bytes
 from researchchain.research_swarm_workspace import confirmed_swarm_worker as confirmed_swarm_worker
@@ -152,7 +154,10 @@ def team_workspace_files(
         (run_id, source_path + "/plan"),
     ).fetchone()
     if swarm:
-        packet, files = swarm_material(conn, run_id, source_path)
+        request = read_report_request(conn, run_id)
+        handoff = json.loads(context) if request else None
+        early = isinstance(handoff, dict) and handoff.get("handoff_requested") is True
+        packet, files = swarm_material(conn, run_id, source_path, early=early)
     else:
         plan, lanes = _recorded_team(conn, run_id, source_path)
         packet, files = _handoff_material(source_path, plan, lanes)

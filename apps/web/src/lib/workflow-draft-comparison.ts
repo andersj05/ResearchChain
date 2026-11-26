@@ -62,7 +62,8 @@ function workflowSettings(workflow: Workflow) {
   return {
     "Workflow format": workflow.schema_version,
     "Maximum step executions": budgets?.max_node_executions,
-    "Maximum active seconds": budgets?.max_active_seconds,
+    "Maximum active seconds":
+      budgets?.max_active_seconds === null ? "No limit" : budgets?.max_active_seconds,
     "Maximum parallel steps": budgets?.max_concurrency,
     "Research provider": research?.provider === "chatgpt_plan" ? "ChatGPT plan" : undefined,
     "Workflow model": research?.model,

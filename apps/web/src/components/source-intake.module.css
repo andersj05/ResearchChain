@@ -1,8 +1,3 @@
-.intake {
-  display: grid;
-  gap: 18px;
-  min-width: 0;
-}
 .panel {
   padding: clamp(18px, 2.1vw, 28px);
   border: 1px solid var(--border-strong);
@@ -42,7 +37,6 @@
 .drop small,
 .pins strong,
 .pins small,
-.queue strong,
 .queue small {
   display: block;
 }
@@ -71,6 +65,11 @@
 .panel label {
   font-size: 13px;
   font-weight: 500;
+}
+.provenance > label,
+.paste fieldset > label,
+.queue label {
+  margin-top: 0;
 }
 .panel :is(input:not([type="checkbox"], [type="file"]), select, textarea) {
   min-width: 0;
@@ -104,6 +103,11 @@
 }
 .provenance legend {
   font-size: 13px;
+}
+.provenanceHint {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 12px;
 }
 .paste {
   margin-top: 20px;
@@ -166,11 +170,35 @@
   border: 0;
   padding: 0;
 }
+.panel :global(.evidence-search-filters) {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: end;
+  gap: 8px;
+}
+.panel :global(.evidence-search-filters) > label {
+  margin: 0;
+}
+.panel :global(.evidence-search-filters[data-availability-filter]) {
+  grid-template-columns: minmax(0, 1fr) max-content max-content;
+}
 .panel :global(.evidence-options) {
   max-height: 200px;
 }
 .panel :global(.evidence-option) {
   display: flex;
+}
+.panel :global(.evidence-option-row) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline-end: 4px;
+  border-bottom: 1px solid var(--line);
+}
+.panel :global(.evidence-option-row) :global(.evidence-option) {
+  flex: 1;
+  min-width: 0;
+  border-bottom: 0;
 }
 .panel :global(.evidence-picker) input[type="checkbox"] {
   accent-color: var(--ink);
@@ -190,6 +218,43 @@
     12px var(--font-geist-mono),
     monospace;
   color: var(--muted);
+}
+.packetActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px 10px;
+}
+.moveSource {
+  margin-top: 10px;
+  font-size: 13px;
+}
+.moveSource summary {
+  width: fit-content;
+}
+.moveSource fieldset {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+  margin-top: 8px;
+}
+.moveSource label {
+  margin: 0;
+}
+.moveSource select {
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 4px 6px;
+}
+@media (max-width: 440px) {
+  .moveSource fieldset {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .moveSource fieldset > :first-child {
+    grid-column: 1 / -1;
+  }
 }
 .empty {
   margin-top: 18px;
@@ -224,15 +289,17 @@
   min-width: 0;
   text-decoration: none;
 }
+.pinLink > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .pinLink:hover strong {
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.pins strong,
-.queue strong {
+.pins strong {
   font-size: 13px;
   font-weight: 550;
-  overflow-wrap: anywhere;
 }
 .thumb {
   display: grid;
@@ -294,6 +361,30 @@ button.thumb:hover:enabled {
   display: flex;
   gap: 6px;
 }
+.chartViewTools {
+  display: flex;
+  justify-content: flex-end;
+  padding: 6px 18px;
+}
+.chartViewTools button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
+.chartViewport {
+  height: min(60dvh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--paper);
+}
+.chartViewport:focus-visible {
+  outline-offset: -2px;
+}
+.chartViewport[data-original-size] .original {
+  width: auto;
+  height: auto;
+  max-width: none;
+  margin-inline: auto;
+}
 .original {
   display: block;
   width: 100%;
@@ -320,6 +411,9 @@ button.thumb:hover:enabled {
   background: transparent;
   color: var(--muted);
 }
+.pinTools .icon:focus-visible {
+  outline-offset: -2px;
+}
 .queue {
   margin-block: 10px;
 }
@@ -327,7 +421,40 @@ button.thumb:hover:enabled {
   flex: 1;
   min-width: 0;
 }
-.queue li select {
+.queue .titleField {
+  gap: 3px;
+  font-size: 12px;
+}
+.queue .titleField input {
+  min-height: 30px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-weight: 400;
+}
+.queue li small {
+  margin-top: 3px;
+  overflow-wrap: anywhere;
+}
+.fileInfo {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 10px;
+}
+.fileInfo button {
+  font-size: 12px;
+}
+.queuedChartTitle {
+  min-width: 0;
+  flex: 1 1 210px;
+}
+.chartPreviewError,
+.queuedChartError {
+  padding: 16px 18px;
+  color: var(--red);
+}
+.panel .queue select {
+  flex: none;
   width: auto;
   min-height: 30px;
   padding: 3px;
@@ -335,19 +462,55 @@ button.thumb:hover:enabled {
 .queue li p {
   font-size: 12px;
 }
+.fileAttribution {
+  min-width: 0;
+  margin-top: 5px;
+}
+.fileAttribution summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 12px;
+}
+.fileAttribution fieldset {
+  display: grid;
+  min-width: 0;
+  gap: 7px 12px;
+  margin-top: 7px;
+}
+.fileAttribution p {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+.fileAttribution label {
+  font-size: 12px;
+}
+.fileAttribution button {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+.queue li:has(.fileAttribution[open]) {
+  align-items: flex-start;
+}
+@media (min-width: 1120px) {
+  .fileAttribution fieldset {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .feedback,
 .meta {
   margin-top: 8px;
 }
-@media (max-width: 780px) {
-  .intake {
-    display: contents;
-  }
-  .panel:last-child {
-    order: 2;
-  }
-}
 @media (max-width: 560px) {
+  .panel :global(.evidence-search-filters[data-availability-filter]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .panel :global(.evidence-search-filters[data-availability-filter]) > input {
+    grid-column: 1 / -1;
+  }
+  .panel :global(.evidence-search-filters[data-availability-filter]) select {
+    width: 100%;
+  }
   .provenance {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -364,5 +527,22 @@ button.thumb:hover:enabled {
   .icon {
     min-width: 28px;
     min-height: 34px;
+  }
+  .pinTools .icon {
+    min-width: 32px;
+    min-height: 40px;
+  }
+}
+@media (max-width: 360px) {
+  .queue li:has(> select) {
+    display: grid;
+    grid-template-columns: 15px minmax(0, 1fr) auto;
+  }
+  .queue li:has(> select) > div {
+    grid-column: 2 / -1;
+  }
+  .queue li:has(> select) > select {
+    grid-column: 2;
+    justify-self: start;
   }
 }

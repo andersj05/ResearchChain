@@ -16,7 +16,8 @@ from pydantic import BaseModel
 from researchchain.artifacts import read_content
 from researchchain.compiler import ExecutionStopped
 from researchchain.graph import ResearchConfig, SwarmConfig, WorkflowNode, resolve_model
-from researchchain.models import LeadPerspective
+from researchchain.models import LeadPerspective, PerspectiveAnswer
+from researchchain.research_directions import ReportHandoffRequested, read_report_request
 from researchchain.research_models import (
     StoredResearchResult,
     SwarmAction,
@@ -159,6 +160,7 @@ class SwarmRequest:
             return
         turn = len(lead.history) + 1
         capacity = self.config.researchers_per_lead - lead.workers
+        max_turns = self.config.max_lead_turns
         prepared.input_items.append(
             _packet(
                 "swarm_lead",
@@ -166,7 +168,7 @@ class SwarmRequest:
                     "lead_index": lead.index,
                     "mandate": lead.mandate.model_dump(),
                     "turn": turn,
-                    "max_turns": self.config.max_lead_turns,
+                    **({"max_turns": max_turns} if max_turns is not None else {}),
                     "workers_remaining": capacity,
                     "history": lead.history,
                 },
@@ -182,7 +184,7 @@ class SwarmRequest:
                     "tools": _tools(
                         capacity,
                         self.config.allow_consultations,
-                        turn == self.config.max_lead_turns,
+                        turn == max_turns,
                     ),
                 }
             ],
@@ -207,7 +209,8 @@ class SwarmRequest:
         name, args = call["name"], call["arguments"]
         if len(args) + len(completion.text) > output_limit:
             raise ValueError("The lead's tool arguments exceed the response output limit.")
-        if name != "finish" and len(self.lead.history) + 1 >= self.config.max_lead_turns:
+        max_turns = self.config.max_lead_turns
+        if name != "finish" and max_turns is not None and len(self.lead.history) + 1 >= max_turns:
             raise ValueError("The lead must finish on its last permitted turn.")
         args_dict = json.loads(args)
         if not isinstance(args_dict, dict) or "action" in args_dict:
@@ -363,6 +366,36 @@ def run_swarm(
         isinstance(config, ResearchConfig) and config.team and config.team.swarm and config.analyst
     )
     settings = config.team.swarm
+    try:
+        if executor.guided:
+            with executor.control.lock:
+                if read_report_request(executor.conn, executor.run_id):
+                    raise ReportHandoffRequested()
+        return _run_swarm(executor, node, path, context, feedback, team_source)
+    except ReportHandoffRequested:
+        # Every submitted task has settled by the time _bounded_map returns or raises.
+        # Use only confirmed receipts and state explicitly which work was unfinished.
+        executor.guard(path)
+        try:
+            with executor.control.lock:
+                return swarm_handoff(executor.conn, executor.run_id, path, settings, early=True)
+        except ValueError as error:
+            raise ExecutionStopped(str(error), "failed") from None
+
+
+def _run_swarm(
+    executor: ResearchExecutor,
+    node: WorkflowNode,
+    path: str,
+    context: str,
+    feedback: str,
+    team_source: str | None,
+) -> str:
+    config = node.config
+    assert (
+        isinstance(config, ResearchConfig) and config.team and config.team.swarm and config.analyst
+    )
+    settings = config.team.swarm
     pool = executor.swarm_pool
     assert pool is not None
     lead_model = resolve_model(executor.manifest.settings, config, config.team.lead)
@@ -444,13 +477,14 @@ def run_swarm(
                 )
             return _worker_summary(worker.assignment, receipt)
 
+    answered: dict[str, PerspectiveAnswer] = {}
     while not all(lead.finished for lead in leads):
         active = [lead for lead in leads if not lead.finished and not lead.pending]
         if not active:
             # Only the graph thread interrupts, after all runnable leads and worker
             # futures have settled. Replaying the same barriers consumes old answers.
             pending = [lead.pending for lead in leads if lead.pending]
-            answers = request_perspectives(executor.run_id, node.id, pending)
+            answers = request_perspectives(executor.run_id, node.id, pending, answered)
             if not answers or not set(answers) <= {question.action_path for question in pending}:
                 raise ExecutionStopped(
                     "The answer did not identify a pending consultation.", "failed"
@@ -461,7 +495,8 @@ def run_swarm(
                     lead.pending = None
                     lead.return_tool_output()
             continue
-        if any(len(lead.history) >= settings.max_lead_turns for lead in active):
+        max_turns = settings.max_lead_turns
+        if max_turns is not None and any(len(lead.history) >= max_turns for lead in active):
             raise ExecutionStopped("A lead reached its turn limit before finishing.", "limited")
         decisions = _bounded_map(pool, limit, active, decide)
         by_lead: list[list[Worker]] = []

@@ -6,13 +6,18 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { ResearchManifest } from "./research-results";
 import { RunCanvas } from "./canvas/run-canvas";
 import { RunStepInspector, type ResumeReview } from "./run-step-inspector";
-import { RunModelActivity, type ModelActivityFilter } from "./run-model-activity";
+import {
+  RunModelActivity,
+  type ModelActivityFilter,
+  type ModelActivityPreferences,
+} from "./run-model-activity";
 import { RunDecisions, type FeedbackBriefDraft } from "./run-decisions";
 import { RunFiles, savedRunFiles } from "./run-files";
 import { RunOutputs, type OutputFilter } from "./run-outputs";
 import { RunIterationComparison } from "./run-iteration-comparison";
 import { RunComparison } from "./run-comparison";
 import { formatTime, RunStatus } from "./run-status";
+import type { ReviewInboxOrigin } from "./review-inbox";
 import {
   attemptPath,
   bookmarkedReview,
@@ -35,8 +40,15 @@ import { Button } from "@ui-sdk/react/button";
 import type { RecentRunSummary, RunSnapshot } from "@/lib/workflow";
 import { Activity, ArrowRight, ChevronRight, RotateCw } from "lucide-react";
 
-export type ReviewFocus = { runId: string; path: string };
+export type ReviewFocus = { runId: string; path: string; inboxOrigin: ReviewInboxOrigin };
 type RunView = "step" | "outputs" | "activity" | "decisions" | "files" | "context" | "comparison";
+type ModelActivityOrigin = {
+  attemptId: string;
+  preferences: ModelActivityPreferences;
+  pageScroll: number;
+  paneScroll: number;
+  tableScroll: number;
+};
 
 function runLinkTarget(run: RunSnapshot) {
   if (typeof window === "undefined") return {};
@@ -67,6 +79,7 @@ type Actions = {
   busy: boolean;
   recentRuns: RecentRunSummary[];
   reviewFocus?: ReviewFocus;
+  onBackToInbox: (origin: ReviewInboxOrigin) => void;
   onResume: ResumeReview;
   onRecover: () => Promise<void>;
   onRefresh: () => Promise<void>;
@@ -98,6 +111,7 @@ export function RunInspector({
 function RunWorkspace({
   run,
   reviewFocus,
+  onBackToInbox,
   recentRuns,
   busy,
   onResume,
@@ -148,6 +162,7 @@ function RunWorkspace({
     query: "",
     fitFiltered: false,
   });
+  const [activityOrigin, setActivityOrigin] = useState<ModelActivityOrigin>();
   const [fileQuery, setFileQuery] = useState("");
   const [outputFilter, setOutputFilter] = useState<OutputFilter>({ query: "", kind: "" });
   const pendingFeedback = pruneReviewDrafts(run, feedback);
@@ -171,16 +186,55 @@ function RunWorkspace({
   const path = manual ?? current;
   const readingPane = useRef<HTMLDivElement>(null);
   const focusOnInspect = useRef(false);
+  const comparisonOrigin = useRef<{
+    path: string;
+    pageScroll: number;
+    paneScroll: number;
+  }>(null);
   const comparingIterations = Boolean(iterationComparison);
   useLayoutEffect(() => {
     const pane = readingPane.current;
     if (!pane) return;
+    if (!comparingIterations) {
+      const origin = view === "outputs" ? comparisonOrigin.current : null;
+      comparisonOrigin.current = null;
+      if (origin) {
+        const opener = pane.querySelector<HTMLButtonElement>(
+          `[data-output-comparison-path="${CSS.escape(origin.path)}"]`,
+        );
+        if (opener) {
+          focusOnInspect.current = false;
+          pane.scrollTop = origin.paneScroll;
+          window.scrollTo(window.scrollX, origin.pageScroll);
+          opener.focus({ preventScroll: true });
+          opener.scrollIntoView({ block: "nearest", inline: "nearest" });
+          return;
+        }
+      }
+    }
     pane.scrollTop = 0;
     if (focusOnInspect.current) {
       focusOnInspect.current = false;
       pane.focus();
     }
   }, [path, view, attemptId, comparingIterations]);
+  useLayoutEffect(() => {
+    const pane = readingPane.current;
+    if (!pane || view !== "activity" || !activityOrigin) return;
+    const opener = pane.querySelector<HTMLButtonElement>(
+      `[data-model-activity-attempt="${CSS.escape(activityOrigin.attemptId)}"]`,
+    );
+    if (!opener) {
+      (pane.querySelector<HTMLInputElement>("[data-model-activity-filter]") ?? pane).focus();
+      return;
+    }
+    const table = pane.querySelector<HTMLElement>(".model-activity-scroll");
+    if (table) table.scrollLeft = activityOrigin.tableScroll;
+    pane.scrollTop = activityOrigin.paneScroll;
+    window.scrollTo(window.scrollX, activityOrigin.pageScroll);
+    opener.focus({ preventScroll: true });
+    opener.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [activityOrigin, view]);
   useLayoutEffect(() => {
     if (reviewFocus) readingPane.current?.focus();
   }, [reviewFocus]);
@@ -203,8 +257,9 @@ function RunWorkspace({
       window.history.replaceState(null, "", url);
     }
   };
-  const changeView = (next: RunView) => {
+  const changeView = (next: RunView, returningToActivity = false) => {
     navigation.current += 1;
+    if (!returningToActivity) setActivityOrigin(undefined);
     clearReviewBookmark();
     if (next !== "outputs") {
       clearIterationLink();
@@ -231,6 +286,17 @@ function RunWorkspace({
   const inspectFromPanel = (step: string, id?: string) => {
     focusOnInspect.current = true;
     select(step, id);
+  };
+  const inspectFromActivity = (step: string, id: string, preferences: ModelActivityPreferences) => {
+    const pane = readingPane.current;
+    inspectFromPanel(step, id);
+    setActivityOrigin({
+      attemptId: id,
+      preferences,
+      pageScroll: window.scrollY,
+      paneScroll: pane?.scrollTop ?? 0,
+      tableScroll: pane?.querySelector<HTMLElement>(".model-activity-scroll")?.scrollLeft ?? 0,
+    });
   };
   const follow = () => {
     setManual(null);
@@ -486,6 +552,18 @@ function RunWorkspace({
         </button>
       </div>
       <div className="run-reading-pane" ref={readingPane} tabIndex={-1}>
+        {reviewFocus && (
+          <div className="actions">
+            <button
+              type="button"
+              className="button small"
+              disabled={busy}
+              onClick={() => onBackToInbox(reviewFocus.inboxOrigin)}
+            >
+              Back to review inbox
+            </button>
+          </div>
+        )}
         {staleReviewLink && <p role="status">This review link is out of date.</p>}
         {view === "outputs" &&
           (iterationComparison ? (
@@ -512,7 +590,12 @@ function RunWorkspace({
                 inspect={inspectFromPanel}
                 filter={outputFilter}
                 onFilterChange={setOutputFilter}
-                onCompare={(selection) => {
+                onCompare={(selection, path) => {
+                  comparisonOrigin.current = {
+                    path,
+                    pageScroll: window.scrollY,
+                    paneScroll: readingPane.current?.scrollTop ?? 0,
+                  };
                   focusOnInspect.current = true;
                   clearIterationLink();
                   changeView("outputs");
@@ -524,8 +607,9 @@ function RunWorkspace({
         {view === "activity" && (
           <RunModelActivity
             run={run}
-            inspect={inspectFromPanel}
+            inspect={inspectFromActivity}
             filter={activityFilter}
+            initialPreferences={activityOrigin?.preferences}
             onFilterChange={setActivityFilter}
           />
         )}
@@ -608,6 +692,11 @@ function RunWorkspace({
             feedback={pendingFeedback}
             changeFeedback={(id, value) => setFeedback((prev) => ({ ...prev, [id]: value }))}
             onIterateStep={() => onIterate(undefined, path)}
+            onReturnToModelActivity={
+              activityOrigin && attemptId === activityOrigin.attemptId
+                ? () => changeView("activity", true)
+                : undefined
+            }
             onModelActivity={() => {
               focusOnInspect.current = true;
               setActivityFilter((previous) => ({ ...previous, query: "", step: path }));

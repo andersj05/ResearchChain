@@ -1,34 +1,55 @@
 "use client";
 
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
-import { mergeSources, readSources, useEvidenceLibrary } from "@/lib/use-evidence-library";
+import {
+  mergeSources,
+  readSources,
+  useEvidenceLibrary,
+  type EvidenceAvailability,
+} from "@/lib/use-evidence-library";
 import {
   availabilityLabels,
   evidenceUrl,
   sourceMetadata,
+  sourceTypeLabels,
+  type EvidenceKind,
   type EvidenceRecord,
 } from "@/lib/evidence";
+
+const sourceLimit = 100;
 
 export function EvidencePicker({
   selected,
   onChange,
+  onAdd,
+  allowBatchPin = false,
+  allowKindFilter = false,
+  allowAvailabilityFilter = false,
   disabled = false,
   label = "Evidence for this run",
   onAttachChart,
   attachedCharts = [],
   showSelected = true,
+  renderResultAction,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
+  onAdd?: (record: EvidenceRecord) => void;
+  allowBatchPin?: boolean;
+  allowKindFilter?: boolean;
+  allowAvailabilityFilter?: boolean;
   disabled?: boolean;
   label?: string;
   onAttachChart?: (known: EvidenceRecord[]) => void;
   attachedCharts?: EvidenceRecord[];
   showSelected?: boolean;
+  renderResultAction?: (item: EvidenceRecord, visible: EvidenceRecord[]) => ReactNode;
 }) {
   const [search, setSearch] = useState("");
+  const [kind, setKind] = useState<EvidenceKind | "">("");
+  const [availability, setAvailability] = useState<EvidenceAvailability | "">("");
   const [retained, setRetained] = useState<EvidenceRecord[]>([]);
   const [initialSelection] = useState(showSelected ? selected : []);
   const [loadingDetails, setLoadingDetails] = useState(initialSelection.length > 0);
@@ -36,7 +57,10 @@ export function EvidencePicker({
   const moveFocus = useRef<string>(null);
   const pickerId = useId();
   const query = search.trim();
-  const library = useEvidenceLibrary(query);
+  const filterKind = allowKindFilter && kind ? kind : undefined;
+  const filterAvailability = allowAvailabilityFilter && availability ? availability : undefined;
+  const hasFilters = Boolean(query || filterKind || filterAvailability);
+  const library = useEvidenceLibrary(query, filterAvailability, true, filterKind);
 
   useEffect(() => {
     if (!initialSelection.length) return;
@@ -59,10 +83,29 @@ export function EvidencePicker({
   }, [selected]);
 
   const known = mergeSources([...attachedCharts, ...retained], library.items);
-  const visible = query ? library.items : known;
+  const visible = hasFilters ? library.items : known;
   const byId = new Map(known.map((item) => [item.id, item]));
+  const selectedIds = new Set(selected);
+  const batch =
+    allowBatchPin && hasFilters && visible.length > 1
+      ? visible.filter((item) => !selectedIds.has(item.id))
+      : null;
+  const slots = Math.max(0, sourceLimit - selected.length);
+  const overCapacity = !!batch && batch.length > slots;
+  const batchHint = overCapacity
+    ? slots
+      ? `${slots} packet ${slots === 1 ? "slot" : "slots"} left. Narrow the search or pin sources individually.`
+      : `Packet holds ${sourceLimit} sources. Unpin a source to make room.`
+    : library.hasMore
+      ? `${visible.length} of ${library.total} results loaded.`
+      : "";
   const unresolved = selected.filter((id) => !byId.has(id));
   const remove = (id: string) => onChange(selected.filter((value) => value !== id));
+  function add(items: EvidenceRecord[]) {
+    setRetained((previous) => mergeSources(previous, items));
+    if (onAdd) items.forEach(onAdd);
+    else onChange([...selected, ...items.map((item) => item.id)]);
+  }
   function move(index: number, distance: -1 | 1, control: string, title: string) {
     const destination = index + distance;
     const id = selected[index];
@@ -75,6 +118,20 @@ export function EvidencePicker({
     onChange(ordered);
     setOrderMessage(`${title} moved to position ${destination + 1} of ${selected.length}.`);
   }
+
+  const searchField = (
+    <input
+      aria-label="Search evidence library"
+      type="search"
+      maxLength={240}
+      value={search}
+      onChange={(event) => setSearch(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.preventDefault();
+      }}
+      placeholder="Title, author, publisher, or date"
+    />
+  );
   return (
     <fieldset className="evidence-picker" disabled={disabled}>
       <legend>
@@ -83,7 +140,7 @@ export function EvidencePicker({
       {onAttachChart && (
         <Button
           className="button small"
-          disabled={disabled || selected.length >= 100}
+          disabled={disabled || !slots}
           onClick={() => onAttachChart(known)}
         >
           Upload a chart
@@ -165,44 +222,106 @@ export function EvidencePicker({
           )}
         </details>
       )}
-      <input
-        aria-label="Search evidence library"
-        type="search"
-        maxLength={240}
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        onKeyDown={(event) => {
-          if (event.key === "Enter") event.preventDefault();
-        }}
-        placeholder="Title, author, publisher, or date"
-      />
+      {allowKindFilter || allowAvailabilityFilter ? (
+        <div
+          className="evidence-search-filters"
+          data-availability-filter={allowAvailabilityFilter || undefined}
+        >
+          {searchField}
+          {allowKindFilter && (
+            <label>
+              Source type
+              <select
+                value={kind}
+                onChange={(event) => {
+                  setKind(event.currentTarget.value as EvidenceKind | "");
+                  library.refresh();
+                }}
+              >
+                <option value="">All types</option>
+                {Object.entries(sourceTypeLabels).map(([value, title]) => (
+                  <option key={value} value={value}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {allowAvailabilityFilter && (
+            <label>
+              Availability
+              <select
+                value={availability}
+                onChange={(event) => {
+                  setAvailability(event.currentTarget.value as EvidenceAvailability | "");
+                  library.refresh();
+                }}
+              >
+                <option value="">All sources</option>
+                {Object.entries(availabilityLabels).map(([value, title]) => (
+                  <option key={value} value={value}>
+                    {title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      ) : (
+        searchField
+      )}
+      {batch && (
+        <div className="actions field-hint">
+          <Button
+            className="button small"
+            disabled={disabled || library.loading || !batch.length || overCapacity}
+            focusableWhenDisabled={!disabled}
+            aria-describedby={batchHint ? `${pickerId}-batch-hint` : undefined}
+            onClick={() => add(batch)}
+          >
+            {batch.length
+              ? `Pin ${batch.length} loaded ${batch.length === 1 ? "result" : "results"}`
+              : "Loaded results pinned"}
+          </Button>
+          {batchHint && <span id={`${pickerId}-batch-hint`}>{batchHint}</span>}
+        </div>
+      )}
       <div className="evidence-options">
-        {visible.map((item) => (
-          <label className="evidence-option" key={item.id}>
-            <input
-              type="checkbox"
-              aria-labelledby={`${pickerId}-${item.id}-name`}
-              aria-describedby={`${pickerId}-${item.id}-details`}
-              checked={selected.includes(item.id)}
-              disabled={disabled || (selected.length >= 100 && !selected.includes(item.id))}
-              onChange={(event) => {
-                if (event.target.checked) {
-                  setRetained((previous) => mergeSources(previous, [item]));
-                  onChange([...selected, item.id]);
-                } else remove(item.id);
-              }}
-            />
-            <span className="evidence-option-copy">
-              <span id={`${pickerId}-${item.id}-name`}>
-                <strong>{item.title}</strong>
-                <small>{availabilityLabels[item.availability ?? "available"]}</small>
+        {visible.map((item) => {
+          const label = (
+            <label className="evidence-option" key={item.id}>
+              <input
+                type="checkbox"
+                aria-labelledby={`${pickerId}-${item.id}-name`}
+                aria-describedby={`${pickerId}-${item.id}-details`}
+                checked={selectedIds.has(item.id)}
+                disabled={disabled || (!slots && !selectedIds.has(item.id))}
+                onChange={(event) => {
+                  if (event.target.checked) add([item]);
+                  else remove(item.id);
+                }}
+              />
+              <span className="evidence-option-copy">
+                <span id={`${pickerId}-${item.id}-name`}>
+                  <strong>{item.title}</strong>
+                  <small>{availabilityLabels[item.availability ?? "available"]}</small>
+                </span>
+                <small id={`${pickerId}-${item.id}-details`}>{sourceMetadata(item)}</small>
               </span>
-              <small id={`${pickerId}-${item.id}-details`}>{sourceMetadata(item)}</small>
-            </span>
-          </label>
-        ))}
+            </label>
+          );
+          const action = renderResultAction?.(item, visible);
+          return action ? (
+            <div key={item.id} className="evidence-option-row">
+              {label}
+              {action}
+            </div>
+          ) : (
+            label
+          );
+        })}
         {!library.loading && !library.error && !visible.length && (
-          <p className="muted">{query ? "No matching sources." : "No saved sources yet."}</p>
+          <p className="muted">{hasFilters ? "No matching sources." : "No saved sources yet."}</p>
         )}
       </div>
       {library.loading && (

@@ -1,11 +1,13 @@
 """Pinned setup for a brief-led research session."""
 
-from typing import Literal, Self
+from typing import Annotated, Literal, Self
 from uuid import UUID
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, StringConstraints, field_validator, model_validator
 
 from researchchain.graph import (
+    MAX_RESEARCH_CALLS,
+    MAX_RESPONSE_SECONDS,
     AnalystConfig,
     ExecutionBudgets,
     ModelOverride,
@@ -29,11 +31,16 @@ from researchchain.research_discovery import DISCOVERY_PROMPT
 from researchchain.revisions import NotFoundError
 
 SESSION_VERSION = "brief-led-1"
+SOURCE_LED_BRIEF = "Source-led study"
 ReviewMode = Literal["when_needed", "always", "never"]
+StudyTitle = Annotated[
+    str, StringConstraints(strip_whitespace=True, max_length=160, pattern=r"^[^\x00\r\n]*$")
+]
 
 
 class ResearchSessionSetup(StrictModel):
     brief: str = Field(max_length=10000, pattern=r"^[^\x00]*$")
+    title: StudyTitle | None = Field(default=None, exclude_if=lambda value: value is None)
     start_from_sources: bool = Field(default=False, exclude_if=lambda value: not value)
     style_excerpt: str = Field(default="", max_length=32000, pattern=r"^[^\x00]*$")
     model: ModelSlug
@@ -48,11 +55,16 @@ class ResearchSessionSetup(StrictModel):
         default=4_000_000, ge=1000, le=8_000_000, exclude_if=lambda value: value == 4_000_000
     )
     max_agents: int = Field(default=3, ge=1, le=4)
-    max_passes: int = Field(default=6, ge=2, le=12)
-    max_active_seconds: int = Field(default=1800, ge=60, le=3600)
+    max_passes: int | None = Field(default=6, ge=2, le=12)
+    max_active_seconds: int | None = Field(default=1800, ge=60, le=3600)
     web_search: bool = False
     review_mode: ReviewMode = "when_needed"
     baseline_run_id: UUID | None = None
+
+    @field_validator("title")
+    @classmethod
+    def omit_blank_title(cls, value: str | None) -> str | None:
+        return value or None
 
     @field_validator("lead", "researcher", "editor")
     @classmethod
@@ -64,11 +76,13 @@ class ResearchSessionSetup(StrictModel):
         if self.start_from_sources and not self.evidence_ids:
             raise ValueError("Pin at least one source to start a discovery study.")
         if self.start_from_sources and not self.brief.strip():
-            self.brief = "Source-led study"
+            self.brief = SOURCE_LED_BRIEF
         elif not self.brief.strip():
             raise ValueError("Write a research brief to start a session.")
         if len(self.evidence_ids) != len(set(self.evidence_ids)):
             raise ValueError("Select each evidence record only once.")
+        if self.swarm is None and (self.max_passes is None or self.max_active_seconds is None):
+            raise ValueError("As-needed execution settings require a research swarm.")
         return self
 
 
@@ -85,6 +99,7 @@ class ResearchSessionStart(ResearchSessionSetup):
 
 def session_workflow(setup: ResearchSessionSetup) -> Workflow:
     analyst = AnalystConfig(max_passes=setup.max_passes, workspace=True)
+    swarm = setup.swarm
     nodes: list[WorkflowNode] = []
     if setup.start_from_sources:
         nodes.extend(
@@ -144,6 +159,26 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             "context": ValueSource(source="output", node_id="discovery", port="text"),
             "feedback": ValueSource(source="output", node_id="working_sentence", port="feedback"),
         }
+    if swarm and (
+        setup.max_passes is None or setup.max_active_seconds is None or swarm.max_lead_turns is None
+    ):
+        team.instructions += (
+            " Finish an assignment when its main test is answered or another investigation "
+            "is unlikely to change the conclusion. Record what would still change the result."
+        )
+        if setup.web_search:
+            team.instructions += (
+                " Use live web search throughout the investigation to verify material or "
+                "time-sensitive claims, seek independent primary sources and check competing "
+                "explanations. Lead researchers should delegate those checks and evaluate what "
+                "the returned evidence supports. Cite observed sources with their as-of dates."
+            )
+        if swarm.allow_consultations:
+            team.instructions += (
+                " Leads should bring a concrete thesis and its alternatives to the owner when "
+                "their judgment could change the investigation or the trade conclusion. Ask "
+                "while there is still time to follow up on the answer."
+            )
     nodes.append(team)
     report_inputs = {"context": ValueSource(source="output", node_id="team", port="text")}
     if setup.review_mode != "never":
@@ -198,10 +233,14 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
             id="finish", kind="finish", label="Finish", position=Position(x=300 * len(nodes), y=0)
         )
     )
-    swarm = setup.swarm
     researchers = swarm.lead_count * swarm.researchers_per_lead if swarm else setup.max_agents
-    lead_turns = swarm.lead_count * swarm.max_lead_turns if swarm else 0
-    calls = 1 + int(setup.start_from_sources) + lead_turns + (researchers + 1) * setup.max_passes
+    if setup.max_passes is None or (swarm and swarm.max_lead_turns is None):
+        calls = MAX_RESEARCH_CALLS
+    else:
+        lead_turns = swarm.lead_count * (swarm.max_lead_turns or 0) if swarm else 0
+        calls = (
+            1 + int(setup.start_from_sources) + lead_turns + (researchers + 1) * setup.max_passes
+        )
     return Workflow(
         schema_version="0.3",
         name="Source-led research" if setup.start_from_sources else "Research session",
@@ -223,7 +262,9 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
                 max_tool_calls=calls,
                 max_input_bytes=setup.max_input_bytes,
                 max_output_characters=100_000,
-                max_response_seconds=min(600, setup.max_active_seconds),
+                max_response_seconds=min(
+                    MAX_RESPONSE_SECONDS, setup.max_active_seconds or MAX_RESPONSE_SECONDS
+                ),
                 max_total_tokens="as_needed",
             ),
         ),
@@ -240,8 +281,10 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
     team, editor, judgment = nodes["team"].config, nodes["report"].config, nodes.get("judgment")
     assert isinstance(team, ResearchConfig) and team.team and team.analyst
     assert isinstance(editor, ResearchConfig)
+    time_limit = run.workflow.budgets.max_active_seconds
     return ResearchSessionSetup(
         brief=run.brief,
+        title=run.research_manifest.tool_config.get("study_title"),
         start_from_sources=run.workflow.start_node == "discovery",
         style_excerpt=editor.style_excerpt or "",
         model=run.research_manifest.settings.model,
@@ -257,7 +300,7 @@ def session_setup(run: RunSnapshot) -> ResearchSessionSetup:
         max_input_bytes=run.research_manifest.settings.limits.max_input_bytes,
         max_agents=team.team.max_agents,
         max_passes=team.analyst.max_passes,
-        max_active_seconds=int(run.workflow.budgets.max_active_seconds),
+        max_active_seconds=int(time_limit) if time_limit is not None else None,
         web_search=bool(team.web_search),
         review_mode="never"
         if judgment is None

@@ -1,13 +1,6 @@
 import Image from "next/image";
-import { useRef, useState } from "react";
-import {
-  Dialog,
-  DialogBackdrop,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@ui-sdk/react/dialog";
+import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@ui-sdk/react/button";
 import {
   ChevronDown,
   ChevronUp,
@@ -19,6 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { contentUrl, evidenceUrl, type EvidenceRecord } from "@/lib/evidence";
+import { SourceChartDialog } from "./source-chart-dialog";
 import styles from "./source-intake.module.css";
 
 const kinds = {
@@ -29,6 +23,10 @@ const kinds = {
   report: ["Report", FileText],
   dataset: ["Dataset", Table2],
 } as const;
+
+function sourceCount(count: number) {
+  return `${count} ${count === 1 ? "source" : "sources"}`;
+}
 
 export function packetSize(records: (EvidenceRecord | undefined)[]) {
   return records.reduce((sum, item) => {
@@ -51,6 +49,7 @@ export function StudyPacket({
   limit,
   size,
   error,
+  appendNotice,
   retry,
 }: {
   ids: string[];
@@ -60,28 +59,184 @@ export function StudyPacket({
   limit: number;
   size: number;
   error: string;
+  appendNotice?: string;
   retry?: () => void;
 }) {
   const [previewId, setPreviewId] = useState<string>();
+  const [sourceToMove, setSourceToMove] = useState<string>();
+  const [destination, setDestination] = useState<{ sourceId: string; index: number }>();
+  const [edit, setEdit] = useState<{
+    ids: string[];
+    focusId: string;
+    message: string;
+    restoreIds?: string[];
+  }>();
   const opener = useRef<HTMLButtonElement>(null);
-  const charts = records.filter(
-    (record): record is EvidenceRecord => !!record?.artifact?.media_type.startsWith("image/"),
+  const packetId = useId();
+  const charts = records.flatMap((record) =>
+    record?.artifact?.media_type.startsWith("image/")
+      ? [
+          {
+            id: record.id,
+            title: record.title,
+            artifactId: record.artifact.id,
+            attribution: [record.author || record.publisher, record.as_of_date]
+              .filter(Boolean)
+              .join(" · "),
+          },
+        ]
+      : [],
   );
-  const chartIndex = charts.findIndex((item) => item.id === previewId);
-  const chart = charts[chartIndex];
-  function move(index: number, distance: number) {
+  const appliedEdit = edit?.ids === ids ? edit : undefined;
+  const canUndoBulkUnpin = !!appliedEdit?.restoreIds;
+  const bulkUnpinId = `${packetId}-unpin-all`;
+  const undoId = `${packetId}-undo-unpin-all`;
+  const sourceIndex = Math.max(0, ids.indexOf(sourceToMove ?? ""));
+  const sourceId = ids[sourceIndex];
+  const destinationIndex =
+    destination && destination.sourceId === sourceId
+      ? Math.min(destination.index, ids.length - 1)
+      : sourceIndex;
+  useLayoutEffect(() => {
+    if (appliedEdit) document.getElementById(appliedEdit.focusId)?.focus();
+  }, [appliedEdit]);
+
+  function move(index: number, destination: number, focusId: string, title: string) {
+    const id = ids[index];
+    if (disabled || !id || !ids[destination] || index === destination) return;
     const next = [...ids];
-    [next[index], next[index + distance]] = [ids[index + distance]!, ids[index]!];
+    next.splice(index, 1);
+    next.splice(destination, 0, id);
+    setEdit({
+      ids: next,
+      focusId,
+      message: `${title} moved to position ${destination + 1} of ${ids.length}.`,
+    });
     onChange(next);
+  }
+  function unpin(id: string, index: number, title: string) {
+    const next = ids.filter((item) => item !== id);
+    const neighbor = ids[index + 1] ?? ids[index - 1];
+    setEdit({
+      ids: next,
+      focusId: neighbor ? `${packetId}-${neighbor}-unpin` : "packet-heading",
+      message: `Unpinned ${title}. ${sourceCount(next.length)} in the packet.`,
+    });
+    onChange(next);
+  }
+  function unpinAll() {
+    const next: string[] = [];
+    setEdit({
+      ids: next,
+      focusId: undoId,
+      message: `Unpinned ${sourceCount(ids.length)}. Undo is available.`,
+      restoreIds: ids,
+    });
+    onChange(next);
+  }
+  function undoUnpinAll() {
+    const restore = appliedEdit?.restoreIds;
+    if (!restore) return;
+    setEdit({
+      ids: restore,
+      focusId: bulkUnpinId,
+      message: `Restored ${sourceCount(restore.length)} in reading order.`,
+    });
+    onChange(restore);
   }
   return (
     <section className={styles.packet} aria-labelledby="packet-heading">
       <header>
-        <h2 id="packet-heading">Study packet</h2>
-        <span aria-live="polite">
-          {ids.length} {ids.length === 1 ? "source" : "sources"}
-        </span>
+        <h2 id="packet-heading" tabIndex={-1}>
+          Study packet
+        </h2>
+        <div className={styles.packetActions}>
+          <span>{sourceCount(ids.length)}</span>
+          {ids.length > 1 && (
+            <button
+              id={bulkUnpinId}
+              type="button"
+              className="button small"
+              disabled={disabled}
+              onClick={unpinAll}
+            >
+              Unpin all
+            </button>
+          )}
+          {canUndoBulkUnpin && (
+            <button
+              id={undoId}
+              type="button"
+              className="button small"
+              disabled={disabled}
+              aria-label="Undo unpin all"
+              onClick={undoUnpinAll}
+            >
+              Undo
+            </button>
+          )}
+        </div>
       </header>
+      {appendNotice && <p role="status">{appendNotice}</p>}
+      <p className="sr-only" role="status">
+        {appliedEdit?.message ?? sourceCount(ids.length)}
+      </p>
+      {ids.length > 1 && (
+        <details className={styles.moveSource}>
+          <summary>Move a source</summary>
+          <form
+            aria-label="Set reading order"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!sourceId) return;
+              const title = records[sourceIndex]?.title ?? `Source ${sourceId.slice(0, 8)}`;
+              move(sourceIndex, destinationIndex, `${packetId}-${sourceId}-source`, title);
+              setDestination(undefined);
+            }}
+          >
+            <fieldset disabled={disabled}>
+              <label>
+                Source
+                <select
+                  value={sourceId}
+                  onChange={(event) => {
+                    setSourceToMove(event.target.value);
+                    setDestination(undefined);
+                  }}
+                >
+                  {ids.map((id, index) => (
+                    <option key={id} value={id}>
+                      {index + 1}. {records[index]?.title ?? `Source ${id.slice(0, 8)}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                New position
+                <select
+                  value={destinationIndex}
+                  onChange={(event) => {
+                    if (sourceId) setDestination({ sourceId, index: Number(event.target.value) });
+                  }}
+                >
+                  {ids.map((id, index) => (
+                    <option key={id} value={index}>
+                      {index + 1}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button
+                className="button small"
+                type="submit"
+                disabled={sourceIndex === destinationIndex}
+              >
+                Move source
+              </button>
+            </fieldset>
+          </form>
+        </details>
+      )}
       {ids.length ? (
         <>
           <ol aria-label="Pinned material" className={styles.pins}>
@@ -89,6 +244,8 @@ export function StudyPacket({
               const item = records[index];
               const [label, Icon] = kinds[item?.kind ?? "text"];
               const title = item?.title ?? `Source ${id.slice(0, 8)}`;
+              const upId = `${packetId}-${id}-up`;
+              const downId = `${packetId}-${id}-down`;
               return (
                 <li key={id}>
                   {item?.artifact?.media_type.startsWith("image/") ? (
@@ -116,6 +273,7 @@ export function StudyPacket({
                     </span>
                   )}
                   <a
+                    id={`${packetId}-${id}-source`}
                     href={evidenceUrl(id)}
                     target="_blank"
                     rel="noopener"
@@ -135,34 +293,37 @@ export function StudyPacket({
                   <div className={styles.pinTools}>
                     {ids.length > 1 && (
                       <>
-                        <button
+                        <Button
+                          id={upId}
                           className={styles.icon}
-                          type="button"
                           disabled={disabled || index === 0}
+                          focusableWhenDisabled={!disabled}
                           aria-label={`Move ${title} up`}
-                          onClick={() => move(index, -1)}
+                          onClick={() => move(index, index - 1, upId, title)}
                         >
-                          <ChevronUp size={15} />
-                        </button>
-                        <button
+                          <ChevronUp size={15} aria-hidden />
+                        </Button>
+                        <Button
+                          id={downId}
                           className={styles.icon}
-                          type="button"
                           disabled={disabled || index === ids.length - 1}
+                          focusableWhenDisabled={!disabled}
                           aria-label={`Move ${title} down`}
-                          onClick={() => move(index, 1)}
+                          onClick={() => move(index, index + 1, downId, title)}
                         >
-                          <ChevronDown size={15} />
-                        </button>
+                          <ChevronDown size={15} aria-hidden />
+                        </Button>
                       </>
                     )}
                     <button
+                      id={`${packetId}-${id}-unpin`}
                       type="button"
                       className={styles.icon}
                       aria-label={`Unpin ${title}`}
                       disabled={disabled}
-                      onClick={() => onChange(ids.filter((v) => v !== id))}
+                      onClick={() => unpin(id, index, title)}
                     >
-                      <X size={15} />
+                      <X size={15} aria-hidden />
                     </button>
                   </div>
                 </li>
@@ -190,72 +351,12 @@ export function StudyPacket({
           Pin the charts, notes and conversations you want the lead to read together.
         </p>
       )}
-      <Dialog
-        open={!!chart}
-        onOpenChange={(open) => {
-          if (!open) setPreviewId(undefined);
-        }}
-      >
-        <DialogBackdrop className="dialog-backdrop" />
-        <DialogContent
-          className={styles.chartDialog}
-          initialFocus="content"
-          finalFocus={() => opener.current}
-        >
-          {chart?.artifact && (
-            <>
-              <header>
-                <div>
-                  <DialogTitle>{chart.title}</DialogTitle>
-                  <DialogDescription>
-                    {[
-                      `Chart ${chartIndex + 1} of ${charts.length}`,
-                      chart.author || chart.publisher,
-                      chart.as_of_date,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </DialogDescription>
-                </div>
-                <DialogClose aria-label="Close chart preview" className="button icon-button">
-                  <X size={18} />
-                </DialogClose>
-              </header>
-              <Image
-                className={styles.original}
-                unoptimized
-                src={contentUrl(chart.artifact.id)}
-                alt={chart.title}
-                width={1200}
-                height={720}
-              />
-              <footer>
-                <a href={evidenceUrl(chart.id)} target="_blank" rel="noopener">
-                  Open source record
-                </a>
-                <div>
-                  <button
-                    type="button"
-                    className="button small"
-                    disabled={!chartIndex}
-                    onClick={() => setPreviewId(charts[chartIndex - 1]?.id)}
-                  >
-                    Previous chart
-                  </button>
-                  <button
-                    type="button"
-                    className="button small"
-                    disabled={chartIndex === charts.length - 1}
-                    onClick={() => setPreviewId(charts[chartIndex + 1]?.id)}
-                  >
-                    Next chart
-                  </button>
-                </div>
-              </footer>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+      <SourceChartDialog
+        charts={charts}
+        selectedId={previewId}
+        onSelect={setPreviewId}
+        opener={opener}
+      />
     </section>
   );
 }

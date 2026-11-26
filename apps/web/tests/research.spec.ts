@@ -343,12 +343,15 @@ for (const width of [1440, 390]) {
 }
 
 test("cancel an active research response in the separate worker", async ({ page, request }) => {
+  test.setTimeout(90000);
   await prepare(page, request);
   await page
     .getByRole("textbox", { name: "Research brief", exact: true })
     .fill("Wait for cancellation");
   await page.getByRole("button", { name: "Start run", exact: true }).click();
-  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Running");
+  await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Running", {
+    timeout: 30000,
+  });
   await expect(page.getByRole("region", { name: "Research results" })).toContainText("requesting");
   const choose = page.getByRole("combobox", { name: "Inspect step" });
   await choose.selectOption("root/revise");

@@ -5,6 +5,7 @@ export type EvidenceCreate = components["schemas"]["EvidenceCreate"];
 export type EvidenceInput = Pick<EvidenceCreate, "id" | "kind" | "title" | "rights"> &
   Partial<EvidenceCreate>;
 export type EvidenceRecord = components["schemas"]["EvidenceRecord"];
+export type EvidenceKind = EvidenceRecord["kind"];
 export type EvidencePage = components["schemas"]["EvidencePage"];
 export type EvidenceSnapshot = components["schemas"]["EvidenceSnapshot"];
 export type ArtifactInfo = components["schemas"]["ArtifactInfo"];
@@ -12,6 +13,15 @@ export type ClaimCreate = components["schemas"]["ClaimCreate"];
 export type ClaimRecord = components["schemas"]["ClaimRecord"];
 export type ClaimPage = components["schemas"]["ClaimPage"];
 export type ClaimLink = components["schemas"]["ClaimLink"];
+
+export const sourceTypeLabels = {
+  image: "Images and charts",
+  text: "Text and notes",
+  report: "Reports",
+  discussion: "Discussions",
+  dataset: "Datasets",
+  link: "Links",
+} satisfies Record<EvidenceKind, string>;
 
 export const representationLabels = {
   original: "Original source",

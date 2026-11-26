@@ -24,6 +24,7 @@ from researchchain.report_models import (
     ReportFeedbackCreate,
     ReportSave,
     ReportSection,
+    ReportSummary,
     StyleGuideCreate,
 )
 from researchchain.reports import Reports, StyleGuides
@@ -144,8 +145,15 @@ def test_concurrent_saves_retries_and_old_revision_integrity(database: Database)
         store.save(request.model_copy(update={"id": uuid4()}))
     with pytest.raises(ConflictError, match="different inputs"):
         store.save(request.model_copy(update={"change_note": "Changed receipt"}))
-    assert [s.id for s in store.list(record.id)] == [saved.id, record.id]
-    assert store.list()[0].id == saved.id
+    history = store.list(record.id)
+    fields = set(ReportSummary.model_fields)
+    assert [item.model_dump() for item in history] == [
+        revision.model_dump(include=fields) for revision in (saved, record)
+    ]
+    assert store.list() == [history[0]]
+    assert store.list(search="clarified the interpretation") == [history[0]]
+    with pytest.raises(NotFoundError, match="Editorial record not found"):
+        store.list(uuid4())
 
 
 def test_distinct_concurrent_edits_have_one_winner(database: Database) -> None:
@@ -318,6 +326,39 @@ def test_numeric_derivatives_cannot_be_relabelled_original(database: Database) -
     citation["basis"] = "estimate"
     request = revision_request(record, evidence_ids=[source.id, derived.id], sections=[section])
     assert Reports(database).save(request).sections[0].citations[0].basis == "estimate"
+
+
+def test_draft_sources_read_exact_bounded_records_and_authoritative_bases(
+    client: TestClient, database: Database
+) -> None:
+    image = ArtifactStore(database).put(PNG, "draft-source.png")
+    chart = EvidenceStore(database).create(
+        EvidenceCreate(
+            id=uuid4(),
+            title="Synthetic chart",
+            kind="image",
+            representation="chart_screenshot",
+            rights="owned",
+            artifact_id=image.id,
+        )
+    )
+    derived = evidence(database, parent_id=chart.id, text="The interpretation is synthetic.")
+    endpoint = "/api/reports/draft-sources"
+    ids = [derived.id, uuid4(), chart.id, derived.id]
+    with TestClient(client.app, base_url=str(client.base_url)) as anonymous:
+        assert anonymous.get(endpoint, params={"evidence_id": [str(derived.id)]}).status_code == 401
+
+    response = client.get(endpoint, params={"evidence_id": [str(key) for key in ids]})
+    assert response.status_code == 200
+    assert response.json() == {
+        "sources": [
+            derived.model_dump(mode="json", by_alias=True),
+            chart.model_dump(mode="json", by_alias=True),
+        ],
+        "source_bases": {str(derived.id): "estimate", str(chart.id): "image_interpretation"},
+    }
+    assert client.get(endpoint).status_code == 422
+    assert client.get(endpoint, params={"evidence_id": [str(derived.id)] * 101}).status_code == 422
 
 
 def test_noop_and_invalid_fact_sections_rejected(database: Database) -> None:

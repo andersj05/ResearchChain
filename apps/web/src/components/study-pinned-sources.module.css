@@ -1,0 +1,43 @@
+.sources {
+  min-width: 0;
+  margin-top: 18px;
+  overflow-wrap: anywhere;
+}
+.sources h3 {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+.sources p {
+  max-width: 65ch;
+}
+.sources ol {
+  margin: 8px 0;
+  padding-inline-start: 22px;
+}
+.sources li {
+  padding: 7px 0 7px 3px;
+  border-bottom: 1px solid var(--line);
+}
+.sourceHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 2px 12px;
+}
+.sourceHeading button {
+  min-height: 24px;
+  white-space: nowrap;
+}
+.sources a,
+.sources strong {
+  color: var(--ink);
+  font-weight: 550;
+  text-underline-offset: 2px;
+}
+.sources li span {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}

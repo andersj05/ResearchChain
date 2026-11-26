@@ -4,18 +4,64 @@ Open the **Research desk** to assemble a source packet. **Methodology** opens an
 
 ## Start from a week of material
 
-Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**, or select several files at once. Choose the usage rights for captured originals. With a text file, choose **Conversation** to identify a transcript. Set the author or speaker and the observation date when known. Pin separate batches when attribution or rights differ. Each file has its own receipt, so a failed file can be retried while the others stay pinned.
+Drop a batch of charts, PDFs, text, Markdown, CSVs or TSVs into **Add material**,
+or select several files at once. You can also paste a screenshot directly onto
+the desk. Edit file titles in the queue before pinning. With a text file,
+choose **Conversation** to identify a transcript. Each file has its own
+receipt, so a failed file can be retried while the others stay pinned. After a
+mixed drop, **Remove invalid files** clears the files that failed local
+validation. A file with an unconfirmed pin stays queued for its exact retry.
+Original uploads can overlap while the pins keep their queue order.
+Unpinned files live in the current tab. If your browser warns before a reload
+or close, stay on the page to keep the queue. Pin files to keep them across reloads.
 
-Use **Paste a source** for a note, conversation or reference URL. **Saved sources** selects existing library records. The **Study packet** shows the reading order, previews and provenance. Select a chart thumbnail to inspect its original and page through the other charts. Move or unpin a source in the packet. You can leave **Context for the lead** blank.
+To look up another study while you assemble a packet, open **Studies** or
+select a saved study under **Recent research**. **Research desk** takes you back
+to the same in-tab setup. From the archive or **Decisions**, choose **Return to
+study setup**. Visiting **Methodology**, opening an exact decision and using
+browser history also keeps the staged files. If a first reading was accepted
+during the visit, **Open study** opens the confirmed session.
 
-The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. Select a smaller packet if necessary. The analyst workspace can stage up to 64 files.
+Use **Paste a source** for a note, conversation or reference URL. You can add files
+before filling in **Source details**, which applies to both uploads and pasted
+sources. Choose usage rights before pinning a file, note or conversation. Add the
+author or speaker and observation date when known. Pin separately when
+attribution or rights differ.
+
+While you review the study settings, the first-reading bar links back to any
+queued files or unfinished pasted source.
+
+Open **Preview chart** on a queued image to check it and edit its packet title
+before pinning. Open a queued file's **File attribution** to set its own author or observation
+date. Fields use batch attribution until edited. **Use batch attribution**
+restores those defaults for the file.
+
+**Saved sources** selects existing library records. Search by title or
+attribution and use **Source type** to narrow the results before loading more.
+Use **Preview** to inspect original charts and **Pin this chart** to
+add the version on screen. Choose **Pin loaded results** to append the matches
+in their current order. The action skips sources already pinned. Load more
+matches to include them, or narrow the search if the group exceeds the packet's
+remaining space.
+
+The **Study packet** shows the reading order, previews and provenance. Select a
+chart thumbnail to inspect its original and page through the other charts. Move
+or unpin a source in the packet. Open **Move a source** to send a source directly
+to a different position in a long packet. **Unpin all** clears the packet for a
+new batch and leaves the source library available. Use **Undo** to restore the previous
+reading order. You can leave **Context for the lead** blank.
+
+An optional **Study title** labels the session and its archive entry. The title stays separate from the context sent to the lead. With both fields empty, the first pinned source names the study. A revised study opens with the original title and allows a new one.
+
+The library accepts originals up to 20 MiB each. A new desk study has an 8 MB limit for the complete model request, including encoded originals and instructions. The packet shows the minimum used by the source content. At launch, the server checks the serialized first-reading request before placing it in the queue. The analyst workspace can stage up to 64 files.
 
 **Ask the lead for a first reading** uses one lead request to read the pinned
 packet. Before anyone receives an assignment, the lead brings you an
 observation, a question and up to two possible working sentences. Each proposal
 names a rival explanation, its first check and what would weaken it. Follow a
-source title to see the cited passage or chart. A sparse packet can yield a
-question with no proposed sentence.
+source title to see the cited passage or chart. **Return to proposal** restores
+focus to the citation you opened. A sparse packet can yield a question with no
+proposed sentence.
 
 Choose **Use this sentence** to bring a proposal into **Your working sentence**.
 Edit it or write your own. For example, a lead might suggest checking whether
@@ -27,7 +73,7 @@ the lead actually delegated. **Inspect researcher request** opens the saved
 pass for that assignment.
 
 **Park this study** ends the experiment before delegation. **Revisit material**
-opens a new setup with the sources and settings from the original study. The
+opens the setup for that study with its sources and settings. The
 editorial review setting controls the separate decision about the report.
 
 ## Set up the study
@@ -35,7 +81,10 @@ editorial review setting controls the separate decision about the report.
 - **Writing sample** accepts pasted text or a UTF-8 `.txt` or Markdown excerpt
   of up to 32,000 characters. Only the report editor receives it, as a reference
   for structure and voice.
-- Turn on **Allow live web search** if the team should look beyond the packet.
+- Turn on **Allow live web search** if the team and editor should look beyond the
+  packet after you choose a working sentence. The packet sidebar shows the
+  first-reading model, its thinking effort and detail, and the team’s web-search
+  setting.
 - **Research settings** starts with up to three researchers, six passes per
   researcher and editor, and a 30-minute active-time limit. You can choose up to
   four researchers, twelve passes and one hour. The lead can use fewer researchers
@@ -44,8 +93,20 @@ editorial review setting controls the separate decision about the report.
   for a guaranteed editorial checkpoint, or **Continue independently** to let the
   editor proceed after research.
 
-Select **Ask the lead for a first reading** to open the session. You can return
-to it from **Recent research** or the run archive.
+The **Ask the lead for a first reading** action stays in view as you edit the
+packet and settings. **Recent research** lists the latest studies. Open
+**Studies** in the header to search by title, any pinned source title, context
+or ID. **Decisions** opens working sentences, lead questions and editorial
+reviews even after a study drops out of the recent list.
+
+After opening a decision, use **Decisions** or browser Back to return to the
+review link and its place in the queue. The queue refreshes on return. If that
+decision has cleared, focus moves to a nearby open decision when available.
+
+When you open a study from the archive, the same tab remembers your submitted
+search, status filter and results page. Returning to **Studies** or going Back
+restores the opened result and its position when that result is still available.
+**Reset search** clears the filters and returns to the first page.
 
 ### Choose the model and thinking effort
 
@@ -66,8 +127,23 @@ or level is unavailable on the connected account, the desk identifies which
 choice needs attention.
 
 During a study, **Sources and settings** shows the model, effort and detail
-pinned for each role. A workspace's **Model passes** includes the saved request
-for each pass. **Revisit material** restores your choices for the next experiment.
+pinned for each role. The same panel lists sources in pinned order. It retrieves
+titles and authors for matching source versions and keeps the study’s recorded
+dates and availability. **Preview chart** opens the pinned original and lets
+you page through the available charts in reading order. Turn on **Original
+size** to scroll through the chart at its saved resolution. A workspace's **Model
+passes** includes the saved request for each pass. **Revisit material** restores
+your choices for the next experiment.
+
+From an open setup, visit **Studies** and open a saved study's **Sources and
+settings**. **Add to study setup and return** appends the verified saved source
+version to your current packet. Use the browser's Back action to resume reviewing
+the saved study.
+
+To reuse an operating setup in **New study**, open **Use settings from a study**
+under **Research settings**. Choose a recent study and apply its team structure,
+consultation settings, model choices, and limits. The current draft keeps its
+title, context, sources, writing sample, live web search, and editorial review choice.
 
 ### Run a swarm
 
@@ -97,23 +173,75 @@ checkpoint independently.
 The lead's saved plan lists each assignment and its objective. Select a researcher
 under **Workspaces** to see the current request, saved leads, web activity, Python
 results and files as they arrive. Researchers can use the same filename in their
-own workspaces. Open an earlier pass or an activity entry to inspect the request
-and response that produced it. The link remembers that workspace and pass.
+own workspaces. In a swarm, combine **Find a workspace** with **Workspace status**
+to find active, queued or blocked assignments without expanding each lead. Status
+matches update as the study runs and keep the current workspace open.
+Open an earlier pass or an activity entry to inspect the request
+and response that produced it. The reader shows the findings, files and sources
+recorded for that pass, and the link remembers the workspace and pass. Choose
+**Inspect pass in Runs** to see structured request inputs, or **Back to latest
+workspace** to continue following the workspace. **Copy study link** opens the
+study from its overview. **Copy pass link** points to the exact structured
+receipt in Runs.
+
+Use **Search study activity** in the **Activity log** to find a pass by
+workspace, lead, pass number, result text or filename. The log keeps the search
+in place while you inspect a matching receipt. **Back to activity** returns to
+the originating row.
+
+**Saved files** searches across assignments and leads. Each file lists its
+producing pass and content ID. If an assignment saved another version under
+the same filename, both versions stay available. Preview a file or open the
+saved pass that produced it, then choose **Back to saved files** to resume the
+same search at its file, even after closing the file list.
 
 Use **Guide the team** to send a course correction while research is underway.
 Each researcher and the editor receive it when preparing their next request.
 Expand a saved direction to see exactly which requests included it. Once the
-editor starts, the current study closes to further directions.
+editor starts, the current study closes to further directions. Any unsent note
+stays in **Team directions**, where you can copy it for a revised study.
+
+**Session controls** jumps from the study overview to its stop or recovery
+actions. Stopping uses a separate confirmation. Choose **Keep session** to
+return to the controls.
 
 If the session pauses for review, read the team's question and inspect the work
-behind it. You can give the editor your judgment or end the study at that point.
+behind it. Open **Research behind this review** to inspect a saved final pass.
+Researchers who raised the current question appear first. **Back to editorial
+review** returns to your drafted answer. You can give the editor your judgment
+or end the study at that point.
 
 ## Read the result and iterate
 
-Open the report editor's workspace to read the saved Markdown with its figures.
+Choose **Read report** at the top of a completed study to open its saved
+Markdown and figures. Longer reports show a **Contents** list with links to
+individual headings. A report section can be bookmarked and reopened directly.
+For older studies that saved only structured editor findings, choose **Read
+editor findings** to open the editor’s exact saved pass.
+**Focus reading** gives the report the full workspace while keeping the current
+paragraph in view. Choose **Exit reading** or press Escape inside the report to
+return to the workspaces.
+Use **Inspect figure** next to a saved chart to read it at original size. Escape
+returns to that figure in the report.
 **Download report and files** packages the Markdown and the editor's saved files
 in a ZIP. Individual researcher files remain available from their own workspaces.
+Choose **Edit in Reports** to create an editable report from the saved Markdown
+with the figures, the original study and its recorded sources attached. Confirm
+the title and a style guide before creating the draft. Further edits and editorial
+feedback belong to the report's saved revisions. [Reports and editorial review](reports.md).
+When a study setup is open behind the reader, links to Reports and Runs open in
+a labeled new tab. The original tab keeps the staged files and reader position.
 
-Choose **Revisit material** to start another experiment with the previous context,
-sample, sources and settings. The new session links to its baseline so you can
-reopen the original run and see what it actually produced.
+Choose **Revisit material** beside the study title to start another experiment
+with the previous context, sample, sources and settings. If that study's setup is
+already open in the tab, the action returns to it with its staged files. When a
+different setup is open, **Revisit material (new tab)** opens the archived
+study's setup in another tab. The original tab keeps its draft and staged files.
+Before starting, open **Compare with previous setup** to see packet changes,
+reading order, model roles, limits and context.
+In the revised study, **Compare with baseline** opens the original alongside the
+revision in the run inspector. When a study setup is open, the comparison opens
+in a new tab and the setup keeps its staged files. Use **Open research session**
+in the inspector to open the revision. To read the original by itself, choose
+**Open baseline session** under **Sources and settings**. You can read it in the
+same tab while the open setup stays available.

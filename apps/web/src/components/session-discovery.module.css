@@ -89,6 +89,18 @@
   outline-offset: 4px;
   scroll-margin-top: 16px;
 }
+.sourceHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 3px 12px;
+}
+.sourceHeading > a {
+  font-size: 13px;
+}
+.references a {
+  scroll-margin-top: 16px;
+}
 .sources article + article {
   padding-top: 12px;
   border-top: 1px solid var(--line);

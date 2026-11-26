@@ -1,7 +1,7 @@
 .prose {
   max-width: 76ch;
   min-width: 0;
-  font-size: 14px;
+  font-size: var(--research-prose-size, 14px);
   font-weight: 400;
   line-height: 1.55;
   overflow-wrap: anywhere;
@@ -63,6 +63,19 @@
   margin-block: 0.8em;
 }
 
+.prose .figureAction {
+  min-height: 36px;
+}
+
+.figureDialog header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.figureDialog header button {
+  flex: none;
+}
+
 .prose code {
   font-size: 0.9em;
   background: var(--soft);
@@ -103,4 +116,35 @@
 
 .tableScroll th {
   background: var(--paper);
+}
+
+.contents {
+  margin-block: 0 1.25em;
+  border: 1px solid var(--line);
+  padding-inline: 0.85rem;
+  background: var(--paper);
+}
+
+.contents summary {
+  min-block-size: 44px;
+  padding-block: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.contents ol {
+  margin: 0 0 0.75em;
+  padding-inline-start: 1.25rem;
+}
+
+.contents li {
+  padding-block: 0.25em;
+}
+
+.contentsSubsection {
+  margin-inline-start: 0.75em;
+}
+
+.prose [id^="study-report-section-"] {
+  scroll-margin-block-start: 12px;
 }

@@ -117,12 +117,14 @@ On Linux CI the install command also uses `--with-deps`.
 Backend tests fail if Postgres is unavailable; they do not silently skip durability
 checks. Backup tests require matching PostgreSQL clients or the local container
 and create/drop only their own randomly named `test_restore_*` databases. CI
-selects its Postgres service container explicitly. Browser tests own their API/web processes and fail if ports 8000/3000 are
-already occupied. Stop `pnpm dev` first. Run browser tests from the repository root
+selects its Postgres service container explicitly. Local browser tests start
+their own API and web processes on free loopback ports. Run browser tests from the repository root
 so `scripts/browser-tests.py` can migrate and clean up an isolated `e2e_*` schema
 and temporary synthetic owner credentials. API fixtures authenticate normally;
 there is no test bypass. The access project runs after feature tests because
 password/revocation cases intentionally invalidate its synthetic sessions.
+Run `pnpm test:e2e --production` to build and serve the production frontend on
+the same isolated ports. The default run uses the development server.
 Focus it with `pnpm test:e2e --project=access --no-deps --workers=1`.
 The worker project follows access tests and uses temporary database slot locks to
 exercise queued UI behavior without affecting other tests. Focus it with
@@ -295,9 +297,9 @@ When shared sources changed order, **Setup changes → Pinned source order** sho
 both runs’ full saved order.
 Search the entire evidence library by title, author, publisher, or saved date
 while keeping the selected records in view.
-The **Sources** workspace uses the same library search and applies availability
-before paging. Filtering the list keeps the open source and its linked claims
-in view.
+The **Sources** workspace combines library search, availability, and source type
+before paging. Filtering keeps the open source and its linked claims in view.
+**Clear filters** returns to the full list.
 
 **Model activity** can sort attempts by elapsed time or total reported tokens.
 Rows with missing measurements follow measured rows. Switch to **Timeline** to
@@ -403,8 +405,8 @@ ownership across API restarts.
 
 - Lockfiles are committed; CI uses `--frozen-lockfile` and `--locked`.
 - ESLint 10 is compatible with the installed Next.js lint configuration. TypeScript
-  stays pinned to 5.9.3 because typescript-eslint 8.72.2 explicitly rejects TypeScript 7. Dependabot ignores the 7.x line until the compatible lint toolchain is upgraded;
-  do not suppress compatibility checks to merge an update.
+  is pinned to 6.0.3. Dependabot ignores TypeScript 7 until typescript-eslint
+  supports it. Keep the compatibility checks enabled for toolchain updates.
 - UI SDK is beta and its installed docs are the reference for its exact API.
 - Next.js regenerates `next-env.d.ts`; it is ignored. `pnpm typecheck` runs
   `next typegen` first so a fresh checkout has its required generated types.

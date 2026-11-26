@@ -37,17 +37,27 @@ from researchchain.graph import (
     WorkflowNode,
     resolve_model,
 )
-from researchchain.providers.chatgpt_auth import PLAN_SCOPE, ChatGPTAuth
+from researchchain.providers.chatgpt_auth import (
+    PLAN_SCOPE,
+    ChatGPTAuth,
+    ProviderError,
+    safe_identifier,
+)
 from researchchain.providers.chatgpt_plan import ChatGPTPlan, Completion
 from researchchain.providers.credentials import ConnectionError, CredentialStore
-from researchchain.research_directions import DIRECTIONS_VERSION, pin_directions
-from researchchain.research_discovery import DISCOVERY_VERSION, first_reading
+from researchchain.research_directions import (
+    DIRECTIONS_VERSION,
+    ReportHandoffRequested,
+    pin_directions,
+    read_report_request,
+)
+from researchchain.research_discovery import DISCOVERY_VERSION, first_reading, prepare_first_reading
 from researchchain.research_models import (
-    DiscoveryReading,
     EvidenceSnapshot,
     ModelAttempt,
     OwnerDirection,
     ProviderAccount,
+    ProviderFailure,
     ProviderModel,
     ProviderStatus,
     ResearchManifest,
@@ -63,6 +73,7 @@ from researchchain.research_prompt import (
     PROMPT_VERSION,
     WORKSPACE_VERSION,
     PreparedResearch,
+    adaptive_analyst_prompt_hash,
     json_bytes,
     prepare_analyst_pass,
     prepare_research,
@@ -70,6 +81,11 @@ from researchchain.research_prompt import (
     sec_prompt_hash,
     validate_result,
     web_prompt_hash,
+)
+from researchchain.research_recovery import (
+    MODEL_CALL_LIMIT_REASON,
+    PEER_STOPPED_BEFORE_DISPATCH,
+    TOOL_CALL_LIMIT_REASON,
 )
 from researchchain.research_session_report import (
     REPORT_VERSION,
@@ -119,7 +135,7 @@ class ResearchProvider(Protocol):
     def run_analyst(
         self,
         model: str,
-        passes: int,
+        passes: int | None,
         step: AnalystPass,
         guard: Callable[[], None],
         *,
@@ -287,6 +303,11 @@ def make_manifest(
             ),
             **({"analyst_version": ANALYST_VERSION} if any(c.analyst for c in configs) else {}),
             **(
+                {"adaptive_analyst_prompt_hash": adaptive_analyst_prompt_hash()}
+                if any(c.analyst and c.analyst.max_passes is None for c in configs)
+                else {}
+            ),
+            **(
                 {"workspace_version": WORKSPACE_VERSION}
                 if any(c.analyst and c.analyst.workspace for c in configs)
                 else {}
@@ -361,6 +382,10 @@ def fence_uncertain_effects(conn: Connection[DictRow], run_id: UUID) -> None:
             set_terminal(conn, run_id, "failed", UNCERTAIN)
 
 
+class ResearchPeerStopped(ExecutionStopped):
+    """Admission is closed after another member of the research team failed."""
+
+
 class ResearchExecutor:
     def __init__(
         self,
@@ -398,13 +423,19 @@ class ResearchExecutor:
         if self.swarm_pool:
             self.swarm_pool.shutdown(wait=True, cancel_futures=True)
 
-    def guard(self, path: str, count: bool = False) -> None:
+    def guard(self, path: str, count: bool = False, *, settling: bool = False) -> None:
         if self.failure:
             reason, status = self.failure
             if status == "interrupted":
                 raise RuntimeError(reason)
-            raise ExecutionStopped(reason, status)
+            if not settling or status != "failed":
+                raise ResearchPeerStopped(reason, status)
         self.control.guard(path, count)
+
+    def stop_team(self, reason: str, status: str) -> None:
+        if "team_version" in self.manifest.tool_config:
+            with self.control.lock:
+                self.failure = self.failure or (reason, status)
 
     @contextmanager
     def session(self, path: str, *, count: bool = False) -> Iterator[None]:
@@ -412,17 +443,13 @@ class ResearchExecutor:
             try:
                 self.guard(path, count)
                 yield
+            except ReportHandoffRequested:
+                raise
             except Exception as error:
-                if "team_version" in self.manifest.tool_config:
-                    # Stop other assignments at their next guard or before acquiring a
-                    # slot. Interruptions leave the ordinary uncertainty fence intact.
-                    failure = (
-                        (str(error), error.status)
-                        if isinstance(error, ExecutionStopped)
-                        else ("Research team execution was interrupted.", "interrupted")
-                    )
-                    with self.control.lock:
-                        self.failure = self.failure or failure
+                if isinstance(error, ExecutionStopped):
+                    self.stop_team(str(error), error.status)
+                else:
+                    self.stop_team("Research team execution was interrupted.", "interrupted")
                 raise
 
     def __call__(
@@ -449,9 +476,11 @@ class ResearchExecutor:
     ) -> tuple[UUID, StoredResearchResult | None, list[OwnerDirection]]:
         assert isinstance(node.config, ResearchConfig)
         limits = self.manifest.settings.limits
+        desk_session = self.manifest.tool_config.get("session") == SESSION_VERSION
         with self.control.lock:
             previous = self.conn.execute(
-                "SELECT * FROM research_attempts WHERE run_id = %s AND path = %s",
+                "SELECT * FROM research_attempts WHERE run_id = %s AND path = %s "
+                "AND superseded_at IS NULL",
                 (self.run_id, path),
             ).fetchone()
             if previous:
@@ -471,18 +500,20 @@ class ResearchExecutor:
                 else:
                     reason = previous["reason"] or "The prior model attempt did not complete."
                 raise ExecutionStopped(reason, "failed")
+            # Desk budgets are calculated from the planned steps. Superseded
+            # attempts still count toward actual usage and workspace admissions.
             attempts = self.conn.execute(
-                "SELECT count(*) AS calls, "
+                "SELECT count(*) FILTER (WHERE superseded_at IS NULL OR NOT %s) AS calls, "
                 "COALESCE(sum(input_tokens + output_tokens), 0) AS tokens, "
                 "bool_or(status = 'completed' AND (input_tokens IS NULL OR output_tokens IS NULL)) "
                 "AS missing_usage FROM research_attempts WHERE run_id = %s",
-                (self.run_id,),
+                (desk_session, self.run_id),
             ).fetchone()
             assert attempts
             if attempts["calls"] >= limits.max_model_calls:
-                raise ExecutionStopped("Model-call budget reached.")
+                raise ExecutionStopped(MODEL_CALL_LIMIT_REASON)
             if attempts["calls"] >= limits.max_tool_calls:
-                raise ExecutionStopped("Evidence-tool call budget reached.")
+                raise ExecutionStopped(TOOL_CALL_LIMIT_REASON)
             token_limit = limits.max_total_tokens
             if token_limit != "as_needed":
                 if attempts["missing_usage"]:
@@ -497,7 +528,7 @@ class ResearchExecutor:
                     )
             attempt_id = uuid4()
             with self.conn.transaction():
-                directions = pin_directions(self.conn, self.run_id) if self.guided else []
+                directions = pin_directions(self.conn, self.run_id, path) if self.guided else []
                 self.conn.execute(
                     "INSERT INTO research_attempts (id, run_id, path, stage, model, status) "
                     "VALUES (%s, %s, %s, %s, %s, 'preparing')",
@@ -528,7 +559,7 @@ class ResearchExecutor:
                     on_delta(pending_web)
                     pending_web = None
                 if not task.done():
-                    self.guard(path)
+                    self.guard(path, settling=True)
             return await task
         finally:
             if not task.done():
@@ -581,6 +612,12 @@ class ResearchExecutor:
                 raise ExecutionStopped(
                     "This run requires its pinned analyst implementation.", "failed"
                 )
+            if (
+                node.config.analyst.max_passes is None
+                and self.manifest.tool_config.get("adaptive_analyst_prompt_hash")
+                != adaptive_analyst_prompt_hash()
+            ):
+                raise ExecutionStopped("This run requires its pinned adaptive analyst.", "failed")
             workspace = node.config.analyst.workspace
             if (
                 workspace
@@ -711,7 +748,7 @@ class ResearchExecutor:
                 with self.control.lock:
                     row = self.conn.execute(
                         "SELECT response_artifact_id FROM research_attempts "
-                        "WHERE run_id=%s AND path=%s",
+                        "WHERE run_id=%s AND path=%s AND status='completed'",
                         (self.run_id, pass_path),
                     ).fetchone()
                     assert row
@@ -755,6 +792,7 @@ class ResearchExecutor:
         swarm_delegation: dict[str, Any] | None = None,
     ) -> StoredResearchResult:
         assert isinstance(node.config, ResearchConfig)
+        self.guard(path)
         attempt_id, previous, directions = self.reserve(node, path, selected.model)
         if previous:
             return previous
@@ -790,27 +828,36 @@ class ResearchExecutor:
         try:
             self.guard(path)
             with self.control.lock:
-                prepared = prepare_research(
-                    self.conn,
-                    self.manifest,
-                    node.config.stage,
-                    self.brief,
-                    context,
-                    feedback,
-                    node.instructions,
-                    model=selected.model,
-                    reasoning_effort=selected.reasoning_effort,
-                    verbosity=selected.verbosity,
-                    web_search=node.config.web_search,
-                    sec_financials=node.config.sec_financials,
-                    style_excerpt=node.config.style_excerpt,
-                    owner_directions=directions,
-                )
                 if discovery:
                     if discovery != DISCOVERY_VERSION:
                         raise ValueError("This study requires its pinned discovery implementation.")
-                    prepared.instructions = node.instructions
-                    prepared.schema = DiscoveryReading.model_json_schema()
+                    prepared = prepare_first_reading(
+                        self.conn,
+                        self.manifest,
+                        node,
+                        self.brief,
+                        selected,
+                        context=context,
+                        feedback=feedback,
+                        directions=directions,
+                    )
+                else:
+                    prepared = prepare_research(
+                        self.conn,
+                        self.manifest,
+                        node.config.stage,
+                        self.brief,
+                        context,
+                        feedback,
+                        node.instructions,
+                        model=selected.model,
+                        reasoning_effort=selected.reasoning_effort,
+                        verbosity=selected.verbosity,
+                        web_search=node.config.web_search,
+                        sec_financials=node.config.sec_financials,
+                        style_excerpt=node.config.style_excerpt,
+                        owner_directions=directions,
+                    )
                 if director:
                     assert director.analyst and director.team
                     prepare_plan(
@@ -826,7 +873,11 @@ class ResearchExecutor:
                 if swarm_delegation:
                     prepare_delegation(prepared, swarm_delegation)
                 if session_editor:
-                    prepare_editor(prepared, self.manifest.settings.limits.max_output_characters)
+                    prepare_editor(
+                        prepared,
+                        self.manifest.settings.limits.max_output_characters,
+                        read_report_request(self.conn, self.run_id),
+                    )
                 if directions:
                     prepared.instructions += (
                         "\nThe packet's owner_directions are the owner's guidance added during "
@@ -909,7 +960,8 @@ class ResearchExecutor:
                 if call is not None:
                     if len(call["arguments"]) > self.manifest.settings.limits.max_output_characters:
                         raise ValueError("The analyst tool call exceeds the response output limit.")
-                    if len(history) + 1 >= node.config.analyst.max_passes:
+                    max_passes = node.config.analyst.max_passes
+                    if max_passes is not None and len(history) + 1 >= max_passes:
                         raise ValueError("The analyst requested a follow-up after its final pass.")
                     if call["name"] == "run_python":
                         python = PythonRequest.model_validate_json(call["arguments"])
@@ -962,9 +1014,9 @@ class ResearchExecutor:
                 if trace and trace.actions:
                     result.web_research = trace
             if isinstance(validated, ResearchWithLookup) and validated.sec_lookup:
-                self.guard(path)
+                self.guard(path, settling=True)
                 result.sec_financials = asyncio.run(lookup_sec_financials(validated.sec_lookup))
-                self.guard(path)
+                self.guard(path, settling=True)
             if python:
                 activity = WorkspaceActivity(summary=python.purpose, status="requested")
                 result.workspace_activity = activity
@@ -977,7 +1029,7 @@ class ResearchExecutor:
                     )
                 with self.control.lock:
                     files = load_files(self.conn, inputs)
-                execution = run_python(python, files, lambda: self.guard(path))
+                execution = run_python(python, files, lambda: self.guard(path, settling=True))
                 activity.status = "completed" if execution.exit_code == 0 else "failed"
                 activity.output = execution.output
                 exports = execution.files
@@ -997,12 +1049,17 @@ class ResearchExecutor:
             )
             return result
         except ExecutionStopped as error:
+            reason = (
+                PEER_STOPPED_BEFORE_DISPATCH
+                if isinstance(error, ResearchPeerStopped) and error.status == "failed"
+                else str(error)
+            )
             self.finish(
                 attempt_id,
                 error.status,
                 partial,
                 completion,
-                reason=str(error),
+                reason=reason,
                 result=interim,
             )
             raise
@@ -1017,6 +1074,16 @@ class ResearchExecutor:
                 if isinstance(error, ValidationError)
                 else str(error)
             )
+            provider_failure = None
+            if isinstance(error, ProviderError):
+                provider_failure = ProviderFailure(
+                    http_status=error.status
+                    if error.status and 100 <= error.status <= 599
+                    else None,
+                    source="stream" if error.shape == "stream_error" else "http",
+                    code=safe_identifier(error.code),
+                    request_id=safe_identifier(error.request_id),
+                )
             self.finish(
                 attempt_id,
                 "failed",
@@ -1025,7 +1092,12 @@ class ResearchExecutor:
                 reason=reason[:1000],
                 result=interim,
                 output_characters=lead_characters,
+                provider_failure=provider_failure,
             )
+            if provider_failure:
+                # Record the stop before the local analyst harness tears down. Admitted
+                # sibling requests may finish, while subsequent requests stop at the guard.
+                self.stop_team(reason[:1000], "failed")
             raise ExecutionStopped(reason[:1000], "failed") from None
 
     def finish(
@@ -1041,6 +1113,7 @@ class ResearchExecutor:
         session_report: bool = False,
         markdown: bytes | None = None,
         output_characters: int | None = None,
+        provider_failure: ProviderFailure | None = None,
     ) -> None:
         def tokens(name: str) -> int | None:
             value = completion.usage.get(name) if completion else None
@@ -1089,7 +1162,7 @@ class ResearchExecutor:
             self.conn.execute(
                 "UPDATE research_attempts SET status = %s, response_artifact_id = %s, result = %s, "
                 "reason = %s, output_characters = %s, response_id = %s, returned_model = %s, "
-                "input_tokens = %s, output_tokens = %s, "
+                "input_tokens = %s, output_tokens = %s, provider_failure = %s, "
                 "finished_at = clock_timestamp() WHERE id = %s",
                 (
                     status,
@@ -1101,6 +1174,7 @@ class ResearchExecutor:
                     completion.returned_model if completion else None,
                     tokens("input_tokens"),
                     tokens("output_tokens"),
+                    Jsonb(provider_failure.model_dump(mode="json")) if provider_failure else None,
                     attempt_id,
                 ),
             )

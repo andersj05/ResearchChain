@@ -9,11 +9,19 @@
   display: grid;
   gap: 12px;
 }
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px 16px;
+}
 .intro h1 {
   max-width: 35ch;
   font-size: clamp(26px, 3.4vw, 42px);
   letter-spacing: -0.045em;
   line-height: 1.14;
+  overflow-wrap: anywhere;
 }
 .meta,
 .summary,
@@ -41,6 +49,44 @@
 .summary span + span {
   border-left: 1px solid var(--border-strong);
   padding-left: 12px;
+}
+.studyNav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.studyNav a {
+  min-width: 0;
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+.studyNav a:hover {
+  border-color: var(--border-strong);
+  text-decoration: underline;
+}
+.studyNav .reviewShortcut {
+  border-color: var(--amber);
+  background: var(--amber-soft);
+}
+.studyNav .reportShortcut {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--surface);
+}
+.studyNav .phoneSectionLink,
+.detail > .phoneSectionLink {
+  display: none;
+}
+.page :target,
+.detail {
+  scroll-margin-top: 16px;
 }
 .settings {
   font-size: 13px;
@@ -123,6 +169,65 @@
   font-size: 12px;
   color: var(--muted);
 }
+.rosterGroups:not([hidden]) {
+  display: contents;
+}
+.rosterSearch {
+  display: grid;
+  gap: 4px;
+  margin: 0 12px 12px;
+}
+.rosterSearch label,
+.activitySearch label {
+  color: var(--muted);
+  font-size: 12px;
+}
+.rosterSearch label:not(:first-child) {
+  margin-top: 4px;
+}
+.rosterSearch input,
+.rosterSearch select,
+.activitySearch input {
+  min-width: 0;
+  width: 100%;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+}
+.rosterMatchCount,
+.rosterSelection > p {
+  padding: 6px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.rosterSelection {
+  padding-bottom: 8px;
+}
+.rosterMatches {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rosterMatches li + li,
+.roster .moreRosterMatches {
+  border-top: 1px solid var(--line);
+}
+.rosterObjective {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.roster .moreRosterMatches {
+  color: var(--blue);
+  font-weight: 500;
+}
+.moreRosterMatches:hover {
+  text-decoration: underline;
+}
 .leadGroup {
   border-block-start: 1px solid var(--line);
   min-width: 0;
@@ -168,6 +273,28 @@
   background: var(--blue-soft);
   border-color: var(--blue);
 }
+.draftReplacement {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 12px 12px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  font-size: 13px;
+}
+.draftReplacement legend {
+  padding-inline: 4px;
+  font-weight: 600;
+}
+.draftReplacement p {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.draftReplacement > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
 .answerHistory {
   display: grid;
   gap: 14px;
@@ -181,7 +308,7 @@
   border-left: 1px solid var(--line);
   overflow-wrap: anywhere;
 }
-.detail > * + * {
+.detail > :not(.phoneSectionLink) + * {
   margin-top: 18px;
 }
 .detailHeading {
@@ -197,6 +324,35 @@
 }
 .detailHeading p {
   margin-top: 4px;
+}
+.work:has(> .detail > .focusedReport) {
+  grid-template-columns: minmax(0, 1fr);
+}
+.work:has(> .detail > .focusedReport) > .roster {
+  display: none;
+}
+.work:has(> .detail > .focusedReport) > .detail {
+  border: 0;
+  padding-inline: clamp(8px, 2vw, 24px);
+}
+.reportViewport {
+  overflow-anchor: auto;
+}
+.detail > .focusedReport {
+  max-height: max(65vh, calc(100dvh - 10rem));
+  padding: clamp(14px, 2.6vw, 34px);
+  --research-prose-size: 16px;
+}
+.focusedReport > :first-child {
+  margin-inline: auto;
+}
+.readingKey {
+  margin-inline-start: 4px;
+  padding: 0 4px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font: inherit;
+  font-size: 11px;
 }
 .live {
   display: grid;
@@ -215,6 +371,20 @@
   padding-top: 12px;
   border-top: 1px solid var(--line);
   font-size: 13px;
+}
+.baselineReport {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+.baselineReport header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+}
+.baselineReport time {
+  color: var(--muted);
 }
 .receipts ol,
 .assignments {
@@ -261,12 +431,32 @@
   border-left: 2px solid var(--amber);
   background: var(--amber-soft);
 }
+.resumeConfirmation {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-block: 8px;
+}
+.actionError {
+  padding: 9px 12px;
+  border-inline-start: 2px solid var(--red);
+  background: var(--red-soft);
+  color: var(--red);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.actionError p + p {
+  margin-block-start: 4px;
+}
 .footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 12px;
+}
+.footer .actionError {
+  flex-basis: 100%;
 }
 .footer > a {
   color: var(--muted);
@@ -277,10 +467,36 @@
   gap: 8px;
   padding-block: 12px 0;
 }
+.passHeading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.passMeta {
+  display: grid;
+  gap: 4px;
+}
+.passOutput {
+  max-block-size: 20rem;
+  overflow: auto;
+  margin-block-start: 8px;
+  white-space: pre-wrap;
+}
 .guidance {
   border-left: 2px solid var(--blue);
   padding: 7px 14px;
   background: var(--surface);
+}
+.steering {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  scroll-margin-block-start: 12px;
+}
+.steering > details {
+  flex: 1 1 20rem;
+  min-inline-size: 0;
 }
 .guidance > summary {
   width: fit-content;
@@ -320,6 +536,12 @@
   padding: 8px;
   border: 1px solid var(--border-strong);
 }
+.guidance select {
+  width: min(100%, 30rem);
+  padding: 7px 8px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
 .guidance form button {
   justify-self: start;
 }
@@ -335,7 +557,8 @@
   background: var(--surface);
   padding: 4px 8px;
 }
-.pass > span,
+.passHeading span,
+.passMeta,
 .activity time,
 .activity small {
   color: var(--muted);
@@ -348,6 +571,17 @@
 .activity summary {
   width: fit-content;
   font-weight: 500;
+}
+.activitySearch {
+  display: grid;
+  gap: 4px;
+  max-width: 24rem;
+  margin-block-start: 12px;
+}
+.activityCount {
+  margin-block-start: 6px;
+  font-size: 12px;
+  color: var(--muted);
 }
 .activity ol {
   margin: 12px 0;
@@ -376,6 +610,18 @@
   display: block;
 }
 @media (max-width: 680px) {
+  .studyNav .phoneSectionLink,
+  .detail > .phoneSectionLink {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+  }
+  .detail > .phoneSectionLink {
+    font-size: 13px;
+  }
+  .detail > .phoneSectionLink + * {
+    margin-top: 10px;
+  }
   .page {
     gap: 16px;
   }
@@ -395,6 +641,12 @@
   .roster button {
     align-content: start;
     padding: 8px;
+  }
+  .rosterSearch input,
+  .rosterSearch select,
+  .activitySearch input {
+    min-height: 44px;
+    font-size: 16px;
   }
   .swarmRoster {
     display: block;

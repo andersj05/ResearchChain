@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useRef, useState, type ComponentPropsWithRef } from "react";
 import type { components } from "@researchchain/contracts";
 import { apiFetch } from "@/lib/access";
 import { contentDownloadUrl, contentUrl } from "@/lib/evidence";
 import { ResearchMarkdown } from "./research-markdown";
 import { CsvPreview } from "./csv-preview";
+import "./research-workspace.css";
 
 type Attempt = components["schemas"]["ModelAttempt"];
 type WorkspaceFile = components["schemas"]["WorkspaceFile"];
@@ -20,9 +21,25 @@ export function canPreviewWorkspaceFile(file: WorkspaceFile) {
   );
 }
 
-type PreviewProps = { file: WorkspaceFile; sources: Set<string>; files?: WorkspaceFile[] };
+type PreviewProps = {
+  file: WorkspaceFile;
+  sources: Set<string>;
+  files?: WorkspaceFile[];
+  contents?: boolean;
+  inspectFigures?: boolean;
+  viewport?: Pick<
+    ComponentPropsWithRef<"div">,
+    "ref" | "id" | "className" | "role" | "aria-label" | "tabIndex"
+  >;
+};
 
-function TextPreview({ file, sources, files }: PreviewProps) {
+const TextPreview = memo(function TextPreview({
+  file,
+  sources,
+  files,
+  contents,
+  inspectFigures,
+}: PreviewProps) {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState(false);
   useEffect(() => {
@@ -47,15 +64,31 @@ function TextPreview({ file, sources, files }: PreviewProps) {
   if (file.media_type === "text/csv" || /\.csv$/i.test(file.name))
     return <CsvPreview text={text} />;
   return file.name.toLowerCase().endsWith(".md") ? (
-    <ResearchMarkdown text={text} sources={sources} files={files} />
+    <ResearchMarkdown
+      text={text}
+      sources={sources}
+      files={files}
+      contents={contents}
+      inspectFigures={inspectFigures}
+    />
   ) : (
     <pre tabIndex={0}>{text}</pre>
   );
-}
+});
 
-export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
+export function WorkspaceFilePreview({
+  file,
+  sources,
+  files,
+  contents,
+  inspectFigures,
+  viewport,
+}: PreviewProps) {
   return (
-    <div className="workspace-file-preview">
+    <div
+      {...viewport}
+      className={["workspace-file-preview", viewport?.className].filter(Boolean).join(" ")}
+    >
       {imageTypes.has(file.media_type) ? (
         // The authenticated artifact URL serves the original chart at its own aspect ratio.
         // eslint-disable-next-line @next/next/no-img-element
@@ -65,7 +98,14 @@ export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
           loading="lazy"
         />
       ) : canPreviewWorkspaceFile(file) ? (
-        <TextPreview key={file.artifact_id} file={file} sources={sources} files={files} />
+        <TextPreview
+          key={file.artifact_id}
+          file={file}
+          sources={sources}
+          files={files}
+          contents={contents}
+          inspectFigures={inspectFigures}
+        />
       ) : (
         <p className="muted">Download this file to inspect it in full.</p>
       )}
@@ -73,23 +113,49 @@ export function WorkspaceFilePreview({ file, sources, files }: PreviewProps) {
   );
 }
 
-function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: Set<string> }) {
-  const [selected, setSelected] = useState<string | null>(null);
+export function WorkspaceFiles({
+  files,
+  sources,
+  label = "Workspace files",
+  keepSelectedVersion = false,
+}: {
+  files: WorkspaceFile[];
+  sources: Set<string>;
+  label?: string;
+  keepSelectedVersion?: boolean;
+}) {
+  const [selected, setSelected] = useState<{
+    name: string;
+    preview?: Pick<PreviewProps, "file" | "files" | "sources">;
+  }>();
+  const picker = useRef<HTMLSelectElement>(null);
+  const latest = files.find((item) => item.name === selected?.name);
+  const retained = selected?.preview;
   const file =
-    files.find((item) => item.name === selected) ??
-    files.find((item) => imageTypes.has(item.media_type)) ??
-    files[0];
+    retained?.file ?? latest ?? files.find((item) => imageTypes.has(item.media_type)) ?? files[0];
+  const newer = retained && latest?.artifact_id !== retained.file.artifact_id ? latest : undefined;
+  function choose(next: WorkspaceFile) {
+    setSelected({
+      name: next.name,
+      preview: keepSelectedVersion ? { file: next, files, sources } : undefined,
+    });
+  }
   if (!file) return null;
   return (
-    <section className="workspace-files" aria-label="Workspace files">
+    <section className="workspace-files" aria-label={label}>
       <div className="workspace-files-heading">
         <label>
-          Workspace files
+          {label}
           <select
             aria-label="Preview workspace file"
+            ref={picker}
             value={file.name}
-            onChange={(event) => setSelected(event.target.value)}
+            onChange={(event) => {
+              const next = files.find((item) => item.name === event.target.value);
+              if (next) choose(next);
+            }}
           >
+            {retained && !latest && <option value={file.name}>{file.name}</option>}
             {files.map((item) => (
               <option key={item.name} value={item.name}>
                 {item.name}
@@ -105,11 +171,28 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
         >
           Download
         </a>
+        {newer && (
+          <button
+            type="button"
+            className="button small"
+            onClick={() => {
+              choose(newer);
+              picker.current?.focus({ preventScroll: true });
+            }}
+          >
+            Open latest version
+          </button>
+        )}
       </div>
       <p className="field-hint">
         {file.name} · {file.byte_size.toLocaleString()} bytes
+        {newer && " · Earlier saved version"}
       </p>
-      <WorkspaceFilePreview file={file} sources={sources} files={files} />
+      <WorkspaceFilePreview
+        file={file}
+        sources={retained?.sources ?? sources}
+        files={retained?.files ?? files}
+      />
     </section>
   );
 }
@@ -117,9 +200,11 @@ function WorkspaceFiles({ files, sources }: { files: WorkspaceFile[]; sources: S
 export function ResearchWorkspace({
   attempts,
   running,
+  keepSelectedVersion,
 }: {
   attempts: Attempt[];
   running: boolean;
+  keepSelectedVersion?: boolean;
 }) {
   const files = new Map<string, WorkspaceFile>();
   const sources = new Set<string>();
@@ -138,7 +223,7 @@ export function ResearchWorkspace({
       <section aria-label="Workspace activity">
         <h4>Workspace activity</h4>
         {!!actions.length && (
-          <ol className="workspace-actions">
+          <ol className="workspace-file-activity">
             {actions.map(({ id, pass, activity }) => (
               <li key={id}>
                 <div>
@@ -184,7 +269,11 @@ export function ResearchWorkspace({
           !actions.length && <p className="field-hint">No Python actions recorded.</p>
         )}
       </section>
-      <WorkspaceFiles files={[...files.values()]} sources={sources} />
+      <WorkspaceFiles
+        files={[...files.values()]}
+        sources={sources}
+        keepSelectedVersion={keepSelectedVersion}
+      />
     </div>
   );
 }

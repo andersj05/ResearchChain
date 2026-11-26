@@ -1,6 +1,447 @@
 # Current state
 
-Updated 2026-11-24.
+Updated 2026-11-25.
+
+## Study budgets and recovery
+
+Superseded attempts stay in usage history and count toward the workspace request
+allowance. They no longer consume a slot in the Desk study's planned model and
+tool budgets. **Resume research** can continue a study that hit the old count
+when the saved checkpoint has room for another step and no unfinished attempt.
+
+## Resuming lead consultations
+
+When recovering a study, the swarm skips an exact repeat of a consultation
+answer already replayed for that lead. The next unanswered lead can still pause
+for its own answer. **Resume research** is available after the older mismatch
+error when the original owner answer is saved and no unfinished model attempts
+remain.
+
+## Research Desk without a study timer
+
+Research Desk studies run without an active execution time limit, including
+older studies whose saved workflows recorded one. **Resume research** can
+continue a study stopped by its old timer when no unfinished attempt needs
+replay. The pinned workflow, completed receipts, and active duration are retained.
+
+## Resuming after provider overload
+
+The OpenAI stream code `server_is_overloaded` is a retryable failure. An active
+peer can finish its admitted request after a provider failure while the swarm
+stops taking on new requests. An older admitted peer attempt with no recorded
+outcome requires explicit confirmation before recovery can send it again.
+
+## Live Research Swarm studies
+
+New Research Desk studies use a swarm, with web search and expert consultation
+enabled and GPT-6.2 Astra writing the report. Leads and researchers finish from
+their findings. The setup leaves time and turns open by default, and older
+studies carry their original workflow and settings.
+
+**Team graph** follows the live mandates and handoffs. **Saved files** brings
+each workspace's pinned inputs, model receipts, and generated files into a
+searchable tree with exact-version previews and links to the producing request.
+
+**Guide the team** sends directions to the study or to a particular lead or
+researcher. **Write report now** sends confirmed findings to the editor after
+admitted work settles. **Resume research** reuses completed receipts after an
+eligible provider failure. See the [delivery issue](https://github.com/andersj05/ResearchChain/issues/176)
+and [decision record](../decisions/0027-live-research-swarm.md).
+
+## Recovering in-progress research work
+
+Unpinned files remain available while the owner reads the study archive. The
+browser can warn before the tab reloads or closes. Canceling the reload keeps
+the queue, and removing or pinning the last file clears the warning.
+
+Returning through **Workflows** remembers a valid bookmarked named-agent
+version and its draft. A failed revision read leaves the previous Agent
+preference in place, and a newer selection takes priority. A recovered report
+chart shows its lookup in progress and offers an inline retry after a failed
+lookup, with its placement kept throughout.
+
+**Saved files** keeps the revealed range as newer files arrive. An open preview
+stays on its exact artifact and **Back to saved files** restores the original
+row if it still matches. The phone fixture covered same-name versions and an
+actual removal.
+
+## Inspecting a loaded workflow on a phone
+
+Loading **Demo template** or **Research example** brings the workspace and
+its canvas into view on compact screens. Focus moves to the workspace
+message, with **Undo load** one Tab away. Undo restores the exact staged
+draft. A subsequent draft edit dismisses the template-specific undo action.
+Existing desktop focus and saved workflows are preserved.
+[Compact Build template PR](https://github.com/andersj05/ResearchChain/pull/174).
+
+## Moving from the report outline into editing
+
+Selecting a section in a narrow editor brings its fields into view. Keyboard
+activation focuses **Section heading**. **Back to sections** restores the
+originating result or focuses search if it no longer matches.
+
+Report drafts can use a newly selected captured source in a reference or chart
+before the revision is saved. The editor uses the server's citation basis and
+identifies the applicable section if an attached draft source is still in use.
+[Report outline and staged sources PR](https://github.com/andersj05/ResearchChain/pull/173).
+
+## Faster report lists and live study reading
+
+Reports lists and revision history read summary fields while preserving the
+saved revision dates, ordering, and current report. In a paired local
+PostgreSQL benchmark of 100 synthetic reports, the median report-list read went
+from 281.20 ms to 125.88 ms with equal results.
+
+Live study polls reuse an identical response already in the browser. Six
+synthetic polls of an open 480-row Activity search previously parsed six
+copies and normalized 2,880 rows. Both operations were skipped after this
+change. The network responses and polling intervals were held constant in the
+comparison. A same-length edited receipt still appeared on the next poll.
+
+After a successful keyboard file pin, focus returns to **Drop files or browse**
+so the next file can be added directly. It respects a focus or route change
+while the upload was in progress.
+[Report reads and keyboard intake PR](https://github.com/andersj05/ResearchChain/pull/171).
+
+## Finding older reports and captured sources
+
+Reports searches the title and latest change note across saved report series.
+It returns up to 100 matches. A saved report with 101 newer reports was found
+and reopened at its exact revision. With unfinished work in the editor, a
+revision history link opens that revision in a separate tab. Clean history
+browsing brings the opened revision heading into view and focuses it.
+
+Saved sources can filter by availability in Research Desk. In the synthetic
+108-record metadata case, **Captured** found all three captured reports on the
+first page. Existing pins stayed in their prior order.
+[Report history and captured-source PR](https://github.com/andersj05/ResearchChain/pull/170).
+
+## Resuming work in study settings, the archive, and report references
+
+Research settings shortcuts reopen the settings they point to. Returning from
+an embedded archive result keeps the exact study focused and restores its
+position in both scroll areas. Reports keeps unfinished reference fields with
+their section. **Inspect selected source (new tab)** opens the captured record
+from that form while it stays available in the editor.
+
+Workbench reuses the exact immutable agent head returned during startup. A
+production Chromium fixture with 72 versions and 20 runs removed one request on
+direct Reports and Sources. The removed response carried 45,055 decoded bytes
+and 2,690 browser-reported transfer bytes. Older revisions still load by exact ID.
+The `8e494a9` merge was verified on Desktop with 356 browser cases passing in CI.
+[Settings, archive, and reference PR](https://github.com/andersj05/ResearchChain/pull/169).
+
+## Returning to reviews, model receipts, and versions
+
+**Back to review inbox** restores the exact request and its page. If that request
+has gone, it focuses another available request nearby. **Back to model activity**
+restores the receipt, focus, filters, display, sort, and reading position.
+Loading a saved version focuses Build’s confirmation. Undo returns to the draft.
+
+An explicitly selected team file stays open as a newer file with the same name
+arrives. **Open latest version** loads the newer file. The current Research Desk
+link and a follow-up’s **previous study** link keep queued files available.
+A follow-up with queued files opens the fresh Desk in a separate tab.
+The `9b5bedb` merge was verified on Desktop with 346 browser cases passing in CI.
+[Review and live file continuity PR](https://github.com/andersj05/ResearchChain/pull/168).
+
+## Keeping your place in Reports and Sources
+
+Opening a saved report brings its heading and actions into view. **All reports**
+returns to the exact result, with the previous search, sort, and scroll position.
+The primary Reports actions fit one row on a 320 px phone. Workbench Sources
+keeps the open source, collection filters, loaded pages, reading position, and
+unfinished Add source form when you switch tabs. It refreshes saved sources when
+you return.
+
+The Research Desk opens Workflows, Sources, and Reports in a new tab while
+unsubmitted files are queued so their titles, attribution, and original bytes
+stay available in the setup. Thirty-six focused production Chromium cases passed.
+The `ed2204f` merge was verified on Desktop with 332 browser cases passing in CI.
+[Report and source continuity PR](https://github.com/andersj05/ResearchChain/pull/167).
+
+## Preserving research and report drafts
+
+Reports keeps the section, filter, selection, and text scroll when you visit
+another Workbench tab. It checks the saved revision before enabling Save again.
+**Move to position** reorders a section in a longer draft. A conflicting lead
+suggestion offers **Keep draft** and **Replace draft** before editing the owner's
+working sentence or perspective.
+
+Opening an archived study's baseline, saved pass, or editor report keeps the
+staged setup available. The swarm roster renders worker rows only for expanded
+teams. In an 80-assignment Chromium case, opening one team showed 20 worker rows
+in the DOM. The search still found all 80 assignments.
+The `954fff3` merge was verified on Desktop with 325 browser cases passing in CI.
+[Drafts and swarm roster PR](https://github.com/andersj05/ResearchChain/pull/166).
+
+## Finding a workspace and revisiting material
+
+All seven Workbench destinations fit in one row at 320 and 390 px. **Revisit
+material** returns to the already open setup from the same baseline. When a
+different setup is open, the clearly labeled new-tab action keeps its staged
+files available in the original tab. Twenty-two focused browser cases passed.
+The `a909676` merge was verified on Desktop with 313 browser tests passing in CI.
+[Phone navigation and staged drafts PR](https://github.com/andersj05/ResearchChain/pull/165).
+
+## Returning to sources, outputs, and reports
+
+Compact Workbench Sources brings an explicitly opened source into view and can
+return to its exact result. In Runs, **Back to outputs** restores the originating
+comparison row. An earlier chart loading in a study report keeps the selected
+heading anchored. When the editor starts, **Team directions** keeps an unsent
+note available to copy for a later study.
+The `ab18232` merge was verified on Desktop with 308 browser tests passing in CI.
+[Source and report reading PR](https://github.com/andersj05/ResearchChain/pull/164).
+
+## Current workspace and validation
+
+On a phone, **Current workspace** jumps to the selected work in a live study.
+**Study sections** returns to the shortcuts with the same workspace and pass
+selected. The Activity log shows the receipt count while collapsed and prepares
+its rows on opening. **Validate workflow** brings the existing result into
+view and focuses it so its exact repair links are available from the footer.
+The `5ad9b2b` merge was verified on Desktop with 300 browser tests passing in CI.
+[Mobile workspace and validation PR](https://github.com/andersj05/ResearchChain/pull/163).
+
+## Keeping context while iterating
+
+The first-reading bar links to the queued files or pasted source that must be
+finished before starting. Swarm workspaces can filter by current status alongside
+the assignment search. **Back to saved files** restores the producing file after
+the list was closed. Saving a report revision keeps its active section selected.
+Build search stays in the current caller when opening a step in the same pinned
+definition version. Thirty focused production browser cases passed.
+The `09d2821` merge was verified on Desktop with 295 browser tests passing in CI.
+[Intake and editing PR](https://github.com/andersj05/ResearchChain/pull/162).
+
+## Run setup and review continuity
+
+Workbench shows the exact loaded agent version in Build and Run setup. A revision
+shared by multiple versions uses its saved revision number. The Start action
+explains when it will save the loaded graph as the newest agent version.
+**Return to run setup** reopens a matching unconfirmed start for inspection.
+Only an explicit start sends the request again.
+
+Returning to **Decisions** focuses the exact review link when it is still open.
+When the review has cleared, focus moves to a nearby open review. **Compare with
+baseline** opens in a separate tab when the study reader has an in-progress
+setup behind it, which keeps the selected files and archive search in place.
+
+The study reader indexes exact analyst workspace paths once per run snapshot.
+In a paired Node benchmark of 489 synthetic receipts, the median grouping step
+went from 12.9 to 0.13 ms. With 975 receipts it went from 27.6 to 0.25 ms.
+Production Chromium exercises the same grouping with 480 passes and a new
+result arriving during inspection.
+The `f40873f` continuity merge was verified on Desktop with HTTP 200 for Studies
+and Reports and two connected workers. CI passed 654 API tests with three skips
+and 291 browser tests. [Continuity PR](https://github.com/andersj05/ResearchChain/pull/161).
+
+## Baseline reports and section search
+
+**Baseline report** opens the completed editor report from the recorded baseline
+beside the revised study. Each report uses its own saved figures and citations.
+The current report keeps its reading position and section link.
+
+**Find a section** searches longer report drafts by heading or body, with the
+original section order and unsaved edits available. **Sources** in Workbench
+combines type, availability and text search alongside exact source links.
+The `1f4c07c` baseline merge was verified on Desktop with 285 browser tests
+passing in CI. [Baseline report and navigation PR](https://github.com/andersj05/ResearchChain/pull/160).
+
+## Reading saved editor results
+
+**Inspect figure** opens the exact saved PNG inside a completed study report.
+Original-size panning and Escape keep the report's reading and focus position.
+Completed studies with standalone structured editor results link directly to
+their final saved findings. Twenty focused production Chromium cases passed.
+The `849c431` report-reading merge was installed and verified on Desktop. Studies
+and Reports returned HTTP 200, and the API reported healthy with two connected
+workers. CI passed 654 API tests with three skips and 275 browser cases.
+[Report-reading PR](https://github.com/andersj05/ResearchChain/pull/159).
+
+## Finding sources and reading reports
+
+**Saved sources** can filter an exact source type before pagination. Batch
+pinning and chart navigation stay within the loaded filtered results. Saved chart
+previews have a scrollable original-size view.
+
+Reports previews the selected section's unsaved heading and body in place.
+Study links and figures still come from the original editor pass. Activity
+search reuses normalized text while typing. In a paired Node CPU test of twelve
+query prefixes against 960 synthetic passes, median search work fell from 36.4
+to 5.8 ms including preparation. A 480-pass Chromium case verified a live match
+could arrive while inspecting an older exact file and return point.
+Desktop runs the `a2e5722` source and preview merge. Studies and Reports returned
+HTTP 200, and the API reported healthy with two connected workers. CI passed
+654 API tests with three skips and 274 Chromium cases.
+[Source and preview PR](https://github.com/andersj05/ResearchChain/pull/158).
+
+## Packet editing and report handoff
+
+The packet can move an exact source directly to a different reading position.
+Loaded source details stay available through packet selection edits, and returning
+from a saved study still checks availability. **Methodology** preserves the open
+setup. **Session controls** reaches stop and recovery actions from the overview.
+
+**Edit in Reports** offers existing report heads from the exact editor pass and
+allows a separate report. The saved provenance continues through revisions.
+Desktop runs the `0c598ab` packet and report handoff merge. Studies and Reports
+returned HTTP 200, and the API reported healthy with two connected workers.
+CI passed 653 API tests with three skips and 269 Chromium cases.
+[Packet and reports PR](https://github.com/andersj05/ResearchChain/pull/157).
+
+## Capture and decision continuity
+
+File capture comes before the shared attribution fields. When a queued file
+needs usage rights, its action focuses the shared field. Opening a recent study
+or an exact decision keeps the staged setup in the same tab. The archive returns
+to the opened row and viewport position when the result is still present.
+
+The saved-study reader can add a verified source version to an open setup and
+return to the packet. Reports focuses a missing revision note before save and
+places the continuation beside the note.
+Desktop runs the `31a38e9` capture and decision merge. The Studies route returned
+HTTP 200 and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 264 Chromium cases.
+[Capture and decision PR](https://github.com/andersj05/ResearchChain/pull/156).
+
+## Reusing research settings
+
+**New study** can copy the operational settings of a recent study after an
+explicit selection and confirmation. Team, model choices, thinking effort,
+response detail and limits go into the current draft. The draft keeps its
+material and context. Its first reading uses the new brief and packet.
+
+The packet shows the effective first-reading model, thinking effort and detail.
+Saved-source previews can pin the exact chart on screen. First-reading citations
+return to the originating proposal and retain the working-sentence draft.
+
+Evaluation case and topic identifiers use native browser validation. The local
+Chromium runner selects its loopback ports from the private port range.
+Desktop runs the `feaf4e9` settings merge. The Studies route returned HTTP 200
+and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 260 Chromium cases.
+[Settings PR](https://github.com/andersj05/ResearchChain/pull/155).
+
+## Source queue and batch uploads
+
+Opening **Studies** and reading a saved study keeps the file queue and edited
+attribution in memory in the same tab. **Return to study setup** and browser
+history restore the queue. A start confirmed during the visit offers the
+original study link on return. A page reload clears the unpinned file queue.
+
+Pinned chart previews load the exact matched originals on demand, with
+previous and next navigation in the study’s saved order.
+
+Batch pinning overlaps original uploads, publishes pins in order, and retains
+the exact pending command for recovery. Synthetic Chromium covered the combined
+flows, including browser history, pending results, and equal-size originals.
+Desktop runs the `b387207` study navigation merge. The Studies route returned
+HTTP 200 and the API reported healthy with two connected workers. CI passed
+652 API tests with three skips and 255 Chromium cases.
+[Study navigation PR](https://github.com/andersj05/ResearchChain/pull/154).
+
+## Reading and editorial decisions
+
+Completed reports have a focused layout that preserves the reading position and
+keeps bookmarks, downloads and the Reports handoff available. Open exact saved
+research findings from the editorial question, then return to the same unsent
+judgment. The browser rehearsal covered 80 assignments across four leads.
+
+The header keeps its links on one row at 390px and wraps at narrower widths.
+The methodology and prelaunch comparison load only on their routes. Paired
+production builds reduced initial JavaScript by 15.1 kB before compression.
+Desktop runs the `153e661` reading merge. The Studies route returned HTTP 200
+and the API reported healthy with two connected workers. CI passed 652 API tests
+with three skips and 248 Chromium cases.
+[Reading PR](https://github.com/andersj05/ResearchChain/pull/153).
+
+## Report reading and pinned sources
+
+Saved studies put **Revisit material** and the report link on the first screen.
+Long completed reports can jump to exact parsed headings, including duplicate
+and Unicode headings, and reopen a bookmarked section. **Sources and settings**
+uses pinned source order and dates and reads matching source names on demand.
+Mixed upload batches can discard local invalid files together and preserve an
+unconfirmed pin for an exact retry.
+
+Sixteen focused production Chromium cases passed, including end-to-end team
+research, report reading, source order, and file retry with synthetic data.
+Desktop runs the `e5f9659` readout merge. The Studies route returned HTTP 200
+with two connected workers. CI passed 652 API tests with three skips and 246
+Chromium cases. [Readout PR](https://github.com/andersj05/ResearchChain/pull/152).
+
+## Study archive and revision setup
+
+**Studies** opens the searchable archive without requesting source intake or
+model settings. Saved-source searches can append loaded matches in order and
+preserve exact source versions. **Compare with previous setup** previews packet,
+model, team, limits and context changes before a revised first reading. Study
+and pass links can be copied from the reader.
+
+Sixteen focused production Chromium cases passed in the browser rehearsal,
+including the shared run archive, clipboard denial and resumed study setup.
+Desktop runs the `083b116` merge. The Studies route returned HTTP 200 with two
+connected workers. CI passed 652 API tests with three skips and 242 Chromium cases.
+[Studies PR](https://github.com/andersj05/ResearchChain/pull/151).
+[Desk guide](../research-sessions.md).
+
+## Capture and return visits
+
+Queued charts can be opened and named before pinning. Files can inherit batch
+attribution or use their own author and as-of date. A lost pin receipt retains
+the exact file and attribution. The launcher shows the model for the first
+reading and the web-search choice for the team.
+
+The owner tab restores its submitted study archive search and page. Returning
+from a saved pass restores focus to the matching activity or file result.
+Study and desk views refresh on return to the foreground and fence old
+responses. Production Chromium rehearsals covered these paths with synthetic data.
+Desktop runs the `0c0f1d2` continuity merge with healthy web and two connected
+workers. CI passed 652 API tests with three skips and 238 Chromium cases.
+[Continuity PR](https://github.com/andersj05/ResearchChain/pull/150).
+
+## Study reading and startup
+
+The desk loads Workbench and the saved-study reader on demand. In paired
+production builds on Windows, initial JavaScript fell from 1.32 MB to 0.71 MB.
+Direct Reports and saved-run links open while unrelated history loads, and
+the Build editor mounts when first opened.
+
+Historical passes show their own output, request, sources and files. The
+**Activity log** and **Saved files** find older receipts across assignments.
+Phone intake keeps queued titles editable and follows the same keyboard order
+as the visible layout. Long code and CSV previews scroll within their panels.
+Fifteen focused production Chromium cases passed with synthetic data.
+The `b92d0c2` reader merge was installed on Desktop. The Research Desk returned
+HTTP 200, the API reported healthy with two connected workers, and CI passed
+652 API tests with three skips and 233 Chromium cases.
+[Reader PR](https://github.com/andersj05/ResearchChain/pull/149).
+
+## Research desk iteration
+
+The desk accepts pasted screenshots and editable file titles. Shared source
+details apply to files and pasted excerpts. A tab restores an unsent excerpt
+and its exact pending pin request. Restored packets show sources as they load,
+and packet edits retain keyboard focus.
+
+Study titles and pinned source titles make the archive searchable. **Decisions**
+surfaces open judgments beyond the most recent studies. The study reader links
+to the original receipt, pending decisions and completed report. Large swarms
+can be searched by assignment or lead. Revisions link to the pinned baseline
+comparison, and a finished study can seed an editable **Reports** draft with its
+saved figures and citations.
+
+Synthetic browser rehearsals covered a lost capture and report receipt, an
+older pending decision, a conflict that retained the owner's draft, an
+80-researcher swarm and a baseline comparison. Owner feedback on a full study
+using private material remains the next product validation.
+
+Desktop runs the `19ce6a2` dev merge with healthy web and two connected
+workers. CI passed 652 backend tests with three skips and 226 Chromium cases.
+[Desk guide](../research-sessions.md) ·
+[Delivery PR](https://github.com/andersj05/ResearchChain/pull/148).
 
 ## Source-led research
 

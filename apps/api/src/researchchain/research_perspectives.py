@@ -12,6 +12,7 @@ from researchchain.compiler import ExecutionStopped
 from researchchain.models import LeadPerspective, PerspectiveAnswer, ReviewPrompt
 
 PERSPECTIVE_BATCH = "research-perspectives-1"
+LEGACY_REPLAY_STOP_REASON = "The answer did not match a pending lead consultation."
 
 
 def perspective_id(run_id: UUID, action_path: str) -> str:
@@ -19,7 +20,10 @@ def perspective_id(run_id: UUID, action_path: str) -> str:
 
 
 def request_perspectives(
-    run_id: UUID, node_id: str, questions: list[LeadPerspective]
+    run_id: UUID,
+    node_id: str,
+    questions: list[LeadPerspective],
+    answered: dict[str, PerspectiveAnswer],
 ) -> dict[str, str]:
     """Call on the graph thread in replay-stable round order, after all effects are journaled."""
     pending = {item.action_path: item for item in questions}
@@ -27,22 +31,28 @@ def request_perspectives(
         raise ExecutionStopped("Two lead consultations used the same saved action.", "failed")
     if not pending:
         return {}
-    reply = interrupt(
-        {
-            "format": PERSPECTIVE_BATCH,
-            "node_id": node_id,
-            "questions": [item.model_dump(mode="json") for item in pending.values()],
-        }
-    )
-    answer = PerspectiveAnswer.model_validate(reply)
+    payload = {
+        "format": PERSPECTIVE_BATCH,
+        "node_id": node_id,
+        "questions": [item.model_dump(mode="json") for item in pending.values()],
+    }
+    while True:
+        answer = PerspectiveAnswer.model_validate(interrupt(payload))
+        # Retrying after a stop can append an answer to the graph task's replay
+        # list even though the task had already consumed it before stopping.
+        if answered.get(answer.action_path) != answer:
+            break
     if answer.action_path not in pending or answer.interrupt_id != perspective_id(
         run_id, answer.action_path
     ):
-        raise ExecutionStopped("The answer did not match a pending lead consultation.", "failed")
+        raise ExecutionStopped(
+            "A replayed answer could not be matched to its saved lead consultation.", "failed"
+        )
     if answer.decision == "reject":
         raise ExecutionStopped("The owner declined this research consultation.", "rejected")
     if not answer.feedback.strip():
         raise ExecutionStopped("The lead consultation requires an owner answer.", "failed")
+    answered[answer.action_path] = answer
     return {answer.action_path: answer.feedback}
 
 

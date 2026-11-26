@@ -63,6 +63,9 @@ test("commission a different investigation from a week of pinned material and in
   const sheet = page.getByRole("region", { name: "Source-led investigation" });
   const assign = sheet.getByRole("button", { name: "Assign research" });
   await expect(assign).toBeVisible({ timeout: 45_000 });
+  const sections = page.getByRole("navigation", { name: "Study sections" });
+  await sections.getByRole("link", { name: "Choose working sentence" }).click();
+  await expect(sheet).toBeFocused();
   await expect(assign).toBeDisabled();
   await expect(
     sheet.getByText("At our desk, the median member was flat.", { exact: true }),
@@ -92,15 +95,16 @@ test("commission a different investigation from a week of pinned material and in
   await expect(sheet.getByText(judgment, { exact: true })).toBeVisible();
   await expect(assignments).toContainText("Compare weekly returns within each sector.");
   await assignments.getByRole("link", { name: "Inspect researcher request" }).click();
-  await expect(page).toHaveURL(/workspace=agent-1&pass=/);
+  await expect(page).toHaveURL(/workspace=lead-1%2Fagent-1&pass=/);
   const workspace = page.getByRole("region", { name: "Compare refinancing groups workspace" });
+  await expect(workspace).toBeFocused();
   const saved = await workspace.getByRole("link", { name: "Saved request" }).getAttribute("href");
   const receipt = await (await request.get(saved!)).json();
   const input = JSON.parse(receipt.input[0].content[0].text);
   expect(input.human_feedback).toBe(judgment);
   expect(input.prior_result.discovery.proposals[0].first_check).toContain("equal-weight");
   await sheet.screenshot({ path: info.outputPath("issued-assignment.png") });
-  await page.getByRole("button", { name: "Revisit material" }).click();
+  await page.getByRole("link", { name: "Revisit material", exact: true }).click();
   await expect(packet.getByRole("listitem")).toHaveCount(3);
   await expect(page.getByLabel("Context for the lead (optional)")).toBeEmpty();
   await start.click();

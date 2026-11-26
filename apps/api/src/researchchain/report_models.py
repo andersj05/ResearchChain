@@ -17,6 +17,7 @@ from researchchain.research_models import (
 Title = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=240)]
 Note = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=6000)]
 Hash = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+MAX_REPORT_BUNDLE_BYTES = 64 * 1024 * 1024
 
 
 class StyleExample(ResearchModel):
@@ -82,6 +83,9 @@ class ReportCreate(ResearchModel):
     run_id: UUID
     attempt_id: UUID
     style_guide_id: UUID
+    source_format: Literal["session_markdown"] | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class ReportSave(ResearchModel):
@@ -112,7 +116,8 @@ class ReportProvenance(ResearchModel):
     workflow_hash: str
     manifest: ResearchManifest
     attempt: ModelAttempt
-    renderer: Literal["report-seed-1"] = "report-seed-1"
+    renderer: Literal["report-seed-1", "study-markdown-1"] = "report-seed-1"
+    recorded_urls: list[str] = Field(default_factory=list, exclude_if=lambda value: not value)
 
 
 class ReportEdit(ResearchModel):
@@ -188,6 +193,11 @@ class ReportView(ResearchModel):
     source_bases: dict[UUID, str]
     feedback: list[ReportFeedback]
     review_status: Literal["unreviewed", "accepted", "rejected"]
+
+
+class ReportDraftSources(ResearchModel):
+    sources: list[EvidenceRecord]
+    source_bases: dict[UUID, str]
 
 
 class ReportSummary(ResearchModel):

@@ -13,6 +13,9 @@ import {
   type EvaluationReferenceCreate,
 } from "@/lib/evaluations";
 
+const identifierPattern = String.raw`[a-z][a-z0-9_\-]{0,63}`;
+const identifierHint = "Start with a lowercase letter. Use lowercase letters, numbers, - or _.";
+
 const newCase = (number: number): EvaluationCase => ({
   id: `case-${number}`,
   title: "",
@@ -105,7 +108,8 @@ export function EvaluationDatasetForm({
                   Case identifier
                   <input
                     required
-                    pattern="[a-z][a-z0-9_-]{0,63}"
+                    pattern={identifierPattern}
+                    title={identifierHint}
                     value={item.id}
                     onChange={(event) => update(index, { id: event.target.value })}
                   />
@@ -114,7 +118,8 @@ export function EvaluationDatasetForm({
                   Topic identifier
                   <input
                     required
-                    pattern="[a-z][a-z0-9_-]{0,63}"
+                    pattern={identifierPattern}
+                    title={identifierHint}
                     placeholder="portfolio-correlation"
                     value={item.topic}
                     onChange={(event) => update(index, { topic: event.target.value })}

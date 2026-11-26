@@ -1,52 +1,93 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  Activity,
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type MouseEvent,
+} from "react";
 import { useOwner } from "./access-context";
 import { AccessControls } from "./access-controls";
 import { ResearchLauncher } from "./research-launcher";
-import { ResearchMethodology } from "./research-methodology";
-import { ResearchSession } from "./research-session";
-import { RunArchive } from "./run-archive";
+import {
+  ResearchReviewQueue,
+  researchDecisionsUrl,
+  type DecisionReturnPosition,
+} from "./research-review-queue";
+import { RunArchive, type ArchiveReturnPosition } from "./run-archive";
 import { formatTime, RunStatus } from "./run-status";
+import type { EvidenceRecord } from "@/lib/evidence";
 import { api, type RecentRunSummary } from "@/lib/workflow";
-import { sessionUrl } from "@/lib/research-sessions";
+import { sessionUrl, type ArchivedSourceAppend } from "@/lib/research-sessions";
+import { pollVisiblePage } from "@/lib/poll-visible-page";
 import styles from "./research-desk.module.css";
 
-function RecentStudies() {
-  const { active } = useOwner();
+const ResearchSession = lazy(() =>
+  import("./research-session").then(({ ResearchSession }) => ({ default: ResearchSession })),
+);
+const ResearchMethodology = lazy(() =>
+  import("./research-methodology").then(({ ResearchMethodology }) => ({
+    default: ResearchMethodology,
+  })),
+);
+const studiesUrl = "?view=research&studies=1";
+const methodologyUrl = "?view=methodology";
+const readerTitle = "study-reader-title";
+const decisionsTitle = "research-decisions";
+const methodologyTitle = "research-methodology-title";
+const packetHeading = "packet-heading";
+type DeskArchivePosition = ArchiveReturnPosition & { view: "launch" | "studies" };
+
+function useRecentStudies(enabled: boolean) {
   const [studies, setStudies] = useState<RecentRunSummary[]>();
   const [error, setError] = useState("");
   const [refresh, setRefresh] = useState(0);
   useEffect(() => {
-    if (!active) return;
-    let current = true;
-    let timer: ReturnType<typeof setTimeout>;
-    async function read() {
+    if (!enabled) return;
+    return pollVisiblePage(async ({ isCurrent, schedule }) => {
       try {
         const items = await api<RecentRunSummary[]>("research-sessions");
-        if (!current) return;
+        if (!isCurrent()) return;
         setStudies(items);
         setError("");
         if (items.some((item) => ["queued", "running", "paused"].includes(item.status)))
-          timer = setTimeout(read, 5000);
+          schedule(5000);
       } catch (cause) {
-        if (current)
+        if (isCurrent())
           setError(cause instanceof Error ? cause.message : "Could not load recent research.");
       }
-    }
-    void read();
-    return () => {
-      current = false;
-      clearTimeout(timer);
-    };
-  }, [active, refresh]);
+    });
+  }, [enabled, refresh]);
+  return { studies, error, retry: () => setRefresh((n) => n + 1) };
+}
+
+function RecentStudies({
+  studies,
+  error,
+  retry,
+  onOpenStudy,
+  getReturnPosition,
+}: ReturnType<typeof useRecentStudies> & {
+  onOpenStudy: (event: MouseEvent<HTMLAnchorElement>, study?: ArchiveReturnPosition) => void;
+  getReturnPosition: () => ArchiveReturnPosition | undefined;
+}) {
   return (
-    <section className={styles.history} aria-labelledby="recent-studies">
+    <section
+      className={styles.history}
+      aria-labelledby="recent-studies"
+      id="research-history"
+      tabIndex={-1}
+    >
       <h2 id="recent-studies">Recent research</h2>
       {error && (
         <div className={styles.notice} role="alert">
           <span>{error}</span>
-          <button type="button" className="text-link" onClick={() => setRefresh((n) => n + 1)}>
+          <button type="button" className="text-link" onClick={retry}>
             Retry history
           </button>
         </div>
@@ -55,9 +96,9 @@ function RecentStudies() {
         <ul className={styles.historyRows}>
           {studies.map((study) => (
             <li key={study.id}>
-              <a href={sessionUrl(study.id)}>
+              <a href={sessionUrl(study.id)} onClick={onOpenStudy}>
                 <span className={styles.studyTitle}>
-                  {study.brief_excerpt || study.workflow_name}
+                  {study.study_title || study.brief_excerpt || study.workflow_name}
                 </span>
                 <RunStatus status={study.status} />
                 <time dateTime={study.created_at}>{formatTime(study.created_at)}</time>
@@ -72,7 +113,9 @@ function RecentStudies() {
           </p>
         )
       )}
-      {!!studies?.length && <RunArchive sessionsOnly />}
+      {!!studies?.length && (
+        <RunArchive sessionsOnly onOpenLink={onOpenStudy} getReturnPosition={getReturnPosition} />
+      )}
     </section>
   );
 }
@@ -81,51 +124,388 @@ export function ResearchDesk({
   session,
   fromSession,
   methodology,
+  decisions,
+  studies,
+  onNavigate,
 }: {
   session: string | null;
   fromSession: string | null;
   methodology: boolean;
+  decisions: boolean;
+  studies: boolean;
+  onNavigate: (href: string) => void;
 }) {
   const { active } = useOwner();
+  const deskView = session
+    ? "session"
+    : methodology
+      ? "methodology"
+      : decisions
+        ? "decisions"
+        : studies
+          ? "studies"
+          : "launch";
+  const showingDraft = deskView === "launch";
+  const recent = useRecentStudies(active && showingDraft);
+  const [{ scope: draftScope, queuedFiles }, setDraftSetup] = useState<{
+    scope: string | null | undefined;
+    queuedFiles: boolean;
+  }>(() => ({ scope: showingDraft ? fromSession : undefined, queuedFiles: false }));
+  const [sourceAppend, setSourceAppend] = useState<ArchivedSourceAppend>();
+  if (showingDraft && draftScope !== fromSession)
+    setDraftSetup({ scope: fromSession, queuedFiles: false });
+  if (sourceAppend && (!showingDraft || sourceAppend.scope !== fromSession))
+    setSourceAppend(undefined);
+  const readingWithDraft = deskView === "session" && draftScope !== undefined;
+  const onQueuedFiles = useCallback(
+    (queued: boolean) => {
+      setDraftSetup((current) =>
+        current.scope === draftScope && current.queuedFiles !== queued
+          ? { ...current, queuedFiles: queued }
+          : current,
+      );
+    },
+    [draftScope],
+  );
+  useEffect(() => {
+    if (!active || !queuedFiles) return;
+    const warn = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [active, queuedFiles]);
+  const keepQueuedFilesLinkProps =
+    active && queuedFiles
+      ? {
+          target: "_blank",
+          rel: "noopener",
+          "aria-description": "Opens in a new tab to keep queued files.",
+        }
+      : undefined;
+  const atNewStudy = showingDraft && !fromSession;
+  const homeOpensNewTab = showingDraft && !!fromSession && !!keepQueuedFilesLinkProps;
+  const revisitMatchesDraft =
+    readingWithDraft && draftScope?.toLowerCase() === session?.toLowerCase();
+  const learningWithDraft = deskView === "methodology" && draftScope !== undefined;
+  const showingDecisions = deskView === "decisions";
+  const returningToDraft =
+    deskView === "studies" || showingDecisions || readingWithDraft || learningWithDraft;
+  const [visitedDecisions, setVisitedDecisions] = useState(showingDecisions);
+  if (showingDecisions && !visitedDecisions) setVisitedDecisions(true);
+  const focusAfterNavigation = useRef<string>(null);
+  const previousView = useRef(deskView);
+  const previousDecision = useRef(false);
+  const archivePosition = useRef<DeskArchivePosition | undefined>(undefined);
+  const decisionPosition = useRef<DecisionReturnPosition | undefined>(undefined);
+  const previousReader = useRef<string | null>(null);
+  const returnToDraft = draftScope
+    ? `?fromSession=${encodeURIComponent(draftScope)}`
+    : "?view=research";
+
+  useLayoutEffect(() => {
+    if (deskView === "session") previousReader.current = session;
+    else if (deskView !== "studies" && deskView !== "launch") previousReader.current = null;
+    const from = previousView.current;
+    const fromDecision = previousDecision.current;
+    previousView.current = deskView;
+    previousDecision.current =
+      deskView === "session" &&
+      /^(#source-led-investigation$|#editorial-review$|#consultation-)/u.test(window.location.hash);
+    if (
+      deskView !== "decisions" &&
+      (deskView !== "session" || decisionPosition.current?.studyId !== session)
+    )
+      decisionPosition.current = undefined;
+    const requested = focusAfterNavigation.current;
+    if (
+      (requested === readerTitle && deskView !== "session") ||
+      (requested === methodologyTitle && deskView !== "methodology")
+    )
+      focusAfterNavigation.current = null;
+    let id = focusAfterNavigation.current;
+    if (!id && deskView !== from) {
+      if (deskView === "decisions") id = decisionsTitle;
+      if (deskView === "methodology") id = methodologyTitle;
+      if (deskView === "launch" && (from === "decisions" || from === "methodology" || fromDecision))
+        id = "research-title";
+    }
+    if (!id) return;
+    const target = document.getElementById(id);
+    if (id === readerTitle || (id === methodologyTitle && !target)) {
+      focusAfterNavigation.current = id;
+      window.scrollTo(0, 0);
+      return;
+    }
+    focusAfterNavigation.current = null;
+    if (id === packetHeading) {
+      (target ?? document.getElementById("research-title"))?.focus({ preventScroll: true });
+      target?.scrollIntoView({ block: "start" });
+      return;
+    }
+    target?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, [deskView, session]);
+
+  const focusReaderTitle = useCallback((title: HTMLHeadingElement | null) => {
+    if (!title || focusAfterNavigation.current !== readerTitle) return;
+    focusAfterNavigation.current = null;
+    title.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, []);
+
+  const focusMethodologyTitle = useCallback((title: HTMLHeadingElement | null) => {
+    if (!title || focusAfterNavigation.current !== methodologyTitle) return;
+    focusAfterNavigation.current = null;
+    title.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
+  }, []);
+
+  const getArchiveReturnPosition = useCallback(() => {
+    const position = archivePosition.current;
+    if (position?.view !== deskView || position.studyId !== previousReader.current) return;
+    const focused = document.activeElement;
+    const heading = position.view === "launch" ? "research-title" : "studies-title";
+    if (!focused || focused === document.body || focused.id === heading) return position;
+  }, [deskView]);
+
+  const takeDecisionReturnPosition = useCallback(() => {
+    const position = decisionPosition.current;
+    decisionPosition.current = undefined;
+    const focused = document.activeElement;
+    if (focused === document.body || focused?.id === decisionsTitle) return position;
+  }, []);
+
+  function navigateWithinDesk(
+    event: MouseEvent<HTMLAnchorElement>,
+    heading?: string,
+    archiveStudy?: ArchiveReturnPosition,
+  ) {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    )
+      return false;
+    event.preventDefault();
+    const { href } = event.currentTarget;
+    if (href === window.location.href) return false;
+    if (heading === readerTitle && (deskView === "launch" || deskView === "studies"))
+      archivePosition.current = archiveStudy ? { ...archiveStudy, view: deskView } : undefined;
+    focusAfterNavigation.current = heading ?? null;
+    onNavigate(href);
+    return true;
+  }
+
+  function openQueuedDecision(
+    event: MouseEvent<HTMLAnchorElement>,
+    row?: Omit<DecisionReturnPosition, "top">,
+  ) {
+    const top = event.currentTarget.getBoundingClientRect().top;
+    if (navigateWithinDesk(event) && row) decisionPosition.current = { ...row, top };
+  }
+
+  function appendArchivedSource(source: EvidenceRecord) {
+    if (!active || !readingWithDraft || draftScope === undefined) return;
+    setSourceAppend({ scope: draftScope, source });
+    focusAfterNavigation.current = packetHeading;
+    onNavigate(`${returnToDraft}#${packetHeading}`);
+  }
+
   return (
     <div className={styles.desk}>
       <header className={styles.header}>
         <div className={styles.headerInner}>
           <a
             className={styles.homeLink}
-            href="?view=research"
-            aria-current={!session && !fromSession && !methodology ? "page" : undefined}
+            href={
+              atNewStudy ? "#research-title" : returningToDraft ? returnToDraft : "?view=research"
+            }
+            aria-current={atNewStudy ? "page" : undefined}
+            {...(homeOpensNewTab ? keepQueuedFilesLinkProps : undefined)}
+            onClick={
+              returningToDraft ? (event) => navigateWithinDesk(event, "research-title") : undefined
+            }
           >
-            Research desk
+            {homeOpensNewTab ? "Research desk (new tab)" : "Research desk"}
           </a>
           <nav aria-label="Research navigation">
-            <a href="?view=methodology" aria-current={methodology && !session ? "page" : undefined}>
+            <a
+              href={studiesUrl}
+              aria-current={deskView === "studies" ? "page" : undefined}
+              onClick={(event) => {
+                if (
+                  showingDraft ||
+                  returningToDraft ||
+                  archivePosition.current?.studyId === session
+                )
+                  navigateWithinDesk(event, "studies-title");
+              }}
+            >
+              Studies
+            </a>
+            <a
+              href={researchDecisionsUrl}
+              aria-current={deskView === "decisions" ? "page" : undefined}
+              onClick={(event) => {
+                if (
+                  showingDraft ||
+                  returningToDraft ||
+                  decisionPosition.current?.studyId === session
+                )
+                  navigateWithinDesk(event, decisionsTitle);
+              }}
+            >
+              Decisions
+            </a>
+            <a
+              href={methodologyUrl}
+              aria-current={deskView === "methodology" ? "page" : undefined}
+              onClick={
+                draftScope !== undefined
+                  ? (event) => navigateWithinDesk(event, methodologyTitle)
+                  : undefined
+              }
+            >
               Methodology
             </a>
-            <a href="?view=workflow">Workflows</a>
-            <a href="?view=evidence">Sources</a>
-            <a href="?view=reports">Reports</a>
+            <a href="?view=workflow" {...keepQueuedFilesLinkProps}>
+              Workflows
+            </a>
+            <a href="?view=evidence" {...keepQueuedFilesLinkProps}>
+              Sources
+            </a>
+            <a href="?view=reports" {...keepQueuedFilesLinkProps}>
+              Reports
+            </a>
           </nav>
           <AccessControls key={active ? "active" : "locked"} />
         </div>
       </header>
-      {session ? (
-        <ResearchSession
-          runId={session}
-          onNewStudy={(source) => {
-            window.location.assign(
-              source ? `?fromSession=${encodeURIComponent(source)}` : "?view=research",
-            );
-          }}
-        />
-      ) : methodology ? (
-        <ResearchMethodology />
-      ) : (
-        <main className={styles.page}>
-          <ResearchLauncher fromSession={fromSession} />
-          <RecentStudies />
+      {draftScope !== undefined && (
+        <main className={styles.page} hidden={!showingDraft}>
+          {showingDraft && !draftScope && (
+            <ResearchReviewQueue
+              summary
+              onOpenDecision={(event) => navigateWithinDesk(event)}
+              onViewQueue={(event) => navigateWithinDesk(event, decisionsTitle)}
+            />
+          )}
+          <Activity mode={showingDraft ? "visible" : "hidden"}>
+            <ResearchLauncher
+              key={draftScope ?? "new"}
+              fromSession={draftScope}
+              onQueuedFiles={onQueuedFiles}
+              onOpenPreviousStudy={(event) => navigateWithinDesk(event, readerTitle)}
+              recentStudies={recent.studies}
+              sourceAppend={sourceAppend?.scope === draftScope ? sourceAppend : undefined}
+              onSourceAppendHandled={(handled) =>
+                setSourceAppend((current) => (current === handled ? undefined : current))
+              }
+            />
+          </Activity>
+          {showingDraft && (
+            <RecentStudies
+              {...recent}
+              onOpenStudy={(event, study) => navigateWithinDesk(event, readerTitle, study)}
+              getReturnPosition={getArchiveReturnPosition}
+            />
+          )}
         </main>
       )}
+      {visitedDecisions && (
+        <main className={styles.page} hidden={!showingDecisions}>
+          <ResearchReviewQueue
+            visible={showingDecisions}
+            onOpenDecision={openQueuedDecision}
+            takeReturnPosition={takeDecisionReturnPosition}
+            headingAction={
+              draftScope !== undefined && (
+                <a
+                  className="button"
+                  href={returnToDraft}
+                  onClick={(event) => navigateWithinDesk(event, "research-title")}
+                >
+                  Return to study setup
+                </a>
+              )
+            }
+          />
+        </main>
+      )}
+      {session ? (
+        <Suspense
+          fallback={
+            <main className={styles.page}>
+              <h1>Research session</h1>
+              <p role="status">Opening the research session…</p>
+            </main>
+          }
+        >
+          <ResearchSession
+            runId={session}
+            titleRef={focusReaderTitle}
+            openWorkbenchInNewTab={readingWithDraft}
+            onOpenBaseline={
+              readingWithDraft ? (event) => navigateWithinDesk(event, readerTitle) : undefined
+            }
+            onReuseSource={active && readingWithDraft ? appendArchivedSource : undefined}
+            openRevisitInNewTab={readingWithDraft && !revisitMatchesDraft}
+            revisitSetup={
+              revisitMatchesDraft
+                ? {
+                    href: returnToDraft,
+                    onClick: (event) => navigateWithinDesk(event, "research-title"),
+                  }
+                : undefined
+            }
+          />
+        </Suspense>
+      ) : deskView === "methodology" ? (
+        <Suspense
+          fallback={
+            <main className={styles.page}>
+              <h1>Methodology</h1>
+              <p role="status">Opening the research methodology…</p>
+            </main>
+          }
+        >
+          <ResearchMethodology
+            titleRef={focusMethodologyTitle}
+            setupHref={learningWithDraft ? returnToDraft : undefined}
+            onReturn={
+              learningWithDraft ? (event) => navigateWithinDesk(event, "research-title") : undefined
+            }
+          />
+        </Suspense>
+      ) : deskView === "studies" ? (
+        <main className={styles.page}>
+          <section className={styles.studies} aria-labelledby="studies-title">
+            <div className={styles.studiesHeading}>
+              <h1 id="studies-title" tabIndex={-1}>
+                Studies
+              </h1>
+              <a
+                className="button"
+                href={returnToDraft}
+                onClick={(event) => navigateWithinDesk(event, "research-title")}
+              >
+                {draftScope !== undefined ? "Return to study setup" : "New study"}
+              </a>
+            </div>
+            <RunArchive
+              sessionsOnly
+              expanded
+              onOpenLink={(event, study) => navigateWithinDesk(event, readerTitle, study)}
+              getReturnPosition={getArchiveReturnPosition}
+            />
+          </section>
+        </main>
+      ) : null}
     </div>
   );
 }

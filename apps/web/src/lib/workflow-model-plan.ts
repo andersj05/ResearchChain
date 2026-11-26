@@ -11,7 +11,11 @@ type ResearchConfig = Extract<NonNullable<WorkflowNode["config"]>, { type: "rese
 
 export function researchToolLabels(config: ResearchConfig) {
   return [
-    config.analyst ? `Codex analyst, up to ${config.analyst.max_passes ?? 4} passes` : "",
+    config.analyst
+      ? config.analyst.max_passes === null
+        ? "Codex analyst, as needed"
+        : `Codex analyst, up to ${config.analyst.max_passes ?? 4} passes`
+      : "",
     config.analyst?.workspace ? "Python execution and saved files" : "",
     config.web_search === "auto"
       ? "optional web search"

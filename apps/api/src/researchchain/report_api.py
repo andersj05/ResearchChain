@@ -1,15 +1,16 @@
 """Editorial APIs never invoke a provider or publish reports."""
 
-from typing import Any
+from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import Response
 
 from researchchain.database import Database
 from researchchain.report_export import export_report
 from researchchain.report_models import (
     ReportCreate,
+    ReportDraftSources,
     ReportFeedback,
     ReportFeedbackCreate,
     ReportRevision,
@@ -57,8 +58,16 @@ def report_router(database: Database) -> APIRouter:
         return styles.get(key)
 
     @router.get("/reports", operation_id="list_reports")
-    def list_reports() -> list[ReportSummary]:
-        return reports.list()
+    def list_reports(
+        study_run_id: UUID | None = None,
+        study_attempt_id: UUID | None = None,
+        search: Annotated[str, Query(max_length=200, pattern=r"^[^\x00]*$")] = "",
+    ) -> list[ReportSummary]:
+        if study_run_id is None and study_attempt_id is None:
+            return reports.list(search=search)
+        if study_run_id is None or study_attempt_id is None:
+            raise HTTPException(422, "Supply both the study and its saved editor attempt.")
+        return reports.list(study_origin=(study_run_id, study_attempt_id), search=search)
 
     @router.post("/reports", status_code=201, operation_id="create_report")
     def create_report(request: ReportCreate) -> ReportRevision:
@@ -67,6 +76,12 @@ def report_router(database: Database) -> APIRouter:
     @router.post("/reports/revisions", status_code=201, operation_id="save_report_revision")
     def save_report(request: ReportSave) -> ReportRevision:
         return reports.save(request)
+
+    @router.get("/reports/draft-sources", operation_id="read_report_draft_sources")
+    def read_draft_sources(
+        evidence_id: Annotated[list[UUID], Query(min_length=1, max_length=100)],
+    ) -> ReportDraftSources:
+        return reports.draft_sources(evidence_id)
 
     @router.get("/reports/{key}", operation_id="get_report")
     def get_report(key: UUID) -> ReportView:

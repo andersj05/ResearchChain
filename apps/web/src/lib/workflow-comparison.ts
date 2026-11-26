@@ -100,7 +100,10 @@ function stepSettings(node: WorkflowNode | undefined, graph: Graph | undefined) 
       "Web and market search": config.web_search ?? false,
       "SEC financials": config.sec_financials ?? false,
       "Codex analyst": Boolean(config.analyst),
-      "Research passes": config.analyst ? (config.analyst.max_passes ?? 4) : undefined,
+      "Research passes":
+        config.analyst?.max_passes === null
+          ? "As needed"
+          : config.analyst && (config.analyst.max_passes ?? 4),
       "Python workspace": config.analyst?.workspace ?? false,
       "Analyst instructions": config.analyst?.skill ?? "",
     };

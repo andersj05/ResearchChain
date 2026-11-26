@@ -36,14 +36,17 @@ def test_independent_consultations_resume_the_right_lead_across_workers(
             return normal
 
         def execute(state):
+            answered = {}
             first_round = request_perspectives(
-                request.id, node.id, [question(1, 2), question(2, 2)]
+                request.id, node.id, [question(1, 2), question(2, 2)], answered
             )
             assert list(first_round) == [question(2, 2).action_path]
             # The second lead advances while the first lead is still waiting.
-            next_round = request_perspectives(request.id, node.id, [question(1, 2), question(2, 4)])
+            next_round = request_perspectives(
+                request.id, node.id, [question(1, 2), question(2, 4)], answered
+            )
             assert list(next_round) == [question(1, 2).action_path]
-            last_round = request_perspectives(request.id, node.id, [question(2, 4)])
+            last_round = request_perspectives(request.id, node.id, [question(2, 4)], answered)
             received.append({**first_round, **next_round, **last_round})
             return normal(state)
 

@@ -519,10 +519,10 @@ export function NodeConfiguration({
                             analyst: {
                               ...analyst,
                               workspace: event.target.checked,
-                              max_passes: Math.max(
-                                event.target.checked ? 2 : 1,
-                                analyst.max_passes ?? 4,
-                              ),
+                              max_passes:
+                                analyst.max_passes === null
+                                  ? null
+                                  : Math.max(event.target.checked ? 2 : 1, analyst.max_passes ?? 4),
                             },
                           },
                         })
@@ -562,7 +562,8 @@ export function NodeConfiguration({
                       type="number"
                       min={analyst.workspace ? 2 : 1}
                       max={100}
-                      value={analyst.max_passes ?? 4}
+                      value={analyst.max_passes === null ? "" : (analyst.max_passes ?? 4)}
+                      placeholder={analyst.max_passes === null ? "As needed" : undefined}
                       onChange={(event) =>
                         onEdit(
                           {
@@ -586,8 +587,9 @@ export function NodeConfiguration({
                   {analyst.workspace && (
                     <div>
                       <p className="field-hint">
-                        This run allows {workflow.budgets?.max_active_seconds ?? 120} active
-                        seconds,{" "}
+                        This run allows{" "}
+                        {workflow.budgets?.max_active_seconds !== null &&
+                          `${workflow.budgets?.max_active_seconds ?? 120} active seconds, `}
                         {workflow.research?.limits?.max_response_seconds ??
                           researchDefaults.limits.max_response_seconds}{" "}
                         seconds per response and{" "}

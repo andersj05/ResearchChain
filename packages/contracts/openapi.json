@@ -517,6 +517,23 @@
               ],
               "title": "Availability"
             }
+          },
+          {
+            "name": "kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": ["link", "report", "discussion", "image", "dataset", "text"],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
           }
         ],
         "responses": {
@@ -1519,17 +1536,75 @@
       "get": {
         "summary": "List Reports",
         "operationId": "list_reports",
+        "parameters": [
+          {
+            "name": "study_run_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Study Run Id"
+            }
+          },
+          {
+            "name": "study_attempt_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Study Attempt Id"
+            }
+          },
+          {
+            "name": "search",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200,
+              "pattern": "^[^\\x00]*$",
+              "default": "",
+              "title": "Search"
+            }
+          }
+        ],
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
+                  "type": "array",
                   "items": {
                     "$ref": "#/components/schemas/ReportSummary"
                   },
-                  "type": "array",
                   "title": "Response List Reports"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -1540,14 +1615,14 @@
         "summary": "Create Report",
         "operationId": "create_report",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ReportCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "201": {
@@ -1594,6 +1669,51 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ReportRevision"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/reports/draft-sources": {
+      "get": {
+        "summary": "Read Draft Sources",
+        "operationId": "read_report_draft_sources",
+        "parameters": [
+          {
+            "name": "evidence_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "minItems": 1,
+              "maxItems": 100,
+              "title": "Evidence Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReportDraftSources"
                 }
               }
             }
@@ -2727,6 +2847,56 @@
         }
       }
     },
+    "/api/research-sessions/{run_id}/write-report": {
+      "post": {
+        "summary": "Request Research Session Report",
+        "operationId": "request_research_session_report",
+        "parameters": [
+          {
+            "name": "run_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Run Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OwnerReportRequestInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerReportRequest"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/research-sessions/{run_id}/report.zip": {
       "get": {
         "summary": "Download Session Report",
@@ -2982,6 +3152,16 @@
               ],
               "title": "Agent Id"
             }
+          },
+          {
+            "name": "sessions_only",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Sessions Only"
+            }
           }
         ],
         "responses": {
@@ -3114,6 +3294,23 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/RunRecoveryRequest"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Request"
+              }
+            }
+          }
+        },
         "responses": {
           "202": {
             "description": "Successful Response",
@@ -3307,9 +3504,16 @@
       "AnalystConfig": {
         "properties": {
           "max_passes": {
-            "type": "integer",
-            "maximum": 100.0,
-            "minimum": 1.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 100.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Passes",
             "default": 4
           },
@@ -3737,7 +3941,7 @@
           },
           "kind": {
             "type": "string",
-            "enum": ["start", "resume"],
+            "enum": ["start", "resume", "recover"],
             "title": "Kind"
           },
           "accepted_at": {
@@ -6024,9 +6228,16 @@
             "default": 256
           },
           "max_active_seconds": {
-            "type": "number",
-            "maximum": 3600.0,
-            "exclusiveMinimum": 0.0,
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 3600.0,
+                "exclusiveMinimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Active Seconds",
             "default": 120
           },
@@ -6465,6 +6676,28 @@
             ],
             "title": "Reason"
           },
+          "provider_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProviderFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "superseded_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Superseded At"
+          },
           "result": {
             "anyOf": [
               {
@@ -6639,6 +6872,18 @@
             "minLength": 1,
             "title": "Text"
           },
+          "target_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^root/team/lead-[1-4](/agent-([1-9]|1[0-9]|20))?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Path"
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -6662,12 +6907,67 @@
             "maxLength": 3000,
             "minLength": 1,
             "title": "Text"
+          },
+          "target_path": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^root/team/lead-[1-4](/agent-([1-9]|1[0-9]|20))?$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Target Path"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": ["id", "text"],
         "title": "OwnerDirectionInput"
+      },
+      "OwnerReportRequest": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "title": "Text",
+            "default": ""
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id", "created_at"],
+        "title": "OwnerReportRequest"
+      },
+      "OwnerReportRequestInput": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 3000,
+            "title": "Text",
+            "default": ""
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["id"],
+        "title": "OwnerReportRequestInput"
       },
       "OwnerSession": {
         "properties": {
@@ -6793,6 +7093,17 @@
           "brief_excerpt": {
             "type": "string",
             "title": "Brief Excerpt"
+          },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
           },
           "created_at": {
             "type": "string",
@@ -6971,6 +7282,56 @@
         "type": "object",
         "required": ["id", "label", "signed_in", "plan_enabled", "active"],
         "title": "ProviderAccount"
+      },
+      "ProviderFailure": {
+        "properties": {
+          "http_status": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 599.0,
+                "minimum": 100.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Http Status"
+          },
+          "source": {
+            "type": "string",
+            "enum": ["http", "stream"],
+            "title": "Source"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_.:/\\[\\]-]{1,200}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^[a-zA-Z0-9_.:/\\[\\]-]{1,200}$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Request Id"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["source"],
+        "title": "ProviderFailure"
       },
       "ProviderModel": {
         "properties": {
@@ -7158,6 +7519,17 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -7271,12 +7643,49 @@
             "type": "string",
             "format": "uuid",
             "title": "Style Guide Id"
+          },
+          "source_format": {
+            "anyOf": [
+              {
+                "type": "string",
+                "const": "session_markdown"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Source Format"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": ["id", "title", "run_id", "attempt_id", "style_guide_id"],
         "title": "ReportCreate"
+      },
+      "ReportDraftSources": {
+        "properties": {
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/EvidenceRecord"
+            },
+            "type": "array",
+            "title": "Sources"
+          },
+          "source_bases": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "propertyNames": {
+              "format": "uuid"
+            },
+            "type": "object",
+            "title": "Source Bases"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": ["sources", "source_bases"],
+        "title": "ReportDraftSources"
       },
       "ReportEdit": {
         "properties": {
@@ -7548,9 +7957,16 @@
           },
           "renderer": {
             "type": "string",
-            "const": "report-seed-1",
+            "enum": ["report-seed-1", "study-markdown-1"],
             "title": "Renderer",
             "default": "report-seed-1"
+          },
+          "recorded_urls": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Recorded Urls"
           }
         },
         "additionalProperties": false,
@@ -8182,6 +8598,19 @@
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "pattern": "^[^\\x00\\r\\n]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "start_from_sources": {
             "type": "boolean",
             "title": "Start From Sources",
@@ -8287,16 +8716,30 @@
             "default": 3
           },
           "max_passes": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 2.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Passes",
             "default": 6
           },
           "max_active_seconds": {
-            "type": "integer",
-            "maximum": 3600.0,
-            "minimum": 60.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3600.0,
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Active Seconds",
             "default": 1800
           },
@@ -8337,6 +8780,19 @@
             "pattern": "^[^\\x00]*$",
             "title": "Brief"
           },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 160,
+                "pattern": "^[^\\x00\\r\\n]*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
           "start_from_sources": {
             "type": "boolean",
             "title": "Start From Sources",
@@ -8442,16 +8898,30 @@
             "default": 3
           },
           "max_passes": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 2.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Passes",
             "default": 6
           },
           "max_active_seconds": {
-            "type": "integer",
-            "maximum": 3600.0,
-            "minimum": 60.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 3600.0,
+                "minimum": 60.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Active Seconds",
             "default": 1800
           },
@@ -9082,6 +9552,30 @@
         "required": ["node_id", "label", "kind", "detail"],
         "title": "RunEvent"
       },
+      "RunRecoveryRequest": {
+        "properties": {
+          "failed_command_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Command Id"
+          },
+          "confirm_unrecorded": {
+            "type": "boolean",
+            "title": "Confirm Unrecorded",
+            "default": false
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "RunRecoveryRequest"
+      },
       "RunRequest": {
         "properties": {
           "agent_id": {
@@ -9202,6 +9696,17 @@
             "type": "string",
             "title": "Workflow Name"
           },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
+          },
           "status": {
             "type": "string",
             "enum": [
@@ -9222,6 +9727,29 @@
             "format": "date-time",
             "title": "Created At"
           },
+          "recovery_command_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Command Id"
+          },
+          "recovery_requires_confirmation": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recovery Requires Confirmation"
+          },
           "perspective_answers": {
             "items": {
               "$ref": "#/components/schemas/PerspectiveAnswer"
@@ -9235,6 +9763,27 @@
             },
             "type": "array",
             "title": "Owner Directions"
+          },
+          "owner_report_request": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OwnerReportRequest"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "can_request_report": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Can Request Report"
           },
           "execution_pending": {
             "type": "boolean",
@@ -9414,6 +9963,17 @@
           "workflow_name": {
             "type": "string",
             "title": "Workflow Name"
+          },
+          "study_title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Study Title"
           },
           "status": {
             "type": "string",
@@ -10348,9 +10908,16 @@
             "default": 4
           },
           "max_lead_turns": {
-            "type": "integer",
-            "maximum": 12.0,
-            "minimum": 2.0,
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 12.0,
+                "minimum": 2.0
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Max Lead Turns",
             "default": 6
           },

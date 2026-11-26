@@ -25,7 +25,12 @@ from researchchain.graph import (
 from researchchain.graph import (
     WorkflowNode as WorkflowNode,
 )
-from researchchain.research_models import ModelAttempt, OwnerDirection, ResearchManifest
+from researchchain.research_models import (
+    ModelAttempt,
+    OwnerDirection,
+    OwnerReportRequest,
+    ResearchManifest,
+)
 
 
 class RevisionSummary(StrictModel):
@@ -116,6 +121,7 @@ class PendingReviewRun(StrictModel):
     agent_name: str | None
     workflow_name: str
     brief_excerpt: str
+    study_title: str | None = Field(default=None, exclude_if=lambda title: title is None)
     created_at: datetime
     checkpoint_id: str
     reviews: list[ReviewPrompt]
@@ -146,6 +152,7 @@ class RunSummary(StrictModel):
     revision_id: UUID
     revision_number: int
     workflow_name: str
+    study_title: str | None = Field(default=None, exclude_if=lambda title: title is None)
     status: RunStatus
     created_at: datetime
 
@@ -205,10 +212,18 @@ class CheckpointStep(StrictModel):
 
 
 class RunSnapshot(RunSummary):
+    recovery_command_id: UUID | None = Field(default=None, exclude_if=lambda x: x is None)
+    recovery_requires_confirmation: bool | None = Field(
+        default=None, exclude_if=lambda value: not value
+    )
     perspective_answers: list[PerspectiveAnswer] = Field(
         default_factory=list, exclude_if=lambda x: not x
     )
     owner_directions: list[OwnerDirection] = Field(default_factory=list, exclude_if=lambda x: not x)
+    owner_report_request: OwnerReportRequest | None = Field(
+        default=None, exclude_if=lambda x: x is None
+    )
+    can_request_report: bool | None = Field(default=None, exclude_if=lambda value: not value)
     execution_pending: bool = Field(
         default=False, description="An accepted command is still queued or held by a worker."
     )

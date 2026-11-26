@@ -1,8 +1,12 @@
 import type { components } from "@researchchain/contracts";
+import type { EvidenceRecord } from "./evidence";
 import type { ModelOverride, ModelProfile, ProviderModel } from "./model-settings";
 
 export type ResearchSessionSetup = components["schemas"]["ResearchSessionSetup"];
 export type ResearchSessionStart = components["schemas"]["ResearchSessionStart"];
+export const sourceLedBrief = "Source-led study";
+export const studySourceLimit = 100;
+export type ArchivedSourceAppend = { scope: string | null; source: EvidenceRecord };
 export type SwarmSettings = NonNullable<ResearchSessionSetup["swarm"]>;
 export const initialSwarm: Required<SwarmSettings> = {
   lead_count: 2,
@@ -11,6 +15,7 @@ export const initialSwarm: Required<SwarmSettings> = {
   max_lead_turns: 6,
   allow_consultations: true,
 };
+export const defaultSwarm: Required<SwarmSettings> = { ...initialSwarm, max_lead_turns: null };
 export type ResearchBrief = Required<
   Pick<
     ResearchSessionSetup,
@@ -29,9 +34,22 @@ export type ResearchBrief = Required<
     ResearchSessionSetup,
     "reasoning_effort" | "verbosity" | "lead" | "researcher" | "editor" | "swarm"
   > &
-  Partial<Pick<ResearchSessionSetup, "start_from_sources" | "max_input_bytes">>;
+  Partial<Pick<ResearchSessionSetup, "title" | "start_from_sources" | "max_input_bytes">>;
 
 export const blankResearchBrief: ResearchBrief = {
+  brief: "",
+  style_excerpt: "",
+  model: "",
+  evidence_ids: [],
+  max_agents: 3,
+  max_passes: null,
+  max_active_seconds: null,
+  web_search: true,
+  review_mode: "when_needed",
+  swarm: defaultSwarm,
+};
+
+const legacyBlankResearchBrief: ResearchBrief = {
   brief: "",
   style_excerpt: "",
   model: "",
@@ -45,6 +63,14 @@ export const blankResearchBrief: ResearchBrief = {
 
 const leadModel = "gpt-6.2-astra";
 const researcherModel = "gpt-6.2-sol";
+const legacyHydratedResearchBrief: ResearchBrief = {
+  ...legacyBlankResearchBrief,
+  model: researcherModel,
+  reasoning_effort: "high",
+  verbosity: "high",
+  lead: { model: leadModel },
+  researcher: { model: researcherModel },
+};
 
 function highSettings(model: ProviderModel): Omit<ModelProfile, "model"> {
   return {
@@ -81,15 +107,13 @@ export function newStudyModelProfiles(models: readonly ProviderModel[], fallback
     ...settings,
     lead: role(leadModel),
     researcher: role(researcherModel),
+    editor: role(leadModel),
   };
 }
 
-export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
+export function reusableResearchSettings(source: ResearchSessionSetup) {
   return {
-    brief: source.start_from_sources && source.brief === "Source-led study" ? "" : source.brief,
-    ...(source.start_from_sources && { start_from_sources: true }),
     max_input_bytes: source.max_input_bytes ?? 4_000_000,
-    style_excerpt: source.style_excerpt ?? "",
     model: source.model,
     reasoning_effort: source.reasoning_effort,
     verbosity: source.verbosity,
@@ -97,10 +121,20 @@ export function editableResearchBrief(source: ResearchSessionSetup): ResearchBri
     researcher: source.researcher,
     editor: source.editor,
     swarm: source.swarm,
-    evidence_ids: source.evidence_ids ?? [],
     max_agents: source.max_agents ?? blankResearchBrief.max_agents,
     max_passes: source.max_passes ?? blankResearchBrief.max_passes,
-    max_active_seconds: source.max_active_seconds ?? blankResearchBrief.max_active_seconds,
+    max_active_seconds: blankResearchBrief.max_active_seconds,
+  };
+}
+
+export function editableResearchBrief(source: ResearchSessionSetup): ResearchBrief {
+  return {
+    ...reusableResearchSettings(source),
+    brief: source.start_from_sources && source.brief === sourceLedBrief ? "" : source.brief,
+    ...(source.title && { title: source.title }),
+    ...(source.start_from_sources && { start_from_sources: true }),
+    style_excerpt: source.style_excerpt ?? "",
+    evidence_ids: source.evidence_ids ?? [],
     web_search: source.web_search ?? false,
     review_mode: source.review_mode ?? "when_needed",
   };
@@ -116,23 +150,34 @@ type SavedBrief = {
 const uuid = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i;
 
 export function initializeResearchBrief(saved: SavedBrief | null, fromSession: string | null) {
-  const draft = saved?.draft ?? blankResearchBrief;
   // Older desks saved their untouched empty form as soon as it opened. An explicit
   // null role or capability still records an owner choice and adds a key.
-  const fields = Object.keys(blankResearchBrief) as (keyof ResearchBrief)[];
   const untouched =
-    Object.keys(draft).length === fields.length &&
-    fields.every((key) =>
-      key === "evidence_ids"
-        ? draft.evidence_ids.length === 0
-        : draft[key] === blankResearchBrief[key],
-    );
+    !!saved &&
+    !fromSession &&
+    !saved.pending &&
+    [blankResearchBrief, legacyBlankResearchBrief, legacyHydratedResearchBrief].some((blank) => {
+      const fields = Object.keys(blank) as (keyof ResearchBrief)[];
+      return (
+        Object.keys(saved.draft).length === fields.length &&
+        fields.every((key) => JSON.stringify(saved.draft[key]) === JSON.stringify(blank[key]))
+      );
+    });
+  const draft = !saved || untouched ? blankResearchBrief : saved.draft;
+  const deskDraft = saved?.pending
+    ? draft
+    : { ...draft, swarm: draft.swarm ?? defaultSwarm, max_active_seconds: null };
   const awaitingModelCatalog =
     !fromSession && !saved?.pending && (!saved || !!saved.awaitingModelCatalog || untouched);
   return {
     draft: awaitingModelCatalog
-      ? { ...draft, lead: { model: leadModel }, researcher: { model: researcherModel } }
-      : draft,
+      ? {
+          ...deskDraft,
+          lead: { model: leadModel },
+          researcher: { model: researcherModel },
+          editor: { model: leadModel },
+        }
+      : deskDraft,
     awaitingModelCatalog,
   };
 }
@@ -141,15 +186,18 @@ function validDraft(value: ResearchBrief) {
   return (
     value &&
     typeof value.brief === "string" &&
+    (value.title == null || (typeof value.title === "string" && value.title.length <= 160)) &&
     (value.start_from_sources === undefined || typeof value.start_from_sources === "boolean") &&
     value.brief.length <= 10000 &&
     typeof value.style_excerpt === "string" &&
     value.style_excerpt.length <= 32000 &&
     typeof value.model === "string" &&
     Array.isArray(value.evidence_ids) &&
-    value.evidence_ids.length <= 100 &&
+    value.evidence_ids.length <= studySourceLimit &&
     value.evidence_ids.every((id) => typeof id === "string" && uuid.test(id)) &&
-    [value.max_agents, value.max_passes, value.max_active_seconds].every(Number.isInteger) &&
+    Number.isInteger(value.max_agents) &&
+    (value.max_passes === null || Number.isInteger(value.max_passes)) &&
+    (value.max_active_seconds === null || Number.isInteger(value.max_active_seconds)) &&
     typeof value.web_search === "boolean" &&
     ["when_needed", "always", "never"].includes(value.review_mode)
   );

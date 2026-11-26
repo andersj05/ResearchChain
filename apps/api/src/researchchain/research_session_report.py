@@ -6,14 +6,16 @@ from psycopg import Connection
 from psycopg.rows import DictRow
 
 from researchchain.artifacts import read_content
-from researchchain.research_models import StoredResearchResult
-from researchchain.research_prompt import PreparedResearch
+from researchchain.research_models import OwnerReportRequest, StoredResearchResult
+from researchchain.research_prompt import PreparedResearch, json_bytes
 from researchchain.research_workspace import save_files
 
 REPORT_VERSION = "editor-markdown-1"
 
 
-def prepare_editor(prepared: PreparedResearch, limit: int) -> None:
+def prepare_editor(
+    prepared: PreparedResearch, limit: int, request: OwnerReportRequest | None = None
+) -> None:
     prepared.instructions += (
         "\nDeliver the complete report as report.md. If you have already saved it in your Python "
         "workspace, set report_markdown to null. You may instead put the complete Markdown text "
@@ -24,6 +26,16 @@ def prepare_editor(prepared: PreparedResearch, limit: int) -> None:
         "anyOf": [{"type": "string", "minLength": 1, "maxLength": limit}, {"type": "null"}]
     }
     prepared.schema["required"].append("report_markdown")
+    if request:
+        prepared.instructions += (
+            "\nThe owner requested a report from the available findings. Follow their editorial "
+            "direction in owner_report_request. Identify material unfinished assignments and "
+            "unanswered questions as limitations. Base claims on the confirmed receipts."
+        )
+        packet = json_bytes({"owner_report_request": request.model_dump(mode="json")}).decode()
+        prepared.input_items.append(
+            {"role": "user", "content": [{"type": "input_text", "text": packet}]}
+        )
 
 
 def editor_output(text: str, limit: int) -> tuple[str, bytes | None]:

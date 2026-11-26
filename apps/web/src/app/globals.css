@@ -1753,6 +1753,19 @@ td time {
 .source-list > label {
   margin-top: 0;
 }
+.source-list-filters {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(120px, 100%), 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+.source-list-filters label {
+  margin: 0;
+  min-width: 0;
+}
+.clear-source-filters {
+  margin-top: 8px;
+}
 .source-list > .muted {
   margin: 20px 0;
 }
@@ -2530,6 +2543,15 @@ td time {
   min-height: 100%;
   background: var(--surface);
 }
+@media (max-width: 420px) {
+  .report-desk > .evidence-header {
+    padding: 16px 12px;
+    gap: 12px;
+  }
+  .report-desk > .evidence-header > .actions {
+    gap: 6px;
+  }
+}
 .report-desk h2 {
   font-size: 20px;
   letter-spacing: -0.03em;
@@ -2626,6 +2648,28 @@ td time {
 .report-fields label {
   margin-top: 0;
 }
+.report-outline-search {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 12px;
+  margin-top: 20px;
+}
+.report-outline-search label {
+  margin: 0;
+  flex: 1 1 180px;
+  min-width: 0;
+}
+.report-outline-search button {
+  min-height: 36px;
+}
+.report-outline-search + .report-outline {
+  margin-top: 8px;
+}
+.report-outline-empty {
+  padding: 10px 0;
+  color: var(--muted);
+}
 .report-outline {
   max-height: 260px;
   overflow-y: auto;
@@ -2649,12 +2693,37 @@ td time {
   color: var(--blue);
   box-shadow: inset 2px 0 var(--blue);
 }
+.report-back-to-sections {
+  display: none;
+}
 .report-body {
   min-height: 400px;
   font-size: 15px;
   line-height: 1.75;
   padding: 18px;
   resize: vertical;
+}
+.report-section-text-controls {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 20px;
+}
+.report-section-text-controls label {
+  margin-top: 0;
+}
+.report-section-draft-preview {
+  max-height: min(60dvh, 460px);
+  overflow: auto;
+  margin-top: 7px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+.report-section-draft-preview > h3 {
+  margin: 0 0 12px;
 }
 .report-prose {
   white-space: pre-wrap;
@@ -2807,6 +2876,9 @@ td time {
   }
   .report-fields {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .report-back-to-sections {
+    display: inline-flex;
   }
   .report-banner,
   .report-save-state {
@@ -3655,6 +3727,25 @@ td time {
   }
   .library-button span {
     overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 480px) {
+  .workspace-tabs {
+    gap: 4px;
+  }
+  .workspace-tabs [role="tab"] {
+    flex: 1 0 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 360px) {
+  .workspace-tabs {
+    gap: 0;
+  }
+  .workspace-tabs [role="tab"] {
+    padding-inline: 0;
   }
 }
 

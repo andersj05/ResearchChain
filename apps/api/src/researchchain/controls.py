@@ -10,6 +10,8 @@ from psycopg.rows import DictRow
 from researchchain.compiler import ExecutionStopped
 from researchchain.graph import ExecutionBudgets
 
+ACTIVE_TIME_LIMIT_REASON = "Active execution time limit reached."
+
 
 class ExecutionControl:
     def __init__(
@@ -57,8 +59,9 @@ class ExecutionControl:
                 raise ExecutionStopped(
                     row["reason"] or "Run is already terminal.", row["terminal_status"]
                 )
-            if row["elapsed"] >= self.budgets.max_active_seconds:
-                raise ExecutionStopped("Active execution time limit reached.")
+            time_limit = self.budgets.max_active_seconds
+            if time_limit is not None and row["elapsed"] >= time_limit:
+                raise ExecutionStopped(ACTIVE_TIME_LIMIT_REASON)
             if count and not row["already_counted"]:
                 if row["executions"] >= self.budgets.max_node_executions:
                     raise ExecutionStopped("Node execution limit reached.")
@@ -71,7 +74,7 @@ class ExecutionControl:
 
 def control_state(conn: Connection[DictRow], run_id: UUID) -> dict[str, Any]:
     row = conn.execute(
-        "SELECT terminal_status, reason, owner_directions, active_seconds + "
+        "SELECT terminal_status, reason, owner_directions, owner_report_request, active_seconds + "
         "COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0) AS active_seconds, "
         "(SELECT count(*) FROM run_node_executions WHERE run_id = %s) AS node_executions "
         "FROM run_controls WHERE run_id = %s",

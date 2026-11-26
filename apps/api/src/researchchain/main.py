@@ -26,7 +26,7 @@ from researchchain.agents import AgentStore
 from researchchain.artifacts import EvidenceError
 from researchchain.database import Database
 from researchchain.dispatch import RunQueue
-from researchchain.dispatch_models import CommandReceipt, DispatchError
+from researchchain.dispatch_models import CommandReceipt, DispatchError, RunRecoveryRequest
 from researchchain.evaluation_api import evaluation_router
 from researchchain.evidence_api import evidence_router
 from researchchain.models import (
@@ -53,7 +53,13 @@ from researchchain.registry import NodeTypeSpec, node_types
 from researchchain.report_api import ZIP_RESPONSE, report_router, zip_download
 from researchchain.research import ResearchProvider
 from researchchain.research_directions import record_direction
-from researchchain.research_models import OwnerDirection, OwnerDirectionInput, ProviderStatus
+from researchchain.research_models import (
+    OwnerDirection,
+    OwnerDirectionInput,
+    OwnerReportRequest,
+    OwnerReportRequestInput,
+    ProviderStatus,
+)
 from researchchain.research_session_export import export_session_report
 from researchchain.research_sessions import (
     ResearchSessionSetup,
@@ -304,6 +310,16 @@ def create_app(
     ) -> OwnerDirection:
         return record_direction(runs.database, run_id, request)
 
+    @app.post(
+        "/api/research-sessions/{run_id}/write-report",
+        response_model=OwnerReportRequest,
+        operation_id="request_research_session_report",
+    )
+    def request_research_session_report(
+        run_id: UUID, request: OwnerReportRequestInput
+    ) -> OwnerReportRequest:
+        return queue.request_report(run_id, request)
+
     @app.get(
         "/api/research-sessions/{run_id}/report.zip",
         operation_id="export_research_session_report",
@@ -330,8 +346,9 @@ def create_app(
         limit: Annotated[int, Query(ge=1, le=50)] = 20,
         offset: Annotated[int, Query(ge=0, le=2_147_483_647)] = 0,
         agent_id: UUID | None = None,
+        sessions_only: bool = False,
     ) -> PendingReviewsPage:
-        return runs.pending_reviews(limit, offset, agent_id)
+        return runs.pending_reviews(limit, offset, agent_id, sessions_only=sessions_only)
 
     @app.get("/api/runs/{run_id}", response_model=RunSnapshot, operation_id="get_run")
     def get_run(run_id: UUID) -> RunSnapshot:
@@ -352,8 +369,12 @@ def create_app(
         status_code=202,
         operation_id="recover_run",
     )
-    def recover_run(run_id: UUID) -> CommandReceipt:
-        return queue.recover(run_id)
+    def recover_run(run_id: UUID, request: RunRecoveryRequest | None = None) -> CommandReceipt:
+        return queue.recover(
+            run_id,
+            request.failed_command_id if request else None,
+            confirm_unrecorded=request.confirm_unrecorded if request else False,
+        )
 
     @app.post("/api/runs/{run_id}/cancel", response_model=CancelResult, operation_id="cancel_run")
     def cancel_run(run_id: UUID) -> CancelResult:

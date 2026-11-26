@@ -159,7 +159,7 @@ for (const width of [1280, 390]) {
       "href",
       `/?session=${recent.id}`,
     );
-    await expect(page.getByRole("checkbox", { name: "Allow live web search" })).not.toBeChecked();
+    await expect(page.getByRole("checkbox", { name: "Allow live web search" })).toBeChecked();
     await expect(start).toBeDisabled();
     await brief.fill(
       "Trace which synthetic credit series anticipate a rotation and produce a chart.",
@@ -181,9 +181,10 @@ for (const width of [1280, 390]) {
     await page.getByRole("searchbox", { name: "Search evidence library" }).fill(title);
     await page.getByRole("checkbox", { name: new RegExp(title) }).check();
 
-    await page.getByLabel("Maximum research agents").selectOption("2");
+    await page.getByLabel("Research leads").selectOption("3");
+    await page.getByText("Optional execution limits", { exact: true }).click();
     await page.getByLabel("Passes per agent").fill("5");
-    await page.getByLabel("Active time limit (seconds)").fill("1200");
+    await expect(page.getByLabel("Active time limit (seconds)")).toHaveCount(0);
     await page
       .getByRole("combobox", { name: "Research model", exact: true })
       .selectOption("test-model");
@@ -231,7 +232,7 @@ for (const width of [1280, 390]) {
     );
     if (width === 390) {
       await page.getByLabel("Editorial review").selectOption("never");
-      const expanded = page.locator("details", { has: page.getByLabel("Maximum research agents") });
+      const expanded = page.getByRole("region", { name: "Research settings", exact: true });
       for (const phoneWidth of [320, width]) {
         await page.setViewportSize({ width: phoneWidth, height: 920 });
         const clipped = await expanded.locator("select:visible").evaluateAll((controls) => {
@@ -322,14 +323,14 @@ for (const width of [1280, 390]) {
       verbosity: "high",
       lead: { model: "gpt-6.2-astra" },
       researcher: { model: "compact-model", reasoning_effort: "low", verbosity: "model_default" },
-      editor: { verbosity: "medium" },
+      editor: { model: "gpt-6.2-astra", verbosity: "medium" },
       provider_account_id: account.id,
       evidence_ids: [sourceId],
       start_from_sources: true,
       max_input_bytes: 8_000_000,
-      max_agents: 2,
+      swarm: { lead_count: 3 },
       max_passes: 5,
-      max_active_seconds: 1200,
+      max_active_seconds: null,
       review_mode: "always",
       web_search: true,
       style_excerpt: "Lead with a concrete observation.",
@@ -402,6 +403,7 @@ for (const width of [1280, 390]) {
     await expect(page).toHaveURL(new RegExp(`session=${admitted[0]!.id}`));
     expect(admitted[0]).toMatchObject({
       ...setup,
+      max_active_seconds: null,
       evidence_ids: [evidenceId],
       start_from_sources: true,
       lead: { ...setup.lead, model: "test-model", reasoning_effort: "medium" },
@@ -432,9 +434,6 @@ for (const highRole of ["gpt-6.2-sol", "gpt-6.2-astra"]) {
       .getByLabel("Context for the lead (optional)", { exact: true })
       .fill("Compare the supplied series.");
 
-    if (highRole === "gpt-6.2-astra") {
-      await page.getByLabel("Team structure").selectOption("swarm");
-    }
     const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
     const lead = page.getByRole("group", { name: "Research lead", exact: true });
     const sharedHigh = highRole === "gpt-6.2-sol";
@@ -460,6 +459,7 @@ for (const highRole of ["gpt-6.2-sol", "gpt-6.2-astra"]) {
       verbosity: sharedHigh ? "model_default" : "high",
     });
     expect(setup.researcher?.model).toBe("gpt-6.2-sol");
+    expect(setup.editor).toEqual(setup.lead);
   });
 }
 
@@ -476,11 +476,26 @@ const oldBlank = {
   review_mode: "when_needed",
 } as const;
 
-for (const scenario of ["untouched", "in progress", "explicit defaults", "pending"] as const) {
+for (const scenario of [
+  "untouched",
+  "hydrated defaults",
+  "in progress",
+  "explicit defaults",
+  "pending",
+] as const) {
   test(`restore a pre-slider tab with ${scenario} setup`, async ({ page, ownerSession }) => {
     await connection(page);
     const draft = {
       ...oldBlank,
+      ...(scenario === "hydrated defaults"
+        ? {
+            model: "gpt-6.2-sol",
+            reasoning_effort: "high",
+            verbosity: "high",
+            lead: { model: "gpt-6.2-astra" },
+            researcher: { model: "gpt-6.2-sol" },
+          }
+        : {}),
       ...(scenario === "in progress" ? { brief: "Keep the original defaults." } : {}),
       ...(scenario === "pending"
         ? { model: "test-model", brief: "Retry the original request exactly." }
@@ -529,13 +544,18 @@ for (const scenario of ["untouched", "in progress", "explicit defaults", "pendin
     await expect(brief).toHaveValue(draft.brief);
     await brief.fill("Submit the restored research settings.");
     const setup = await submittedSetup(page);
-    if (scenario === "untouched") {
+    if (scenario === "untouched" || scenario === "hydrated defaults") {
       expect(setup).toMatchObject({
         model: "gpt-6.2-sol",
         reasoning_effort: "high",
         verbosity: "high",
         lead: { model: "gpt-6.2-astra" },
         researcher: { model: "gpt-6.2-sol" },
+        editor: { model: "gpt-6.2-astra" },
+        swarm: { max_lead_turns: null, allow_consultations: true },
+        max_passes: null,
+        max_active_seconds: null,
+        web_search: true,
       });
     } else {
       expect(setup.model).toBe("test-model");

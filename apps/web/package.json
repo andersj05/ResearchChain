@@ -12,10 +12,10 @@
   },
   "dependencies": {
     "@researchchain/contracts": "workspace:*",
-    "@ui-sdk/core": "0.1.0-beta.2",
-    "@ui-sdk/react": "0.1.0-beta.2",
+    "@ui-sdk/core": "0.1.0-beta.10",
+    "@ui-sdk/react": "0.1.0-beta.10",
     "geist": "1.9.2",
-    "lucide-react": "^1.73.0",
+    "lucide-react": "^1.75.0",
     "next": "16.4.6",
     "react": "19.3.1",
     "react-dom": "19.3.1",
@@ -29,6 +29,6 @@
     "@types/react-dom": "19.3.0",
     "eslint": "10.15.0",
     "eslint-config-next": "16.4.6",
-    "typescript": "5.9.3"
+    "typescript": "6.0.3"
   }
 }

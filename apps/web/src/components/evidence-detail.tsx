@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Show immutable originals without image transforms. */
 
+import type { Ref } from "react";
 import { Button } from "@ui-sdk/react/button";
 import {
   availabilityLabels,
@@ -14,9 +15,13 @@ import {
 
 export function EvidenceDetail({
   record,
+  titleRef,
+  onBackToResults,
   onCorrect,
 }: {
   record: EvidenceRecord;
+  titleRef: Ref<HTMLHeadingElement>;
+  onBackToResults?: () => void;
   onCorrect: () => void;
 }) {
   const preview = record.preview;
@@ -28,11 +33,20 @@ export function EvidenceDetail({
       <div className="section-heading">
         <div>
           <p className="eyebrow">{representationLabels[record.representation ?? "original"]}</p>
-          <h2>{record.title}</h2>
+          <h2 ref={titleRef} tabIndex={-1}>
+            {record.title}
+          </h2>
         </div>
-        <Button className="button small" onClick={onCorrect}>
-          Correct provenance
-        </Button>
+        <div className="actions">
+          {onBackToResults && (
+            <button type="button" className="button small" onClick={onBackToResults}>
+              Back to source results
+            </button>
+          )}
+          <Button className="button small" onClick={onCorrect}>
+            Correct provenance
+          </Button>
+        </div>
       </div>
       <div className="source-badges">
         <span className={`source-status source-${record.availability}`}>

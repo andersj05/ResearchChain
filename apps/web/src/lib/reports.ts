@@ -2,6 +2,7 @@ import type { components } from "@researchchain/contracts";
 
 export type ReportRevision = components["schemas"]["ReportRevision"];
 export type ReportView = components["schemas"]["ReportView"];
+export type ReportDraftSources = components["schemas"]["ReportDraftSources"];
 export type ReportSummary = components["schemas"]["ReportSummary"];
 export type ReportSave = components["schemas"]["ReportSave"];
 export type ReportCreate = components["schemas"]["ReportCreate"];

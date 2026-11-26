@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Button } from "@ui-sdk/react/button";
 import { api } from "@/lib/workflow";
 import {
   listSources,
   mergeSources,
+  refreshSourcePages,
   useEvidenceLibrary,
   type EvidenceAvailability,
 } from "@/lib/use-evidence-library";
@@ -13,20 +14,36 @@ import {
   availabilityLabels,
   evidenceUrl,
   representationLabels,
+  sourceTypeLabels,
   type ClaimPage,
   type ClaimRecord,
+  type EvidenceKind,
   type EvidenceRecord,
 } from "@/lib/evidence";
-import { CollectionLayout } from "@/components/collection-layout";
+import { CollectionLayout, useCompactCollectionLayout } from "@/components/collection-layout";
 import { EvidenceForm } from "@/components/evidence-form";
 import { EvidenceDetail } from "@/components/evidence-detail";
 import { ClaimForm } from "@/components/claim-form";
 
 export function EvidenceDesk() {
   const desk = useRef<HTMLElement>(null);
+  const sourceList = useRef<HTMLElement>(null);
+  const searchInput = useRef<HTMLInputElement>(null);
+  const inspection = useRef<HTMLDivElement>(null);
+  const inspectionTitle = useRef<HTMLHeadingElement>(null);
+  const revealInspection = useRef<boolean | null>(null);
+  const lastSurface = useRef<{ form: string | null; sourceId?: string }>(null);
+  const hasLoaded = useRef(false);
+  const sourcesVersion = useRef(0);
+  const claimsVersion = useRef(0);
+  const compact = useCompactCollectionLayout();
   const [sources, setSources] = useState<EvidenceRecord[]>([]);
   const [claims, setClaims] = useState<ClaimRecord[]>([]);
-  const [selected, setSelected] = useState<EvidenceRecord | null>(null);
+  const [selection, setSelection] = useState<{
+    record: EvidenceRecord;
+    fromResults: boolean;
+  } | null>(null);
+  const selected = selection?.record ?? null;
   const [nextSource, setNextSource] = useState<number | null>(null);
   const [nextClaim, setNextClaim] = useState<number | null>(null);
   const [total, setTotal] = useState(0);
@@ -35,38 +52,54 @@ export function EvidenceDesk() {
   const [revising, setRevising] = useState<ClaimRecord>();
   const [search, setSearch] = useState("");
   const [availability, setAvailability] = useState<EvidenceAvailability>();
+  const [sourceType, setSourceType] = useState<EvidenceKind>();
   const [selectedClaims, setSelectedClaims] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [loadEpoch, setLoadEpoch] = useState(0);
   const query = search.trim();
-  const filtered = Boolean(query || availability);
-  const library = useEvidenceLibrary(query, availability, filtered);
+  const filtered = Boolean(query || availability || sourceType);
+  const library = useEvidenceLibrary(query, availability, filtered, sourceType, true);
+  const loadContext = useEffectEvent(() => ({
+    sourceDepth: nextSource ?? total,
+    selection,
+  }));
   useEffect(() => {
     let active = true;
     async function load() {
+      const { sourceDepth, selection: prior } = loadContext();
+      const sourceVersion = sourcesVersion.current;
+      const claimVersion = claimsVersion.current;
+      const currentSources = () => active && sourceVersion === sourcesVersion.current;
       try {
         const [page, claimPage] = await Promise.all([
-          listSources(),
+          refreshSourcePages(sourceDepth, currentSources),
           api<ClaimPage>("claims?limit=50"),
         ]);
-        const id = new URL(window.location.href).searchParams.get("evidence");
-        const initial = id
-          ? (page.items.find((item) => item.id === id) ??
-            (await api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`)))
-          : page.items[0];
         if (!active) return;
-        setSources(
-          initial && !page.items.some((item) => item.id === initial.id)
-            ? [initial, ...page.items]
-            : page.items,
-        );
-        setClaims(claimPage.items);
-        setSelected(initial ?? null);
-        setTotal(page.total);
-        setNextSource(page.next_offset ?? null);
-        setNextClaim(claimPage.next_offset ?? null);
+        if (currentSources()) {
+          const id = new URL(window.location.href).searchParams.get("evidence") ?? prior?.record.id;
+          const found = id ? page.items.find((item) => item.id === id) : page.items[0];
+          const record =
+            found ?? (id ? await api<EvidenceRecord>(`evidence/${encodeURIComponent(id)}`) : null);
+          if (currentSources()) {
+            setSources(record && !found ? [record, ...page.items] : page.items);
+            setSelection((latest) =>
+              latest === prior
+                ? record && { record, fromResults: prior?.fromResults ?? false }
+                : latest,
+            );
+            setTotal(page.total);
+            setNextSource(page.next_offset ?? null);
+          }
+        }
+        if (!active) return;
+        if (claimVersion === claimsVersion.current) {
+          setClaims(claimPage.items);
+          setNextClaim(claimPage.next_offset ?? null);
+        }
+        hasLoaded.current = true;
         setError("");
       } catch (cause) {
         if (active)
@@ -81,18 +114,47 @@ export function EvidenceDesk() {
     };
   }, [loadEpoch]);
   useEffect(() => {
+    const reveal = revealInspection.current;
+    const last = lastSurface.current;
+    const sourceId = selection?.record.id;
+    revealInspection.current = null;
+    lastSurface.current = { form, sourceId };
+    if (reveal === null && last?.form === form && last.sourceId === sourceId) return;
+    if (reveal && !form) {
+      inspectionTitle.current?.focus({ preventScroll: true });
+      inspection.current?.scrollIntoView({ block: "start" });
+      return;
+    }
     desk.current?.parentElement?.scrollTo({ top: 0 });
-  }, [form, selected]);
+  }, [form, selection]);
 
-  function select(record: EvidenceRecord) {
-    setSelected(record);
+  function select(record: EvidenceRecord, fromList = false) {
+    const fromResults = fromList && compact;
+    revealInspection.current = fromResults;
+    setSelection({ record, fromResults });
     setForm(null);
     setMessage("");
     const url = new URL(window.location.href);
     url.searchParams.set("evidence", record.id);
     window.history.replaceState(null, "", url);
   }
+  function returnToSourceResults(id: string) {
+    const row = sourceList.current?.querySelector<HTMLButtonElement>(
+      `[data-source-id="${CSS.escape(id)}"]`,
+    );
+    const target = row ?? searchInput.current;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView({ block: "nearest" });
+  }
+  function clearFilters() {
+    setSearch("");
+    setAvailability(undefined);
+    setSourceType(undefined);
+    library.refresh();
+    searchInput.current?.focus();
+  }
   function sourceSaved(record: EvidenceRecord) {
+    sourcesVersion.current += 1;
     setSources((previous) => [record, ...previous.filter((item) => item.id !== record.id)]);
     setTotal((previous) => previous + (sources.some((item) => item.id === record.id) ? 0 : 1));
     if (nextSource !== null) setNextSource(nextSource + 1);
@@ -104,11 +166,13 @@ export function EvidenceDesk() {
     setError("");
     try {
       if (kind === "evidence") {
+        sourcesVersion.current += 1;
         const page = await listSources("", undefined, nextSource ?? 0);
         setSources((previous) => mergeSources(previous, page.items));
         setNextSource(page.next_offset ?? null);
         setTotal(page.total);
       } else {
+        claimsVersion.current += 1;
         const page = await api<ClaimPage>(`claims?limit=50&offset=${nextClaim}`);
         setClaims((previous) => [
           ...new Map([...previous, ...page.items].map((item) => [item.id, item])).values(),
@@ -172,7 +236,7 @@ export function EvidenceDesk() {
           <Button
             className="button small"
             onClick={() => {
-              setLoading(true);
+              if (!hasLoaded.current) setLoading(true);
               setLoadEpoch((value) => value + 1);
             }}
           >
@@ -188,35 +252,68 @@ export function EvidenceDesk() {
         <CollectionLayout
           id="sources"
           list={
-            <aside className="source-list" aria-label="Sources">
+            <aside className="source-list" ref={sourceList} aria-label="Sources">
               <label htmlFor="source-search">Find a source</label>
               <input
                 id="source-search"
+                ref={searchInput}
                 type="search"
                 maxLength={240}
                 placeholder="Title, author, publisher, or date"
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
               />
-              <label htmlFor="source-availability-filter">Availability</label>
-              <select
-                id="source-availability-filter"
-                value={availability ?? "all"}
-                onChange={(event) =>
-                  setAvailability(
-                    event.target.value === "all"
-                      ? undefined
-                      : (event.target.value as EvidenceAvailability),
-                  )
-                }
-              >
-                <option value="all">All sources</option>
-                {Object.entries(availabilityLabels).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
+              <div className="source-list-filters">
+                <div>
+                  <label htmlFor="source-availability-filter">Availability</label>
+                  <select
+                    id="source-availability-filter"
+                    value={availability ?? "all"}
+                    onChange={(event) =>
+                      setAvailability(
+                        event.target.value === "all"
+                          ? undefined
+                          : (event.target.value as EvidenceAvailability),
+                      )
+                    }
+                  >
+                    <option value="all">All sources</option>
+                    {Object.entries(availabilityLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="source-type-filter">Source type</label>
+                  <select
+                    id="source-type-filter"
+                    value={sourceType ?? ""}
+                    onChange={(event) => {
+                      const value = event.currentTarget.value as EvidenceKind | "";
+                      setSourceType(value || undefined);
+                      library.refresh();
+                    }}
+                  >
+                    <option value="">All types</option>
+                    {Object.entries(sourceTypeLabels).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              {filtered && (
+                <button
+                  type="button"
+                  className="button small clear-source-filters"
+                  onClick={clearFilters}
+                >
+                  Clear filters
+                </button>
+              )}
               {library.loading ? (
                 <p className="collection-count" role="status">
                   Finding sources…
@@ -234,9 +331,10 @@ export function EvidenceDesk() {
                 {visible.map((source) => (
                   <button
                     key={source.id}
+                    data-source-id={source.id}
                     className={`source-list-item ${selected?.id === source.id && !form ? "selected" : ""}`}
                     aria-pressed={selected?.id === source.id && !form}
-                    onClick={() => select(source)}
+                    onClick={() => select(source, true)}
                   >
                     <strong>{source.title}</strong>
                     <span>{source.publisher || source.author || "Publisher not recorded"}</span>
@@ -275,7 +373,7 @@ export function EvidenceDesk() {
             </aside>
           }
           detail={
-            <div className="evidence-main">
+            <div className="evidence-main" ref={inspection}>
               {form === "source" ? (
                 <EvidenceForm
                   key={correcting?.id ?? "new"}
@@ -291,6 +389,7 @@ export function EvidenceDesk() {
                   original={revising}
                   selected={selected?.id}
                   onSaved={(claim) => {
+                    claimsVersion.current += 1;
                     setClaims((previous) => [
                       claim,
                       ...previous.filter((item) => item.id !== claim.id),
@@ -304,6 +403,12 @@ export function EvidenceDesk() {
               ) : selected ? (
                 <EvidenceDetail
                   record={selected}
+                  titleRef={inspectionTitle}
+                  onBackToResults={
+                    compact && selection?.fromResults
+                      ? () => returnToSourceResults(selected.id)
+                      : undefined
+                  }
                   onCorrect={() => {
                     setCorrecting(selected);
                     setForm("source");

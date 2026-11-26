@@ -13,6 +13,10 @@ function subscribe(callback: () => void) {
 }
 const narrow = () => window.matchMedia(query).matches;
 
+export function useCompactCollectionLayout() {
+  return useSyncExternalStore(subscribe, narrow, () => false);
+}
+
 export function CollectionLayout({
   id,
   list,
@@ -23,7 +27,7 @@ export function CollectionLayout({
   detail: ReactNode;
 }) {
   const { owner } = useOwner();
-  const small = useSyncExternalStore(subscribe, narrow, () => false);
+  const small = useCompactCollectionLayout();
   return (
     <Resizable
       className={`collection-layout collection-${id}${small ? " compact" : ""}`}

@@ -1,18 +1,40 @@
 import Image from "next/image";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import type { components } from "@researchchain/contracts";
 import { contentUrl, evidenceUrl } from "@/lib/evidence";
 import { readReviewDrafts } from "@/lib/run-review-drafts";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
-import { useSourceDetails } from "@/lib/use-evidence-library";
+import type { useSourceDetails } from "@/lib/use-evidence-library";
 import type { RunSnapshot } from "@/lib/workflow";
-import { PassLink, rememberAnswer } from "./session-consultations";
+import { SessionWorkspaceLink, rememberAnswer } from "./session-consultations";
+import { DraftReplacement, useDraftSuggestion } from "./session-draft-replacement";
 import styles from "./session-discovery.module.css";
 
 type Reading = components["schemas"]["DiscoveryReading"];
 type Review = NonNullable<RunSnapshot["review"]>;
 type Decision = components["schemas"]["ReviewResponse"];
-type SelectPass = (workspace: string, pass: string) => void;
+type SelectPass = (workspace: string, pass: string | null) => void;
+type CitationOrigin = { evidenceId: string; linkId: string };
+
+const sourceNoteId = (id: string) => `reading-source-${id}`;
+const proposalCitationId = (index: number, id: string) => `proposal-${index}-citation-${id}`;
+
+function focusCitationTarget(event: MouseEvent<HTMLAnchorElement>) {
+  if (
+    event.defaultPrevented ||
+    event.button ||
+    event.metaKey ||
+    event.ctrlKey ||
+    event.shiftKey ||
+    event.altKey
+  )
+    return false;
+  const target = document.getElementById(event.currentTarget.hash.slice(1));
+  if (!target) return false;
+  // Let the browser keep handling the fragment, scrolling and navigation history.
+  target.focus({ preventScroll: true });
+  return true;
+}
 
 const basisLabel = {
   source_text: "Source text",
@@ -28,10 +50,12 @@ function SourceNotes({
   run,
   reading,
   sources,
+  origin,
 }: {
   run: RunSnapshot;
   reading: Reading;
   sources: ReturnType<typeof useSourceDetails>;
+  origin?: CitationOrigin;
 }) {
   const cited = [...new Set(reading.citations.map((c) => c.evidence_id))];
   return (
@@ -40,17 +64,25 @@ function SourceNotes({
       {cited.length === 0 && <p>The lead cited no source passages.</p>}
       {cited.map((id) => {
         const item = sources.items.get(id);
-        const saved = run.research_manifest?.evidence.find((s) => s.evidence_id === id);
+        const saved = run.research_manifest?.evidence?.find((s) => s.evidence_id === id);
         const citations = reading.citations.filter((c) => c.evidence_id === id);
         const name = item?.title ?? `Source ${id.slice(0, 8)}`;
         const chart = saved?.representation === "chart_screenshot" && saved.original;
+        const noteId = sourceNoteId(id);
         return (
-          <article key={id} id={`reading-source-${id}`}>
-            <h4>
-              <a href={evidenceUrl(id)} target="_blank" rel="noopener">
-                {name}
-              </a>
-            </h4>
+          <article key={id} id={noteId} aria-labelledby={`${noteId}-title`} tabIndex={-1}>
+            <div className={styles.sourceHeading}>
+              <h4 id={`${noteId}-title`}>
+                <a href={evidenceUrl(id)} target="_blank" rel="noopener">
+                  {name}
+                </a>
+              </h4>
+              {origin?.evidenceId === id && (
+                <a href={`#${origin.linkId}`} onClick={focusCitationTarget}>
+                  Return to proposal
+                </a>
+              )}
+            </div>
             <p className={styles.byline}>
               {[
                 item?.kind === "discussion" ? "Conversation" : null,
@@ -85,7 +117,7 @@ function SourceNotes({
           </article>
         );
       })}
-      {!!sources.unresolved.length && (
+      {sources.unresolved.some((id) => cited.includes(id)) && (
         <button className="text-link" onClick={sources.retry}>
           Retry source details
         </button>
@@ -107,6 +139,7 @@ function FirstReading({
   choose?: (sentence: string) => void;
   children?: React.ReactNode;
 }) {
+  const [origin, setOrigin] = useState<CitationOrigin>();
   return (
     <div className={styles.spread}>
       <div className={styles.reading}>
@@ -124,7 +157,15 @@ function FirstReading({
             </dl>
             <div className={styles.references}>
               {p.evidence_ids.map((id) => (
-                <a key={id} href={`#reading-source-${id}`}>
+                <a
+                  key={id}
+                  id={proposalCitationId(i, id)}
+                  href={`#${sourceNoteId(id)}`}
+                  onClick={(event) => {
+                    if (focusCitationTarget(event))
+                      setOrigin({ evidenceId: id, linkId: event.currentTarget.id });
+                  }}
+                >
                   {sources.items.get(id)?.title ?? `Source ${id.slice(0, 8)}`}
                 </a>
               ))}
@@ -141,7 +182,7 @@ function FirstReading({
         )}
         {children}
       </div>
-      <SourceNotes run={run} reading={reading} sources={sources} />
+      <SourceNotes run={run} reading={reading} sources={sources} origin={origin} />
     </div>
   );
 }
@@ -154,6 +195,7 @@ function ChooseSentence({
   disabled,
   respond,
   sources,
+  actionNotice,
 }: {
   run: RunSnapshot;
   reading: Reading;
@@ -162,15 +204,21 @@ function ChooseSentence({
   disabled: boolean;
   respond: (decision: Decision["decision"], sentence: string) => void;
   sources: ReturnType<typeof useSourceDetails>;
+  actionNotice?: ReactNode;
 }) {
   const [sentence, setSentence] = useState(
     () => readReviewDrafts(draftKey)[review.interrupt_id] ?? "",
   );
   const input = useRef<HTMLTextAreaElement>(null);
-  function edit(value: string) {
-    setSentence(value);
-    rememberAnswer(draftKey, review.interrupt_id, value);
-  }
+  const suggestion = useDraftSuggestion(
+    sentence,
+    reading.proposals.map((proposal) => proposal.sentence),
+    (value) => {
+      setSentence(value);
+      rememberAnswer(draftKey, review.interrupt_id, value);
+    },
+    () => input.current?.focus(),
+  );
   return (
     <>
       <h2>The lead’s first reading</h2>
@@ -178,14 +226,7 @@ function ChooseSentence({
         run={run}
         reading={reading}
         sources={sources}
-        choose={
-          disabled
-            ? undefined
-            : (value) => {
-                edit(value);
-                input.current?.focus();
-              }
-        }
+        choose={disabled ? undefined : suggestion.choose}
       >
         <form
           className={styles.decision}
@@ -204,8 +245,16 @@ function ChooseSentence({
             value={sentence}
             disabled={disabled}
             placeholder="What should the researchers try to establish?"
-            onChange={(e) => edit(e.target.value)}
+            onChange={(e) => suggestion.edit(e.target.value)}
           />
+          {suggestion.pending !== undefined && (
+            <DraftReplacement
+              suggestion={suggestion.pending}
+              disabled={disabled}
+              onKeep={suggestion.keep}
+              onReplace={suggestion.replace}
+            />
+          )}
           <div className={styles.actions}>
             <button
               className="button primary"
@@ -223,6 +272,7 @@ function ChooseSentence({
               Park this study
             </button>
           </div>
+          {actionNotice}
         </form>
       </FirstReading>
     </>
@@ -244,9 +294,9 @@ function IssuedAssignment({
       <h4>{lane.title}</h4>
       <p>{lane.objective}</p>
       {receipt && (
-        <PassLink runId={runId} lane={lane} pass={receipt.id} onSelect={onSelect}>
+        <SessionWorkspaceLink runId={runId} lane={lane} pass={receipt.id} onSelect={onSelect}>
           Inspect researcher request
-        </PassLink>
+        </SessionWorkspaceLink>
       )}
     </li>
   );
@@ -254,6 +304,10 @@ function IssuedAssignment({
 
 export function SessionDiscovery({
   run,
+  reading,
+  sources,
+  readingRequested,
+  onReadOriginal,
   review,
   decision,
   team,
@@ -261,8 +315,13 @@ export function SessionDiscovery({
   disabled,
   respond,
   onSelect,
+  actionNotice,
 }: {
   run: RunSnapshot;
+  reading?: Reading;
+  sources: ReturnType<typeof useSourceDetails>;
+  readingRequested: boolean;
+  onReadOriginal: () => void;
   review?: Review;
   decision?: Decision | null;
   team: SessionWorkspace[];
@@ -270,18 +329,39 @@ export function SessionDiscovery({
   disabled: boolean;
   respond: (decision: Decision["decision"], sentence: string) => void;
   onSelect: SelectPass;
+  actionNotice?: ReactNode;
 }) {
-  const sources = useSourceDetails(run.evidence_ids ?? []);
-  const reading = run.model_attempts?.find(
-    (pass) => pass.path === "root/discovery" && pass.status === "completed",
-  )?.result?.discovery;
   const active = run.execution_pending || ["queued", "running", "paused"].includes(run.status);
   const parked = decision?.decision === "reject";
+  const history = useRef<HTMLDetailsElement>(null);
+  const bookmark = useRef<string | null>(null);
+  useEffect(() => {
+    if (bookmark.current === null) bookmark.current = window.location.hash.slice(1);
+    const fragment = bookmark.current;
+    if (!fragment || !reading) return;
+    const matching =
+      reading.citations.some((citation) => sourceNoteId(citation.evidence_id) === fragment) ||
+      reading.proposals.some((proposal, index) =>
+        proposal.evidence_ids.some((id) => proposalCitationId(index, id) === fragment),
+      );
+    if (!matching || window.location.hash !== `#${fragment}`) {
+      bookmark.current = "";
+      return;
+    }
+    if (history.current) history.current.open = true;
+    const target = document.getElementById(fragment);
+    if (!target) return;
+    bookmark.current = "";
+    target.focus({ preventScroll: true });
+    target.scrollIntoView({ block: "start" });
+  }, [reading, readingRequested]);
+
   return (
     <section
       className={styles.sheet}
       id="source-led-investigation"
       aria-label="Source-led investigation"
+      tabIndex={-1}
     >
       {reading && review && !decision ? (
         <ChooseSentence
@@ -293,6 +373,7 @@ export function SessionDiscovery({
           draftKey={draftKey}
           disabled={disabled}
           respond={respond}
+          actionNotice={actionNotice}
         />
       ) : (
         <>
@@ -348,10 +429,20 @@ export function SessionDiscovery({
             </section>
           )}
           {reading ? (
-            <details className={styles.history}>
+            <details
+              className={styles.history}
+              ref={history}
+              onToggle={(event) => {
+                if (event.currentTarget.open) onReadOriginal();
+              }}
+            >
               <summary>Read the original lead proposal</summary>
-              <FirstReading run={run} reading={reading} sources={sources} />
-              <p>{reading.question}</p>
+              {readingRequested && (
+                <>
+                  <FirstReading run={run} reading={reading} sources={sources} />
+                  <p>{reading.question}</p>
+                </>
+              )}
             </details>
           ) : (
             <p role="status">

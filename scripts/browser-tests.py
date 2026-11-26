@@ -2,6 +2,7 @@
 
 import os
 import secrets
+import socket
 import subprocess
 import sys
 from dataclasses import replace
@@ -13,21 +14,60 @@ from psycopg import sql
 from researchchain.access_config import AccessConfig
 from researchchain.access_service import AccessService
 from researchchain.database import LOCAL_DATABASE_URL, Database
+from researchchain.usage_models import UsagePolicyUpdate
+from researchchain.usage_store import UsageStore
+
+SYNTHETIC_REQUEST_ALLOWANCE = 2_000
+
+
+def bind_browser_port(listener: socket.socket) -> int:
+    # The private port range avoids browser-blocked service ports such as 1719.
+    for _ in range(32):
+        port = 49152 + secrets.randbelow(16384)
+        try:
+            listener.bind(("127.0.0.1", port))
+        except OSError:
+            continue
+        return port
+    raise RuntimeError("Could not reserve a loopback port for browser tests.")
+
+
+def browser_ports() -> tuple[int, int]:
+    if os.environ.get("CI"):
+        # CI builds the frontend before starting the test runner.
+        return 3000, 8000
+    with socket.socket() as web, socket.socket() as api:
+        return bind_browser_port(web), bind_browser_port(api)
+
 
 Database.from_env()
+local_build = "--production" in sys.argv[1:] and not os.environ.get("CI")
+browser_arguments = [option for option in sys.argv[1:] if option != "--production"]
+pnpm = "pnpm.cmd" if os.name == "nt" else "pnpm"
+web_port, api_port = browser_ports()
 database = Database(
     url=os.environ.get("TEST_DATABASE_URL", LOCAL_DATABASE_URL),
     schema=f"e2e_{uuid4().hex}",
 )
 try:
     database.migrate()
+    # Parallel cases and their retries share this disposable e2e schema.
+    usage = UsageStore(database)
+    usage.configure(
+        UsagePolicyUpdate(
+            expected_revision=usage.snapshot().policy.revision,
+            max_requests_24h=SYNTHETIC_REQUEST_ALLOWANCE,
+            paused=False,
+        ),
+        "operator",
+    )
     with TemporaryDirectory(prefix="researchchain-browser-access-") as directory:
         config = AccessConfig.from_env(database)
         access = AccessService(
             replace(
                 config,
                 directory=Path(directory) / config.workspace_id,
-                origin="http://127.0.0.1:3000",
+                origin=f"http://127.0.0.1:{web_port}",
             )
         )
         password = "synthetic-" + secrets.token_urlsafe(24)
@@ -43,7 +83,12 @@ try:
             "RESEARCHCHAIN_ACCESS_DIRECTORY": directory,
             "RESEARCHCHAIN_PUBLIC_ORIGIN": access.config.origin,
             "RESEARCHCHAIN_TEST_OWNER_PASSWORD": password,
+            "RESEARCHCHAIN_BROWSER_WEB_PORT": str(web_port),
+            "RESEARCHCHAIN_BROWSER_API_PORT": str(api_port),
         }
+        if local_build:
+            environment["RESEARCHCHAIN_BROWSER_USE_BUILD"] = "1"
+            subprocess.run([pnpm, "build"], env=environment, check=True)
         worker = subprocess.Popen(
             [sys.executable, "apps/api/tests/research_browser_fixture.py"],
             env=environment,
@@ -55,11 +100,11 @@ try:
         try:
             result = subprocess.run(
                 [
-                    "pnpm.cmd" if os.name == "nt" else "pnpm",
+                    pnpm,
                     "--filter",
                     "@researchchain/web",
                     "test:e2e",
-                    *sys.argv[1:],
+                    *browser_arguments,
                 ],
                 env=environment,
                 check=False,

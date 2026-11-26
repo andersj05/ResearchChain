@@ -34,6 +34,7 @@ from researchchain.models import (
     PendingReviewsPage,
     RecentRunSummary,
     ResumeRequest,
+    ReviewPrompt,
     RunArchiveItem,
     RunArchivePage,
     RunArchiveQuery,
@@ -45,6 +46,11 @@ from researchchain.models import (
     Workflow,
     WorkflowNode,
 )
+from researchchain.providers.chatgpt_auth import (
+    GENERIC_PROVIDER_ERROR,
+    PROVIDER_OVERLOAD_CODES,
+    PROVIDER_OVERLOAD_MESSAGE,
+)
 from researchchain.research import (
     RESEARCH_COMPILER_VERSION,
     ChatGPTResearchProvider,
@@ -55,11 +61,17 @@ from researchchain.research import (
     read_attempts,
     read_manifest,
 )
-from researchchain.research_directions import DIRECTIONS_VERSION
-from researchchain.research_discovery import DISCOVERY_VERSION
+from researchchain.research_directions import (
+    DIRECTIONS_VERSION,
+    has_confirmed_swarm_findings,
+    read_report_request,
+)
+from researchchain.research_discovery import DISCOVERY_VERSION, check_first_reading_start
+from researchchain.research_models import OwnerReportRequest
 from researchchain.research_perspectives import checkpoint_reviews, perspective_answers
+from researchchain.research_recovery import recovery_candidate
 from researchchain.research_session_report import REPORT_VERSION
-from researchchain.research_sessions import SESSION_VERSION
+from researchchain.research_sessions import SESSION_VERSION, SOURCE_LED_BRIEF
 from researchchain.research_swarm import SWARM_VERSION
 from researchchain.research_team import TEAM_VERSION
 from researchchain.retention_guards import require_retained_run
@@ -69,15 +81,21 @@ COMPILER_VERSION = "chain-0.1.0"
 CODE_COMPILER_VERSION = "code-0.1.0"
 
 
+def _review_allows_handoff(review: ReviewPrompt) -> bool:
+    return review.perspective is not None or review.path == "root/judgment"
+
+
 def checkpoint_steps(state: StateSnapshot, status: str) -> list[CheckpointStep]:
     steps = []
     for task in state.tasks:
         step_status: Literal["scheduled", "stopped"]
         if task.name.startswith("__"):
             continue
-        if task.error is not None:
+        if status in {"running", "queued"} and task.name in state.next:
+            step_status = "scheduled"
+        elif task.error is not None:
             step_status = "stopped"
-        elif status in {"running", "queued", "interrupted"} and task.name in state.next:
+        elif status == "interrupted" and task.name in state.next:
             step_status = "scheduled"
         else:
             continue
@@ -279,29 +297,74 @@ class RunStore:
         if control["terminal_status"]:
             status = control["terminal_status"]
             pending = []
+        recovery = (
+            recovery_candidate(conn, manifest["id"]) if status in ("failed", "limited") else None
+        )
         reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
+        stop_reason = control["reason"] or worker_error
+        if stop_reason == GENERIC_PROVIDER_ERROR and any(
+            attempt.status == "failed"
+            and attempt.superseded_at is None
+            and attempt.provider_failure
+            and attempt.provider_failure.code in PROVIDER_OVERLOAD_CODES
+            for attempt in attempts
+        ):
+            stop_reason = PROVIDER_OVERLOAD_MESSAGE
+        research = read_manifest(conn, manifest["id"])
+        report_request = control["owner_report_request"]
+        can_request_report = bool(
+            research
+            and research.tool_config.get("session") == SESSION_VERSION
+            and research.tool_config.get("owner_directions_version") == DIRECTIONS_VERSION
+            and research.tool_config.get("swarm_version") == SWARM_VERSION
+            and report_request is None
+            and (status in ("running", "queued") or any(map(_review_allows_handoff, reviews)))
+            and not any(attempt.path == "root/report" for attempt in attempts)
+            and has_confirmed_swarm_findings(conn, manifest["id"])
+        )
+        evidence_ids = self._evidence_ids(conn, manifest["id"])
+        study_title = research.tool_config.get("study_title") if research else None
+        if (
+            study_title is None
+            and manifest["brief"] == SOURCE_LED_BRIEF
+            and evidence_ids
+            and research
+            and research.tool_config.get("discovery_version")
+        ):
+            source = conn.execute(
+                "SELECT document->>'title' AS title FROM evidence_records WHERE id = %s",
+                (evidence_ids[0],),
+            ).fetchone()
+            study_title = source["title"] if source else None
         return RunSnapshot(
             **run_agent(conn, manifest["id"]),
             id=manifest["id"],
             revision_id=revision.id,
             revision_number=revision.number,
             workflow_name=revision.name,
+            study_title=study_title,
             created_at=manifest["created_at"],
             workflow=revision.workflow,
             brief=manifest["brief"],
             baseline_run_id=manifest["baseline_run_id"],
             artifacts=manifest["artifacts"],
-            evidence_ids=self._evidence_ids(conn, manifest["id"]),
+            evidence_ids=evidence_ids,
             compiler_version=manifest["compiler_version"],
             checkpoint_id=state.config.get("configurable", {}).get("checkpoint_id"),
             checkpoint_steps=checkpoint_steps(state, status),
             status=status,
+            recovery_command_id=recovery["id"] if recovery else None,
+            recovery_requires_confirmation=(recovery["requires_confirmation"] or None)
+            if recovery
+            else None,
             execution_pending=running or queued,
             events=recorded_events(state, revision.workflow),
             review=reviews[0] if reviews else None,
             reviews=reviews,
             owner_directions=control["owner_directions"],
+            owner_report_request=report_request,
+            can_request_report=can_request_report or None,
             perspective_answers=perspective_answers(
                 conn,
                 manifest["id"],
@@ -313,7 +376,7 @@ class RunStore:
                     and item.result.swarm_action.action == "ask_expert"
                 ),
             ),
-            stop_reason=control["reason"] or worker_error,
+            stop_reason=stop_reason,
             usage=RunUsage(
                 node_executions=control["node_executions"],
                 active_seconds=control["active_seconds"],
@@ -326,7 +389,7 @@ class RunStore:
                     for item in attempts
                 ),
             ),
-            research_manifest=read_manifest(conn, manifest["id"]),
+            research_manifest=research,
             model_attempts=attempts,
         )
 
@@ -349,8 +412,11 @@ class RunStore:
             return snapshot
         workflow = read_revision(conn, manifest["revision_id"]).workflow
         saver = PostgresSaver(conn)
-        execution = ExecutionControl(conn, manifest["id"], workflow.budgets, saver.lock)
         research_manifest = read_manifest(conn, manifest["id"])
+        budgets = workflow.budgets
+        if research_manifest and research_manifest.tool_config.get("session") == SESSION_VERSION:
+            budgets = budgets.model_copy(update={"max_active_seconds": None})
+        execution = ExecutionControl(conn, manifest["id"], budgets, saver.lock)
         researcher = (
             ResearchExecutor(
                 conn, manifest["id"], manifest["brief"], research_manifest, execution, self.provider
@@ -364,57 +430,105 @@ class RunStore:
             config.update(recursion_limit=4096, max_concurrency=workflow.budgets.max_concurrency)
         state = graph.get_state(config)
         pending = [item for task in state.tasks for item in task.interrupts]
+        report_resume: tuple[str, OwnerReportRequest] | None = None
+        resumed_checkpoint = None
         try:
-            execution.begin()
-            if not state.created_at:
-                if command["kind"] != "start":
-                    raise ConflictError(
-                        "The checkpoint for this review is missing. Restore a database backup."
-                    )
-                initial = {
-                    "brief": manifest["brief"],
-                    "artifact_ids": [item["id"] for item in manifest["artifacts"]],
-                    "rejected": False,
-                }
-                if workflow.schema_version != "0.1":
-                    initial.update(records={}, outputs={})
-                else:
-                    initial["events"] = []
-                graph.invoke(initial, config, durability="sync")
-            elif command["kind"] == "resume" and (
-                selected := next(
-                    (
-                        (destination, review)
-                        for destination, review in checkpoint_reviews(manifest["id"], pending)
-                        if review.interrupt_id == command["interrupt_id"]
-                    ),
-                    None,
+            while True:
+                try:
+                    execution.begin()
+                    if report_resume is not None:
+                        destination, handoff = report_resume
+                        graph.invoke(
+                            Command(
+                                resume={
+                                    destination: {"decision": "approve", "feedback": handoff.text}
+                                }
+                            ),
+                            config,
+                            durability="sync",
+                        )
+                    elif not state.created_at:
+                        if command["interrupt_id"] is not None:
+                            raise ConflictError(
+                                "The checkpoint for this review is missing. "
+                                "Restore a database backup."
+                            )
+                        initial = {
+                            "brief": manifest["brief"],
+                            "artifact_ids": [item["id"] for item in manifest["artifacts"]],
+                            "rejected": False,
+                        }
+                        if workflow.schema_version != "0.1":
+                            initial.update(records={}, outputs={})
+                        else:
+                            initial["events"] = []
+                        graph.invoke(initial, config, durability="sync")
+                    elif command["interrupt_id"] is not None and (
+                        selected := next(
+                            (
+                                (destination, review)
+                                for destination, review in checkpoint_reviews(
+                                    manifest["id"], pending
+                                )
+                                if review.interrupt_id == command["interrupt_id"]
+                            ),
+                            None,
+                        )
+                    ):
+                        destination, review = selected
+                        answer: Any = command["decision"]
+                        if workflow.schema_version == "0.3":
+                            answer = {
+                                "decision": command["decision"],
+                                "feedback": command["feedback"],
+                            }
+                        if review.perspective:
+                            answer.update(
+                                action_path=review.perspective.action_path,
+                                interrupt_id=review.interrupt_id,
+                            )
+                        graph.invoke(
+                            Command(resume={destination: answer}), config, durability="sync"
+                        )
+                    elif state.next and not pending:
+                        graph.invoke(None, config, durability="sync")
+                    execution.guard("", False)
+                except ExecutionStopped as error:
+                    set_terminal(conn, manifest["id"], error.status, str(error))
+                finally:
+                    execution.end()
+
+                snapshot = self._snapshot(conn, manifest)
+                if not (
+                    snapshot.status == "paused"
+                    and researcher
+                    and researcher.guided
+                    and workflow.has_research_swarm()
+                    and any(map(_review_allows_handoff, snapshot.reviews))
+                ):
+                    break
+                # A request arriving at a pause either becomes visible here or sees a
+                # finished command and atomically enqueues its own continuation.
+                with conn.transaction():
+                    request = read_report_request(conn, manifest["id"], lock=True)
+                    if request is None:
+                        self._complete_command(conn, command["id"], snapshot)
+                        return snapshot
+                if snapshot.checkpoint_id == resumed_checkpoint:
+                    raise ConflictError("The report handoff did not advance its saved checkpoint.")
+                resumed_checkpoint = snapshot.checkpoint_id
+                state = graph.get_state(config)
+                pending = [item for task in state.tasks for item in task.interrupts]
+                destination = next(
+                    destination
+                    for destination, review in checkpoint_reviews(manifest["id"], pending)
+                    if _review_allows_handoff(review)
                 )
-            ):
-                destination, review = selected
-                answer: Any = command["decision"]
-                if workflow.schema_version == "0.3":
-                    answer = {"decision": command["decision"], "feedback": command["feedback"]}
-                if review.perspective:
-                    answer.update(
-                        action_path=review.perspective.action_path, interrupt_id=review.interrupt_id
-                    )
-                graph.invoke(
-                    Command(resume={destination: answer}),
-                    config,
-                    durability="sync",
-                )
-            elif state.next and not pending:
-                graph.invoke(None, config, durability="sync")
-            execution.guard("", False)
-        except ExecutionStopped as error:
-            set_terminal(conn, manifest["id"], error.status, str(error))
+                report_resume = destination, request
         finally:
             if researcher:
                 researcher.close()
-            execution.end()
 
-        snapshot = self._snapshot(conn, manifest)
         if snapshot.status == "interrupted":
             raise ConflictError(
                 "Execution is still incomplete. Retry recovery from the saved checkpoint."
@@ -435,7 +549,12 @@ class RunStore:
         ]
 
     def start_command(
-        self, conn: Connection[DictRow], request: RunRequest, *, research_session: bool = False
+        self,
+        conn: Connection[DictRow],
+        request: RunRequest,
+        *,
+        research_session: bool = False,
+        study_title: str | None = None,
     ) -> DictRow:
         """Validate and journal inputs; the caller serializes admission and commits."""
         require_retained_run(conn, request.id)
@@ -458,6 +577,12 @@ class RunStore:
             )
         ):
             raise ConflictError("This ID already belongs to a different run.")
+        if (
+            research_session
+            and existing_research
+            and study_title != existing_research.tool_config.get("study_title")
+        ):
+            raise ConflictError("This run ID already belongs to a different study title.")
         if existing and request.provider_account_id != (
             existing_research.account_id if existing_research else None
         ):
@@ -514,8 +639,13 @@ class RunStore:
                 )
                 if research_session:
                     research_manifest.tool_config["session"] = SESSION_VERSION
+                    if study_title is not None:
+                        research_manifest.tool_config["study_title"] = study_title
                     if workflow.start_node == "discovery":
                         research_manifest.tool_config["discovery_version"] = DISCOVERY_VERSION
+                        check_first_reading_start(
+                            conn, research_manifest, workflow.nodes[0], request.brief
+                        )
                     research_manifest.tool_config["session_report_version"] = REPORT_VERSION
                     research_manifest.tool_config["owner_directions_version"] = DIRECTIONS_VERSION
             elif request.provider_account_id:
@@ -623,6 +753,8 @@ class RunStore:
                 "w.number AS revision_number, "
                 "w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
+                "COALESCE(rm.manifest->'tool_config'->>'study_title', "
+                "primary_source.document->>'title') AS study_title, "
                 "COALESCE(c.terminal_status, CASE WHEN command.response IS NOT NULL "
                 "THEN command.response->>'status' WHEN command.state = 'queued' THEN 'queued' "
                 "WHEN EXISTS ("
@@ -637,24 +769,34 @@ class RunStore:
                 "FROM runs r JOIN workflow_revisions w ON w.id = r.revision_id "
                 "LEFT JOIN agent_runs a ON a.run_id = r.id "
                 "JOIN run_controls c ON c.run_id = r.id "
+                "LEFT JOIN run_research_manifests rm ON %(sessions_only)s AND rm.run_id = r.id "
+                "AND rm.manifest->'tool_config'->>'session' = %(session_version)s "
+                "LEFT JOIN run_evidence pin ON pin.run_id = rm.run_id AND pin.ordinal = 0 "
+                "AND r.brief = %(source_led_brief)s "
+                "AND rm.manifest->'tool_config' ? 'discovery_version' "
+                "LEFT JOIN evidence_records primary_source ON primary_source.id = pin.evidence_id "
                 "LEFT JOIN LATERAL (SELECT command.response, job.state FROM run_commands command "
                 "LEFT JOIN run_jobs job ON job.command_id = command.id WHERE command.run_id = r.id "
                 "ORDER BY command.created_at DESC, command.id DESC LIMIT 1) command ON true "
                 "WHERE (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
-                "AND (NOT %(sessions_only)s OR EXISTS (SELECT 1 FROM run_research_manifests rm "
-                "WHERE rm.run_id = r.id AND rm.manifest->'tool_config'->>'session' "
-                "= %(session_version)s)) "
+                "AND (NOT %(sessions_only)s OR rm.run_id IS NOT NULL) "
                 "AND (NOT %(unassigned)s OR a.agent_id IS NULL) "
                 "AND (%(exclude_id)s::uuid IS NULL OR r.id <> %(exclude_id)s) "
                 "AND (%(before_created_at)s::timestamptz IS NULL "
                 "OR (r.created_at, r.id) < (%(before_created_at)s, %(before_id)s)) "
                 "AND (%(search)s = '' OR strpos(lower(concat_ws(' ', "
-                "w.workflow->>'name', a.agent_name, r.id::text, r.brief)), lower(%(search)s)) > 0)"
+                "w.workflow->>'name', a.agent_name, r.id::text, r.brief, "
+                "rm.manifest->'tool_config'->>'study_title')), lower(%(search)s)) > 0 "
+                "OR (rm.run_id IS NOT NULL AND EXISTS (SELECT 1 FROM run_evidence source_pin "
+                "JOIN evidence_records source ON source.id = source_pin.evidence_id "
+                "WHERE source_pin.run_id = r.id "
+                "AND strpos(lower(source.document->>'title'), lower(%(search)s)) > 0)))"
                 ") summary WHERE (%(status)s::text IS NULL OR status = %(status)s) "
                 "ORDER BY created_at DESC, id DESC LIMIT %(limit)s",
                 {
                     **query.model_dump(),
                     "session_version": SESSION_VERSION,
+                    "source_led_brief": SOURCE_LED_BRIEF,
                     "search": query.search.strip(),
                     "limit": query.limit + int(look_ahead),
                 },
@@ -677,7 +819,7 @@ class RunStore:
         ]
 
     def pending_reviews(
-        self, limit: int, offset: int, agent_id: UUID | None = None
+        self, limit: int, offset: int, agent_id: UUID | None = None, *, sessions_only: bool = False
     ) -> PendingReviewsPage:
         # Read the most recent command receipt. An admitted resume has no response
         # yet and hides the old questions until the worker records its next pause.
@@ -685,6 +827,8 @@ class RunStore:
             rows = conn.execute(
                 "SELECT r.id, a.agent_name, w.workflow->>'name' AS workflow_name, r.created_at, "
                 "LEFT(r.brief, 240) AS brief_excerpt, "
+                "COALESCE(rm.manifest->'tool_config'->>'study_title', "
+                "primary_source.document->>'title') AS study_title, "
                 "command.response->>'checkpoint_id' AS checkpoint_id, "
                 "CASE WHEN command.response->'reviews'->0 IS NOT NULL "
                 "THEN command.response->'reviews' "
@@ -692,6 +836,12 @@ class RunStore:
                 "FROM runs r JOIN run_controls c ON c.run_id = r.id "
                 "JOIN workflow_revisions w ON w.id = r.revision_id "
                 "LEFT JOIN agent_runs a ON a.run_id = r.id "
+                "LEFT JOIN run_research_manifests rm ON %(sessions_only)s AND rm.run_id = r.id "
+                "AND rm.manifest->'tool_config'->>'session' = %(session_version)s "
+                "LEFT JOIN run_evidence pin ON pin.run_id = rm.run_id AND pin.ordinal = 0 "
+                "AND r.brief = %(source_led_brief)s "
+                "AND rm.manifest->'tool_config' ? 'discovery_version' "
+                "LEFT JOIN evidence_records primary_source ON primary_source.id = pin.evidence_id "
                 "JOIN LATERAL (SELECT response FROM run_commands WHERE run_id = r.id "
                 "ORDER BY created_at DESC, id DESC LIMIT 1) command ON true "
                 "WHERE c.terminal_status IS NULL AND command.response->>'status' = 'paused' "
@@ -699,8 +849,16 @@ class RunStore:
                 "AND (command.response->>'review' IS NOT NULL "
                 "OR command.response->'reviews'->0 IS NOT NULL) "
                 "AND (%(agent_id)s::uuid IS NULL OR a.agent_id = %(agent_id)s) "
+                "AND (NOT %(sessions_only)s OR rm.run_id IS NOT NULL) "
                 "ORDER BY r.created_at, r.id LIMIT %(limit)s OFFSET %(offset)s",
-                {"agent_id": agent_id, "limit": limit + 1, "offset": offset},
+                {
+                    "agent_id": agent_id,
+                    "limit": limit + 1,
+                    "offset": offset,
+                    "sessions_only": sessions_only,
+                    "session_version": SESSION_VERSION,
+                    "source_led_brief": SOURCE_LED_BRIEF,
+                },
             ).fetchall()
             return PendingReviewsPage(
                 items=[PendingReviewRun.model_validate(row) for row in rows[:limit]],
@@ -713,7 +871,8 @@ class RunStore:
         """Journal an exact review; the caller serializes admission and owns the run."""
         manifest = self._manifest(conn, run_id)
         existing = conn.execute(
-            "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s",
+            "SELECT * FROM run_commands WHERE run_id = %s AND interrupt_id = %s "
+            "AND kind = 'resume'",
             (run_id, request.interrupt_id),
         ).fetchone()
         if existing is not None:

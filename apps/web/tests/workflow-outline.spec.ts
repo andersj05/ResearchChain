@@ -90,6 +90,62 @@ test("browse connected branches and exact pinned loop callers from Build", async
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
 });
 
+test("keep the current caller when finding steps in its shared pinned body", async ({
+  page,
+  request,
+}) => {
+  const { draft, revisionId } = await saveOutlineFixture(request);
+  const [discoveryCaller, activeCaller] = draft.nodes.filter(
+    (step) => step.id === "review_loop" || step.id === "second_loop",
+  );
+  await page.setViewportSize({ width: 390, height: 950 });
+  await page.goto(`/?revision=${revisionId}`);
+  const plan = page.getByRole("button", { name: "Plan", exact: true });
+  await expect(plan).toBeEnabled();
+  await plan.press("Enter");
+  await expect(plan).toHaveAttribute("aria-pressed", "true");
+  const outline = page.getByRole("list", { name: "Workflow outline", exact: true });
+  const body = `loop body for ${activeCaller!.label}`;
+  await outline.getByRole("button", { name: `Show ${body}` }).press("Enter");
+  await outline
+    .getByRole("group", { name: body })
+    .getByRole("button", { name: "Review Review Start", exact: true })
+    .press("Enter");
+
+  const root = page
+    .getByRole("navigation", { name: "Graph breadcrumbs" })
+    .getByRole("button", { name: draft.name, exact: true });
+  const returnStep = page.getByRole("button", { name: /^Return to step / });
+  const stepName = page.getByRole("textbox", { name: "Step name", exact: true });
+  const search = page.getByRole("searchbox", { name: "Find a step", exact: true });
+  const results = page.getByRole("list", { name: "Matching steps" });
+  const currentCaller = `Return to ${activeCaller!.label}`;
+  await expect(root).toHaveAccessibleDescription(currentCaller);
+  await expect(returnStep).toHaveAccessibleName("Return to step Split");
+
+  await search.fill("Review");
+  await search.press("Enter");
+  await expect(stepName).toHaveValue("Review");
+  await expect(root).toHaveAccessibleDescription(currentCaller);
+  await expect(returnStep).toHaveAccessibleName("Return to step Split");
+
+  await search.fill("Done");
+  await results.getByRole("button", { name: /^Done\b/ }).click();
+  await expect(stepName).toHaveValue("Done");
+  await expect(root).toHaveAccessibleDescription(currentCaller);
+  await expect(returnStep).toHaveAccessibleName("Return to step Review");
+  await returnStep.press("Enter");
+  await expect(stepName).toHaveValue("Review");
+  await expect(root).toHaveAccessibleDescription(currentCaller);
+  await expect(returnStep).toHaveAccessibleName("Return to step Split");
+
+  await root.press("Enter");
+  await search.fill("Review");
+  await search.press("Enter");
+  await expect(root).toHaveAccessibleDescription(`Return to ${discoveryCaller!.label}`);
+  await expect(page.getByRole("button", { name: "Undo last edit", exact: true })).toBeDisabled();
+});
+
 for (const width of [1280, 390]) {
   test(`review a root-based plan and return to the selected nested canvas step at ${width}px`, async ({
     page,

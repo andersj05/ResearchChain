@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { type Ref, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@ui-sdk/react/button";
 import { formatTime, RunStatus, runStatusLabels } from "@/components/run-status";
-import { ReviewInbox, type ReviewTarget } from "@/components/review-inbox";
+import {
+  ReviewInbox,
+  type ReviewInboxHandle,
+  type ReviewInboxOrigin,
+} from "@/components/review-inbox";
 import { RunArchive } from "@/components/run-archive";
 import type { RecentRunSummary } from "@/lib/workflow";
 
@@ -18,6 +22,7 @@ export function RunHistory({
   onRefresh,
   onOpen,
   onOpenReview,
+  reviewInboxRef,
 }: {
   runs: RecentRunSummary[];
   selected?: string;
@@ -27,7 +32,8 @@ export function RunHistory({
   loaded: boolean;
   onRefresh: () => void;
   onOpen: (id: string) => void;
-  onOpenReview: (review: ReviewTarget) => Promise<boolean>;
+  onOpenReview: (origin: ReviewInboxOrigin) => Promise<boolean>;
+  reviewInboxRef: Ref<ReviewInboxHandle>;
 }) {
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -71,6 +77,7 @@ export function RunHistory({
         </Button>
       </div>
       <ReviewInbox
+        ref={reviewInboxRef}
         activeAgentId={agentId}
         activeAgentName={agentName}
         busy={busy}
