@@ -173,9 +173,7 @@ def test_recovery_replays_one_answer_then_pauses_for_the_other_lead(
             reply = interrupt(payload)
             if [question["action_path"] for question in payload["questions"]] == [lead_two.path]:
                 assert reply["interrupt_id"] == lead_one.interrupt_id
-                raise ExecutionStopped(
-                    research_perspectives.LEGACY_REPLAY_STOP_REASON, "failed"
-                )
+                raise ExecutionStopped(research_perspectives.LEGACY_REPLAY_STOP_REASON, "failed")
             return reply
 
         with monkeypatch.context() as patch:
