@@ -35,3 +35,17 @@ recording the result. New provider errors retain sanitized diagnostic fields
 when the provider supplied them.
 
 [Delivery issue](https://github.com/andersj05/ResearchChain/issues/176)
+
+## Expert checkpoints in new Desk studies
+
+On 2026-11-26 the owner asked to exercise judgment more often while research can
+still change. The Desk now pins a consultation policy alongside the lead limits.
+With **Each lead checks in**, a lead can ask immediately or delegate one batch
+and bring the findings back. It needs its own recorded answer before delegating
+again or finishing. A bounded lead reserves its final turn for synthesis.
+The owner can still explicitly send confirmed findings to the editor early.
+
+The existing consultation identity and journal carry the answer on replay. Older
+swarm configurations omit the new field and retain their discretionary behavior.
+New Desk studies also default to a separate editorial review. Both settings can
+be changed before launch. [Expert checkpoint and workspace delivery](https://github.com/andersj05/ResearchChain/issues/184)

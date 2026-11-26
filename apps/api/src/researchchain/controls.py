@@ -27,9 +27,11 @@ class ExecutionControl:
     def begin(self) -> None:
         # An unclosed interval came from a killed process. Charge it conservatively,
         # including downtime, so restarting cannot reset an execution budget.
+        # The database wall clock can move backward between checkpoints. An open
+        # interval can add zero seconds, but it must never subtract recorded work.
         self.conn.execute(
             "UPDATE run_controls SET active_seconds = active_seconds + "
-            "COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0), "
+            "GREATEST(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0), "
             "active_started_at = clock_timestamp() WHERE run_id = %s",
             (self.run_id,),
         )
@@ -38,7 +40,7 @@ class ExecutionControl:
     def end(self) -> None:
         self.conn.execute(
             "UPDATE run_controls SET active_seconds = active_seconds + "
-            "COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0), "
+            "GREATEST(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0), "
             "active_started_at = NULL WHERE run_id = %s",
             (self.run_id,),
         )
@@ -47,7 +49,7 @@ class ExecutionControl:
         with self.lock:
             row = self.conn.execute(
                 "SELECT terminal_status, reason, active_seconds + "
-                "COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0) "
+                "GREATEST(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0) "
                 "AS elapsed, "
                 "(SELECT count(*) FROM run_node_executions WHERE run_id = %s) AS executions, "
                 "EXISTS(SELECT 1 FROM run_node_executions WHERE run_id = %s AND path = %s) "
@@ -75,7 +77,7 @@ class ExecutionControl:
 def control_state(conn: Connection[DictRow], run_id: UUID) -> dict[str, Any]:
     row = conn.execute(
         "SELECT terminal_status, reason, owner_directions, owner_report_request, active_seconds + "
-        "COALESCE(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0) AS active_seconds, "
+        "GREATEST(EXTRACT(EPOCH FROM clock_timestamp() - active_started_at), 0) AS active_seconds, "
         "(SELECT count(*) FROM run_node_executions WHERE run_id = %s) AS node_executions "
         "FROM run_controls WHERE run_id = %s",
         (run_id, run_id),

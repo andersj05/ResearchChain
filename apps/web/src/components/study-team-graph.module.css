@@ -1,4 +1,5 @@
 .panel {
+  container-type: inline-size;
   min-width: 0;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -158,6 +159,9 @@ a.node:hover strong {
   border-top: 1px solid var(--connector);
   content: "";
 }
+.team[data-selected] {
+  border-inline-start-color: var(--blue);
+}
 
 .team::before {
   right: 100%;
@@ -192,6 +196,27 @@ a.node:hover strong {
 .researchers summary span {
   display: inline;
   margin-inline-start: 7px;
+}
+.researchers summary .distribution {
+  display: flex;
+  gap: 2px;
+  height: 4px;
+  margin: 6px 0 0;
+}
+.distribution i {
+  background: var(--border-strong);
+}
+.distribution [data-state="active"] {
+  background: var(--blue);
+}
+.distribution [data-state="complete"] {
+  background: var(--green);
+}
+.distribution [data-state="need attention"] {
+  background: var(--red);
+}
+.distribution [data-state="stopped"] {
+  background: var(--muted);
 }
 
 .researchers ul {
@@ -232,7 +257,7 @@ a.node:hover strong {
   content: "";
 }
 
-@media (max-width: 720px) {
+@container (max-width: 640px) {
   .stages {
     grid-template-columns: 1fr;
     gap: 20px;

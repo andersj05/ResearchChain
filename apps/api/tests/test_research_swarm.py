@@ -133,6 +133,7 @@ def setup(
     parallel=3,
     turns=4,
     consults=True,
+    required=False,
     output_limit=100000,
     sec=False,
 ):
@@ -142,6 +143,7 @@ def setup(
         "max_parallel": parallel,
         "max_lead_turns": turns,
         "allow_consultations": consults,
+        "require_expert_judgment": required,
     }
     document = chain(
         analyst(
@@ -223,6 +225,41 @@ def answer(store, paused, review, text):
             feedback=text,
         ),
     )
+
+
+@pytest.mark.parametrize("turns", [2, 4, None])
+def test_required_lead_judgment_reserves_a_turn_and_replays_the_answer(database, turns):
+    def act(state):
+        if state["turn"] == 1 and turns != 2:
+            return delegate(1)
+        if not any("owner_answer" in event for event in state["history"]):
+            return consult()
+        return finish()
+
+    provider = SwarmProvider(act)
+    store, request = setup(database, provider, turns=turns, required=True)
+    paused = store.start(request)
+    assert paused.status == "paused", paused.stop_reason
+    assert paused.review and paused.review.perspective
+    assert len(paused.review.perspective.worker_paths) == int(turns != 2)
+    calls = [p for p in provider.calls if "swarm_lead" in packets(p.input_items)]
+    offered = [[t["name"] for t in p.analyst_options["tools"][0]["tools"]] for p in calls]
+    assert offered == (
+        [["ask_expert"]] if turns == 2 else [["delegate", "ask_expert"], ["ask_expert"]]
+    )
+    done = answer(store, paused, paused.review, "Test the next quarter.")
+    assert done.status == "completed", done.stop_reason
+    last = packets(provider.calls[-1].input_items)["swarm_lead"]
+    assert last["history"][-1]["owner_answer"] == "Test the next quarter."
+    assert len(provider.calls) == len(done.model_attempts)
+
+
+def test_required_judgment_rejects_a_premature_finish(database):
+    provider = SwarmProvider(lambda state: finish())
+    store, request = setup(database, provider, required=True)
+    stopped = store.start(request)
+    assert stopped.status == "failed" and "expert judgment" in stopped.stop_reason
+    assert not stopped.perspective_answers
 
 
 def test_answered_lead_acts_before_peer_and_completed_workspaces_do_not_restart(database):

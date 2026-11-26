@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { activityLabel, focusSessionWorkspace } from "./research-session-workspace";
 import type { SessionWorkspace } from "@/lib/swarm-workspaces";
 import styles from "./research-session.module.css";
@@ -22,6 +22,8 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
   const current = byKey.get(selected);
   const currentParent = current?.parentKey;
   const selectedGroup = useRef<HTMLDetailsElement>(null);
+  const groups = useRef<HTMLDivElement>(null);
+  const currentButton = useRef<HTMLButtonElement>(null);
   const searchResults = useRef<HTMLUListElement>(null);
   useEffect(() => {
     if (selectedGroup.current) selectedGroup.current.open = true;
@@ -33,6 +35,23 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
   if (status) statuses.add(status);
   const terms = search.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const filtering = canSearch && (!!status || terms.length > 0);
+  const parentOpen = !currentParent || expandedLeads.has(currentParent);
+  useLayoutEffect(() => {
+    const tree = groups.current;
+    const row = currentButton.current;
+    if (!tree || !row || !parentOpen || filtering) return;
+    function reveal() {
+      if (!tree || !row || getComputedStyle(tree).overflowY !== "auto") return;
+      const bounds = tree.getBoundingClientRect();
+      const entry = row.getBoundingClientRect();
+      if (entry.top < bounds.top) tree.scrollTop += entry.top - bounds.top;
+      else if (entry.bottom > bounds.bottom) tree.scrollTop += entry.bottom - bounds.bottom;
+    }
+    reveal();
+    const observer = new ResizeObserver(reveal);
+    observer.observe(tree);
+    return () => observer.disconnect();
+  }, [selected, parentOpen, filtering]);
   function parentTitle(lane: SessionWorkspace) {
     return lane.parentKey ? byKey.get(lane.parentKey)?.title : undefined;
   }
@@ -61,6 +80,7 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
       <button
         type="button"
         key={lane.key}
+        ref={!preview && selected === lane.key ? currentButton : undefined}
         aria-current={selected === lane.key ? "true" : undefined}
         onClick={onOpen}
       >
@@ -160,7 +180,7 @@ export function SessionRoster({ lanes, selected, onSelect }: Props) {
           )}
         </>
       )}
-      <div className={styles.rosterGroups} hidden={filtering}>
+      <div className={styles.rosterGroups} hidden={filtering} ref={groups}>
         {lanes
           .filter((lane) => !lane.parentKey)
           .map((lane) => {

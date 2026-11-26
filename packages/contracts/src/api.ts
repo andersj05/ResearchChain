@@ -1367,10 +1367,10 @@ export interface components {
       language: "javascript";
       /**
        * Runtime
-       * @default quickjs-ng-0.18.0.1
-       * @constant
+       * @default quickjs-ng-0.18.0.2
+       * @enum {string}
        */
-      runtime: "quickjs-ng-0.18.0.1";
+      runtime: "quickjs-ng-0.18.0.1" | "quickjs-ng-0.18.0.2";
       /** Source */
       source: string;
       /**
@@ -1384,9 +1384,9 @@ export interface components {
       /**
        * Runtime
        * @default quickjs-ng-0.18.0.1
-       * @constant
+       * @enum {string}
        */
-      runtime: "quickjs-ng-0.18.0.1";
+      runtime: "quickjs-ng-0.18.0.1" | "quickjs-ng-0.18.0.2";
       /** Source Sha256 */
       source_sha256: string;
       inputs: components["schemas"]["CodeInputs"];
@@ -4404,6 +4404,8 @@ export interface components {
        * @default true
        */
       allow_consultations: boolean;
+      /** Require Expert Judgment */
+      require_expert_judgment?: boolean;
     };
     /** SwarmConsultation */
     SwarmConsultation: {

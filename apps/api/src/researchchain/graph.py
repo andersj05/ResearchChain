@@ -117,6 +117,13 @@ class SwarmConfig(StrictModel):
     max_parallel: int = Field(default=4, ge=1, le=20)
     max_lead_turns: int | None = Field(default=6, ge=2, le=12)
     allow_consultations: bool = True
+    require_expert_judgment: bool = Field(default_factory=bool, exclude_if=lambda value: not value)
+
+    @model_validator(mode="after")
+    def required_judgment_needs_consultations(self) -> Self:
+        if self.require_expert_judgment and not self.allow_consultations:
+            raise ValueError("A required lead judgment needs expert consultations enabled.")
+        return self
 
 
 class ResearchTeamConfig(StrictModel):
@@ -160,10 +167,13 @@ class ResearchConfig(StrictModel):
         return self
 
 
+CodeRuntime = Literal["quickjs-ng-0.18.0.1", "quickjs-ng-0.18.0.2"]
+
+
 class CodeConfig(StrictModel):
     type: Literal["code"] = "code"
     language: Literal["javascript"] = "javascript"
-    runtime: Literal["quickjs-ng-0.18.0.1"] = "quickjs-ng-0.18.0.1"
+    runtime: CodeRuntime = "quickjs-ng-0.18.0.2"
     source: str = Field(min_length=1, max_length=20000, pattern=r"^[^\x00]*$")
     timeout_seconds: float = Field(default=1, ge=0.05, le=5, allow_inf_nan=False)
 

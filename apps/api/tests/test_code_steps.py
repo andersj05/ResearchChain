@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from researchchain.code_execution import CodeExecutionError, execute_code
 from researchchain.code_models import CodeInputs
 from researchchain.database import Database
-from researchchain.graph import CodeConfig, Workflow
+from researchchain.graph import CodeConfig, CodeRuntime, Workflow
 from researchchain.models import ResumeRequest, RunRequest
 from researchchain.revisions import RevisionStore
 from researchchain.runtime import RunStore, compiler_version
@@ -59,8 +59,10 @@ def code_workflow(source: str, *, review: bool = False) -> Workflow:
     )
 
 
+@pytest.mark.parametrize("runtime", ["quickjs-ng-0.18.0.1", "quickjs-ng-0.18.0.2"])
 def test_code_computes_with_json_inputs_and_no_host_capabilities(
     monkeypatch: pytest.MonkeyPatch,
+    runtime: CodeRuntime,
 ) -> None:
     monkeypatch.setenv("OWNER_PRIVATE_KEY", "never-inherit-this-secret")
     source = """
@@ -69,14 +71,46 @@ def test_code_computes_with_json_inputs_and_no_host_capabilities(
         return {text: inputs.text.toUpperCase() + ' ✓', number: Math.sqrt(inputs.number)};
     """
     result = execute_code(
-        CodeConfig(source=source),
+        CodeConfig(source=source, runtime=runtime),
         CodeInputs(text="owner", number=81, brief="test", artifact_count=2, iteration=3),
     )
     assert result.outputs.text == "OWNER ✓"
     assert result.outputs.number == 9
     assert result.inputs.iteration == 3
     assert result.source_sha256 == hashlib.sha256(source.encode()).hexdigest()
-    assert result.runtime == "quickjs-ng-0.18.0.1"
+    assert result.runtime == runtime
+
+
+def test_saved_review_resumes_with_original_engine_after_new_revision(database: Database) -> None:
+    source = "return {text: inputs.text, number: 2};"
+    document = code_workflow(source, review=True).canonical_document()
+    step = document["nodes"][0]
+    assert step["config"]["runtime"] == "quickjs-ng-0.18.0.2"
+    document["start_node"] = "review"
+    document["edges"] = [
+        {"source": "review", "target": "code"},
+        {"source": "code", "target": "note"},
+        {"source": "note", "target": "finish"},
+    ]
+    step["config"]["runtime"] = "quickjs-ng-0.18.0.1"
+    revisions = RevisionStore(database)
+    saved = revisions.save(Workflow.model_validate(document))
+    run = RunStore(database).start(RunRequest(id=uuid4(), revision_id=saved.id, brief="sample"))
+    assert run.review and run.checkpoint_id
+    step["config"]["runtime"] = "quickjs-ng-0.18.0.2"
+    latest = revisions.save(Workflow.model_validate(document))
+    assert latest.content_hash != saved.content_hash
+    result = RunStore(database).resume(
+        run.id,
+        ResumeRequest(
+            checkpoint_id=run.checkpoint_id,
+            interrupt_id=run.review.interrupt_id,
+            decision="approve",
+        ),
+    )
+    assert result.status == "completed"
+    assert result.workflow == saved.workflow
+    assert [event.code.runtime for event in result.events if event.code] == ["quickjs-ng-0.18.0.1"]
 
 
 @pytest.mark.parametrize(

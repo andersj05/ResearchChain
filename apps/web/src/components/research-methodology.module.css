@@ -28,6 +28,9 @@
   color: var(--muted);
   margin-top: 6px;
 }
+.title p {
+  max-width: 72ch;
+}
 .title a {
   text-decoration: none;
   flex: none;
@@ -74,7 +77,7 @@
 }
 .graph {
   position: relative;
-  height: 400px;
+  height: 500px;
   background-color: var(--paper);
   background-image: radial-gradient(var(--border-strong) 0.8px, transparent 0.8px);
   background-size: 14px 14px;
@@ -84,6 +87,10 @@
   width: 100%;
   height: 100%;
   color: #777;
+}
+.lines path[data-active] {
+  stroke: var(--blue);
+  stroke-width: 2.5;
 }
 .lineLabels {
   font-size: 12px;
@@ -112,6 +119,9 @@
 }
 .graph button[data-human] {
   border-left: 3px solid var(--amber);
+}
+.graph button[data-next] {
+  border-block-end: 2px solid var(--blue);
 }
 .graph button[aria-pressed="true"] {
   outline: 2px solid var(--ink);
@@ -158,6 +168,27 @@
   letter-spacing: -0.025em;
   font-size: 20px;
   margin-top: 4px;
+}
+.handoffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.handoffs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 0;
+  color: var(--blue);
+  background: transparent;
+  border: 0;
+  font: inherit;
+}
+.handoffs button:hover {
+  text-decoration: underline;
+}
+.backToMap {
+  display: none;
 }
 .page dl {
   margin: 0;
@@ -206,6 +237,11 @@
   color: var(--surface);
 }
 @media (max-width: 710px) {
+  .backToMap {
+    display: inline-block;
+    margin-top: 8px;
+    font-size: 13px;
+  }
   .page {
     padding: 24px 14px 40px;
   }
