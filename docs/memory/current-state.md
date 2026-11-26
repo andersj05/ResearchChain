@@ -2,6 +2,14 @@
 
 Updated 2026-11-25.
 
+## Resuming lead consultations
+
+When recovering a study, the swarm skips an exact repeat of a consultation
+answer already replayed for that lead. The next unanswered lead can still pause
+for its own answer. **Resume research** is available after the older mismatch
+error when the original owner answer is saved and no unfinished model attempts
+remain.
+
 ## Research Desk without a study timer
 
 Research Desk studies run without an active execution time limit, including

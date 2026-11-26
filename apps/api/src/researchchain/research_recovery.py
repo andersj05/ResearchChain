@@ -12,6 +12,7 @@ from researchchain.providers.chatgpt_auth import (
     TERMINAL_REFRESH_ERRORS,
 )
 from researchchain.research_models import ProviderFailure
+from researchchain.research_perspectives import LEGACY_REPLAY_STOP_REASON
 from researchchain.research_sessions import SESSION_VERSION
 
 TRANSIENT_STREAM_CODES = {
@@ -57,7 +58,7 @@ def _retryable(attempt: DictRow) -> bool:
 
 
 def recovery_candidate(conn: Connection[DictRow], run_id: UUID) -> DictRow | None:
-    """Find a continuation for a recorded provider failure or a clean legacy timer stop."""
+    """Find a continuation for a retryable provider failure or a known legacy stop."""
     command = conn.execute(
         "SELECT c.id, c.checkpoint_id, c.interrupt_id, c.decision, c.feedback, "
         "c.response->>'status' AS command_status, controls.terminal_status, controls.reason "
@@ -86,6 +87,21 @@ def recovery_candidate(conn: Connection[DictRow], run_id: UUID) -> DictRow | Non
         # An older timer could fire between requests or during an admitted call.
         # Only the first case can continue with all effects confirmed.
         if attempts:
+            return None
+        command["requires_confirmation"] = False
+        return command
+    if command["reason"] == LEGACY_REPLAY_STOP_REASON:
+        if attempts or not (command["interrupt_id"] or "").startswith("perspective-"):
+            return None
+        # Recoveries copy the review. Require its original owner command and
+        # completed receipts before allowing replay of a legacy duplicate answer.
+        saved_review = conn.execute(
+            "SELECT 1 FROM run_commands WHERE run_id = %s AND kind = 'resume' "
+            "AND checkpoint_id = %s AND interrupt_id = %s AND decision = 'approve' "
+            "AND feedback = %s",
+            (run_id, command["checkpoint_id"], command["interrupt_id"], command["feedback"]),
+        ).fetchone()
+        if saved_review is None or command["decision"] != "approve":
             return None
         command["requires_confirmation"] = False
         return command

@@ -10,6 +10,7 @@ import pytest
 from access_fixtures import owner_client
 from test_research_swarm import SwarmProvider, consult, delegate, finish, packets, setup
 
+from researchchain import research_perspectives, research_swarm
 from researchchain.compiler import ExecutionStopped
 from researchchain.controls import ACTIVE_TIME_LIMIT_REASON
 from researchchain.dispatch import RunQueue
@@ -61,8 +62,8 @@ class FailingWorker(SwarmProvider):
         return completion
 
 
-def start_study(database, provider):
-    runs, request = setup(database, provider, workers=2, parallel=2)
+def start_study(database, provider, *, leads=1):
+    runs, request = setup(database, provider, leads=leads, workers=2, parallel=2)
     queue, worker = RunQueue(runs), RunWorker(runs)
     with queue._admission() as conn:
         queue._start(conn, request, research_session=True)
@@ -122,6 +123,76 @@ def test_desk_resumes_a_clean_legacy_timer_stop(database, monkeypatch, unfinishe
     assert finished.model_attempts == before.model_attempts
     assert finished.usage.active_seconds >= before.usage.active_seconds > pinned_limit
     assert provider.worker_calls == {1: 1, 2: 1}
+
+
+@pytest.mark.parametrize("already_failed", [False, True])
+def test_recovery_replays_one_answer_then_pauses_for_the_other_lead(
+    database, monkeypatch, already_failed
+):
+    provider = SwarmProvider(lambda state: consult() if state["turn"] == 1 else finish())
+    queue, worker, run_id, paused = start_study(database, provider, leads=2)
+    assert paused.status == "paused"
+    lead_one, lead_two = paused.reviews
+
+    def answer(snapshot, review, feedback):
+        queue.resume(
+            run_id,
+            ResumeRequest(
+                checkpoint_id=snapshot.checkpoint_id,
+                interrupt_id=review.interrupt_id,
+                decision="approve",
+                feedback=feedback,
+            ),
+        )
+        assert worker.run_once()
+        return queue.runs.get(run_id)
+
+    def recover(snapshot):
+        assert snapshot.recovery_command_id and not snapshot.recovery_requires_confirmation
+        queue.recover(run_id, snapshot.recovery_command_id)
+        assert worker.run_once()
+        return queue.runs.get(run_id)
+
+    request_perspectives = research_swarm.request_perspectives
+
+    def legacy_timer(run_id, node_id, questions, *args):
+        if [question.action_path for question in questions] == [lead_two.path]:
+            raise ExecutionStopped(ACTIVE_TIME_LIMIT_REASON)
+        return request_perspectives(run_id, node_id, questions, *args)
+
+    with monkeypatch.context() as patch:
+        patch.setattr(research_swarm, "request_perspectives", legacy_timer)
+        stopped = answer(paused, lead_one, "Use the three-year horizon.")
+    assert stopped.status == "limited" and stopped.stop_reason == ACTIVE_TIME_LIMIT_REASON
+    assert all(attempt.status == "completed" for attempt in stopped.model_attempts)
+
+    if already_failed:
+        interrupt = research_perspectives.interrupt
+
+        def legacy_interrupt(payload):
+            reply = interrupt(payload)
+            if [question["action_path"] for question in payload["questions"]] == [lead_two.path]:
+                assert reply["interrupt_id"] == lead_one.interrupt_id
+                raise ExecutionStopped(research_perspectives.LEGACY_REPLAY_STOP_REASON, "failed")
+            return reply
+
+        with monkeypatch.context() as patch:
+            patch.setattr(research_perspectives, "interrupt", legacy_interrupt)
+            stopped = recover(stopped)
+        assert stopped.status == "failed"
+
+    resumed = recover(stopped)
+    assert resumed.status == "paused", resumed.stop_reason
+    assert [review.interrupt_id for review in resumed.reviews] == [lead_two.interrupt_id]
+    assert resumed.model_attempts == stopped.model_attempts
+    assert resumed.perspective_answers == stopped.perspective_answers
+    finished = answer(resumed, lead_two, "Use one quarter.")
+    assert finished.status == "completed", finished.stop_reason
+    assert [reply.feedback for reply in finished.perspective_answers] == [
+        "Use the three-year horizon.",
+        "Use one quarter.",
+    ]
+    assert len(provider.calls) == len(finished.model_attempts) == 5
 
 
 def test_repeatable_recovery_reuses_finished_work_and_the_review(database):
