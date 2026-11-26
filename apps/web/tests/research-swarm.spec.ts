@@ -33,7 +33,9 @@ test("follow two research leads from queued work through an expert consultation 
   await expect(page.getByLabel("Turns per lead")).toBeHidden();
   await expect(page.getByLabel("Passes per agent")).toBeHidden();
   await page.getByLabel("Editorial review").selectOption("never");
-  await expect(page.getByLabel("Expert judgment", { exact: true })).toHaveValue("each_lead");
+  await expect(page.getByRole("combobox", { name: "Expert judgment", exact: true })).toHaveValue(
+    "each_lead",
+  );
   await expect(page.getByLabel("Allow live web search")).toBeChecked();
   const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
   const shared = page.getByRole("group", { name: "Shared response settings", exact: true });

@@ -10928,8 +10928,7 @@
           },
           "require_expert_judgment": {
             "type": "boolean",
-            "title": "Require Expert Judgment",
-            "default": false
+            "title": "Require Expert Judgment"
           }
         },
         "additionalProperties": false,

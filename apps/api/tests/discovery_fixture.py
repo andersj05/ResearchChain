@@ -96,7 +96,7 @@ class DiscoveryProvider(SessionProvider):
                     tool="ask_expert",
                     arguments={
                         "thesis": "Differences between sectors may explain the weekly move.",
-                        "question": "Which comparison would distinguish concentration from a sector effect?",
+                        "question": "Which comparison would isolate the sector effect?",
                         "options": [],
                     },
                 )
