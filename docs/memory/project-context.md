@@ -66,6 +66,7 @@ On 2026-11-25 the owner chose Research Swarm for new Research Desk studies.
 Use GPT-6.2 Astra for leads and the report writer, GPT-6.2 Sol for researchers,
 and High thinking effort and response detail with sliders. Enable web search
 and expert consultation by default. Let assignments finish when their work is
-ready. The owner wants to see the live team and its files, steer the work or
+ready. Research Desk studies run without an active execution time limit. The
+owner wants to see the live team and its files, steer the work or
 send findings to the editor, and resume eligible failures on the same study.
 [Live Research Swarm studies](../decisions/0027-live-research-swarm.md)

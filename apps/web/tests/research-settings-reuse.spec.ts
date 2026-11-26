@@ -211,6 +211,7 @@ test("reuse saved research settings in an independent new study draft", async ({
     await expect(choice).toBeDisabled();
     expect(request).toMatchObject({
       ...settings,
+      max_active_seconds: null,
       title: newTitle,
       brief: newContext,
       style_excerpt: newSample,

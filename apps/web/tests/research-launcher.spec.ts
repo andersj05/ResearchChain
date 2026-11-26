@@ -184,7 +184,7 @@ for (const width of [1280, 390]) {
     await page.getByLabel("Research leads").selectOption("3");
     await page.getByText("Optional execution limits", { exact: true }).click();
     await page.getByLabel("Passes per agent").fill("5");
-    await page.getByLabel("Active time limit (seconds)").fill("1200");
+    await expect(page.getByLabel("Active time limit (seconds)")).toHaveCount(0);
     await page
       .getByRole("combobox", { name: "Research model", exact: true })
       .selectOption("test-model");
@@ -330,7 +330,7 @@ for (const width of [1280, 390]) {
       max_input_bytes: 8_000_000,
       swarm: { lead_count: 3 },
       max_passes: 5,
-      max_active_seconds: 1200,
+      max_active_seconds: null,
       review_mode: "always",
       web_search: true,
       style_excerpt: "Lead with a concrete observation.",

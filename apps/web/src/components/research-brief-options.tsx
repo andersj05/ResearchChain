@@ -138,20 +138,10 @@ function ResearchLimits({
   update: (patch: Partial<ResearchBrief>) => void;
 }) {
   const swarm = draft.swarm && { ...initialSwarm, ...draft.swarm };
-  const activeSeconds = draft.max_active_seconds;
-  let time = "No limit";
-  if (activeSeconds !== null) {
-    const minutes = Math.floor(activeSeconds / 60);
-    const seconds = activeSeconds % 60;
-    time =
-      Number.isInteger(activeSeconds) && activeSeconds >= 60 && activeSeconds <= 3600
-        ? `${minutes} min${seconds ? ` ${seconds} sec` : ""}`
-        : "1 to 60 min";
-  }
   return (
     <details
       className={styles.researchLimits}
-      open={draft.max_passes !== null || activeSeconds !== null || swarm?.max_lead_turns != null}
+      open={draft.max_passes !== null || swarm?.max_lead_turns != null}
       onInvalidCapture={(event) => {
         event.currentTarget.open = true;
       }}
@@ -193,24 +183,6 @@ function ResearchLimits({
             />
           </label>
         )}
-        <label>
-          <span className={styles.timeLimitLabel}>
-            <span id="study-active-limit-label">Active time limit (seconds)</span>
-            <span id="study-active-limit-duration">{time}</span>
-          </span>
-          <input
-            type="number"
-            aria-labelledby="study-active-limit-label"
-            aria-describedby="study-active-limit-duration"
-            min={60}
-            max={3600}
-            step={1}
-            value={activeSeconds ?? ""}
-            onChange={(event) =>
-              update({ max_active_seconds: event.target.value ? event.target.valueAsNumber : null })
-            }
-          />
-        </label>
         <p>With these fields empty, agents decide when their assignments are complete.</p>
       </div>
     </details>

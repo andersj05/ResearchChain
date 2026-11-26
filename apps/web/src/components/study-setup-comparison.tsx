@@ -40,10 +40,6 @@ function settingValues(brief: ResearchBrief) {
       ? `${swarm.researchers_per_lead} per lead`
       : String(brief.max_agents),
     "Passes per agent": brief.max_passes === null ? "As needed" : String(brief.max_passes),
-    "Active time limit":
-      brief.max_active_seconds === null
-        ? "No limit"
-        : `${brief.max_active_seconds.toLocaleString()} seconds`,
     "Request size limit": `${(brief.max_input_bytes ?? 8_000_000).toLocaleString()} bytes`,
     "Team web search": brief.web_search ? "On" : "Off",
     "Editorial review": reviewLabels[brief.review_mode],

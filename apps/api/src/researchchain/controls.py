@@ -10,6 +10,8 @@ from psycopg.rows import DictRow
 from researchchain.compiler import ExecutionStopped
 from researchchain.graph import ExecutionBudgets
 
+ACTIVE_TIME_LIMIT_REASON = "Active execution time limit reached."
+
 
 class ExecutionControl:
     def __init__(
@@ -59,7 +61,7 @@ class ExecutionControl:
                 )
             time_limit = self.budgets.max_active_seconds
             if time_limit is not None and row["elapsed"] >= time_limit:
-                raise ExecutionStopped("Active execution time limit reached.")
+                raise ExecutionStopped(ACTIVE_TIME_LIMIT_REASON)
             if count and not row["already_counted"]:
                 if row["executions"] >= self.budgets.max_node_executions:
                     raise ExecutionStopped("Node execution limit reached.")
