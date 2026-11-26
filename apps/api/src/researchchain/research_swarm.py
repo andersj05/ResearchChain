@@ -16,7 +16,7 @@ from pydantic import BaseModel
 from researchchain.artifacts import read_content
 from researchchain.compiler import ExecutionStopped
 from researchchain.graph import ResearchConfig, SwarmConfig, WorkflowNode, resolve_model
-from researchchain.models import LeadPerspective
+from researchchain.models import LeadPerspective, PerspectiveAnswer
 from researchchain.research_directions import ReportHandoffRequested, read_report_request
 from researchchain.research_models import (
     StoredResearchResult,
@@ -477,13 +477,14 @@ def _run_swarm(
                 )
             return _worker_summary(worker.assignment, receipt)
 
+    answered: dict[str, PerspectiveAnswer] = {}
     while not all(lead.finished for lead in leads):
         active = [lead for lead in leads if not lead.finished and not lead.pending]
         if not active:
             # Only the graph thread interrupts, after all runnable leads and worker
             # futures have settled. Replaying the same barriers consumes old answers.
             pending = [lead.pending for lead in leads if lead.pending]
-            answers = request_perspectives(executor.run_id, node.id, pending)
+            answers = request_perspectives(executor.run_id, node.id, pending, answered)
             if not answers or not set(answers) <= {question.action_path for question in pending}:
                 raise ExecutionStopped(
                     "The answer did not identify a pending consultation.", "failed"
