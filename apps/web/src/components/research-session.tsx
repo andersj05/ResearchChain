@@ -567,11 +567,8 @@ function ResearchSessionView({
             </p>
           )}
           <p>
-            {run.research_manifest?.settings.model} ·{" "}
-            {run.workflow.budgets?.max_active_seconds === null
-              ? "No active-time limit"
-              : `${run.workflow.budgets?.max_active_seconds ?? 120}s active-time limit`}{" "}
-            · {run.research_manifest?.settings.limits?.max_model_calls} model requests maximum
+            {run.research_manifest?.settings.model} · No active-time limit ·{" "}
+            {run.research_manifest?.settings.limits?.max_model_calls} model requests maximum
           </p>
           {profiles ? (
             <div className={styles.profileList}>
@@ -635,7 +632,11 @@ function ResearchSessionView({
           <p>{run.stop_reason}</p>
           {failedCommandId && (
             <>
-              <p>Resume from the saved checkpoint. Retried requests use your plan allowance.</p>
+              <p>
+                {run.status === "limited"
+                  ? "Resume from the saved checkpoint without a study time limit."
+                  : "Resume from the saved checkpoint. Retried requests use your plan allowance."}
+              </p>
               {run.recovery_requires_confirmation && (
                 <label className={styles.resumeConfirmation}>
                   <input

@@ -297,7 +297,9 @@ class RunStore:
         if control["terminal_status"]:
             status = control["terminal_status"]
             pending = []
-        recovery = recovery_candidate(conn, manifest["id"]) if status == "failed" else None
+        recovery = (
+            recovery_candidate(conn, manifest["id"]) if status in ("failed", "limited") else None
+        )
         reviews = [review for _, review in checkpoint_reviews(manifest["id"], pending)]
         attempts = read_attempts(conn, manifest["id"])
         stop_reason = control["reason"] or worker_error
@@ -410,8 +412,11 @@ class RunStore:
             return snapshot
         workflow = read_revision(conn, manifest["revision_id"]).workflow
         saver = PostgresSaver(conn)
-        execution = ExecutionControl(conn, manifest["id"], workflow.budgets, saver.lock)
         research_manifest = read_manifest(conn, manifest["id"])
+        budgets = workflow.budgets
+        if research_manifest and research_manifest.tool_config.get("session") == SESSION_VERSION:
+            budgets = budgets.model_copy(update={"max_active_seconds": None})
+        execution = ExecutionControl(conn, manifest["id"], budgets, saver.lock)
         researcher = (
             ResearchExecutor(
                 conn, manifest["id"], manifest["brief"], research_manifest, execution, self.provider

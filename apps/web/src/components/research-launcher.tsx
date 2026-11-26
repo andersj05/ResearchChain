@@ -285,6 +285,7 @@ export function ResearchLauncher({
     deferNavigation.current = false;
     const request: ResearchSessionStart = pending ?? {
       ...draft,
+      max_active_seconds: null,
       title: draft.title?.trim() || undefined,
       start_from_sources: true,
       max_input_bytes: limit,

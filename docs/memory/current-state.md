@@ -2,6 +2,13 @@
 
 Updated 2026-11-25.
 
+## Research Desk without a study timer
+
+Research Desk studies run without an active execution time limit, including
+older studies whose saved workflows recorded one. **Resume research** can
+continue a study stopped by its old timer when no unfinished attempt needs
+replay. The pinned workflow, completed receipts, and active duration are retained.
+
 ## Resuming after provider overload
 
 The OpenAI stream code `server_is_overloaded` is a retryable failure. An active
@@ -62,13 +69,6 @@ Report drafts can use a newly selected captured source in a reference or chart
 before the revision is saved. The editor uses the server's citation basis and
 identifies the applicable section if an attached draft source is still in use.
 [Report outline and staged sources PR](https://github.com/andersj05/ResearchChain/pull/173).
-
-## Reading the active time limit
-
-Research settings shows the current active limit in minutes and seconds beside
-the exact seconds field. The numeric value and saved run limit still use seconds.
-The inline readout was verified at 320 and 1440 px.
-[Study time limit PR](https://github.com/andersj05/ResearchChain/pull/172).
 
 ## Faster report lists and live study reading
 

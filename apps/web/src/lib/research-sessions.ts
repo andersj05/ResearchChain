@@ -123,7 +123,7 @@ export function reusableResearchSettings(source: ResearchSessionSetup) {
     swarm: source.swarm,
     max_agents: source.max_agents ?? blankResearchBrief.max_agents,
     max_passes: source.max_passes ?? blankResearchBrief.max_passes,
-    max_active_seconds: source.max_active_seconds ?? blankResearchBrief.max_active_seconds,
+    max_active_seconds: blankResearchBrief.max_active_seconds,
   };
 }
 
@@ -164,7 +164,9 @@ export function initializeResearchBrief(saved: SavedBrief | null, fromSession: s
       );
     });
   const draft = !saved || untouched ? blankResearchBrief : saved.draft;
-  const deskDraft = saved?.pending || draft.swarm ? draft : { ...draft, swarm: defaultSwarm };
+  const deskDraft = saved?.pending
+    ? draft
+    : { ...draft, swarm: draft.swarm ?? defaultSwarm, max_active_seconds: null };
   const awaitingModelCatalog =
     !fromSession && !saved?.pending && (!saved || !!saved.awaitingModelCatalog || untouched);
   return {

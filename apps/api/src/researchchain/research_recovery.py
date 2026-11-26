@@ -5,6 +5,7 @@ from uuid import UUID
 from psycopg import Connection
 from psycopg.rows import DictRow
 
+from researchchain.controls import ACTIVE_TIME_LIMIT_REASON
 from researchchain.providers.chatgpt_auth import (
     GENERIC_PROVIDER_ERROR,
     PROVIDER_OVERLOAD_CODES,
@@ -56,21 +57,23 @@ def _retryable(attempt: DictRow) -> bool:
 
 
 def recovery_candidate(conn: Connection[DictRow], run_id: UUID) -> DictRow | None:
-    """Find an explicit continuation for journaled transient component failures."""
+    """Find a continuation for a recorded provider failure or a clean legacy timer stop."""
     command = conn.execute(
         "SELECT c.id, c.checkpoint_id, c.interrupt_id, c.decision, c.feedback, "
-        "c.response->>'status' AS command_status, controls.reason "
+        "c.response->>'status' AS command_status, controls.terminal_status, controls.reason "
         "FROM run_commands c JOIN run_controls controls ON controls.run_id = c.run_id "
         "JOIN run_research_manifests m ON m.run_id = c.run_id "
-        "WHERE c.run_id = %s AND controls.terminal_status = 'failed' "
+        "WHERE c.run_id = %s AND ("
+        "(controls.terminal_status = 'failed' AND "
+        "m.manifest->'tool_config'->>'swarm_version' IS NOT NULL) OR "
+        "(controls.terminal_status = 'limited' AND controls.reason = %s)) "
         "AND m.manifest->'tool_config'->>'session' = %s "
-        "AND m.manifest->'tool_config'->>'swarm_version' IS NOT NULL "
         "AND NOT EXISTS (SELECT 1 FROM run_commands pending WHERE pending.run_id = c.run_id "
         "AND pending.response IS NULL) "
         "ORDER BY c.created_at DESC, c.id DESC LIMIT 1",
-        (run_id, SESSION_VERSION),
+        (run_id, ACTIVE_TIME_LIMIT_REASON, SESSION_VERSION),
     ).fetchone()
-    if command is None or command["command_status"] != "failed":
+    if command is None or command["command_status"] != command["terminal_status"]:
         return None
     attempts = conn.execute(
         "SELECT a.status, a.input_artifact_id, a.response_id, a.finished_at, a.reason, "
@@ -79,6 +82,13 @@ def recovery_candidate(conn: Connection[DictRow], run_id: UUID) -> DictRow | Non
         "AND a.superseded_at IS NULL AND a.status <> 'completed'",
         (run_id,),
     ).fetchall()
+    if command["terminal_status"] == "limited":
+        # An older timer could fire between requests or during an admitted call.
+        # Only the first case can continue with all effects confirmed.
+        if attempts:
+            return None
+        command["requires_confirmation"] = False
+        return command
     if all(_retryable(attempt) for attempt in attempts) and any(
         attempt["reason"] == command["reason"] for attempt in attempts
     ):

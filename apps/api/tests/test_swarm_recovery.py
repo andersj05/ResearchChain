@@ -10,6 +10,8 @@ import pytest
 from access_fixtures import owner_client
 from test_research_swarm import SwarmProvider, consult, delegate, finish, packets, setup
 
+from researchchain.compiler import ExecutionStopped
+from researchchain.controls import ACTIVE_TIME_LIMIT_REASON
 from researchchain.dispatch import RunQueue
 from researchchain.main import create_app
 from researchchain.models import ResumeRequest
@@ -66,6 +68,60 @@ def start_study(database, provider):
         queue._start(conn, request, research_session=True)
     assert worker.run_once()
     return queue, worker, request.id, runs.get(request.id)
+
+
+@pytest.mark.parametrize("unfinished", [False, True])
+def test_desk_resumes_a_clean_legacy_timer_stop(database, monkeypatch, unfinished):
+    original_guard = ResearchExecutor.guard
+
+    def old_timer(executor, path, count=False, *, settling=False):
+        original_guard(executor, path, count, settling=settling)
+        if path == "root/team":
+            raise ExecutionStopped(ACTIVE_TIME_LIMIT_REASON)
+
+    provider = FailingWorker()
+    with monkeypatch.context() as patch:
+        patch.setattr(ResearchExecutor, "guard", old_timer)
+        queue, worker, run_id, stopped = start_study(database, provider)
+
+    pinned_limit = stopped.workflow.budgets.max_active_seconds
+    assert pinned_limit is not None
+    assert stopped.status == "limited" and stopped.stop_reason == ACTIVE_TIME_LIMIT_REASON
+    assert stopped.recovery_command_id and not stopped.recovery_requires_confirmation
+    assert len(stopped.model_attempts) == 5
+    assert all(attempt.status == "completed" for attempt in stopped.model_attempts)
+    with database.connection() as conn:
+        conn.execute(
+            "UPDATE run_controls SET active_seconds = %s WHERE run_id = %s",
+            (pinned_limit + 1, run_id),
+        )
+        if unfinished:
+            conn.execute(
+                "UPDATE research_attempts SET status = 'limited', reason = %s, "
+                "response_id = NULL, result = NULL, response_artifact_id = NULL "
+                "WHERE run_id = %s AND path LIKE '%%/agent-2'",
+                (ACTIVE_TIME_LIMIT_REASON, run_id),
+            )
+    before = queue.runs.get(run_id)
+    if unfinished:
+        assert before.recovery_command_id is None
+        with pytest.raises(ConflictError, match="cannot be resumed"):
+            queue.recover(run_id, stopped.recovery_command_id, confirm_unrecorded=True)
+        assert not worker.run_once()
+        return
+    path = f"/api/runs/{run_id}/recover"
+    with owner_client(create_app(database, provider=provider), workers=False) as client:
+        request = {"failed_command_id": str(stopped.recovery_command_id)}
+        accepted = client.post(path, json=request)
+        assert accepted.status_code == 202, accepted.text
+        assert client.post(path, json=request).json() == accepted.json()
+    assert worker.run_once()
+    finished = queue.runs.get(run_id)
+    assert finished.status == "completed", finished.stop_reason
+    assert finished.workflow == stopped.workflow and finished.revision_id == stopped.revision_id
+    assert finished.model_attempts == before.model_attempts
+    assert finished.usage.active_seconds >= before.usage.active_seconds > pinned_limit
+    assert provider.worker_calls == {1: 1, 2: 1}
 
 
 def test_repeatable_recovery_reuses_finished_work_and_the_review(database):
