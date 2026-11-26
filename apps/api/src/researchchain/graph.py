@@ -117,6 +117,13 @@ class SwarmConfig(StrictModel):
     max_parallel: int = Field(default=4, ge=1, le=20)
     max_lead_turns: int | None = Field(default=6, ge=2, le=12)
     allow_consultations: bool = True
+    require_expert_judgment: bool = Field(default=False, exclude_if=lambda value: not value)
+
+    @model_validator(mode="after")
+    def required_judgment_needs_consultations(self) -> Self:
+        if self.require_expert_judgment and not self.allow_consultations:
+            raise ValueError("A required lead judgment needs expert consultations enabled.")
+        return self
 
 
 class ResearchTeamConfig(StrictModel):

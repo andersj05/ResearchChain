@@ -179,6 +179,16 @@ def session_workflow(setup: ResearchSessionSetup) -> Workflow:
                 "their judgment could change the investigation or the trade conclusion. Ask "
                 "while there is still time to follow up on the answer."
             )
+    if swarm and swarm.require_expert_judgment:
+        team.instructions += (
+            " Each lead must consult the owner before finishing its mandate. Bring the first "
+            "research findings back before commissioning another batch, or ask earlier if "
+            "the choice of test itself needs judgment. State the provisional view, the strongest "
+            "rival explanation and the evidence or missing observation that distinguishes them. "
+            "Ask which interpretation, horizon or invalidation test should guide your next move. "
+            "Explain what you would do differently for each plausible answer. Attribute the "
+            "answer to the owner and use it to revise the investigation or qualify the conclusion."
+        )
     nodes.append(team)
     report_inputs = {"context": ValueSource(source="output", node_id="team", port="text")}
     if setup.review_mode != "never":

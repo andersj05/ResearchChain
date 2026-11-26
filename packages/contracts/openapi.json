@@ -10925,6 +10925,11 @@
             "type": "boolean",
             "title": "Allow Consultations",
             "default": true
+          },
+          "require_expert_judgment": {
+            "type": "boolean",
+            "title": "Require Expert Judgment",
+            "default": false
           }
         },
         "additionalProperties": false,
