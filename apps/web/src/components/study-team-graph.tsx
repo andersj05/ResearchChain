@@ -58,8 +58,19 @@ function LeadTeam({
     ({ state }) => state && stateTone[state] === "failed",
   ).length;
   const stopped = researchers.length - active - complete - queued - needsAttention;
+  const segments = [
+    { label: "active", count: active },
+    { label: "queued", count: queued },
+    { label: "complete", count: complete },
+    { label: "need attention", count: needsAttention },
+    { label: "stopped", count: stopped },
+  ].filter((segment) => segment.count > 0);
   return (
-    <li className={styles.team} aria-label={`${lead.title} lead team`}>
+    <li
+      className={styles.team}
+      aria-label={`${lead.title} lead team`}
+      data-selected={researchers.some((worker) => worker.key === context.selected) || undefined}
+    >
       <LaneNode lane={lead} context={context} />
       {review && (
         <a className={styles.consultation} href={`#consultation-${review.interrupt_id}`}>
@@ -70,16 +81,11 @@ function LeadTeam({
         <details className={styles.researchers} onToggle={(e) => setExpanded(e.currentTarget.open)}>
           <summary>
             <strong>Researchers ({researchers.length})</strong>
-            <span>
-              {[
-                active > 0 && `${active} active`,
-                queued > 0 && `${queued} queued`,
-                complete > 0 && `${complete} complete`,
-                needsAttention > 0 && `${needsAttention} need attention`,
-                stopped > 0 && `${stopped} stopped`,
-              ]
-                .filter(Boolean)
-                .join(" · ")}
+            <span>{segments.map(({ label, count }) => `${count} ${label}`).join(" · ")}</span>
+            <span className={styles.distribution} aria-hidden="true">
+              {segments.map(({ label, count }) => (
+                <i key={label} data-state={label} style={{ flexGrow: count }} />
+              ))}
             </span>
           </summary>
           {expanded && (
@@ -163,6 +169,7 @@ export function StudyTeamGraph({
       id="study-team-graph"
       className={styles.panel}
       aria-labelledby="study-team-graph-title"
+      tabIndex={-1}
     >
       <h2 id="study-team-graph-title">Team graph</h2>
       <ol className={styles.stages} aria-label="Research handoffs">

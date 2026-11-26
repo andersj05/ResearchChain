@@ -144,6 +144,21 @@ class SwarmRequest:
     config: SwarmConfig
     lead: LeadState | None = None
 
+    def requires_answer_before(self, action: str) -> bool:
+        lead = self.lead
+        if not self.config.require_expert_judgment or lead is None or action == "ask_expert":
+            return False
+        if any("owner_answer" in event for event in lead.history):
+            return False
+        # Ask after the first batch of findings, or earlier to reserve the last turn
+        # for synthesis. The lead may also ask immediately when its mandate is unclear.
+        max_turns = self.config.max_lead_turns
+        return (
+            action == "finish"
+            or lead.workers > 0
+            or (max_turns is not None and len(lead.history) + 2 >= max_turns)
+        )
+
     def prepare(self, prepared: PreparedResearch, instructions: str, skill: str) -> None:
         lead = self.lead
         prepared.instructions = (
@@ -181,11 +196,13 @@ class SwarmRequest:
                     "type": "namespace",
                     "name": "research",
                     "description": "Research lead tools",
-                    "tools": _tools(
-                        capacity,
-                        self.config.allow_consultations,
-                        turn == max_turns,
-                    ),
+                    "tools": [
+                        tool
+                        for tool in _tools(
+                            capacity, self.config.allow_consultations, turn == max_turns
+                        )
+                        if not self.requires_answer_before(tool["name"])
+                    ],
                 }
             ],
             "parallel_tool_calls": False,
@@ -212,6 +229,8 @@ class SwarmRequest:
         max_turns = self.config.max_lead_turns
         if name != "finish" and max_turns is not None and len(self.lead.history) + 1 >= max_turns:
             raise ValueError("The lead must finish on its last permitted turn.")
+        if self.requires_answer_before(name):
+            raise ValueError("The lead needs the owner's expert judgment before this action.")
         args_dict = json.loads(args)
         if not isinstance(args_dict, dict) or "action" in args_dict:
             raise ValueError("The lead tool requires a valid arguments object.")
@@ -442,6 +461,10 @@ def _run_swarm(
         action = lead_call(at, lead).swarm_action
         if action is None:
             raise ExecutionStopped("A recorded lead turn is missing its decision.", "failed")
+        if SwarmRequest(settings, lead).requires_answer_before(action.action):
+            raise ExecutionStopped(
+                "A recorded turn is missing its required expert judgment.", "failed"
+            )
         with executor.control.lock:
             row = executor.conn.execute(
                 "SELECT response_artifact_id FROM research_attempts WHERE run_id=%s "

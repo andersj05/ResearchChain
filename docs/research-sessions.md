@@ -1,6 +1,6 @@
 # Working with a research team
 
-Open the **Research desk** to assemble a source packet. **Methodology** opens an interactive map of the lead’s first reading, your decision and the assignments that follow.
+Open the **Research desk** to assemble a source packet. **Methodology** lets you follow the handoff from the week’s events, data and opinions to a working sentence. Select **Expert check-in** to trace how a lead uses your answer. The two worked examples follow the same packet through different tests and revised assignments.
 
 ## Start from a week of material
 
@@ -81,17 +81,20 @@ editorial review setting controls the separate decision about the report.
 - **Writing sample** accepts pasted text or a UTF-8 `.txt` or Markdown excerpt
   of up to 32,000 characters. Only the report editor receives it, as a reference
   for structure and voice.
-- Turn on **Allow live web search** if the team and editor should look beyond the
+- **Allow live web search** starts on for new studies. The team and editor can look beyond the
   packet after you choose a working sentence. The packet sidebar shows the
   first-reading model, its thinking effort and detail, and the team’s web-search
   setting.
-- **Research settings** starts with up to three researchers, six passes per
-  researcher and editor, and a 30-minute active-time limit. You can choose up to
-  four researchers, twelve passes and one hour. The lead can use fewer researchers
-  or finish earlier. Check the selected model and account before starting.
-- **Editorial review** defaults to **When the team asks**. Choose **Before the report**
-  for a guaranteed editorial checkpoint, or **Continue independently** to let the
-  editor proceed after research.
+- New studies start with two leads, up to twenty researcher assignments per lead, and four concurrent slots.
+  The default leaves the lead turns and analyst passes open. **Optional execution limits**
+  can bound either. Desk studies have no active-time limit. Check the selected model and account before starting.
+- **Expert judgment** defaults to **Each lead checks in**. Each lead asks for your view after its first
+  batch of findings, or earlier if the choice of test needs your judgment. With a two-turn limit
+  it asks on the first turn and synthesizes on the second. **When a lead asks** lets each lead
+  decide whether to consult you. **Off** disables lead consultations.
+- **Editorial review** defaults to **Before the report**. Decide which takeaway the evidence
+  supports and what the editor should qualify. Choose **When the team asks** or
+  **Continue independently** for a different editorial policy. Reopened studies use their saved settings.
 
 The **Ask the lead for a first reading** action stays in view as you edit the
 packet and settings. **Recent research** lists the latest studies. Open
@@ -147,7 +150,7 @@ title, context, sources, writing sample, live web search, and editorial review c
 
 ### Run a swarm
 
-Under **Research settings**, change **Team structure** to **Research swarm**.
+New Desk studies use **Research swarm**. Open **Research settings** to configure the team.
 
 Choose up to four leads and up to twenty researcher assignments per lead.
 The parallel limit controls how many leads or researchers can work at once
@@ -169,6 +172,13 @@ The editorial review setting controls the later report
 checkpoint independently.
 
 ## Follow and direct the investigation
+
+On a wide screen, **Split view** puts the workspace explorer on the left, the selected
+researcher or pass in the center, and the live team graph and open judgments on the right.
+Each pane scrolls independently. A lead’s assignment bar shows the mix of active,
+queued and finished work alongside the counts. Select a researcher in the graph to inspect
+its saved work. **Page view** stacks the panels and the browser remembers your layout.
+On a phone, the study section links jump to the current workspace, graph or a specific question.
 
 The lead's saved plan lists each assignment and its objective. Select a researcher
 under **Workspaces** to see the current request, saved leads, web activity, Python

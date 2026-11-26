@@ -200,7 +200,6 @@
 .sharedProfile,
 .fullField,
 .researchLimits,
-.consultationConsent,
 .settingGrid > :global(.role-model-settings) {
   grid-column: 1 / -1;
 }
@@ -214,17 +213,6 @@
   grid-column: 1/-1;
   color: var(--muted);
   font-size: 12px;
-}
-.settingGrid .consultationConsent {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.settingGrid .consultationConsent input {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  accent-color: var(--ink);
 }
 .sharedProfile {
   display: grid;

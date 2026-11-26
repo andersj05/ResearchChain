@@ -15,7 +15,7 @@ import { ownerStoragePrefix } from "@/lib/access";
 import { api, ApiError, apiResponse, type RunSnapshot } from "@/lib/workflow";
 import { pendingReviews } from "@/lib/run-inspection";
 import { modelSettingLabel, researchRoles } from "@/lib/model-settings";
-import { sessionUrl } from "@/lib/research-sessions";
+import { expertReviewLabels, expertReviewMode, sessionUrl } from "@/lib/research-sessions";
 import { readReviewDrafts, storeReviewDrafts } from "@/lib/run-review-drafts";
 import { pollVisiblePage } from "@/lib/poll-visible-page";
 import {
@@ -45,6 +45,7 @@ import {
 } from "./session-consultations";
 import { sessionSwarm } from "@/lib/swarm-workspaces";
 import { StudyWorkbenchLink } from "./study-workbench-link";
+import { SwarmWorkbench } from "./swarm-workbench";
 import { StudyTeamGraph } from "./study-team-graph";
 import styles from "./research-session.module.css";
 
@@ -318,9 +319,12 @@ function ResearchSessionView({
     lanes.find((lane) => lane.key === chosen || (chosen && lane.path === chosen)) ??
     (editor.attempts.length
       ? editor
-      : (team.find((lane) =>
-          ["preparing", "requesting"].includes(lane.attempts.at(-1)?.status ?? ""),
-        ) ??
+      : ((swarm
+          ? (lanes.find((lane) => lane.state === "Awaiting judgment") ??
+            lanes.find((lane) => lane.state === "Active"))
+          : team.find((lane) =>
+              ["preparing", "requesting"].includes(lane.attempts.at(-1)?.status ?? ""),
+            )) ??
         team[0] ??
         lanes[0]!));
   const questions = pendingReviews(run).filter(
@@ -413,8 +417,110 @@ function ResearchSessionView({
     returnOrigin?.kind === "index" && (returnOrigin.index === "activity" ? hasActivity : hasFiles)
       ? returnOrigin
       : undefined;
+  const discoveryPanel = discovery && (
+    <SessionDiscovery
+      run={run}
+      reading={sourceDetails.reading}
+      sources={sourceDetails.sources}
+      readingRequested={readingSourcesRequested}
+      onReadOriginal={() => setReadingSourcesRequested(true)}
+      review={sentenceReview}
+      decision={sentenceDecision}
+      team={team}
+      draftKey={draftKey}
+      disabled={reviewsDisabled || !run.checkpoint_id}
+      actionNotice={noticeFor(sentenceReview)}
+      onSelect={selectWorkspace}
+      respond={(decision, feedback) => {
+        if (sentenceReview) void respond(sentenceReview, decision, feedback);
+      }}
+    />
+  );
+  const decisionPanels = (
+    <>
+      {run.checkpoint_id &&
+        consultations.map((review) => (
+          <LeadConsultation
+            key={review.interrupt_id}
+            review={review}
+            runId={runId}
+            lanes={lanes}
+            draftKey={draftKey}
+            actionNotice={noticeFor(review)}
+            onSelect={(key, pass) =>
+              selectWorkspace(key, pass, { kind: "consultation", reviewId: review.interrupt_id })
+            }
+            disabled={reviewsDisabled}
+            onAnswer={(feedback) => respond(review, "approve", feedback)}
+          />
+        ))}
+      {unavailableReview?.perspective && actionNotice}
+      {question && !sentenceReview && run.checkpoint_id && (
+        <OwnerQuestion
+          key={question.interrupt_id}
+          question={question}
+          draftKey={draftKey}
+          busy={reviewsDisabled}
+          actionNotice={noticeFor(question)}
+          onAnswer={(decision, feedback) => respond(question, decision, feedback)}
+          evidence={
+            question.path === "root/judgment" && (
+              <EditorialReviewEvidence
+                lanes={lanes}
+                question={question.question}
+                runId={runId}
+                onSelect={(key, pass) =>
+                  selectWorkspace(key, pass, { kind: "judgment", reviewId: question.interrupt_id })
+                }
+              />
+            )
+          }
+        />
+      )}
+      {unavailableReview &&
+        unavailableReview.path !== "root/working_sentence" &&
+        !unavailableReview.perspective &&
+        actionNotice}
+    </>
+  );
+  const workspaces = (
+    <div className={styles.work} id="research-workspaces" tabIndex={-1}>
+      <SessionRoster lanes={lanes} selected={workspace.key} onSelect={selectWorkspace} />
+      <SessionWorkspaceDetail
+        key={workspace.key}
+        lane={workspace}
+        run={run}
+        openWorkbenchInNewTab={openWorkbenchInNewTab}
+        showStudySections={live}
+        passId={passId}
+        onPass={(id) =>
+          selectWorkspace(
+            workspace.key,
+            id,
+            id === null && returnOrigin?.kind === "index" ? undefined : returnOrigin,
+          )
+        }
+        returnToReview={
+          returnQuestion?.perspective
+            ? { id: returnQuestion.interrupt_id, title: returnQuestion.perspective.lead_title }
+            : undefined
+        }
+        returnToJudgment={
+          question?.path === "root/judgment" &&
+          !!run.checkpoint_id &&
+          returnOrigin?.kind === "judgment" &&
+          returnOrigin.reviewId === question.interrupt_id
+        }
+        returnToIndex={returnIndex}
+        onReturnToIndex={(index, targetId) => {
+          const target = index === "files" ? returnToSavedFile : returnToActivity;
+          target.current?.(targetId);
+        }}
+      />
+    </div>
+  );
   return (
-    <main className={styles.page}>
+    <main className={swarm ? `${styles.page} ${styles.swarmPage}` : styles.page}>
       <div className={styles.intro}>
         <div className={styles.meta}>
           <RunStatus
@@ -563,7 +669,7 @@ function ResearchSessionView({
               {swarm.max_lead_turns === null
                 ? "Leads finish when ready"
                 : `${swarm.max_lead_turns} turns per lead`}{" "}
-              · Expert consultations {swarm.allow_consultations ? "on" : "off"}
+              · Expert judgment · {expertReviewLabels[expertReviewMode(swarm)]}
             </p>
           )}
           <p>
@@ -668,44 +774,32 @@ function ResearchSessionView({
           )}
         </div>
       )}
-      {discovery && (
-        <SessionDiscovery
-          run={run}
-          reading={sourceDetails.reading}
-          sources={sourceDetails.sources}
-          readingRequested={readingSourcesRequested}
-          onReadOriginal={() => setReadingSourcesRequested(true)}
-          review={sentenceReview}
-          decision={sentenceDecision}
-          team={team}
-          draftKey={draftKey}
-          disabled={reviewsDisabled || !run.checkpoint_id}
-          actionNotice={noticeFor(sentenceReview)}
-          onSelect={selectWorkspace}
-          respond={(decision, feedback) => {
-            if (sentenceReview) void respond(sentenceReview, decision, feedback);
-          }}
-        />
-      )}
+      {(!swarm || !sentenceDecision) && discoveryPanel}
       {unavailableReview?.path === "root/working_sentence" && actionNotice}
-      {run.checkpoint_id &&
-        consultations.map((review) => (
-          <LeadConsultation
-            key={review.interrupt_id}
-            review={review}
-            runId={runId}
-            lanes={lanes}
-            draftKey={draftKey}
-            actionNotice={noticeFor(review)}
-            onSelect={(key, pass) =>
-              selectWorkspace(key, pass, { kind: "consultation", reviewId: review.interrupt_id })
-            }
-            disabled={reviewsDisabled}
-            onAnswer={(feedback) => respond(review, "approve", feedback)}
-          />
-        ))}
-      {unavailableReview?.perspective && actionNotice}
-      <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
+      {swarm ? (
+        <SwarmWorkbench
+          inspector={
+            <>
+              {decisionPanels}
+              <StudyTeamGraph
+                run={run}
+                lanes={lanes}
+                consultations={consultations}
+                editorialReview={question?.path === "root/judgment" && !!run.checkpoint_id}
+                selected={workspace.key}
+                onSelect={selectWorkspace}
+              />
+            </>
+          }
+        >
+          {workspaces}
+        </SwarmWorkbench>
+      ) : (
+        <>
+          {decisionPanels}
+          {workspaces}
+        </>
+      )}
       {showSteering && (
         <div className={styles.steering} id="study-steering">
           <SessionDirections
@@ -731,32 +825,28 @@ function ResearchSessionView({
           />
         </div>
       )}
-      {question && !sentenceReview && run.checkpoint_id && (
-        <OwnerQuestion
-          key={question.interrupt_id}
-          question={question}
-          draftKey={draftKey}
-          busy={reviewsDisabled}
-          actionNotice={noticeFor(question)}
-          onAnswer={(decision, feedback) => respond(question, decision, feedback)}
-          evidence={
-            question.path === "root/judgment" && (
-              <EditorialReviewEvidence
-                lanes={lanes}
-                question={question.question}
-                runId={runId}
-                onSelect={(key, pass) =>
-                  selectWorkspace(key, pass, { kind: "judgment", reviewId: question.interrupt_id })
-                }
-              />
-            )
+      <div className={swarm ? styles.studyDock : styles.classicDock}>
+        {hasFiles && (
+          <StudyFiles
+            runId={runId}
+            lanes={lanes}
+            artifacts={run.artifacts}
+            returnRef={returnToSavedFile}
+            onSelect={(key, pass, targetId) =>
+              selectWorkspace(key, pass, { kind: "index", index: "files", targetId })
+            }
+          />
+        )}
+        <SessionActivity
+          lanes={lanes}
+          returnRef={returnToActivity}
+          select={(key, pass, targetId) =>
+            selectWorkspace(key, pass, { kind: "index", index: "activity", targetId })
           }
         />
-      )}
-      {unavailableReview &&
-        unavailableReview.path !== "root/working_sentence" &&
-        !unavailableReview.perspective &&
-        actionNotice}
+      </div>
+      {swarm && sentenceDecision && discoveryPanel}
+      <ConsultationHistory run={run} lanes={lanes} onSelect={selectWorkspace} />
       {recordedJudgment && (
         <details className={styles.settings}>
           <summary>Recorded editorial judgment</summary>
@@ -768,68 +858,6 @@ function ResearchSessionView({
           </p>
         </details>
       )}
-      {swarm && (
-        <StudyTeamGraph
-          run={run}
-          lanes={lanes}
-          consultations={consultations}
-          editorialReview={question?.path === "root/judgment" && !!run.checkpoint_id}
-          selected={workspace.key}
-          onSelect={selectWorkspace}
-        />
-      )}
-      <div className={styles.work} id="research-workspaces" tabIndex={-1}>
-        <SessionRoster lanes={lanes} selected={workspace.key} onSelect={selectWorkspace} />
-        <SessionWorkspaceDetail
-          key={workspace.key}
-          lane={workspace}
-          run={run}
-          openWorkbenchInNewTab={openWorkbenchInNewTab}
-          showStudySections={live}
-          passId={passId}
-          onPass={(id) =>
-            selectWorkspace(
-              workspace.key,
-              id,
-              id === null && returnOrigin?.kind === "index" ? undefined : returnOrigin,
-            )
-          }
-          returnToReview={
-            returnQuestion?.perspective
-              ? { id: returnQuestion.interrupt_id, title: returnQuestion.perspective.lead_title }
-              : undefined
-          }
-          returnToJudgment={
-            question?.path === "root/judgment" &&
-            !!run.checkpoint_id &&
-            returnOrigin?.kind === "judgment" &&
-            returnOrigin.reviewId === question.interrupt_id
-          }
-          returnToIndex={returnIndex}
-          onReturnToIndex={(index, targetId) => {
-            const target = index === "files" ? returnToSavedFile : returnToActivity;
-            target.current?.(targetId);
-          }}
-        />
-      </div>
-      {hasFiles && (
-        <StudyFiles
-          runId={runId}
-          lanes={lanes}
-          artifacts={run.artifacts}
-          returnRef={returnToSavedFile}
-          onSelect={(key, pass, targetId) =>
-            selectWorkspace(key, pass, { kind: "index", index: "files", targetId })
-          }
-        />
-      )}
-      <SessionActivity
-        lanes={lanes}
-        returnRef={returnToActivity}
-        select={(key, pass, targetId) =>
-          selectWorkspace(key, pass, { kind: "index", index: "activity", targetId })
-        }
-      />
       <footer
         className={styles.footer}
         id={canStop ? sessionControlsId : undefined}

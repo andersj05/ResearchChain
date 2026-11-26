@@ -14,8 +14,23 @@ export const initialSwarm: Required<SwarmSettings> = {
   max_parallel: 4,
   max_lead_turns: 6,
   allow_consultations: true,
+  require_expert_judgment: false,
 };
-export const defaultSwarm: Required<SwarmSettings> = { ...initialSwarm, max_lead_turns: null };
+export const defaultSwarm: Required<SwarmSettings> = {
+  ...initialSwarm,
+  max_lead_turns: null,
+  require_expert_judgment: true,
+};
+export const expertReviewLabels = {
+  each_lead: "Each lead checks in",
+  when_needed: "When a lead asks",
+  off: "Off",
+};
+
+export function expertReviewMode(swarm: SwarmSettings): keyof typeof expertReviewLabels {
+  if (swarm.allow_consultations === false) return "off";
+  return swarm.require_expert_judgment ? "each_lead" : "when_needed";
+}
 export type ResearchBrief = Required<
   Pick<
     ResearchSessionSetup,
@@ -45,7 +60,7 @@ export const blankResearchBrief: ResearchBrief = {
   max_passes: null,
   max_active_seconds: null,
   web_search: true,
-  review_mode: "when_needed",
+  review_mode: "always",
   swarm: defaultSwarm,
 };
 

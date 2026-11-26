@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties, type MouseEventHandler, type Ref } from "react";
+import { useRef, useState, type CSSProperties, type MouseEventHandler, type Ref } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -9,6 +9,7 @@ import {
   FileText,
   GitBranch,
   Layers,
+  MessagesSquare,
   Pause,
   PencilLine,
   RotateCcw,
@@ -21,10 +22,11 @@ const steps = {
     role: "You",
     icon: Files,
     x: 16,
-    y: 15,
-    input: "The charts, reports, notes and conversations that caught your attention.",
+    y: 12,
+    input:
+      "A week of events, changes in the data, and opinions from people who see the market differently.",
     output:
-      "Pin originals and their provenance. Your optional context tells the lead what surprised you.",
+      "Choose what surprised you against your prior expectations. Pin the dated release or chart alongside the attributed conversation. A desk comment can suggest a test even when it cannot establish what happened.",
     next: "Lead’s first reading",
   },
   reading: {
@@ -32,7 +34,7 @@ const steps = {
     role: "Lead",
     icon: BookOpen,
     x: 50,
-    y: 15,
+    y: 12,
     input: "The pinned packet and your context.",
     output:
       "The lead compares units, dates and coverage, cites the material, and offers up to two working sentences with a rival explanation, a first check and a result that would weaken each. It can leave the question open.",
@@ -43,10 +45,10 @@ const steps = {
     role: "You",
     icon: PencilLine,
     x: 84,
-    y: 15,
+    y: 12,
     input: "The first reading, the cited material and your own sense of what deserves a test.",
     output:
-      "Choose a proposal, edit it or write your own. Assign research records your exact wording for the team. Parking ends this study before the team is commissioned.",
+      "Put your hunch into one sentence. Name the surprising move, who it affects, the horizon and why you think it happened. Editing the wording can change the comparison the team should run. Assign research records your exact wording. You can also park the idea.",
     next: "Research assignments or parked study",
   },
   assignments: {
@@ -54,11 +56,11 @@ const steps = {
     role: "Lead + researchers",
     icon: ClipboardList,
     x: 50,
-    y: 50,
+    y: 42,
     input:
       "Your recorded sentence, the first reading, its rival explanations and the source packet.",
     output:
-      "The lead commissions specific comparisons. Open an issued assignment to inspect the researcher’s saved request. In a swarm, enabled consultations can bring a question back to you during the work.",
+      "The director gives leads distinct mandates. Each lead can send researchers down parallel paths. Test the mechanism against a rival explanation, check what prices already imply, and keep the data, calculations and charts with the assignment.",
     next: "Findings",
   },
   findings: {
@@ -66,21 +68,32 @@ const steps = {
     role: "Research team",
     icon: Layers,
     x: 16,
-    y: 50,
+    y: 42,
     input: "The assignment, evidence, research passes and supporting files.",
     output:
-      "Researchers return findings, uncertainties and receipts. The team’s synthesis gives the editor the material for a report.",
-    next: "Editorial judgment or report",
+      "Leads read the researchers’ receipts together. Match dates, units and comparison groups. Identify which observation distinguishes the rival explanations, what surprised the team, and what the packet still cannot establish.",
+    next: "Expert check-in or synthesis",
+  },
+  consultation: {
+    title: "Expert check-in",
+    role: "You + lead",
+    icon: MessagesSquare,
+    x: 50,
+    y: 66,
+    input: "A lead’s provisional thesis, its alternatives and any completed researcher work.",
+    output:
+      "Each lead checks in by default, after its first findings or earlier if the test itself needs your judgment. Read the supporting passes. Give the interpretation or counterexample that matters to you. The lead receives your exact answer and can commission a different test. Subsequent researchers and the editor can see whose judgment shaped the work.",
+    next: "Follow-up assignment or synthesis",
   },
   editorial: {
     title: "Editorial judgment",
-    role: "You · optional",
+    role: "You",
     icon: PencilLine,
     x: 16,
-    y: 85,
+    y: 89,
     input: "The team’s findings and any review question.",
     output:
-      "Your review setting determines whether the editor waits every time, only when asked, or continues independently. Your response tells the editor what to qualify or emphasize.",
+      "Before writing, decide which view you can defend. What changed from your first hunch? Which counterexample still matters? The default review setting waits for you. Ask the editor to emphasize a finding, qualify its limits, or end the study here.",
     next: "Report",
   },
   report: {
@@ -88,11 +101,11 @@ const steps = {
     role: "Editor",
     icon: FileText,
     x: 50,
-    y: 85,
+    y: 89,
     input:
       "The findings, supporting files, any editorial judgment and your optional writing sample.",
     output:
-      "Inspect the resulting report and its supporting material. The saved study retains the decisions and requests behind it.",
+      "Read the bottom line against the original question. A trade takeaway should say what you expect, why, over what horizon and what would change your mind. Follow a figure to its saved evidence and distinguish observations from estimates and expert judgment.",
     next: "Revisit material",
   },
   parked: {
@@ -100,7 +113,7 @@ const steps = {
     role: "You",
     icon: Pause,
     x: 84,
-    y: 50,
+    y: 42,
     input: "A first reading you do not want to commission.",
     output:
       "The desk keeps the packet, the first reading and your decision. No researcher assignment is issued.",
@@ -111,7 +124,7 @@ const steps = {
     role: "You",
     icon: RotateCcw,
     x: 84,
-    y: 85,
+    y: 89,
     input: "A previous study and its saved setup.",
     output:
       "Reopen the material, change the selection or context, and start a new first reading linked to the previous study.",
@@ -119,6 +132,18 @@ const steps = {
   },
 } as const;
 type Step = keyof typeof steps;
+const handoffs: Record<Step, Step[]> = {
+  sources: ["reading"],
+  reading: ["sentence"],
+  sentence: ["assignments", "parked"],
+  assignments: ["findings"],
+  findings: ["consultation", "editorial", "report"],
+  consultation: ["assignments", "editorial", "report"],
+  editorial: ["report"],
+  report: ["revisit"],
+  parked: ["revisit"],
+  revisit: ["sources"],
+};
 const cases = {
   breadth: {
     label: "Market breadth",
@@ -127,6 +152,11 @@ const cases = {
       "Compare cap-weighted and equal-weight returns over the same week, then inspect the median constituent.",
     weakens:
       "An equally strong median and equal-weight return would weaken the concentration explanation.",
+    question: "Could the apparent breadth gap come from sector weights?",
+    answer:
+      "I care about participation within sectors. Compare peers before treating this as an index-wide signal.",
+    followUp:
+      "Rebuild the comparison within each sector and check whether a few large constituents still explain the gap.",
   },
   debt: {
     label: "Refinancing exposure",
@@ -134,15 +164,36 @@ const cases = {
     assignment:
       "Group companies by next debt maturity and compare returns within each sector over the same week.",
     weakens: "A gap that disappears within sectors would weaken the refinancing explanation.",
+    question:
+      "Should the team use the next debt maturity or the date when funding costs actually reset?",
+    answer: "Use the reset date. A near-term maturity can already be funded.",
+    followUp:
+      "Separate pre-funded maturities from firms still exposed to refinancing. Compare the groups over the same release window.",
   },
 } as const;
 
-function Connectors() {
+function Connectors({ selected }: { selected: Step }) {
+  const paths: [Step, Step, string, boolean?][] = [
+    ["sources", "reading", "M280 60H377"],
+    ["reading", "sentence", "M620 60H717"],
+    ["sentence", "assignments", "M840 92V136H500V177"],
+    ["sentence", "parked", "M840 136V177", true],
+    ["assignments", "findings", "M380 210H283"],
+    ["findings", "consultation", "M160 242V330H377"],
+    ["consultation", "assignments", "M500 298V243"],
+    ["consultation", "editorial", "M500 362V385H160V412"],
+    ["findings", "editorial", "M160 330V412", true],
+    ["findings", "report", "M280 226H326V369H464V412", true],
+    ["consultation", "report", "M500 385V412", true],
+    ["editorial", "report", "M280 445H377"],
+    ["report", "revisit", "M620 445H717"],
+    ["parked", "revisit", "M840 242V412", true],
+  ];
   return (
     <svg
       aria-hidden="true"
       className={styles.lines}
-      viewBox="0 0 1000 400"
+      viewBox="0 0 1000 500"
       preserveAspectRatio="none"
     >
       <defs>
@@ -158,32 +209,31 @@ function Connectors() {
           <path d="M0 0 8 4 0 8z" fill="currentColor" />
         </marker>
       </defs>
-      <g fill="none" stroke="currentColor" strokeWidth="1.25" markerEnd="url(#method-arrow)">
-        <path d="M280 60H377" />
-        <path d="M620 60H717" />
-        <path d="M840 92V129H500V165" />
-        <path d="M380 200H283" />
-        <path d="M160 232V265H500V305" />
-        <path d="M280 340H377" />
-        <path d="M620 340H717" />
-        <g strokeDasharray="4 4">
-          <path d="M840 130V165" />
-          <path d="M160 266V305" />
-          <path d="M840 232V305" />
-        </g>
+      <g fill="none" stroke="currentColor" markerEnd="url(#method-arrow)">
+        {paths.map(([from, to, d, optional]) => (
+          <path
+            key={from + to}
+            d={d}
+            data-active={from === selected || undefined}
+            strokeDasharray={optional ? "4 4" : undefined}
+          />
+        ))}
       </g>
       <g className={styles.lineLabels}>
-        <text x="615" y="121">
+        <text x="615" y="128">
           Commission
         </text>
-        <text x="851" y="151">
+        <text x="851" y="160">
           Park
         </text>
-        <text x="172" y="294">
-          Review
+        <text x="177" y="322">
+          Weigh the evidence
         </text>
-        <text x="322" y="257">
-          Continue
+        <text x="513" y="277">
+          Follow-up test
+        </text>
+        <text x="215" y="378">
+          Send findings
         </text>
       </g>
     </svg>
@@ -203,6 +253,13 @@ export function ResearchMethodology({
   const [example, setExample] = useState<keyof typeof cases>("breadth");
   const step = steps[selected];
   const current = cases[example];
+  const detailTitle = useRef<HTMLHeadingElement>(null);
+  function selectStep(key: Step, follow = false) {
+    setSelected(key);
+    if (follow || window.matchMedia("(max-width: 710px)").matches) {
+      requestAnimationFrame(() => detailTitle.current?.focus());
+    }
+  }
   return (
     <main className={styles.page}>
       <div className={styles.title}>
@@ -210,7 +267,10 @@ export function ResearchMethodology({
           <h1 id="research-methodology-title" ref={titleRef} tabIndex={-1}>
             Methodology
           </h1>
-          <p>How a week of sources becomes a working sentence, an assignment and a report.</p>
+          <p>
+            Start with what caught your attention this week. Use a working sentence to decide what
+            to test, then revise the view as evidence comes in.
+          </p>
         </div>
         <a href={setupHref ?? "?view=research"} className="button" onClick={onReturn}>
           {setupHref ? "Return to study setup" : "Open research desk"}{" "}
@@ -221,7 +281,7 @@ export function ResearchMethodology({
         <header>
           <div>
             <h2 id="map-title">Study map</h2>
-            <p>Select a step to inspect the handoff.</p>
+            <p>Select a step to see what it receives and which decision changes the work.</p>
           </div>
           <div className={styles.legend}>
             <span>
@@ -235,19 +295,21 @@ export function ResearchMethodology({
           </div>
         </header>
         <div className={styles.graph} role="group" aria-label="Research desk workflow">
-          <Connectors />
+          <Connectors selected={selected} />
           {(Object.keys(steps) as Step[]).map((key) => {
             const node = steps[key];
             const Icon = node.icon;
             return (
               <button
                 key={key}
+                id={`method-step-${key}`}
                 type="button"
                 aria-pressed={selected === key}
                 aria-controls="method-detail"
                 data-human={node.role.startsWith("You") || undefined}
+                data-next={handoffs[selected].includes(key) || undefined}
                 style={{ "--x": `${node.x}%`, "--y": `${node.y}%` } as CSSProperties}
-                onClick={() => setSelected(key)}
+                onClick={() => selectStep(key)}
               >
                 <small>
                   <Icon size={14} aria-hidden />
@@ -265,7 +327,12 @@ export function ResearchMethodology({
         <div id="method-detail" className={styles.detail} aria-live="polite">
           <div>
             <small>{step.role}</small>
-            <h3>{step.title}</h3>
+            <h3 ref={detailTitle} tabIndex={-1}>
+              {step.title}
+            </h3>
+            <a className={styles.backToMap} href={`#method-step-${selected}`}>
+              Back to study map
+            </a>
           </div>
           <dl>
             <div>
@@ -277,8 +344,14 @@ export function ResearchMethodology({
               <dd>{step.output}</dd>
             </div>
             <div>
-              <dt>Goes to</dt>
-              <dd>{step.next}</dd>
+              <dt>Follow the handoff</dt>
+              <dd className={styles.handoffs}>
+                {handoffs[selected].map((key) => (
+                  <button type="button" key={key} onClick={() => selectStep(key, true)}>
+                    {steps[key].title} <ArrowRight size={12} aria-hidden />
+                  </button>
+                ))}
+              </dd>
             </div>
           </dl>
         </div>
@@ -288,8 +361,9 @@ export function ResearchMethodology({
           <GitBranch size={20} aria-hidden />
           <h2 id="example-title">One packet, two possible assignments</h2>
           <p>
-            The example uses an index chart, a note about the median stock and a conversation about
-            debt maturities.
+            In this illustrative packet, an index rose, the median stock was flat, and a desk
+            conversation raised a question about debt maturities. See how two readings produce
+            different work.
           </p>
         </div>
         <div>
@@ -317,6 +391,18 @@ export function ResearchMethodology({
             <div>
               <dt>What would weaken it</dt>
               <dd>{current.weakens}</dd>
+            </div>
+            <div>
+              <dt>The lead asks</dt>
+              <dd>{current.question}</dd>
+            </div>
+            <div>
+              <dt>Your judgment</dt>
+              <dd>{current.answer}</dd>
+            </div>
+            <div>
+              <dt>Revised assignment</dt>
+              <dd>{current.followUp}</dd>
             </div>
           </dl>
         </div>

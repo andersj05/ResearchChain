@@ -4404,6 +4404,8 @@ export interface components {
        * @default true
        */
       allow_consultations: boolean;
+      /** Require Expert Judgment */
+      require_expert_judgment?: boolean;
     };
     /** SwarmConsultation */
     SwarmConsultation: {

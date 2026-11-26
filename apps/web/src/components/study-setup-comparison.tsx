@@ -9,6 +9,8 @@ import {
 } from "@/lib/model-settings";
 import {
   editableResearchBrief,
+  expertReviewLabels,
+  expertReviewMode,
   initialSwarm,
   type ResearchBrief,
   type ResearchSessionSetup,
@@ -50,7 +52,7 @@ function settingValues(brief: ResearchBrief) {
     values["Parallel agents"] = String(swarm.max_parallel);
     values["Turns per lead"] =
       swarm.max_lead_turns === null ? "As needed" : String(swarm.max_lead_turns);
-    values["Expert consultations"] = swarm.allow_consultations ? "On" : "Off";
+    values["Expert consultations"] = expertReviewLabels[expertReviewMode(swarm)];
   }
   for (const { key, label } of researchRoles) {
     values[label] = modelSummary(resolveModelProfile(brief, brief[key]));

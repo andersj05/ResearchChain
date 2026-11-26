@@ -33,7 +33,9 @@ test("follow two research leads from queued work through an expert consultation 
   await expect(page.getByLabel("Turns per lead")).toBeHidden();
   await expect(page.getByLabel("Passes per agent")).toBeHidden();
   await page.getByLabel("Editorial review").selectOption("never");
-  await expect(page.getByLabel("Allow leads to ask for expert judgment")).toBeChecked();
+  await expect(page.getByRole("combobox", { name: "Expert judgment", exact: true })).toHaveValue(
+    "each_lead",
+  );
   await expect(page.getByLabel("Allow live web search")).toBeChecked();
   const sharedModel = page.getByRole("combobox", { name: "Research model", exact: true });
   const shared = page.getByRole("group", { name: "Shared response settings", exact: true });
@@ -113,6 +115,11 @@ test("follow two research leads from queued work through an expert consultation 
   await expect(followUp).not.toContainText("Backlog");
   await next.click();
   await expect(page.locator("#current-research-workspace")).toContainText("Inventory timing");
+  const demandReview = page.getByRole("region", { name: "Demand requests your perspective" });
+  await demandReview
+    .getByLabel("Your perspective")
+    .fill("Compare both releases at the same cutoff.");
+  await demandReview.getByRole("button", { name: "Send perspective to lead" }).click();
   await expect(page.getByRole("status", { name: "Run status" })).toHaveText("Completed", {
     timeout: 65_000,
   });
@@ -130,6 +137,10 @@ test("follow two research leads from queued work through an expert consultation 
   const run: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
   expect(run.perspective_answers).toEqual([
     expect.objectContaining({ feedback: answer, action_path: "root/team/lead-2/turn-1" }),
+    expect.objectContaining({
+      feedback: "Compare both releases at the same cutoff.",
+      action_path: "root/team/lead-1/turn-2",
+    }),
   ]);
   expect(run.research_manifest?.settings).toMatchObject({
     model: "gpt-6.2-sol",
@@ -144,7 +155,7 @@ test("follow two research leads from queued work through an expert consultation 
     team: {
       lead: { model: "gpt-6.2-astra" },
       researcher: { model: "gpt-6.2-sol" },
-      swarm: { max_lead_turns: null, allow_consultations: true },
+      swarm: { max_lead_turns: null, allow_consultations: true, require_expert_judgment: true },
     },
   });
   const attempts = run.model_attempts!;
