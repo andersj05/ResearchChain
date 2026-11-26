@@ -403,6 +403,7 @@ for (const width of [1280, 390]) {
     await expect(page).toHaveURL(new RegExp(`session=${admitted[0]!.id}`));
     expect(admitted[0]).toMatchObject({
       ...setup,
+      max_active_seconds: null,
       evidence_ids: [evidenceId],
       start_from_sources: true,
       lead: { ...setup.lead, model: "test-model", reasoning_effort: "medium" },
