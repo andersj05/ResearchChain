@@ -2,6 +2,14 @@
 
 Updated 2026-11-26.
 
+## Pinned JavaScript engines and the public guide
+
+New code steps pin QuickJS-NG 0.18.0.2. The worker dispatches older 0.18.0.1
+steps to their own locked Python environment and verifies the installed version
+before evaluation. The [custom code guide](../custom-code.md) covers setup.
+The [project overview](../../README.md) and [documentation index](../README.md)
+give new readers a synthetic study walkthrough and local setup instructions.
+
 ## Expert checkpoints and the swarm workspace
 
 Fresh Desk studies default to **Each lead checks in** and **Before the report**.

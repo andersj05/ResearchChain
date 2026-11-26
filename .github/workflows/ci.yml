@@ -56,9 +56,9 @@ jobs:
         with:
           version: "0.12.5"
           enable-cache: true
-          cache-dependency-glob: apps/api/uv.lock
+          cache-dependency-glob: "apps/*/uv.lock"
       - run: pnpm install --frozen-lockfile
-      - run: uv sync --project apps/api --locked
+      - run: pnpm api:sync
       - run: pnpm db:migrate
       - run: pnpm contracts:check
       - run: docker build -t researchchain/analyst-python:1 docker/analyst-python

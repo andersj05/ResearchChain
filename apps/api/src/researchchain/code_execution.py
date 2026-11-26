@@ -19,10 +19,14 @@ class CodeExecutionError(Exception):
 
 
 def execute_code(config: CodeConfig, inputs: CodeInputs) -> CodeExecution:
+    python = Path(sys.executable)
+    if config.runtime == "quickjs-ng-0.18.0.1":
+        legacy_env = Path(__file__).resolve().parents[3] / "quickjs-legacy" / ".venv"
+        python = legacy_env / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     started = time.monotonic()
     try:
         completed = subprocess.run(
-            [sys.executable, "-I", str(Path(__file__).with_name("_code_runner.py"))],
+            [str(python), "-I", str(Path(__file__).with_name("_code_runner.py"))],
             input=json.dumps(
                 {**config.model_dump(), "inputs": inputs.model_dump()}, ensure_ascii=True
             ).encode("ascii"),
@@ -55,6 +59,7 @@ def execute_code(config: CodeConfig, inputs: CodeInputs) -> CodeExecution:
     except (ValueError, KeyError, TypeError, ValidationError) as error:
         raise CodeExecutionError("Return an object with text and a finite number.") from error
     return CodeExecution(
+        runtime=config.runtime,
         source_sha256=hashlib.sha256(config.source.encode()).hexdigest(),
         inputs=inputs,
         outputs=output,

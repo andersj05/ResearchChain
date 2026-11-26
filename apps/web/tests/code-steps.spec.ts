@@ -35,6 +35,7 @@ for (const width of [1440, 390]) {
     const runId = new URL(page.url()).searchParams.get("run")!;
     const original: RunSnapshot = await (await request.get(`/api/runs/${runId}`)).json();
     expect(original.usage?.model_calls).toBe(0);
+    expect(original.events[0]?.code?.runtime).toBe("quickjs-ng-0.18.0.2");
     expect(original.events[0]?.code?.outputs).toEqual({ text: "OWNER CODE", number: 10 });
     expect(original.events[1]?.detail).toBe("OWNER CODE");
     await page.reload();

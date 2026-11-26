@@ -1,7 +1,7 @@
 {
   "repository": "andersj05/ResearchChain",
   "settings": {
-    "description": "Custom research workflow studio: Next.js, UI SDK, and LangGraph for evidence-driven financial research.",
+    "description": "Local financial research workbench for testing hypotheses, guiding research agents, and writing evidence-backed reports.",
     "has_issues": true,
     "has_projects": false,
     "has_wiki": false,

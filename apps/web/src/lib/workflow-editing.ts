@@ -557,7 +557,7 @@ export function addTemplate(
       config: {
         type: "code",
         language: "javascript",
-        runtime: "quickjs-ng-0.18.0.1",
+        runtime: "quickjs-ng-0.18.0.2",
         source: "return { text: inputs.text, number: inputs.number };",
         timeout_seconds: 1,
       },

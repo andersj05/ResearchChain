@@ -1,68 +1,62 @@
 # ResearchChain
 
-A customizable research workbench for EquityCats: develop hypotheses, inspect evidence,
-challenge conclusions, and write reports with human editorial judgment in the loop.
+ResearchChain is a local workbench for financial research. Bring a week of charts, releases, and conversations. Turn one observation into a working thesis, send researchers to test competing explanations, and decide what belongs in the report.
 
-## Start a research session
+[Run locally](#run-locally) · [Follow a study](#follow-a-study) · [Build a workflow](#build-a-workflow) · [Documentation](docs/README.md)
 
-Open the Research desk and pin the week’s charts, notes and conversations. The lead reads the packet and proposes a working sentence. Choose it, edit it or write your own to commission research. Inspect each assignment and the request it generated, guide the team and read the resulting report. Open **Methodology** for a map of the handoffs and decisions. [Research desk guide](docs/research-sessions.md).
+![A live sample study with a searchable team roster, a researcher comparing returns within sectors, and two leads tracking their assignments.](docs/screenshots/live-study.png)
 
-Open **Workflows** to design an agent step by step, wire inputs and reviews, and
-save versions for further experiments. [Agent builder guide](docs/agent-builder.md).
+_Two leads are investigating the same rally. Selecting a researcher opens its current pass alongside the rest of the team. All screenshots use synthetic material._
 
-## Development
+## Run locally
 
-The foundation uses Next.js + TypeScript + UI SDK for the editor, and Python +
-LangGraph + FastAPI for execution, with Postgres revisions and checkpoints. Runs
-survive API restarts and stay pinned to their original workflow. New graphs in the
-workflow editor start blank. The no-model demo is a deterministic exercise. The
-[research template](docs/hypothesis-research.md) uses the connected ChatGPT plan to
-form, challenge, and revise hypotheses against captured evidence, with human review.
+You’ll need Git, Node.js 24, uv 0.12.5 or later, and Docker with Compose. Start Docker before running these commands.
 
-The [Sources view](docs/evidence-desk.md) captures permitted originals, tracks
-source provenance and claim relationships, and pins evidence versions to runs.
-The [evaluation desk](docs/evaluations.md) freezes cases and compares saved outputs
-with blind human judgments, edited spans and separate judge calibration.
-The [report editor](docs/reports.md) turns saved research into versioned sections
-with source and chart references, pinned style guides, editorial feedback and
-offline review exports.
+```sh
+git clone https://github.com/andersj05/ResearchChain.git
+cd ResearchChain
+npm install --global pnpm@11.24.0
+pnpm bootstrap
+pnpm db:up
+pnpm db:migrate
+pnpm dev
+```
 
-Setup and commands: [development guide](docs/development.md).
-The [owner access guide](docs/owner-access.md) covers private workbench sign-in,
-password setup, session recovery and the separate ChatGPT provider connection.
-The [worker guide](docs/workers.md) covers durable command admission, queued progress,
-workspace limits, cancellation and recovery after a process restart.
-The [Status view](docs/operations.md) shows connected workers, queue problems,
-storage and recorded usage without submitting new research.
-Track work in [issues](https://github.com/andersj05/ResearchChain/issues) and
-[PRs](https://github.com/andersj05/ResearchChain/pulls) through the GitHub CLI (`gh`).
-See the [CLI workflow and repository configuration](docs/github.md).
-[Run cleanup](docs/retention.md) previews terminal runs, protects referenced research
-and requires explicit confirmation before deleting execution history and unused originals.
+Leave the development server running. In a second terminal in the same directory, run `pnpm access:login` to get your private sign-in link. Open the workbench at `http://127.0.0.1:3000`.
 
-## How we work
+**For a first look**, open **Workflows → Use no-model demo** to try a local run and its review checkpoint. For a live research study, connect an eligible ChatGPT plan and set up the analyst tools. [Development setup](docs/development.md) · [Owner sign-in](docs/owner-access.md) · [Research provider](docs/chatgpt-plan.md)
 
-- `main` is the stable branch; `dev` integrates work.
-- Create `feat/<feature-name>` from `dev`, open its PR into `dev`, then promote
-  `dev` into `main` with a merge commit. Do not squash the long-lived `dev` branch.
-- Keep commits small and meaningful. CI checks the branch route and application.
-- Start agents with [AGENTS.md](AGENTS.md). Project context and current state live
-  in [docs/memory](docs/memory/README.md); decisions live in [docs/decisions](docs/decisions/0001-foundation.md).
+## Follow a study
 
-## Project map
+Suppose the index rose but the median stock barely moved. Was the rally concentrated in a few companies, or did sector weights make it look that way?
 
-| Location             | Purpose                                                               |
-| -------------------- | --------------------------------------------------------------------- |
-| `apps/web`           | Custom Next.js workbench and UI SDK canvas adapter                    |
-| `apps/api`           | Workflow validation, LangGraph compiler, and local API                |
-| `packages/contracts` | Generated API schema and TypeScript types                             |
-| `examples`           | Synthetic, shareable workflow fixtures                                |
-| `docs`               | Architecture, development, evaluation plan, and durable agent context |
-| `.github`            | CI, contribution templates, and dependency updates                    |
+1. **Pin the packet.** Add the dated chart, the underlying release, and the conversation that prompted the question. The lead’s first reading cites the material and suggests a working sentence. Edit it, commission it, or park it.
+2. **Test rival explanations.** One lead can compare cap-weighted and equal-weight returns while another checks participation within sectors. In the live workspace, select an assignment to inspect its findings, model passes, and saved files.
+3. **Give the team a judgment.** Each lead checks in by default. If sector composition is the issue, ask for a within-sector comparison. Your answer travels with the follow-up work.
+4. **Write the bottom line.** Review the findings before the editor drafts. Trace a chart or claim back to its source, qualify what the evidence supports, and save a new report revision.
 
-See the [architecture](docs/architecture.md), [roadmap](docs/roadmap.md), and
-[research behind the choices](docs/research/2026-11-13-foundation.md).
+![The methodology map connects the source packet, working sentence, assignments, expert check-in, editorial judgment, and report. The check-in can send the team back for a follow-up test.](docs/screenshots/methodology.png)
 
-This repository is public. Keep credentials, private source reports, paid research,
-personal notes, and run artifacts out of Git. There is currently no project license;
-adding one is an explicit owner decision.
+Open **Methodology** in the app to select a step and follow its handoffs. [Research Desk guide](docs/research-sessions.md) · [Evidence and provenance](docs/evidence-desk.md) · [Report editing](docs/reports.md)
+
+## Build a workflow
+
+Start with a blank canvas. Add a model prompt, insert a human review, then wire both the first draft and the reviewer’s feedback into a revision step. Save a version and run it. **Iterate from this run** starts the next experiment with the original workflow and inputs available for comparison.
+
+![The workflow builder showing connected research and review steps beside the selected step’s configuration.](docs/screenshots/workflow-builder.png)
+
+[Build your first agent](docs/agent-builder.md) · [Canvas and workflow controls](docs/workflow-editor.md) · [Compare experiments](docs/evaluations.md)
+
+## Inside the repository
+
+| Location                                 | What you’ll find                                                                                                  |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| [apps/web](apps/web)                     | The Next.js and TypeScript interface, from the Research Desk to the visual workflow canvas.                       |
+| [apps/api](apps/api)                     | FastAPI endpoints, workflow validation, LangGraph execution, and the worker that saves checkpoints in PostgreSQL. |
+| [packages/contracts](packages/contracts) | The generated OpenAPI contract and TypeScript types shared with the frontend.                                     |
+| [examples](examples)                     | Shareable workflows and synthetic research inputs.                                                                |
+| [docs](docs/README.md)                   | Guides for researchers, contributors, and people running the workbench.                                           |
+
+**Contributing.** Start a feature branch from `dev` and open a PR back to `dev`. Tested releases reach `main` through a promotion PR. Use synthetic examples in public issues, screenshots, and test fixtures. [Contribution guide](CONTRIBUTING.md) · [Architecture](docs/architecture.md) · [Issues](https://github.com/andersj05/ResearchChain/issues)
+
+This repository is public and currently has no project license.
