@@ -28,7 +28,13 @@ the code; editing it only affects a later run. Confirmed code results survive
 checkpoints and are not re-executed when resuming a human review. If a worker dies
 before checkpointing, the pure transformation may replay during explicit recovery.
 
-The runtime is QuickJS-NG 0.18.0.1 in a disposable Python child process. It receives
+New code steps pin QuickJS-NG 0.18.0.2. Saved steps that pin 0.18.0.1 run in a
+separate environment with that version, including after a checkpoint or restart.
+`pnpm bootstrap` installs both environments. Use `pnpm api:sync` to repair them.
+The child verifies the installed package against the step's pin before execution,
+and the run receipt records that pin.
+
+Each step runs in a disposable Python child process. It receives
 JSON only and exposes no Python callbacks, environment variables, filesystem,
 network, Node.js modules or package loader. Standard JavaScript Math/JSON/string/
 array operations are available; asynchronous work is not supported. Each step has

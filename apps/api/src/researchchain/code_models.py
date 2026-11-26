@@ -1,10 +1,8 @@
 """Pinned contracts for pure JavaScript code steps."""
 
-from typing import Literal
-
 from pydantic import Field
 
-from researchchain.graph import StrictModel
+from researchchain.graph import CodeRuntime, StrictModel
 
 
 class CodeInputs(StrictModel):
@@ -21,7 +19,8 @@ class CodeOutputs(StrictModel):
 
 
 class CodeExecution(StrictModel):
-    runtime: Literal["quickjs-ng-0.18.0.1"] = "quickjs-ng-0.18.0.1"
+    # A historical receipt without this field predates the second runtime.
+    runtime: CodeRuntime = "quickjs-ng-0.18.0.1"
     source_sha256: str
     inputs: CodeInputs
     outputs: CodeOutputs

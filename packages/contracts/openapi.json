@@ -3823,9 +3823,9 @@
           },
           "runtime": {
             "type": "string",
-            "const": "quickjs-ng-0.18.0.1",
+            "enum": ["quickjs-ng-0.18.0.1", "quickjs-ng-0.18.0.2"],
             "title": "Runtime",
-            "default": "quickjs-ng-0.18.0.1"
+            "default": "quickjs-ng-0.18.0.2"
           },
           "source": {
             "type": "string",
@@ -3851,7 +3851,7 @@
         "properties": {
           "runtime": {
             "type": "string",
-            "const": "quickjs-ng-0.18.0.1",
+            "enum": ["quickjs-ng-0.18.0.1", "quickjs-ng-0.18.0.2"],
             "title": "Runtime",
             "default": "quickjs-ng-0.18.0.1"
           },

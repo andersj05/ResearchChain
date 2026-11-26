@@ -64,7 +64,8 @@ an implementation, even when development and tests ran in a different checkout.
 3. In the Desktop clone, switch to `dev` and run `git merge --ff-only origin/dev`.
    Rebuild the Python image when files under `docker/analyst-python` change.
    Sync changed dependencies with `pnpm install --frozen-lockfile` or
-   `uv sync --project apps/api --locked` as applicable. Apply rehearsed schema
+   `pnpm api:sync` as applicable. The latter synchronizes both the API and the
+   historical JavaScript runtime when either Python lockfile changes. Apply rehearsed schema
    changes with `pnpm db:migrate`. Restart the affected services from this clone.
    The standard `pnpm dev` launcher runs the web app, API and worker together.
 4. Verify the Desktop `HEAD` matches the fetched `origin/dev`. Open the workbench

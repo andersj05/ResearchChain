@@ -167,10 +167,13 @@ class ResearchConfig(StrictModel):
         return self
 
 
+CodeRuntime = Literal["quickjs-ng-0.18.0.1", "quickjs-ng-0.18.0.2"]
+
+
 class CodeConfig(StrictModel):
     type: Literal["code"] = "code"
     language: Literal["javascript"] = "javascript"
-    runtime: Literal["quickjs-ng-0.18.0.1"] = "quickjs-ng-0.18.0.1"
+    runtime: CodeRuntime = "quickjs-ng-0.18.0.2"
     source: str = Field(min_length=1, max_length=20000, pattern=r"^[^\x00]*$")
     timeout_seconds: float = Field(default=1, ge=0.05, le=5, allow_inf_nan=False)
 
