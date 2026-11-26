@@ -205,7 +205,11 @@ test("the methodology exposes commission, park and editorial paths on desktop an
   const graph = page.getByRole("group", { name: "Research desk workflow" });
   const detail = page.locator("#method-detail");
   await expect(detail).toContainText("Your working sentence");
-  await expect(graph.getByRole("button")).toHaveCount(9);
+  await expect(graph.getByRole("button")).toHaveCount(10);
+  await graph.getByRole("button", { name: /^You \+ lead Expert check-in/ }).click();
+  await expect(detail).toContainText("Each lead checks in by default");
+  await detail.getByRole("button", { name: "Research assignments" }).click();
+  await expect(detail.getByRole("heading")).toHaveText("Research assignments");
   await graph
     .getByRole("button", { name: /Parked study/ })
     .filter({ hasText: "Parked study" })
@@ -214,7 +218,7 @@ test("the methodology exposes commission, park and editorial paths on desktop an
   await expect(detail).toContainText("No researcher assignment is issued");
   await graph
     .getByRole("button", { name: /Editorial judgment/ })
-    .filter({ hasText: "You · optional" })
+    .filter({ hasText: "You" })
     .click();
   await expect(detail).toContainText("review setting");
   await graph
