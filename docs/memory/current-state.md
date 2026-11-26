@@ -1,6 +1,19 @@
 # Current state
 
-Updated 2026-11-25.
+Updated 2026-11-26.
+
+## Expert checkpoints and the swarm workspace
+
+Fresh Desk studies default to **Each lead checks in** and **Before the report**.
+A lead can ask early. After its first research batch it needs a recorded answer
+before delegating again or finishing. Earlier setups keep their pinned policy.
+Synthetic replay checks cover both bounded and open-ended leads.
+
+**Methodology** follows the week’s events, data and opinions through a working
+sentence, competing explanations and a revised assignment. A wide study reader
+opens the roster, selected work and team graph in three independently scrolling
+panes. Open lead and editorial questions share the inspector with the graph.
+[Study workspace delivery](https://github.com/andersj05/ResearchChain/issues/184)
 
 ## Study budgets and recovery
 

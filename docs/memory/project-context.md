@@ -70,3 +70,8 @@ ready. Research Desk studies run without an active execution time limit. The
 owner wants to see the live team and its files, steer the work or
 send findings to the editor, and resume eligible failures on the same study.
 [Live Research Swarm studies](../decisions/0027-live-research-swarm.md)
+
+On 2026-11-26 the owner requested more opportunities to exercise expert judgment
+during studies and a compact, editor-like view of the running swarm. The methodology
+should explain how the week’s events, data and conversations lead to a provisional
+view and how an expert answer changes the next investigation.
