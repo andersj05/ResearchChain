@@ -154,7 +154,9 @@ for (const width of [320, 390]) {
   });
 }
 
-test("keeps the desktop workspace roster and detail side by side", async ({ page }) => {
+test("keeps the desktop roster, selected pass and team graph together across layout changes", async ({
+  page,
+}, info) => {
   const { sections, workspace, roster } = await openLiveStudy(page, 1440);
   await expect(sections.getByRole("link", { name: "Current workspace", exact: true })).toHaveCount(
     0,
@@ -167,4 +169,20 @@ test("keeps the desktop workspace roster and detail side by side", async ({ page
   const workspaceBox = (await workspace.boundingBox())!;
   expect(workspaceBox.x).toBeGreaterThan(rosterBox.x);
   expect(workspaceBox.y).toBe(rosterBox.y);
+  const inspector = page.getByRole("complementary", { name: "Team and decisions" });
+  const inspectorBox = (await inspector.boundingBox())!;
+  expect(inspectorBox.x).toBeGreaterThanOrEqual(workspaceBox.x + workspaceBox.width - 1);
+  expect(inspectorBox.y).toBe(workspaceBox.y);
+  const split = page.getByRole("button", { name: "Split view", exact: true });
+  const stacked = page.getByRole("button", { name: "Page view", exact: true });
+  await expect(split).toHaveAttribute("aria-pressed", "true");
+  await split.scrollIntoViewIfNeeded();
+  await page.screenshot({ path: info.outputPath("swarm-split-view.png") });
+  await stacked.click();
+  expect((await inspector.boundingBox())!.y).toBeGreaterThan(workspaceBox.y);
+  await page.reload();
+  await expect(stacked).toHaveAttribute("aria-pressed", "true");
+  await expect(workspace).toBeVisible();
+  await split.click();
+  await expect(split).toHaveAttribute("aria-pressed", "true");
 });

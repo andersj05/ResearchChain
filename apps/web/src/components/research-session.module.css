@@ -139,6 +139,151 @@
   background: var(--surface);
   border: 1px solid var(--line);
 }
+.swarmPage {
+  width: min(1840px, 100%);
+  padding: 18px clamp(14px, 2.2vw, 36px) 32px;
+  gap: 14px;
+}
+.swarmPage .intro {
+  gap: 7px;
+}
+.swarmPage .intro h1 {
+  max-width: 60ch;
+  font-size: clamp(22px, 2.2vw, 32px);
+}
+.swarmPage .summary {
+  row-gap: 4px;
+  font-variant-numeric: tabular-nums;
+}
+.swarmPage .studyNav {
+  gap: 2px 6px;
+  padding-block: 4px;
+  border-block: 1px solid var(--line);
+}
+.swarmPage .studyNav a {
+  border-color: transparent;
+  background: transparent;
+}
+.swarmPage .studyNav .reviewShortcut {
+  color: var(--amber);
+  background: var(--amber-soft);
+  border-inline-start-color: var(--amber);
+}
+.swarmPage .studyNav .reportShortcut {
+  color: var(--surface);
+  background: var(--ink);
+}
+.workbench,
+.workbenchBody,
+.inspector {
+  min-width: 0;
+}
+.workbench {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+}
+.workbenchBar {
+  display: none;
+}
+.workbenchBody > .work {
+  border: 0;
+}
+.inspector {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+.inspector .judgment {
+  gap: 7px;
+  padding: 14px;
+  overflow-wrap: anywhere;
+}
+.inspector .judgment h2 {
+  font-size: 16px;
+}
+.inspector .judgment h3 {
+  font-size: 14px;
+}
+.classicDock {
+  display: contents;
+}
+.studyDock {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr));
+  align-items: start;
+  gap: 8px;
+}
+.studyDock:empty {
+  display: none;
+}
+.studyDock > details[open] {
+  grid-column: 1 / -1;
+}
+@media (min-width: 1000px) {
+  .workbenchBar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 5px 9px 5px 16px;
+    border-bottom: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .workbenchBar h2 {
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .workbenchBar [role="group"] {
+    display: flex;
+    align-items: center;
+    border: 1px solid var(--line);
+  }
+  .workbenchBar button {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border: 0;
+    background: var(--surface);
+    color: var(--muted);
+    font-size: 12px;
+  }
+  .workbenchBar button[aria-pressed="true"] {
+    background: var(--ink);
+    color: var(--surface);
+  }
+  .workbench:not([data-stacked]) .workbenchBody {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(260px, 24%, 370px);
+    height: clamp(320px, calc(100dvh - 290px), 1100px);
+  }
+  .workbench:not([data-stacked]) .work {
+    min-width: 0;
+    min-height: 0;
+    grid-template-columns: clamp(168px, 16vw, 252px) minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .workbench:not([data-stacked]) :is(.roster, .detail, .inspector) {
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .workbench:not([data-stacked]) .detail {
+    padding: 18px clamp(14px, 2vw, 28px);
+  }
+  .workbench:not([data-stacked]) .inspector {
+    border-inline-start: 1px solid var(--line);
+    background: var(--paper);
+  }
+  .workbench:not([data-stacked]) .workbenchBody:has(.focusedReport),
+  .workbench:not([data-stacked]) .work:has(.focusedReport) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .workbench:not([data-stacked]) .workbenchBody:has(.focusedReport) {
+    height: auto;
+  }
+}
 .roster {
   min-width: 0;
   padding-block: 18px;
