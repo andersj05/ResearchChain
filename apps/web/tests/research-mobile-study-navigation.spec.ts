@@ -176,6 +176,8 @@ test("keeps the desktop roster, selected pass and team graph together across lay
   const split = page.getByRole("button", { name: "Split view", exact: true });
   const stacked = page.getByRole("button", { name: "Page view", exact: true });
   await expect(split).toHaveAttribute("aria-pressed", "true");
+  await expect(roster.getByRole("button", { name: /^Credit release 19/ })).toBeInViewport();
+  await expect(roster.getByLabel("Find a workspace")).toBeInViewport();
   await split.scrollIntoViewIfNeeded();
   await page.screenshot({ path: info.outputPath("swarm-split-view.png") });
   await stacked.click();

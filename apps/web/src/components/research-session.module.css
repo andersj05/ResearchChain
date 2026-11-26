@@ -272,6 +272,19 @@
   .workbench:not([data-stacked]) .detail {
     padding: 18px clamp(14px, 2vw, 28px);
   }
+  .workbench:not([data-stacked]) .swarmRoster {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding-block-end: 0;
+  }
+  .workbench:not([data-stacked]) :is(.rosterGroups:not([hidden]), .rosterMatches) {
+    display: block;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
   .workbench:not([data-stacked]) .inspector {
     border-inline-start: 1px solid var(--line);
     background: var(--paper);
