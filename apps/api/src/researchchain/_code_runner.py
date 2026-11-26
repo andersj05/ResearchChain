@@ -11,7 +11,9 @@ def main() -> None:
     try:
         request = json.loads(sys.stdin.buffer.read(2000000))
         if "quickjs-ng-" + version("quickjs-ng") != request["runtime"]:
-            raise ValueError("Installed JavaScript runtime differs from the pin. Run pnpm api:sync.")
+            raise ValueError(
+                "Installed JavaScript runtime differs from the pin. Run pnpm api:sync."
+            )
         context = quickjs.Context()
         context.set_memory_limit(32 * 1024 * 1024)
         context.set_max_stack_size(256 * 1024)
