@@ -17,6 +17,10 @@ panes. Open lead and editorial questions share the inspector with the graph.
 
 ## Study budgets and recovery
 
+An adjustment to the database clock can place a checkpoint's start time in
+the future. Elapsed-time reads and writes now count zero for that interval
+and preserve the time already charged to the run.
+
 Superseded attempts stay in usage history and count toward the workspace request
 allowance. They no longer consume a slot in the Desk study's planned model and
 tool budgets. **Resume research** can continue a study that hit the old count

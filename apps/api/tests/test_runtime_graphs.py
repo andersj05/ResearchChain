@@ -12,8 +12,9 @@ from test_durability import decision, start
 from test_restart import api_process
 
 from researchchain import compiler
+from researchchain.controls import ACTIVE_TIME_LIMIT_REASON, ExecutionControl, control_state
 from researchchain.database import Database
-from researchchain.graph import Workflow
+from researchchain.graph import ExecutionBudgets, Workflow
 from researchchain.models import RunRequest
 from researchchain.revisions import RevisionStore
 from researchchain.runtime import RunStore
@@ -171,6 +172,31 @@ def test_time_budget_does_not_reset_after_review_or_store_restart(
     result = run_request(client, f"/api/runs/{paused['id']}/resume", json=decision(paused)).json()
     assert result["status"] == "limited" and "time limit" in result["stop_reason"]
     assert RunStore(database).recover(UUID(paused["id"])).status == "limited"
+
+
+def test_clock_rollback_preserves_charged_time_at_a_checkpoint(
+    database: Database, client: TestClient
+) -> None:
+    run_id = UUID(start(client, nested(review=True))["id"])
+    rollback = (
+        "UPDATE run_controls SET active_seconds = 5, "
+        "active_started_at = clock_timestamp() + interval '1 hour' WHERE run_id = %s"
+    )
+    with database.connection() as conn:
+        control = ExecutionControl(conn, run_id, ExecutionBudgets(max_active_seconds=5), Lock())
+        conn.execute(rollback, (run_id,))
+        assert control_state(conn, run_id)["active_seconds"] == 5
+        with pytest.raises(compiler.ExecutionStopped, match=ACTIVE_TIME_LIMIT_REASON):
+            control.guard("", False)
+        control.end()
+        assert control_state(conn, run_id)["active_seconds"] == 5
+
+        conn.execute(rollback, (run_id,))
+        with pytest.raises(compiler.ExecutionStopped, match=ACTIVE_TIME_LIMIT_REASON):
+            control.begin()
+        assert conn.execute(
+            "SELECT active_seconds FROM run_controls WHERE run_id = %s", (run_id,)
+        ).fetchone() == {"active_seconds": 5}
 
 
 def test_parallel_reviews_are_individually_addressed(client: TestClient) -> None:
