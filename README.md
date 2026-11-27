@@ -1,16 +1,22 @@
 # ResearchChain
 
-ResearchChain is a local workbench for financial research. Bring a week of charts, releases, and conversations. Turn one observation into a working thesis, send researchers to test competing explanations, and decide what belongs in the report.
+[![CI on main](https://github.com/andersj05/ResearchChain/actions/workflows/ci.yml/badge.svg?branch=main&event=push)](https://github.com/andersj05/ResearchChain/actions/workflows/ci.yml?query=branch%3Amain+event%3Apush)
+[![Node.js 24](https://img.shields.io/badge/Node.js-24-417E38?logo=nodedotjs&logoColor=white)](.node-version)
+[![Python 3.12](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](apps/api/pyproject.toml)
+[![pnpm 11.24.0](https://img.shields.io/badge/pnpm-11.24.0-9A6500?logo=pnpm&logoColor=white)](package.json)
+[![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-416883?logo=postgresql&logoColor=white)](compose.yaml)
 
-[Run locally](#run-locally) · [Follow a study](#follow-a-study) · [Build a workflow](#build-a-workflow) · [Documentation](docs/README.md)
+ResearchChain is a local workbench for financial research. On the **Research Desk**, start with a chart, release, or conversation, ask agents to test competing explanations, and decide which findings belong in a report. In **Workflows**, build your own agent by choosing its instructions, sources, and human review steps.
+
+[Run locally](#run-locally) · [Follow a study](#follow-a-study) · [Build a workflow](#build-a-workflow) · [Browse the docs](docs/README.md)
 
 ![A live sample study with a searchable team roster, a researcher comparing returns within sectors, and two leads tracking their assignments.](docs/screenshots/live-study.png)
 
-_Two leads are investigating the same rally. Selecting a researcher opens its current pass alongside the rest of the team. All screenshots use synthetic material._
+_Two leads investigate the same rally. Selecting a researcher shows the comparison it is running and the files behind it. All screenshots use synthetic material._
 
 ## Run locally
 
-You’ll need Git, Node.js 24, uv 0.12.5 or later, and Docker with Compose. Start Docker before running these commands.
+Install Git, Node.js 24, and uv 0.12.5 or later. Start Docker with Compose enabled. The setup uses uv to install Python 3.12 if needed and Docker to run PostgreSQL.
 
 ```sh
 git clone https://github.com/andersj05/ResearchChain.git
@@ -22,30 +28,47 @@ pnpm db:migrate
 pnpm dev
 ```
 
-Leave the development server running. In a second terminal in the same directory, run `pnpm access:login` to get your private sign-in link. Open the workbench at `http://127.0.0.1:3000`.
+Leave `pnpm dev` running. In a second terminal in the same directory, run `pnpm access:login`. It opens a private, single-use sign-in link in your browser. The workbench runs at `http://127.0.0.1:3000`. [Setup guide](docs/development.md) · [Sign-in help](docs/owner-access.md)
 
-**For a first look**, open **Workflows → Use no-model demo** to try a local run and its review checkpoint. For a live research study, connect an eligible ChatGPT plan and set up the analyst tools. [Development setup](docs/development.md) · [Owner sign-in](docs/owner-access.md) · [Research provider](docs/chatgpt-plan.md)
+### Try the no-model demo
+
+This local workflow runs without a model account or API key.
+
+1. Open **Workflows** and select **Use no-model demo**.
+2. Choose **Run workflow**. Keep the sample research brief or enter your own, then select **Start run**.
+3. When the run shows **Needs review**, inspect **Frame the question** and **Challenge the thesis**. Choose **Approve and continue** to finish the run.
+
+For live research, connect an eligible ChatGPT plan and set up the worker’s analyst tools. [ChatGPT connection](docs/chatgpt-plan.md) · [Analyst setup](docs/development.md#desktop-delivery)
 
 ## Follow a study
 
-Suppose the index rose but the median stock barely moved. Was the rally concentrated in a few companies, or did sector weights make it look that way?
+The index rose, but the median stock barely moved. Did a few large companies drive the rally, or did the index have more weight in sectors that rose? Here’s how you could investigate that question on the Research Desk.
 
-1. **Pin the packet.** Add the dated chart, the underlying release, and the conversation that prompted the question. The lead’s first reading cites the material and suggests a working sentence. Edit it, commission it, or park it.
-2. **Test rival explanations.** One lead can compare cap-weighted and equal-weight returns while another checks participation within sectors. In the live workspace, select an assignment to inspect its findings, model passes, and saved files.
-3. **Give the team a judgment.** Each lead checks in by default. If sector composition is the issue, ask for a within-sector comparison. Your answer travels with the follow-up work.
-4. **Write the bottom line.** Review the findings before the editor drafts. Trace a chart or claim back to its source, qualify what the evidence supports, and save a new report revision.
+1. **Pin the evidence.** Add the dated chart, the underlying release, and the conversation that raised the question. Ask the lead for a first reading. Follow its citations and edit the proposed working sentence before assigning research.
+2. **Test both explanations.** Ask one lead to compare cap-weighted and equal-weight returns. Ask another to check how many stocks rose within each sector. Open an assignment to inspect the researcher’s calculations and saved files.
+3. **Guide the next test.** Each lead checks in by default. If one semiconductor stock dominates the result, ask the team to repeat the comparison without it. The lead receives your answer before it continues.
+4. **Decide what to report.** Review what the evidence supports before the editor drafts. Open **Edit in Reports** to qualify a claim, trace a figure to its source, and save a revision. You can export the report with its figures and captured sources for offline review.
+
+<details>
+<summary>View the study methodology</summary>
 
 ![The methodology map connects the source packet, working sentence, assignments, expert check-in, editorial judgment, and report. The check-in can send the team back for a follow-up test.](docs/screenshots/methodology.png)
 
-Open **Methodology** in the app to select a step and follow its handoffs. [Research Desk guide](docs/research-sessions.md) · [Evidence and provenance](docs/evidence-desk.md) · [Report editing](docs/reports.md)
+Open **Methodology** in the app to select a step and follow its handoffs.
+
+</details>
+
+[Research Desk guide](docs/research-sessions.md) · [Evidence and provenance](docs/evidence-desk.md) · [Report editing and export](docs/reports.md)
 
 ## Build a workflow
 
-Start with a blank canvas. Add a model prompt, insert a human review, then wire both the first draft and the reviewer’s feedback into a revision step. Save a version and run it. **Iterate from this run** starts the next experiment with the original workflow and inputs available for comparison.
+In **Workflows → New agent**, start with a blank graph. For a thesis-review agent, add a model prompt to draft the thesis, a human review to record your objection, and a second prompt to revise the draft. Connect the first prompt’s text and the reviewer’s feedback to the revision step so it receives both.
+
+Choose the model, sources, and execution limits for your experiment. Save a revision and run it. **Iterate from this run** restores the workflow and inputs into the editor so you can change one instruction, run it again, and compare the two outputs.
 
 ![The workflow builder showing connected research and review steps beside the selected step’s configuration.](docs/screenshots/workflow-builder.png)
 
-[Build your first agent](docs/agent-builder.md) · [Canvas and workflow controls](docs/workflow-editor.md) · [Compare experiments](docs/evaluations.md)
+[Build your first agent](docs/agent-builder.md) · [Try the editable idea-research example](docs/idea-research-example.md) · [Compare experiments](docs/evaluations.md)
 
 ## Inside the repository
 
@@ -57,6 +80,10 @@ Start with a blank canvas. Add a model prompt, insert a human review, then wire 
 | [examples](examples)                     | Shareable workflows and synthetic research inputs.                                                                |
 | [docs](docs/README.md)                   | Guides for researchers, contributors, and people running the workbench.                                           |
 
-**Contributing.** Start a feature branch from `dev` and open a PR back to `dev`. Tested releases reach `main` through a promotion PR. Use synthetic examples in public issues, screenshots, and test fixtures. [Contribution guide](CONTRIBUTING.md) · [Architecture](docs/architecture.md) · [Issues](https://github.com/andersj05/ResearchChain/issues)
+[Architecture](docs/architecture.md) · [Workflow editor reference](docs/workflow-editor.md) · [Documentation index](docs/README.md)
+
+## Contributing
+
+Branch from `dev` and open a pull request back to `dev`. Use synthetic examples in public issues, screenshots, and test fixtures. CI checks formatting, lint, types, the API contract, the production build, and backend and browser tests. [Contribution guide](CONTRIBUTING.md) · [Issues](https://github.com/andersj05/ResearchChain/issues)
 
 This repository is public and currently has no project license.
